@@ -252,3 +252,9 @@ input[type=date], input[type=time] { color-scheme: dark; }
 
 /* v0.5 - item controls (📲 add to phone calendar + ✕ / tick) */
 .ctl { display: flex; align-items: center; gap: 2px; }
+
+/* v0.7 - budget verdict */
+.bstat { padding: 11px 13px; border-radius: 14px; font-size: 14px; line-height: 1.4; margin-bottom: 4px; }
+.bstat.ok { background: rgba(74,222,128,.13); border: 1px solid rgba(74,222,128,.35); }
+.bstat.tight { background: rgba(251,146,60,.14); border: 1px solid rgba(251,146,60,.4); }
+.bstat.over { background: rgba(251,113,133,.16); border: 1px solid rgba(251,113,133,.45); }

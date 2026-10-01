@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.6";
+const VERSION = "0.7";
 
 const STORE = "dayhub.v1";
 const WX = "https://api.open-meteo.com/v1/forecast";
@@ -35,12 +35,12 @@ let TIER = "free";
 const FEATURES = {
   schedule: "free", weather: "free", todos: "free", lists: "free", countdowns: "free",
   bills: "free", work: "free", route: "free", loads: "free", jobs: "free", nextup: "free", games: "free",
-  gcal: "pro", sync: "pro", reminders: "pro",   // candidates - Scott decides at launch
+  gcal: "pro", sync: "pro", reminders: "pro", budget: "pro",   // candidates - Scott decides at launch
 };
 const can = f => !PRO_LIVE || FEATURES[f] !== "pro" || TIER === "pro";
 
 // ---------------------------------------------------------------- packs
-const BASE = ["schedule", "work", "weather", "todos", "bills", "countdowns", "lists"];
+const BASE = ["schedule", "work", "budget", "weather", "todos", "bills", "countdowns", "lists"];
 const PACKS = {
   general:  { label: "General",              cards: [] },
   trucker:  { label: "Trucker / Dispatcher", cards: ["route", "loads"] },
@@ -57,6 +57,7 @@ const blank = () => ({
   gcal: { connected: false, events: [], fetched: null },
   sync: { on: false, last: null, dirty: false },
   remind: { on: false, lead: 15, billDays: 1, billHour: "09:00", fired: {} },
+  money: { type: "hourly", salary: 0, spends: [] },
   work: { rate: 0, taxPct: 20, otAfter: 40, shifts: [], clockIn: null },
 });
 let S;                     // loaded at start-up, after the date helpers exist
@@ -78,6 +79,7 @@ function load() {
   s.work = Object.assign(blank().work, s.work || {});
   s.sync = Object.assign(blank().sync, s.sync || {});
   s.remind = Object.assign(blank().remind, s.remind || {});
+  s.money = Object.assign(blank().money, s.money || {});
   return s;
 }
 function saveLocal() {
@@ -113,7 +115,7 @@ const hm = t => { if (!t) return ""; const [h, m] = t.split(":").map(Number); co
   return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); };
 const uid = () => Math.random().toString(36).slice(2, 10);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const money = n => `$${Number(n || 0).toFixed(2)}`;
+const money = n => "$" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const buzz = () => { try { navigator.vibrate && navigator.vibrate(8); } catch (e) { /* no haptics */ } };
 
 function cardOrder() {
@@ -266,7 +268,7 @@ let DTOKEN = null, DTOKEN_EXP = 0, backupTimer = null, CLOUD_PENDING = null;
 const DFILE = "dayhub.json";
 const dReady = () => DTOKEN && Date.now() < DTOKEN_EXP;
 const hasData = d => !!d && ((d.events || []).length + (d.todos || []).length + (d.bills || []).length +
-  (d.countdowns || []).length + ((d.work || {}).shifts || []).length +
+  (d.countdowns || []).length + ((d.work || {}).shifts || []).length + ((d.money || {}).spends || []).length +
   (d.lists || []).reduce((n, l) => n + (l.items || []).length, 0)) > 0;
 
 function driveSignIn(prompt) {                                 // must run from a tap
@@ -625,6 +627,46 @@ function periodPay(start) {
   return { start, end: addDays(start, 7 * periodWeeks() - 1), shifts: parts.flatMap(p => p.shifts),
            hrs: sum("hrs"), ot: sum("ot"), gross: sum("gross"), net: sum("net") };
 }
+// ----------------------------------------------------------------- budget
+// Scott 2026-10-01: "tell people if spending looks over budgeted earnings -
+// hourly calculated and pro rated, salary entered". One month at a time:
+//   take-home  hourly = earned so far this month (shifts, OT per week, a week
+//              that crosses the month edge is split by its hours) + the rest
+//              of the month from scheduled shifts or the last 28 days' pace,
+//              whichever is larger; salary = yearly / 12. Both minus tax %.
+//   going out  every monthly bill + logged spending, projected to month end
+//              at the current pace (from day 7 on - one big buy on the 2nd
+//              should not read as a 15x month).
+function grossBetween(from, to) {
+  let g = 0;
+  for (let ws = weekStart(from); ws <= to; ws = addDays(ws, 7)) {
+    const wp = weekPay(ws); if (!wp.hrs) continue;
+    const inside = wp.shifts.filter(x => x.day >= from && x.day <= to).reduce((n, x) => n + shiftHours(x), 0);
+    g += wp.gross * inside / wp.hrs;
+  }
+  return g;
+}
+function budget() {
+  const W = S.work, M = S.money, t = today(), keep = 1 - (W.taxPct || 0) / 100;
+  const dim = new Date(+t.slice(0, 4), +t.slice(5, 7), 0).getDate();
+  const m0 = t.slice(0, 8) + "01", m1 = t.slice(0, 8) + pad(dim), dayN = +t.slice(8, 10), daysLeft = dim - dayN + 1;
+  let income = 0, how = "";
+  if (M.type === "salary") { income = (M.salary || 0) / 12 * keep; how = `${money(M.salary)} a year`; }
+  else if (W.rate) {
+    const soFar = grossBetween(m0, t), scheduled = grossBetween(addDays(t, 1), m1);
+    const pace = grossBetween(addDays(t, -28), addDays(t, -1)) / 28;
+    income = (soFar + Math.max(scheduled, pace * (daysLeft - 1))) * keep;
+    how = `${money(soFar * keep)} earned so far + the rest of the month at your pace`;
+  }
+  const bills = S.bills.reduce((n, b) => n + Number(b.amount || 0), 0);
+  const spends = M.spends.filter(x => x.day >= m0 && x.day <= m1);
+  const spent = spends.reduce((n, x) => n + Number(x.amt || 0), 0);
+  const projSpend = dayN >= 7 ? spent / dayN * dim : spent;
+  const left = income - bills - projSpend;
+  const perDay = Math.max(0, (income - bills - spent) / daysLeft);
+  const status = !income ? "none" : left < 0 ? "over" : left < income * 0.1 ? "tight" : "ok";
+  return { income, how, bills, spent, spends, projSpend, left, perDay, status };
+}
 const fmtH = h => { const m = Math.round(h * 60); return `${Math.floor(m / 60)}h ${pad(m % 60)}m`; };
 function onClock() {
   const c = S.work.clockIn; if (!c) return null;
@@ -662,6 +704,7 @@ function heroHtml() {
   const nx = nextPlan();
   if (nx) chips.push(`<span class="chip">⏭ ${esc(nx.when)} · ${esc(nx.title)}</span>`);
   const oc = onClock();
+  if (budget().status === "over") chips.push(`<span class="chip warn">⚠ Spending is running over budget</span>`);
   if (oc !== null) chips.push(`<span class="chip good">⏱ On the clock ${fmtH(oc)}</span>`);
   if (open) chips.push(`<span class="chip">✅ ${open} to-do${open === 1 ? "" : "s"}</span>`);
   upcomingBills().filter(b => daysUntil(b.due) <= 3).forEach(b =>
@@ -741,6 +784,26 @@ const CARDS = {
           <span class="grow">${hm(x.start)} – ${hm(x.end)}${Number(x.brk) ? `<span class="sub">${x.brk} min break</span>` : ""}</span>
           <b>${fmtH(shiftHours(x))}</b><button class="x" data-del="work.shifts:${x.id}" aria-label="Remove">✕</button></div>`).join("");
       return clock + pay + (rows ? `<div class="day-label" style="margin-top:14px">${two ? `Pay period · ${prettyDate(p.start)} – ${prettyDate(p.end)}` : "This week"}</div>${rows}` : "");
+    } },
+
+  budget: { icon: "💰", title: "Budget", add: ["spend", "Log spending"],
+    meta: () => { const b = budget();
+      return b.status === "over" ? `<span style="color:var(--red)">over</span>` : b.status === "tight" ? `<span style="color:var(--orange)">tight</span>`
+        : b.income ? `${money(b.perDay)}/day` : ""; },
+    body: () => {
+      const b = budget(), M = S.money;
+      if (!b.income) return `<div class="empty">${M.type === "salary" ? "Enter your yearly salary" : "Set your hourly pay and add a few shifts"} — Day Hub will tell you if spending is running ahead of what you bring home.</div>
+        <button class="btn sm ghost" data-qa="pay" style="margin-top:10px">Set income</button>`;
+      const line = b.status === "over" ? `<div class="bstat over">⚠ At this pace you'll spend <b>${money(-b.left)}</b> more than you bring home this month.</div>`
+        : b.status === "tight" ? `<div class="bstat tight">Tight month — about <b>${money(b.left)}</b> to spare. ${money(b.perDay)}/day keeps you even.</div>`
+        : `<div class="bstat ok">On track — about <b>${money(b.perDay)}/day</b> free for the rest of the month.</div>`;
+      const rows = b.spends.slice().sort((x, y) => y.day.localeCompare(x.day)).slice(0, 5).map(x => `<div class="row"><span class="time">${prettyDate(x.day)}</span>
+        <span class="grow">${esc(x.what || "Spending")}</span><b>${money(x.amt)}</b><button class="x" data-del="money.spends:${x.id}" aria-label="Remove">✕</button></div>`).join("");
+      return line + `<div class="paygrid"><div class="fact take">Take-home<b>${money(b.income)}</b></div><div class="fact">Bills<b>${money(b.bills)}</b></div>
+          <div class="fact">Spent<b>${money(b.spent)}</b>${b.projSpend > b.spent + 0.5 ? `<small>~${money(b.projSpend)} by month end</small>` : ""}</div></div>
+        <div class="fine" style="margin-top:6px">${new Date().toLocaleDateString([], { month: "long" })} estimate: ${esc(b.how)}, minus ${S.work.taxPct}% for taxes.
+          <button class="add-link" style="padding:0" data-qa="pay">Change income</button></div>` +
+        (rows ? `<div class="day-label" style="margin-top:12px">Recent spending</div>${rows}` : "");
     } },
 
   weather: { icon: "🌤️", title: "Weather",
@@ -907,7 +970,7 @@ const snap = () => { UNDO = JSON.stringify(S); };
 
 // ------------------------------------------------------------ quick add
 function qaTypes() {
-  const t = [["event", "📅 Event"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
+  const t = [["event", "📅 Event"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
   if (S.pack === "trucker") t.splice(1, 0, ["loads", "🚚 Load"]);
   if (S.pack === "trades") t.splice(1, 0, ["jobs", "🔧 Job"]);
   return t;
@@ -933,11 +996,19 @@ function qaFields(type) {
     countdown: `<input name="title" placeholder="What are you counting down to?" required autocomplete="off">
       <input name="date" type="date" min="${today()}" required>`,
     list: `<input name="name" placeholder="List name (e.g. Hardware store)" required autocomplete="off">`,
+    spend: `<input name="amt" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount $" required>
+      <input name="what" placeholder="What for (gas, groceries, eating out…)" autocomplete="off">
+      <input name="date" type="date" value="${today()}" required>
+      <div class="hint">Bills are already counted — log the day-to-day spending.</div>`,
     shift: `<input name="date" type="date" value="${d}" required>
       <div class="two"><label class="field" style="margin:0">Start<input name="start" type="time" required></label>
       <label class="field" style="margin:0">End<input name="end" type="time" required></label></div>
       <input name="brk" type="number" min="0" inputmode="numeric" placeholder="Unpaid break (minutes, optional)">`,
-    pay: `<label class="field" style="margin:0">Hourly pay ($)<input name="rate" type="number" step="0.01" min="0" inputmode="decimal" value="${S.work.rate || ""}" required></label>
+    pay: `<label class="field" style="margin:0">Paid by
+        <select name="itype"><option value="hourly" ${S.money.type !== "salary" ? "selected" : ""}>The hour</option>
+        <option value="salary" ${S.money.type === "salary" ? "selected" : ""}>Salary</option></select></label>
+      <label class="field" style="margin:0">Hourly pay ($) — hourly only<input name="rate" type="number" step="0.01" min="0" inputmode="decimal" value="${S.work.rate || ""}"></label>
+      <label class="field" style="margin:0">Yearly salary ($) — salary only<input name="salary" type="number" step="1" min="0" inputmode="decimal" value="${S.money.salary || ""}"></label>
       <label class="field" style="margin:0">Taken out for taxes (%)<input name="tax" type="number" step="0.5" min="0" max="60" inputmode="decimal" value="${S.work.taxPct}" required></label>
       <label class="field" style="margin:0">Overtime after (hours/week)<input name="ot" type="number" min="1" max="80" inputmode="numeric" value="${S.work.otAfter}" required></label>
       <label class="field" style="margin:0">Paid
@@ -963,9 +1034,11 @@ function submitQA(f) {
   const ty = QA_TYPE;
   if (ty === "event") { S.events.push({ id: uid(), day: d.date, time: d.time, title: d.title.trim(), where: (d.where || "").trim(), rep: d.rep || "none" }); VIEW = d.date; }
   else if (ty === "shift") { S.work.shifts.push({ id: uid(), day: d.date, start: d.start, end: d.end, brk: Number(d.brk || 0) }); VIEW = d.date; }
-  else if (ty === "pay") { S.work.rate = Number(d.rate); S.work.taxPct = Number(d.tax); S.work.otAfter = Number(d.ot);
+  else if (ty === "pay") { S.work.rate = Number(d.rate || 0); S.work.taxPct = Number(d.tax); S.work.otAfter = Number(d.ot);
+    S.money.type = d.itype || "hourly"; S.money.salary = Number(d.salary || 0);
     S.work.period = d.period || "weekly"; S.work.periodStart = d.pstart || null;
     save(); closeQA(); render(); toast("Pay saved ✓"); return; }
+  else if (ty === "spend") S.money.spends.push({ id: uid(), day: d.date, amt: Number(d.amt), what: (d.what || "").trim() });
   else if (ty === "todo") S.todos.push({ id: uid(), title: d.title.trim(), done: false, rep: d.rep || "none", day: today() });
   else if (ty === "loads" || ty === "jobs") { S[ty].push({ id: uid(), day: d.date, time: d.time, title: d.title.trim(), done: false }); VIEW = d.date; }
   else if (ty === "bill") {
@@ -1030,7 +1103,9 @@ document.addEventListener("click", e => {
     return;
   }
   if (ds.del) { snap(); const [k, id] = ds.del.split(":");
-    if (k === "work.shifts") S.work.shifts = S.work.shifts.filter(x => x.id !== id); else S[k] = S[k].filter(x => x.id !== id);
+    if (k === "work.shifts") S.work.shifts = S.work.shifts.filter(x => x.id !== id);
+    else if (k === "money.spends") S.money.spends = S.money.spends.filter(x => x.id !== id);
+    else S[k] = S[k].filter(x => x.id !== id);
     save(); render(); toast("Removed", true); return; }
   if (ds.clock === "in") { S.work.clockIn = new Date().toISOString(); save(); render(); buzz(); toast("Clocked in ✓"); return; }
   if (ds.clock === "out") { const st = new Date(S.work.clockIn), en = new Date();
