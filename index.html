@@ -1,0 +1,42 @@
+<!doctype html>
+<!-- SAVE AS: index.html  ·  LOCATION: C:/MarvelApps/dayhub/index.html
+     Day Hub - the morning brief screen (Scott 2026-10-01: "everyone, start with the
+     morning brief screen but could customize by profession"). Prototype v0.1. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1020">
+  <title>Day Hub</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <div id="greeting" class="greeting">Good morning</div>
+      <div id="summary" class="summary">Getting your day ready…</div>
+    </div>
+    <button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button>
+  </header>
+
+  <main id="cards" class="cards"></main>
+
+  <!-- settings sheet -->
+  <div id="sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-label="Settings">
+    <div class="sheet-body">
+      <div class="sheet-head"><h2>Make it yours</h2><button id="closeSheet" class="icon-btn" aria-label="Close">✕</button></div>
+      <label class="field">Your first name <input id="setName" placeholder="e.g. Scott"></label>
+      <label class="field">Weather city <input id="setCity" placeholder="e.g. Conway, AR"></label>
+      <label class="field">Profession
+        <select id="setPack"></select>
+      </label>
+      <h3>Cards (tap ▲▼ to move, switch to hide)</h3>
+      <ul id="cardList" class="card-list"></ul>
+      <p class="fine">Everything you type stays on this phone. Weather: Open-Meteo.</p>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
