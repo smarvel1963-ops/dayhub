@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.5";
+const VERSION = "0.6";
 
 const STORE = "dayhub.v1";
 const WX = "https://api.open-meteo.com/v1/forecast";
@@ -387,8 +387,9 @@ function reminderList() {
   const R = S.remind, lead = R.lead * 60000, out = [];
   const from = addDays(today(), -1), to = addDays(today(), 2), inWin = d => d >= from && d <= to;
   const add = (key, start, at, title, body) => out.push({ key, start, at, title, body });
-  S.events.filter(e => inWin(e.day) && e.time).forEach(e => { const st = atMs(e.day, e.time);
-    add(`ev:${e.id}:${e.day}`, st, st - lead, `📅 ${e.title}`, `${hm(e.time)}${e.where ? " · " + e.where : ""}`); });
+  for (let day = from; day <= to; day = addDays(day, 1))
+    S.events.filter(e => e.time && occursOn(e, day)).forEach(e => { const st = atMs(day, e.time);
+      add(`ev:${e.id}:${day}`, st, st - lead, `📅 ${e.title}`, `${hm(e.time)}${e.where ? " · " + e.where : ""}`); });
   if (S.gcal.connected) S.gcal.events.filter(e => inWin(e.day) && e.time).forEach(e => { const st = atMs(e.day, e.time);
     add(`g:${e.id}:${e.day}`, st, st - lead, `🗓️ ${e.title}`, `${hm(e.time)}${e.where ? " · " + e.where : ""}`); });
   S.work.shifts.filter(x => inWin(x.day)).forEach(x => { const st = atMs(x.day, x.start);
@@ -462,7 +463,9 @@ function icsFor(ref) {
   const txt = v => String(v || "").replace(/[\\,;]/g, m => "\\" + m).replace(/\n/g, "\\n");
   let ev = null;
   if (k === "events") { const e = S.events.find(x => x.id === id); if (e) { const [ed, et] = plusMin(e.day, e.time, 60);
-    ev = [`SUMMARY:${txt(e.title)}`, e.where ? `LOCATION:${txt(e.where)}` : "", `DTSTART:${D(e.day, e.time)}`, `DTEND:${D(ed, et)}`, `TRIGGER:-PT${lead}M`, e.title]; } }
+    const rr = { daily: "FREQ=DAILY", weekdays: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", weekly: "FREQ=WEEKLY", monthly: "FREQ=MONTHLY" }[e.rep];
+    ev = [`SUMMARY:${txt(e.title)}`, e.where ? `LOCATION:${txt(e.where)}` : "", `DTSTART:${D(e.day, e.time)}`,
+          `DTEND:${D(ed, et)}${rr ? `\nRRULE:${rr}` : ""}`, `TRIGGER:-PT${lead}M`, e.title]; } }
   else if (k === "loads" || k === "jobs") { const x = S[k].find(y => y.id === id); if (x) { const [ed, et] = plusMin(x.day, x.time, 60);
     ev = [`SUMMARY:${txt(x.title)}`, "", `DTSTART:${D(x.day, x.time)}`, `DTEND:${D(ed, et)}`, `TRIGGER:-PT${lead}M`, x.title]; } }
   else if (k === "shift") { const x = S.work.shifts.find(y => y.id === id); if (x) { const ed = x.end < x.start ? addDays(x.day, 1) : x.day;
@@ -490,6 +493,50 @@ function addToPhoneCalendar(ref) {
   toast("Open the downloaded file to add it to your calendar");
 }
 
+// --------------------------------------------------------------- repeats
+// v0.6: events repeat daily / weekdays / weekly / monthly from their first
+// date; deleting ONE occurrence adds that day to `skip` (the series stays).
+// To-dos repeat daily / weekdays / weekly and simply come back unchecked.
+const REPEATS = { none: "Doesn't repeat", daily: "Every day", weekdays: "Weekdays (Mon–Fri)", weekly: "Every week", monthly: "Every month" };
+const isRep = x => x.rep && x.rep !== "none";
+function occursOn(x, day) {
+  if (day < x.day || (x.skip || []).includes(day)) return false;
+  const d = parseDay(day), s0 = parseDay(x.day);
+  switch (x.rep || "none") {
+    case "daily": return true;
+    case "weekdays": return d.getDay() >= 1 && d.getDay() <= 5;
+    case "weekly": return d.getDay() === s0.getDay();
+    case "monthly": return d.getDate() === s0.getDate();
+    default: return day === x.day;
+  }
+}
+const todoShown = t => isRep(t) ? occursOn({ ...t, day: t.day || today() }, today()) : (!t.done || t.doneDay === today());
+const todoDone = t => isRep(t) ? t.doneDay === today() : !!t.done;
+const repLabel = x => {
+  if (!isRep(x)) return "";
+  if (x.rep === "weekly") return `🔁 Every ${parseDay(x.day || today()).toLocaleDateString([], { weekday: "long" })}`;
+  return `🔁 ${REPEATS[x.rep]}`;
+};
+function repSelect(withMonthly) {
+  return `<select name="rep">${Object.entries(REPEATS).filter(([k]) => withMonthly || k !== "monthly")
+    .map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select>`;
+}
+
+// ---------------------------------------------------------------- install
+// Android/Chrome offers a real install prompt; iPhone needs Share -> Add to
+// Home Screen (and only an installed Day Hub can send reminders there).
+let INSTALL_EVT = null;
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); INSTALL_EVT = e; if (S) render(); });
+const standalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+function drawInstallBox() {
+  const g = document.getElementById("installBox"); if (!g) return;
+  g.innerHTML = `<h3>On your home screen</h3>` + (standalone()
+    ? `<div class="leg"><span>✅ Day Hub is installed</span></div>`
+    : INSTALL_EVT ? `<button class="btn sm" data-install="1">📲 Install Day Hub</button>`
+    : isIOS() ? `<p class="fine" style="margin-top:0">Tap <b>Share</b> (the square with the arrow) → <b>Add to Home Screen</b>. Open Day Hub from that icon — iPhone only sends reminders to installed apps.</p>`
+    : `<p class="fine" style="margin-top:0">In your browser menu <b>⋮</b> choose <b>Install app</b> or <b>Add to Home screen</b>.</p>`);
+}
+
 // ------------------------------------------------------------- the day
 // A bill repeats monthly on its day (clamped to the month's length). `paid`
 // = the last month paid ("YYYY-MM"). Unpaid and past due = LATE, shown red.
@@ -510,7 +557,8 @@ const liveCountdowns = () => S.countdowns.filter(c => daysUntil(c.date) >= 0).so
 // Everything happening on one day, in time order. All-day items first.
 function dayItems(day) {
   const it = [];
-  S.events.filter(e => e.day === day).forEach(e => it.push({ t: e.time, title: e.title, sub: e.where, kind: "event", icon: "📅", del: `events:${e.id}`, cal: `events:${e.id}` }));
+  S.events.filter(e => occursOn(e, day)).forEach(e => it.push({ t: e.time, title: e.title, sub: [e.where, repLabel(e)].filter(Boolean).join(" · "),
+    kind: "event", icon: "📅", del: isRep(e) ? `occ:${e.id}:${day}` : `events:${e.id}`, cal: `events:${e.id}` }));
   if (S.gcal.connected) S.gcal.events.filter(e => e.day === day).forEach(e =>
     it.push({ t: e.time, end: e.end, title: e.title, sub: e.where, kind: "g", icon: "🗓️" }));
   ["loads", "jobs"].forEach(k => { if (!PACKS[S.pack].cards.includes(k)) return;
@@ -560,6 +608,23 @@ function weekPay(start) {
   const gross = W.rate * (reg + ot * 1.5);
   return { shifts, hrs, reg, ot, gross, net: gross * (1 - W.taxPct / 100) };
 }
+// Pay period: weekly, or every 2 weeks counted from a start date the user
+// sets. Overtime is still worked out WEEK BY WEEK inside the period - that is
+// how overtime is owed (a 50h week + a 30h week is 10h of OT, not 0).
+function periodStart(iso) {
+  const W = S.work, ws = weekStart(iso);
+  if (W.period !== "biweekly") return ws;
+  const anchor = weekStart(W.periodStart || iso);
+  const weeks = Math.round((parseDay(ws) - parseDay(anchor)) / (7 * 86400000));
+  return addDays(ws, -7 * (((weeks % 2) + 2) % 2));
+}
+const periodWeeks = () => S.work.period === "biweekly" ? 2 : 1;
+function periodPay(start) {
+  const parts = Array.from({ length: periodWeeks() }, (_, i) => weekPay(addDays(start, 7 * i)));
+  const sum = k => parts.reduce((n, p) => n + p[k], 0);
+  return { start, end: addDays(start, 7 * periodWeeks() - 1), shifts: parts.flatMap(p => p.shifts),
+           hrs: sum("hrs"), ot: sum("ot"), gross: sum("gross"), net: sum("net") };
+}
 const fmtH = h => { const m = Math.round(h * 60); return `${Math.floor(m / 60)}h ${pad(m % 60)}m`; };
 function onClock() {
   const c = S.work.clockIn; if (!c) return null;
@@ -583,7 +648,7 @@ function heroHtml() {
   const now = new Date(), h = now.getHours();
   const w = WXDATA && WXDATA.here;
   const todayItems = dayItems(today()).filter(isPlan);
-  const open = S.todos.filter(t => !t.done).length;
+  const open = S.todos.filter(t => todoShown(t) && !todoDone(t)).length;
   const left = todayItems.filter(i => !i.t || i.t >= nowT()).length;
   let verdict;
   if (h >= 20) { const n = dayItems(addDays(today(), 1)).filter(isPlan).length;
@@ -604,6 +669,7 @@ function heroHtml() {
   const cd = liveCountdowns()[0];
   if (cd) chips.push(`<span class="chip">⏳ ${esc(cd.title)} ${daysUntil(cd.date) === 0 ? "today!" : inDays(daysUntil(cd.date))}</span>`);
   if (S.gcal.connected && !gReady()) chips.push(`<button class="chip" data-gsync="1">🔄 Sync Google Calendar</button>`);
+  if (INSTALL_EVT && !standalone()) chips.push(`<button class="chip" data-install="1">📲 Install Day Hub</button>`);
   if (S.sync.on && S.sync.dirty && !dReady()) chips.push(`<button class="chip" data-sync="now">☁️ Back up changes</button>`);
 
   const wx = w ? (() => { const [ic] = wxIcon(w.cur.weather_code, w.cur.is_day);
@@ -657,24 +723,24 @@ const CARDS = {
     } },
 
   work: { icon: "💼", title: "Work hours", add: ["shift", "Add a shift"],
-    meta: () => { const p = weekPay(weekStart(today())); return p.hrs ? `${fmtH(p.hrs)} this week` : ""; },
+    meta: () => { const p = periodPay(periodStart(today())); return p.hrs ? `${fmtH(p.hrs)} this ${periodWeeks() > 1 ? "period" : "week"}` : ""; },
     body: () => {
       const W = S.work, oc = onClock();
       const clock = oc !== null
         ? `<div class="clockbox on"><div><b>On the clock</b><span>since ${fmtTime(W.clockIn)} · ${fmtH(oc)}</span></div><button class="btn" data-clock="out">Clock out</button></div>`
         : `<div class="clockbox"><div><b>Off the clock</b><span>Tap when your shift starts</span></div><button class="btn" data-clock="in">Clock in</button></div>`;
-      const ws = weekStart(today()), p = weekPay(ws), last = weekPay(addDays(ws, -7));
+      const ps = periodStart(today()), p = periodPay(ps), last = periodPay(addDays(ps, -7 * periodWeeks())), two = periodWeeks() > 1;
       const pay = W.rate
         ? `<div class="paygrid"><div class="fact">Hours<b>${fmtH(p.hrs)}</b>${p.ot ? `<small>${fmtH(p.ot)} overtime</small>` : ""}</div>
              <div class="fact">Gross<b>${money(p.gross)}</b></div>
              <div class="fact take">Take-home*<b>${money(p.net)}</b></div></div>
            <div class="fine" style="margin-top:6px">*Rough: ${money(W.rate)}/hr, overtime after ${W.otAfter}h at 1.5x, minus ${W.taxPct}% for taxes.
-             Last week: ${fmtH(last.hrs)} · ~${money(last.net)}. <button class="add-link" style="padding:0" data-qa="pay">Change pay</button></div>`
+             Last ${two ? "period" : "week"}: ${fmtH(last.hrs)} · ~${money(last.net)}. <button class="add-link" style="padding:0" data-qa="pay">Change pay</button></div>`
         : `<button class="btn sm ghost" data-qa="pay" style="margin-top:10px">Set your hourly pay to see take-home</button>`;
-      const rows = p.shifts.map(x => `<div class="row"><span class="time">${parseDay(x.day).toLocaleDateString([], { weekday: "short" })}</span>
+      const rows = p.shifts.map(x => `<div class="row"><span class="time">${parseDay(x.day).toLocaleDateString([], two ? { weekday: "short", month: "numeric", day: "numeric" } : { weekday: "short" })}</span>
           <span class="grow">${hm(x.start)} – ${hm(x.end)}${Number(x.brk) ? `<span class="sub">${x.brk} min break</span>` : ""}</span>
           <b>${fmtH(shiftHours(x))}</b><button class="x" data-del="work.shifts:${x.id}" aria-label="Remove">✕</button></div>`).join("");
-      return clock + pay + (rows ? `<div class="day-label" style="margin-top:14px">This week</div>${rows}` : "");
+      return clock + pay + (rows ? `<div class="day-label" style="margin-top:14px">${two ? `Pay period · ${prettyDate(p.start)} – ${prettyDate(p.end)}` : "This week"}</div>${rows}` : "");
     } },
 
   weather: { icon: "🌤️", title: "Weather",
@@ -700,13 +766,13 @@ const CARDS = {
     } },
 
   todos: { icon: "✅", title: "To-do", add: ["todo", "Add a to-do"],
-    meta: () => { const shown = S.todos.filter(t => !t.done || t.doneDay === today()); if (!shown.length) return "";
-      const d = shown.filter(t => t.done).length;
+    meta: () => { const shown = S.todos.filter(todoShown); if (!shown.length) return "";
+      const d = shown.filter(todoDone).length;
       return `<span style="display:inline-flex;gap:7px;align-items:center">${d}/${shown.length}<span class="ring" style="--p:${Math.round(d / shown.length * 100)}"></span></span>`; },
     body: () => {
-      const shown = S.todos.filter(t => !t.done || t.doneDay === today()).sort((a, b) => a.done - b.done);
-      return shown.length ? shown.map(t => `<div class="row ${t.done ? "done" : ""}"><input type="checkbox" class="tick" data-tick="${t.id}" ${t.done ? "checked" : ""} aria-label="Done">
-        <span class="grow">${esc(t.title)}</span><button class="x" data-del="todos:${t.id}" aria-label="Remove">✕</button></div>`).join("")
+      const shown = S.todos.filter(todoShown).sort((a, b) => todoDone(a) - todoDone(b));
+      return shown.length ? shown.map(t => `<div class="row ${todoDone(t) ? "done" : ""}"><input type="checkbox" class="tick" data-tick="${t.id}" ${todoDone(t) ? "checked" : ""} aria-label="Done">
+        <span class="grow">${esc(t.title)}${isRep(t) ? `<span class="sub">${repLabel(t)}</span>` : ""}</span><button class="x" data-del="todos:${t.id}" aria-label="Remove">✕</button></div>`).join("")
         : `<div class="empty">Nothing to do. Enjoy it. 🎉</div>`;
     } },
 
@@ -827,9 +893,11 @@ function tick() {
 }
 
 // ---------------------------------------------------------- toast + undo
-function toast(msg, undoable) {
+let TOAST_ACT = null;
+function toast(msg, undoable, extra) {
   const el = document.getElementById("toast");
-  el.innerHTML = `<span>${esc(msg)}</span>${undoable ? `<button data-undo="1">Undo</button>` : ""}`;
+  TOAST_ACT = extra ? extra.act : null;
+  el.innerHTML = `<span>${esc(msg)}</span>${extra ? `<button data-tact="1">${esc(extra.label)}</button>` : ""}${undoable ? `<button data-undo="1">Undo</button>` : ""}`;
   el.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.classList.remove("show"); UNDO = null; }, undoable ? 5000 : 2200);
@@ -849,8 +917,9 @@ function qaFields(type) {
   const F = {
     event: `<input name="title" placeholder="What's happening?" required autocomplete="off">
       <div class="two"><input name="date" type="date" value="${d}" required><input name="time" type="time" required></div>
-      <input name="where" placeholder="Where (optional)" autocomplete="off">`,
-    todo: `<input name="title" placeholder="What needs doing?" required autocomplete="off">`,
+      <input name="where" placeholder="Where (optional)" autocomplete="off">${repSelect(true)}`,
+    todo: `<input name="title" placeholder="What needs doing?" required autocomplete="off">${repSelect(false)}
+      <div class="hint">Repeating to-dos come back unchecked on their days — meds, trash night, workouts.</div>`,
     loads: `<input name="title" placeholder="Pickup / delivery (e.g. PU Little Rock)" required autocomplete="off">
       <div class="two"><input name="date" type="date" value="${d}" required><input name="time" type="time" required></div>`,
     jobs: `<input name="title" placeholder="Job + address" required autocomplete="off">
@@ -871,6 +940,10 @@ function qaFields(type) {
     pay: `<label class="field" style="margin:0">Hourly pay ($)<input name="rate" type="number" step="0.01" min="0" inputmode="decimal" value="${S.work.rate || ""}" required></label>
       <label class="field" style="margin:0">Taken out for taxes (%)<input name="tax" type="number" step="0.5" min="0" max="60" inputmode="decimal" value="${S.work.taxPct}" required></label>
       <label class="field" style="margin:0">Overtime after (hours/week)<input name="ot" type="number" min="1" max="80" inputmode="numeric" value="${S.work.otAfter}" required></label>
+      <label class="field" style="margin:0">Paid
+        <select name="period"><option value="weekly" ${S.work.period !== "biweekly" ? "selected" : ""}>Every week</option>
+        <option value="biweekly" ${S.work.period === "biweekly" ? "selected" : ""}>Every 2 weeks</option></select></label>
+      <label class="field" style="margin:0">A pay period started on (for every 2 weeks)<input name="pstart" type="date" value="${S.work.periodStart || weekStart(today())}"></label>
       <div class="hint">Not sure of your tax %? 15–25% covers most people. Check one real paycheck: take-home ÷ gross.</div>`,
   };
   return (F[type] || F.todo) + `<button class="btn">${type === "pay" ? "Save" : "Add"}</button>`;
@@ -888,11 +961,12 @@ const closeQA = () => document.getElementById("qa").classList.add("hidden");
 function submitQA(f) {
   const d = Object.fromEntries(new FormData(f));
   const ty = QA_TYPE;
-  if (ty === "event") { S.events.push({ id: uid(), day: d.date, time: d.time, title: d.title.trim(), where: (d.where || "").trim() }); VIEW = d.date; }
+  if (ty === "event") { S.events.push({ id: uid(), day: d.date, time: d.time, title: d.title.trim(), where: (d.where || "").trim(), rep: d.rep || "none" }); VIEW = d.date; }
   else if (ty === "shift") { S.work.shifts.push({ id: uid(), day: d.date, start: d.start, end: d.end, brk: Number(d.brk || 0) }); VIEW = d.date; }
   else if (ty === "pay") { S.work.rate = Number(d.rate); S.work.taxPct = Number(d.tax); S.work.otAfter = Number(d.ot);
+    S.work.period = d.period || "weekly"; S.work.periodStart = d.pstart || null;
     save(); closeQA(); render(); toast("Pay saved ✓"); return; }
-  else if (ty === "todo") S.todos.push({ id: uid(), title: d.title.trim(), done: false });
+  else if (ty === "todo") S.todos.push({ id: uid(), title: d.title.trim(), done: false, rep: d.rep || "none", day: today() });
   else if (ty === "loads" || ty === "jobs") { S[ty].push({ id: uid(), day: d.date, time: d.time, title: d.title.trim(), done: false }); VIEW = d.date; }
   else if (ty === "bill") {
     const day = Math.min(31, Math.max(1, Number(d.day))), now = new Date();
@@ -947,6 +1021,14 @@ document.addEventListener("click", e => {
   if (ds.collapse) { const k = ds.collapse;
     S.collapsed = S.collapsed.includes(k) ? S.collapsed.filter(x => x !== k) : [...S.collapsed, k]; save(); render(); return; }
   if (ds.day !== undefined) { const n = Number(ds.day); VIEW = n === 0 ? today() : addDays(VIEW, n); render(); return; }
+  if (ds.tact) { const f = TOAST_ACT; TOAST_ACT = null; if (f) f(); return; }
+  if (ds.install && INSTALL_EVT) { INSTALL_EVT.prompt(); INSTALL_EVT.userChoice.finally(() => { INSTALL_EVT = null; drawInstallBox(); render(); }); return; }
+  if (ds.del && ds.del.startsWith("occ:")) {            // one day of a repeating event
+    snap(); const [, id, day] = ds.del.split(":"); const e = S.events.find(x => x.id === id);
+    if (e) { e.skip = [...(e.skip || []), day]; save(); render(); }
+    toast("Removed this day", true, { label: "Delete all", act: () => { S.events = S.events.filter(x => x.id !== id); save(); render(); toast("Deleted every repeat", true); } });
+    return;
+  }
   if (ds.del) { snap(); const [k, id] = ds.del.split(":");
     if (k === "work.shifts") S.work.shifts = S.work.shifts.filter(x => x.id !== id); else S[k] = S[k].filter(x => x.id !== id);
     save(); render(); toast("Removed", true); return; }
@@ -985,7 +1067,7 @@ document.addEventListener("click", e => {
 
 document.addEventListener("change", e => {
   const t = e.target, ds = t.dataset;
-  if (ds.tick) { const x = S.todos.find(y => y.id === ds.tick); if (x) { x.done = t.checked; x.doneDay = today(); } }
+  if (ds.tick) { const x = S.todos.find(y => y.id === ds.tick); if (x) { x.done = t.checked; x.doneDay = t.checked ? today() : null; } }
   else if (ds.tickl) { const [k, id] = ds.tickl.split(":"); const x = S[k].find(y => y.id === id); if (x) x.done = t.checked; }
   else if (ds.item) { const [l, id] = ds.item.split(":"); const L = S.lists.find(x => x.id === l); const i = L && L.items.find(y => y.id === id); if (i) i.done = t.checked; }
   else if (ds.rset) { S.remind[ds.rset] = Number(t.value); saveLocal(); return; }
@@ -1005,6 +1087,9 @@ function drawSettings() {
   document.getElementById("setCity").value = S.city;
   document.getElementById("setPack").innerHTML = Object.entries(PACKS).map(([k, p]) => `<option value="${k}" ${k === S.pack ? "selected" : ""}>${p.label}</option>`).join("");
   drawCardList();
+  let ib = document.getElementById("installBox");
+  if (!ib) { ib = document.createElement("div"); ib.id = "installBox"; document.getElementById("cardList").before(ib); }
+  drawInstallBox();
   let rb = document.getElementById("remindBox");
   if (!rb) { rb = document.createElement("div"); rb.id = "remindBox"; document.getElementById("cardList").before(rb); }
   drawRemindBox();
