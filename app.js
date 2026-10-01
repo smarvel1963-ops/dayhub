@@ -21,7 +21,7 @@ const GEO = "https://geocoding-api.open-meteo.com/v1/search";
 // Google Calendar. Empty = the Connect button explains it is not set up yet.
 // The OAuth client is created once by the app owner in Google Cloud Console
 // (type "Web application", origin https://smarvel1963-ops.github.io).
-const GCAL_CLIENT_ID = "";
+const GCAL_CLIENT_ID = "750311262064-354vjd8mkh07cpg1576p07qj2ifmb0d2.apps.googleusercontent.com";
 const GCAL_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
 
 // ---------------------------------------------------------------- packs
