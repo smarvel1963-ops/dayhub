@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.3";
+const VERSION = "0.4";
 
 const STORE = "dayhub.v1";
 const WX = "https://api.open-meteo.com/v1/forecast";
@@ -23,6 +23,21 @@ const GEO = "https://geocoding-api.open-meteo.com/v1/search";
 // (type "Web application", origin https://smarvel1963-ops.github.io).
 const GCAL_CLIENT_ID = "750311262064-354vjd8mkh07cpg1576p07qj2ifmb0d2.apps.googleusercontent.com";
 const GCAL_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";   // a hidden Day Hub folder in the user's own Drive
+
+// ------------------------------------------------------------ free / pro
+// Scott 2026-10-01: "no ads, just better everything when go pro". NO ADS, EVER.
+// Every feature carries a switch now so pricing is a settings change later,
+// never a redesign. PRO_LIVE = false keeps everything unlocked while we build;
+// at launch it goes true and TIER comes from the payment check.
+const PRO_LIVE = false;
+let TIER = "free";
+const FEATURES = {
+  schedule: "free", weather: "free", todos: "free", lists: "free", countdowns: "free",
+  bills: "free", work: "free", route: "free", loads: "free", jobs: "free", nextup: "free", games: "free",
+  gcal: "pro", sync: "pro",            // candidates - Scott decides at launch
+};
+const can = f => !PRO_LIVE || FEATURES[f] !== "pro" || TIER === "pro";
 
 // ---------------------------------------------------------------- packs
 const BASE = ["schedule", "work", "weather", "todos", "bills", "countdowns", "lists"];
@@ -40,6 +55,7 @@ const blank = () => ({
   events: [], todos: [], loads: [], jobs: [], route: { from: "", to: "" },
   bills: [], countdowns: [], lists: [{ id: "grocery", name: "Grocery", items: [] }], listSel: "grocery",
   gcal: { connected: false, events: [], fetched: null },
+  sync: { on: false, last: null, dirty: false },
   work: { rate: 0, taxPct: 20, otAfter: 40, shifts: [], clockIn: null },
 });
 let S;                     // loaded at start-up, after the date helpers exist
@@ -59,10 +75,18 @@ function load() {
   s.bills.forEach(b => { if (!b.paid) b.paid = pm; });
   if (!s.gcal) s.gcal = { connected: false, events: [], fetched: null };
   s.work = Object.assign(blank().work, s.work || {});
+  s.sync = Object.assign(blank().sync, s.sync || {});
   return s;
 }
-function save() {
+function saveLocal() {
   try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (e) { /* private mode */ }
+}
+// Every change is saved on the phone at once; with backup on it also goes to
+// the user's Drive a few seconds later (one upload per burst of edits).
+function save() {
+  S.updatedAt = new Date().toISOString();
+  if (S.sync && S.sync.on) { S.sync.dirty = true; scheduleBackup(); }
+  saveLocal();
 }
 
 // ---------------------------------------------------------------- dates
@@ -188,6 +212,7 @@ const gReady = () => GTOKEN && Date.now() < GTOKEN_EXP;
 
 // Must run from a tap: Google opens its own sign-in window.
 async function gcalConnect() {
+  if (!can("gcal")) { toast("Google Calendar sync is part of Day Hub Pro"); return; }
   if (!GCAL_CLIENT_ID) { toast("Google Calendar link is being set up — coming soon"); return; }
   try { await loadGis(); } catch (e) { toast("Couldn't reach Google — check your connection"); return; }
   const client = google.accounts.oauth2.initTokenClient({
@@ -227,6 +252,124 @@ function gcalDisconnect() {
   try { if (GTOKEN && window.google) google.accounts.oauth2.revoke(GTOKEN, () => {}); } catch (e) { /* already gone */ }
   GTOKEN = null; S.gcal = { connected: false, events: [], fetched: null }; save(); drawSettings(); render();
   toast("Google Calendar disconnected");
+}
+
+// ------------------------------------------------------------ backup & sync
+// Scott 2026-10-01 ("yes i do" - backup/sync first). No server and $0: the data
+// goes to Google Drive's appDataFolder - a hidden folder ONLY this app can read,
+// inside the user's own Drive, not shown in their files. A new phone signs in
+// and gets everything back. Google's token lasts about an hour and is never
+// stored; after that the next backup waits for one tap ("Back up now").
+let DTOKEN = null, DTOKEN_EXP = 0, backupTimer = null, CLOUD_PENDING = null;
+const DFILE = "dayhub.json";
+const dReady = () => DTOKEN && Date.now() < DTOKEN_EXP;
+const hasData = d => !!d && ((d.events || []).length + (d.todos || []).length + (d.bills || []).length +
+  (d.countdowns || []).length + ((d.work || {}).shifts || []).length +
+  (d.lists || []).reduce((n, l) => n + (l.items || []).length, 0)) > 0;
+
+function driveSignIn(prompt) {                                 // must run from a tap
+  return loadGis().then(() => new Promise(res => {
+    const c = google.accounts.oauth2.initTokenClient({
+      client_id: GCAL_CLIENT_ID, scope: DRIVE_SCOPE, prompt,
+      callback: r => {
+        if (r.error) { toast("Google sign-in was cancelled"); res(false); return; }
+        DTOKEN = r.access_token; DTOKEN_EXP = Date.now() + ((r.expires_in || 3600) - 60) * 1000; res(true);
+      },
+      error_callback: () => { toast("Sign-in window closed"); res(false); },
+    });
+    c.requestAccessToken();
+  })).catch(() => { toast("Couldn't reach Google — check your connection"); return false; });
+}
+async function dfetch(url, opt = {}) {
+  const r = await fetch(url, { ...opt, headers: { Authorization: `Bearer ${DTOKEN}`, ...(opt.headers || {}) } });
+  if (r.status === 401) { DTOKEN = null; throw new Error("signed out"); }
+  if (!r.ok) throw new Error(`Drive ${r.status}`);
+  return r;
+}
+async function driveFind() {
+  const q = encodeURIComponent(`name='${DFILE}'`);
+  const j = await (await dfetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,modifiedTime)`)).json();
+  return (j.files || [])[0] || null;
+}
+async function driveDownload() {
+  const f = await driveFind();
+  return f ? (await dfetch(`https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`)).json() : null;
+}
+async function driveUpload() {
+  const data = JSON.parse(JSON.stringify(S));
+  delete data.gcal;                                            // re-fetched from Google, not ours to copy
+  const body = JSON.stringify({ app: "dayhub", v: VERSION, savedAt: new Date().toISOString(), data });
+  const f = await driveFind();
+  if (f) {
+    await dfetch(`https://www.googleapis.com/upload/drive/v3/files/${f.id}?uploadType=media`,
+      { method: "PATCH", headers: { "Content-Type": "application/json" }, body });
+  } else {
+    const b = "dayhub" + uid();
+    const meta = JSON.stringify({ name: DFILE, parents: ["appDataFolder"] });
+    await dfetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
+      method: "POST", headers: { "Content-Type": `multipart/related; boundary=${b}` },
+      body: `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${b}--`,
+    });
+  }
+  S.sync.last = new Date().toISOString(); S.sync.dirty = false; saveLocal();
+}
+function scheduleBackup() {
+  clearTimeout(backupTimer);
+  backupTimer = setTimeout(async () => {
+    if (!dReady()) return;                                     // waits for a tap; "dirty" shows the button
+    try { await driveUpload(); drawSyncBox(); } catch (e) { /* stays dirty, retried next change */ }
+  }, 6000);
+}
+// Turning backup on. A new phone (nothing here yet) restores by itself; a phone
+// that already has data and finds an older or different backup gets the CHOICE.
+async function syncOn() {
+  if (!can("sync")) { toast("Backup & sync is part of Day Hub Pro"); return; }
+  if (!(await driveSignIn(S.sync.on ? "" : "consent"))) return;
+  try {
+    const cloud = await driveDownload();
+    if (cloud && hasData(cloud.data) && !hasData(S)) { restoreFrom(cloud); return; }
+    if (cloud && hasData(cloud.data) && cloud.savedAt > (S.sync.last || "")) {
+      S.sync.on = true; saveLocal(); CLOUD_PENDING = cloud; drawSyncBox(); return;
+    }
+    S.sync.on = true; await driveUpload(); drawSyncBox(); toast("Backed up to your Google Drive ✓");
+  } catch (e) { toast("Backup didn't go through — try again"); }
+}
+async function backupNow() {
+  if (!dReady() && !(await driveSignIn(""))) return;
+  try { await driveUpload(); drawSyncBox(); render(); toast("Backed up ✓"); }
+  catch (e) { toast("Backup didn't go through — try again"); }
+}
+async function restoreNow() {
+  if (!dReady() && !(await driveSignIn(""))) return;
+  try { const cloud = await driveDownload(); cloud ? restoreFrom(cloud) : toast("No backup found yet"); }
+  catch (e) { toast("Couldn't read the backup — try again"); }
+}
+function restoreFrom(cloud) {
+  snap();
+  const keepCal = S.gcal;
+  S = Object.assign(blank(), cloud.data);
+  S.gcal = keepCal; S.sync = { on: true, last: cloud.savedAt, dirty: false };
+  CLOUD_PENDING = null; saveLocal(); drawSyncBox(); render(); loadWeather();
+  toast(`Restored from ${new Date(cloud.savedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`, true);
+}
+function syncOff() {
+  try { if (DTOKEN && window.google) google.accounts.oauth2.revoke(DTOKEN, () => {}); } catch (e) { /* gone */ }
+  DTOKEN = null; CLOUD_PENDING = null; S.sync = { on: false, last: null, dirty: false }; saveLocal(); drawSyncBox();
+  toast("Backup turned off — your Drive copy stays until you delete it");
+}
+function drawSyncBox() {
+  const g = document.getElementById("syncBox"); if (!g) return;
+  const when = iso => new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  g.innerHTML = `<h3>Backup & sync</h3>` + (CLOUD_PENDING
+    ? `<p class="fine" style="margin-top:0">Found a backup from <b>${when(CLOUD_PENDING.savedAt)}</b>. Which one do you want?</p>
+       <div class="foot-actions"><button class="btn sm" data-sync="use">Use the backup</button>
+       <button class="btn sm ghost" data-sync="keep">Keep this phone's</button></div>`
+    : S.sync.on
+    ? `<div class="leg"><span>☁️ On — ${S.sync.last ? `last backup ${when(S.sync.last)}` : "not backed up yet"}${S.sync.dirty ? " · <b style='color:var(--orange)'>new changes</b>" : ""}</span></div>
+       <div class="foot-actions"><button class="btn sm" data-sync="now">Back up now</button>
+       <button class="btn sm ghost" data-sync="restore">Restore</button><button class="btn sm ghost" data-sync="off">Turn off</button></div>`
+    : `<button class="btn sm" data-sync="on">Back up to my Google Drive</button>
+       <p class="fine" style="margin-top:8px">Keeps everything safe and brings it back on a new phone. Saved in a hidden Day Hub folder in your own Drive — only Day Hub can see it.</p>`);
 }
 
 // ------------------------------------------------------------- the day
@@ -343,6 +486,7 @@ function heroHtml() {
   const cd = liveCountdowns()[0];
   if (cd) chips.push(`<span class="chip">⏳ ${esc(cd.title)} ${daysUntil(cd.date) === 0 ? "today!" : inDays(daysUntil(cd.date))}</span>`);
   if (S.gcal.connected && !gReady()) chips.push(`<button class="chip" data-gsync="1">🔄 Sync Google Calendar</button>`);
+  if (S.sync.on && S.sync.dirty && !dReady()) chips.push(`<button class="chip" data-sync="now">☁️ Back up changes</button>`);
 
   const wx = w ? (() => { const [ic] = wxIcon(w.cur.weather_code, w.cur.is_day);
       return `<div class="hero-wx"><div class="ic">${ic}</div><div class="t">${Math.round(w.cur.temperature_2m)}°</div>
@@ -545,6 +689,8 @@ function render() {
   const cards = cardOrder().filter(k => !S.hidden.includes(k)).map(k => {
     const c = CARDS[k]; const col = S.collapsed.includes(k);
     const tag = PACKS[S.pack].cards.includes(k) ? ` <span class="tag">${PACKS[S.pack].label}</span>` : "";
+    if (!can(k)) return `<section class="card" data-card="${k}"><h3><span class="ci">${c.icon}</span>${c.title} <span class="tag">PRO</span></h3>
+      <div class="body"><div class="empty">Part of Day Hub Pro. No ads, ever — Pro just does more.</div></div></section>`;
     return `<section class="card ${col ? "collapsed" : ""}" data-card="${k}">
       <h3 data-collapse="${k}"><span class="ci">${c.icon}</span>${c.title}${tag}<span class="meta">${c.meta ? c.meta() : ""}</span><span class="chev">⌄</span></h3>
       <div class="body">${c.body()}${c.add ? `<button class="add-link" data-qa="${c.add[0]}">＋ ${c.add[1]}</button>` : ""}</div></section>`;
@@ -702,6 +848,13 @@ document.addEventListener("click", e => {
   if (ds.gconnect) { gcalConnect(); return; }
   if (ds.gsync) { gReady() ? gcalFetch() : gcalConnect(); return; }
   if (ds.gdisc) { gcalDisconnect(); return; }
+  if (ds.sync) {
+    const a = ds.sync;
+    if (a === "on") syncOn(); else if (a === "now") backupNow(); else if (a === "restore") restoreNow(); else if (a === "off") syncOff();
+    else if (a === "use" && CLOUD_PENDING) restoreFrom(CLOUD_PENDING);
+    else if (a === "keep") { CLOUD_PENDING = null; backupNow(); }
+    return;
+  }
 });
 
 document.addEventListener("change", e => {
@@ -725,6 +878,9 @@ function drawSettings() {
   document.getElementById("setCity").value = S.city;
   document.getElementById("setPack").innerHTML = Object.entries(PACKS).map(([k, p]) => `<option value="${k}" ${k === S.pack ? "selected" : ""}>${p.label}</option>`).join("");
   drawCardList();
+  let sb = document.getElementById("syncBox");
+  if (!sb) { sb = document.createElement("div"); sb.id = "syncBox"; document.getElementById("cardList").before(sb); }
+  drawSyncBox();
   let g = document.getElementById("gcalBox");
   if (!g) { g = document.createElement("div"); g.id = "gcalBox"; document.getElementById("cardList").before(g); }
   g.innerHTML = `<h3>Your calendar</h3>` + (S.gcal.connected
