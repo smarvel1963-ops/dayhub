@@ -61,7 +61,19 @@ const WMO = {
 };
 const wmo = c => WMO[c] || ["🌡️", "—"];
 
+// A 5-digit US ZIP (or ZIP+4) goes to Zippopotam.us - an exact postal lookup,
+// free, no key. Open-Meteo's name search will "match" a ZIP too, but by guessing
+// (it can land on a same-numbered postcode abroad), so it only gets city names.
+const ZIP = /^\s*(\d{5})(?:-\d{4})?\s*$/;
 async function geocode(city) {
+  const z = ZIP.exec(city || "");
+  if (z) {
+    const r = await fetch(`https://api.zippopotam.us/us/${z[1]}`);
+    if (!r.ok) return null;                                   // 404 = no such ZIP
+    const p = ((await r.json()).places || [])[0];
+    return p ? { lat: Number(p.latitude), lon: Number(p.longitude),
+                 label: `${p["place name"]}, ${p["state abbreviation"]} ${z[1]}` } : null;
+  }
   const name = city.split(",")[0].trim();
   if (!name) return null;
   const r = await fetch(`${GEO}?name=${encodeURIComponent(name)}&count=5&language=en`);
@@ -107,10 +119,10 @@ const CARD = {
   clock: () => `<div class="clock" id="clockNow"></div><div class="date" id="dateNow"></div>`,
 
   weather: () => {
-    if (!S.city) return `<div class="empty">Add your city in ⚙ settings to see today's weather.</div>`;
+    if (!S.city) return `<div class="empty">Add your city or ZIP code in ⚙ settings to see today's weather.</div>`;
     if (!WXDATA) return `<div class="empty">Loading weather…</div>`;
     const w = WXDATA.here;
-    if (!w) return `<div class="empty">${esc(WXDATA.error || "City not found — check it in ⚙ settings.")}</div>`;
+    if (!w) return `<div class="empty">${esc(WXDATA.error || "City or ZIP not found — check it in ⚙ settings.")}</div>`;
     const [icon, txt] = wmo(w.cur.weather_code);
     return `<div class="wx-now"><span class="wx-icon">${icon}</span><span class="wx-temp">${Math.round(w.cur.temperature_2m)}°</span>
       <span>${txt}<br><span class="wx-line">${esc(w.label)}</span></span></div>
@@ -151,8 +163,8 @@ const CARD = {
               <div class="wx-line">${txt}${(w.day.rain ?? 0) >= 50 ? " — <b style='color:var(--red)'>plan for wet roads</b>" : ""}</div>`;
     };
     return leg("from", "From") + leg("to", "To") +
-      `<form class="add" data-route="1"><input name="from" placeholder="From city, ST" value="${esc(S.route.from)}">
-       <input name="to" placeholder="To city, ST" value="${esc(S.route.to)}"><button class="small">Set</button></form>`;
+      `<form class="add" data-route="1"><input name="from" placeholder="From: city, ST or ZIP" value="${esc(S.route.from)}">
+       <input name="to" placeholder="To: city, ST or ZIP" value="${esc(S.route.to)}"><button class="small">Set</button></form>`;
   },
 
   loads: () => listCard("loads", "load", "Pickup / delivery (e.g. PU Little Rock)"),
