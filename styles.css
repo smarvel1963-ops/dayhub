@@ -249,3 +249,6 @@ input[type=date], input[type=time] { color-scheme: dark; }
 .paygrid .fact small { display: block; color: var(--orange); font-size: 11px; margin-top: 2px; }
 .paygrid .take { background: linear-gradient(135deg, rgba(74,222,128,.18), rgba(94,234,212,.08)); }
 .paygrid .take b { color: var(--green); font-size: 17px; }
+
+/* v0.5 - item controls (📲 add to phone calendar + ✕ / tick) */
+.ctl { display: flex; align-items: center; gap: 2px; }

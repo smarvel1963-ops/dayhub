@@ -4,7 +4,7 @@
  * NETWORK FIRST, cache as the fallback: the first build was cache-first and a
  * fix to app.js did not show until every tab closed - users would sit on an
  * old version after each update. Online = always the newest files. */
-const CACHE = "dayhub-v0.4";
+const CACHE = "dayhub-v0.5";
 const SHELL = ["./", "index.html", "styles.css", "app.js", "manifest.json"];
 self.addEventListener("install", e => {
   self.skipWaiting();
@@ -21,4 +21,12 @@ self.addEventListener("fetch", e => {
     caches.open(CACHE).then(c => c.put(e.request, copy));
     return r;
   }).catch(() => caches.match(e.request, { ignoreSearch: true })));
+});
+// Tapping a reminder opens Day Hub (or brings the open one to the front).
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(cs => {
+    for (const c of cs) if ("focus" in c) return c.focus();
+    return self.clients.openWindow("./");
+  }));
 });

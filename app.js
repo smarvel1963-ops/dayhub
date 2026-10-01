@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.4";
+const VERSION = "0.5";
 
 const STORE = "dayhub.v1";
 const WX = "https://api.open-meteo.com/v1/forecast";
@@ -35,7 +35,7 @@ let TIER = "free";
 const FEATURES = {
   schedule: "free", weather: "free", todos: "free", lists: "free", countdowns: "free",
   bills: "free", work: "free", route: "free", loads: "free", jobs: "free", nextup: "free", games: "free",
-  gcal: "pro", sync: "pro",            // candidates - Scott decides at launch
+  gcal: "pro", sync: "pro", reminders: "pro",   // candidates - Scott decides at launch
 };
 const can = f => !PRO_LIVE || FEATURES[f] !== "pro" || TIER === "pro";
 
@@ -56,6 +56,7 @@ const blank = () => ({
   bills: [], countdowns: [], lists: [{ id: "grocery", name: "Grocery", items: [] }], listSel: "grocery",
   gcal: { connected: false, events: [], fetched: null },
   sync: { on: false, last: null, dirty: false },
+  remind: { on: false, lead: 15, billDays: 1, billHour: "09:00", fired: {} },
   work: { rate: 0, taxPct: 20, otAfter: 40, shifts: [], clockIn: null },
 });
 let S;                     // loaded at start-up, after the date helpers exist
@@ -76,6 +77,7 @@ function load() {
   if (!s.gcal) s.gcal = { connected: false, events: [], fetched: null };
   s.work = Object.assign(blank().work, s.work || {});
   s.sync = Object.assign(blank().sync, s.sync || {});
+  s.remind = Object.assign(blank().remind, s.remind || {});
   return s;
 }
 function saveLocal() {
@@ -372,6 +374,122 @@ function drawSyncBox() {
        <p class="fine" style="margin-top:8px">Keeps everything safe and brings it back on a new phone. Saved in a hidden Day Hub folder in your own Drive — only Day Hub can see it.</p>`);
 }
 
+// ------------------------------------------------------------- reminders
+// Scott 2026-10-01 "yes start reminders". A web app can only alert while it is
+// open or was used recently (phones put idle pages to sleep), so there are TWO
+// paths: (1) Day Hub's own heads-up before events / shifts / loads / bills, and
+// (2) 📲 on any item puts it in the phone's OWN calendar with an alarm - that
+// one rings even when Day Hub is closed. Reliable background alerts need the
+// app-store version (or a push server) - noted for Pro.
+const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent);
+const atMs = (day, t) => { const d = parseDay(day); const [h, m] = t.split(":").map(Number); d.setHours(h, m, 0, 0); return d.getTime(); };
+function reminderList() {
+  const R = S.remind, lead = R.lead * 60000, out = [];
+  const from = addDays(today(), -1), to = addDays(today(), 2), inWin = d => d >= from && d <= to;
+  const add = (key, start, at, title, body) => out.push({ key, start, at, title, body });
+  S.events.filter(e => inWin(e.day) && e.time).forEach(e => { const st = atMs(e.day, e.time);
+    add(`ev:${e.id}:${e.day}`, st, st - lead, `📅 ${e.title}`, `${hm(e.time)}${e.where ? " · " + e.where : ""}`); });
+  if (S.gcal.connected) S.gcal.events.filter(e => inWin(e.day) && e.time).forEach(e => { const st = atMs(e.day, e.time);
+    add(`g:${e.id}:${e.day}`, st, st - lead, `🗓️ ${e.title}`, `${hm(e.time)}${e.where ? " · " + e.where : ""}`); });
+  S.work.shifts.filter(x => inWin(x.day)).forEach(x => { const st = atMs(x.day, x.start);
+    add(`sh:${x.id}`, st, st - lead, "💼 Work shift", `${hm(x.start)} – ${hm(x.end)}`); });
+  ["loads", "jobs"].forEach(k => S[k].filter(x => inWin(x.day) && !x.done).forEach(x => { const st = atMs(x.day, x.time);
+    add(`${k}:${x.id}`, st, st - lead, `${k === "loads" ? "🚚" : "🔧"} ${x.title}`, hm(x.time)); }));
+  if (R.billDays >= 0) upcomingBills().forEach(b => { const d = addDays(b.due, -R.billDays);
+    if (inWin(d)) { const at = atMs(d, R.billHour); add(`bill:${b.id}:${b.due}`, atMs(d, "23:59"), at, `💳 ${b.name} ${money(b.amount)}`, `Due ${prettyDate(b.due)}`); } });
+  return out;
+}
+async function notify(title, body, tag) {
+  buzz();
+  if ("Notification" in window && Notification.permission === "granted") {
+    try {
+      const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+      const opt = { body, tag, icon: "icon-192.png", badge: "icon-192.png", vibrate: [200, 100, 200], renotify: true };
+      if (reg) { await reg.showNotification(title, opt); return; }
+      new Notification(title, opt); return;
+    } catch (e) { /* fall through to the in-app toast */ }
+  }
+  toast(`${title} — ${body}`);
+}
+// Fires anything due in the last 6 hours that has not fired yet (a phone that
+// slept through 2:45 still says so at 3:10). Old marks are pruned after 4 days.
+async function checkReminders() {
+  if (!S.remind.on || !can("reminders")) return;
+  const now = Date.now(), F = S.remind.fired; let changed = false;
+  for (const r of reminderList()) {
+    if (F[r.key] || r.at > now || r.at < now - 6 * 3600000 || r.start < now - 15 * 60000) continue;   // long started = too late to help
+    F[r.key] = now; changed = true;
+    await notify(r.title, r.start > now ? `${r.body} · in ${Math.max(1, Math.round((r.start - now) / 60000))} min` : r.body, r.key);
+  }
+  for (const [k, v] of Object.entries(F)) if (now - v > 4 * 86400000) { delete F[k]; changed = true; }
+  if (changed) saveLocal();
+}
+async function remindOn() {
+  if (!can("reminders")) { toast("Reminders are part of Day Hub Pro"); return; }
+  if (!("Notification" in window)) {
+    toast(isIOS() ? "On iPhone: Share → Add to Home Screen, open Day Hub from there, then turn reminders on" : "This browser can't show notifications");
+    return;
+  }
+  const p = await Notification.requestPermission();
+  if (p !== "granted") { toast("Notifications are blocked — allow them for Day Hub in your phone settings"); return; }
+  S.remind.on = true;
+  const now = Date.now();                                       // don't replay what already started
+  reminderList().forEach(r => { if (r.start <= now) S.remind.fired[r.key] = now; });
+  saveLocal(); drawRemindBox();
+  notify("Day Hub reminders are on ✓", `Heads-up ${S.remind.lead} min before events and shifts.`, "dh-on");
+  checkReminders();
+}
+function drawRemindBox() {
+  const g = document.getElementById("remindBox"); if (!g) return;
+  const R = S.remind;
+  const opt = (v, l, cur) => `<option value="${v}" ${String(v) === String(cur) ? "selected" : ""}>${l}</option>`;
+  g.innerHTML = `<h3>Reminders</h3>` + (R.on
+    ? `<label class="field" style="margin-top:0">Before events, shifts and jobs
+         <select data-rset="lead">${[5, 10, 15, 30, 60, 120].map(m => opt(m, m < 60 ? `${m} minutes` : `${m / 60} hour${m > 60 ? "s" : ""}`, R.lead)).join("")}</select></label>
+       <label class="field">Bills
+         <select data-rset="billDays">${opt(-1, "Off", R.billDays)}${opt(0, "Morning of the due day", R.billDays)}${opt(1, "Morning, 1 day before", R.billDays)}${opt(3, "Morning, 3 days before", R.billDays)}</select></label>
+       <div class="foot-actions" style="margin-top:10px"><button class="btn sm" data-remind="test">Send a test</button><button class="btn sm ghost" data-remind="off">Turn off</button></div>`
+    : `<button class="btn sm" data-remind="on">Turn on reminders</button>`) +
+    `<p class="fine" style="margin-top:8px">Day Hub's reminders arrive while it's open or used recently. For a can't-miss item, tap 📲 on it — that puts it in your phone's own calendar, which alerts you even when Day Hub is closed.</p>`;
+}
+
+// ------------------------------------------------- add to phone calendar (.ics)
+function icsFor(ref) {
+  const [k, id] = ref.split(":");
+  const lead = S.remind.lead || 15;
+  const D = (day, t) => `${day.replace(/-/g, "")}T${t.replace(":", "")}00`;
+  const plusMin = (day, t, mins) => { const d = new Date(atMs(day, t) + mins * 60000); return [ymd(d), hhmm(d)]; };
+  const txt = v => String(v || "").replace(/[\\,;]/g, m => "\\" + m).replace(/\n/g, "\\n");
+  let ev = null;
+  if (k === "events") { const e = S.events.find(x => x.id === id); if (e) { const [ed, et] = plusMin(e.day, e.time, 60);
+    ev = [`SUMMARY:${txt(e.title)}`, e.where ? `LOCATION:${txt(e.where)}` : "", `DTSTART:${D(e.day, e.time)}`, `DTEND:${D(ed, et)}`, `TRIGGER:-PT${lead}M`, e.title]; } }
+  else if (k === "loads" || k === "jobs") { const x = S[k].find(y => y.id === id); if (x) { const [ed, et] = plusMin(x.day, x.time, 60);
+    ev = [`SUMMARY:${txt(x.title)}`, "", `DTSTART:${D(x.day, x.time)}`, `DTEND:${D(ed, et)}`, `TRIGGER:-PT${lead}M`, x.title]; } }
+  else if (k === "shift") { const x = S.work.shifts.find(y => y.id === id); if (x) { const ed = x.end < x.start ? addDays(x.day, 1) : x.day;
+    ev = ["SUMMARY:Work shift", "", `DTSTART:${D(x.day, x.start)}`, `DTEND:${D(ed, x.end)}`, `TRIGGER:-PT${lead}M`, "Work shift"]; } }
+  else if (k === "bill") { const b = S.bills.find(y => y.id === id); const due = b && nextDue(b); if (due) {
+    const nx = addDays(due, 1).replace(/-/g, "");
+    ev = [`SUMMARY:${txt(b.name)} due ${money(b.amount)}`, "", `DTSTART;VALUE=DATE:${due.replace(/-/g, "")}`,
+          `DTEND;VALUE=DATE:${nx}\nRRULE:FREQ=MONTHLY;BYMONTHDAY=${b.day >= 29 ? -1 : b.day}`, "TRIGGER:-PT15H", `${b.name} bill`]; } }
+  if (!ev) return null;
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Day Hub//EN", "BEGIN:VEVENT", `UID:${ref.replace(":", "-")}@dayhub`, `DTSTAMP:${stamp}`,
+    ev[0], ev[1], ev[2], ev[3], "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${txt(ev[0].slice(8))}`, ev[4], "END:VALARM", "END:VEVENT", "END:VCALENDAR"]
+    .filter(Boolean).join("\r\n").replace(/\n(?!$)/g, "\r\n").replace(/\r\r/g, "\r");
+  return { text: lines, name: ev[5] };
+}
+function addToPhoneCalendar(ref) {
+  const r = icsFor(ref);
+  if (!r) { toast("Couldn't find that item"); return; }
+  if (isIOS()) { location.href = "data:text/calendar;charset=utf-8," + encodeURIComponent(r.text); return; }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([r.text], { type: "text/calendar" }));
+  a.download = `${r.name.replace(/[^\w ]+/g, "").trim().slice(0, 40) || "event"}.ics`;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  toast("Open the downloaded file to add it to your calendar");
+}
+
 // ------------------------------------------------------------- the day
 // A bill repeats monthly on its day (clamped to the month's length). `paid`
 // = the last month paid ("YYYY-MM"). Unpaid and past due = LATE, shown red.
@@ -392,14 +510,14 @@ const liveCountdowns = () => S.countdowns.filter(c => daysUntil(c.date) >= 0).so
 // Everything happening on one day, in time order. All-day items first.
 function dayItems(day) {
   const it = [];
-  S.events.filter(e => e.day === day).forEach(e => it.push({ t: e.time, title: e.title, sub: e.where, kind: "event", icon: "📅", del: `events:${e.id}` }));
+  S.events.filter(e => e.day === day).forEach(e => it.push({ t: e.time, title: e.title, sub: e.where, kind: "event", icon: "📅", del: `events:${e.id}`, cal: `events:${e.id}` }));
   if (S.gcal.connected) S.gcal.events.filter(e => e.day === day).forEach(e =>
     it.push({ t: e.time, end: e.end, title: e.title, sub: e.where, kind: "g", icon: "🗓️" }));
   ["loads", "jobs"].forEach(k => { if (!PACKS[S.pack].cards.includes(k)) return;
     S[k].filter(x => x.day === day).forEach(x => it.push({ t: x.time, title: x.title, kind: k, icon: k === "loads" ? "🚚" : "🔧",
-      tick: `${k}:${x.id}`, done: x.done, del: `${k}:${x.id}` })); });
-  S.work.shifts.filter(x => x.day === day).forEach(x => it.push({ t: x.start, end: x.end, title: "Work shift", sub: fmtH(shiftHours(x)), kind: "work", icon: "💼" }));
-  upcomingBills().filter(b => b.due === day).forEach(b => it.push({ t: null, title: `${b.name} due`, sub: money(b.amount), kind: "bill", icon: "💳" }));
+      tick: `${k}:${x.id}`, done: x.done, del: `${k}:${x.id}`, cal: `${k}:${x.id}` })); });
+  S.work.shifts.filter(x => x.day === day).forEach(x => it.push({ t: x.start, end: x.end, title: "Work shift", sub: fmtH(shiftHours(x)), kind: "work", icon: "💼", cal: `shift:${x.id}` }));
+  upcomingBills().filter(b => b.due === day).forEach(b => it.push({ t: null, title: `${b.name} due`, sub: money(b.amount), kind: "bill", icon: "💳", cal: `bill:${b.id}` }));
   S.countdowns.filter(c => c.date === day).forEach(c => it.push({ t: null, title: c.title, sub: "The day is here", kind: "cd", icon: "🎉" }));
   const w = WXDATA && WXDATA.here;
   if (w && day === today()) {
@@ -532,7 +650,7 @@ const CARDS = {
           <div class="tt">${i.t ? hm(i.t) : "All day"}${i.end ? `<small>${hm(i.end)}</small>` : ""}</div>
           <div class="dot"></div>
           <div class="tc"><div class="tn">${i.icon} ${esc(i.title)}${i.kind === "g" ? ` <span class="gbadge">Google</span>` : ""}</div>
-            ${i.sub ? `<div class="ts">${esc(i.sub)}</div>` : ""}</div>${ctrl}</div>`);
+            ${i.sub ? `<div class="ts">${esc(i.sub)}</div>` : ""}</div><span class="ctl">${i.cal ? `<button class="x" data-ics="${i.cal}" aria-label="Add to phone calendar">📲</button>` : ""}${ctrl}</span></div>`);
       }
       if (!nowDone) rows.push(`<div class="now-line"><span>${hm(t)}</span></div>`);
       return html + `<div class="tl">${rows.join("")}</div>`;
@@ -601,6 +719,7 @@ const CARDS = {
         return `<div class="row"><div class="grow">${esc(b.name)}<span class="sub">${money(b.amount)} · ${prettyDate(b.due)}</span></div>
           <span class="pill ${n < 0 ? "late" : n <= 3 ? "soon" : ""}">${inDays(n)}</span>
           <button class="btn sm ghost" data-paid="${b.id}">Paid</button>
+          <button class="x" data-ics="bill:${b.id}" aria-label="Add to phone calendar">📲</button>
           <button class="x" data-del="bills:${b.id}" aria-label="Remove">✕</button></div>`; }).join("") +
         `<div class="total"><span>Every month</span><b>${money(S.bills.reduce((s, b) => s + Number(b.amount || 0), 0))}</b></div>`;
     } },
@@ -848,6 +967,13 @@ document.addEventListener("click", e => {
   if (ds.gconnect) { gcalConnect(); return; }
   if (ds.gsync) { gReady() ? gcalFetch() : gcalConnect(); return; }
   if (ds.gdisc) { gcalDisconnect(); return; }
+  if (ds.ics) { addToPhoneCalendar(ds.ics); return; }
+  if (ds.remind) {
+    if (ds.remind === "on") remindOn();
+    else if (ds.remind === "off") { S.remind.on = false; saveLocal(); drawRemindBox(); toast("Reminders off"); }
+    else if (ds.remind === "test") notify("🔔 Day Hub test", "This is what a reminder looks like.", "dh-test");
+    return;
+  }
   if (ds.sync) {
     const a = ds.sync;
     if (a === "on") syncOn(); else if (a === "now") backupNow(); else if (a === "restore") restoreNow(); else if (a === "off") syncOff();
@@ -862,6 +988,7 @@ document.addEventListener("change", e => {
   if (ds.tick) { const x = S.todos.find(y => y.id === ds.tick); if (x) { x.done = t.checked; x.doneDay = today(); } }
   else if (ds.tickl) { const [k, id] = ds.tickl.split(":"); const x = S[k].find(y => y.id === id); if (x) x.done = t.checked; }
   else if (ds.item) { const [l, id] = ds.item.split(":"); const L = S.lists.find(x => x.id === l); const i = L && L.items.find(y => y.id === id); if (i) i.done = t.checked; }
+  else if (ds.rset) { S.remind[ds.rset] = Number(t.value); saveLocal(); return; }
   else if (ds.show) { S.hidden = t.checked ? S.hidden.filter(k => k !== ds.show) : [...S.hidden, ds.show]; save(); drawCardList(); render(); return; }
   else return;
   if (t.checked) buzz();
@@ -878,6 +1005,9 @@ function drawSettings() {
   document.getElementById("setCity").value = S.city;
   document.getElementById("setPack").innerHTML = Object.entries(PACKS).map(([k, p]) => `<option value="${k}" ${k === S.pack ? "selected" : ""}>${p.label}</option>`).join("");
   drawCardList();
+  let rb = document.getElementById("remindBox");
+  if (!rb) { rb = document.createElement("div"); rb.id = "remindBox"; document.getElementById("cardList").before(rb); }
+  drawRemindBox();
   let sb = document.getElementById("syncBox");
   if (!sb) { sb = document.createElement("div"); sb.id = "syncBox"; document.getElementById("cardList").before(sb); }
   drawSyncBox();
@@ -924,5 +1054,7 @@ setInterval(tick, 10000);
 setInterval(() => { const a = document.activeElement;
   if (!a || !/INPUT|SELECT|TEXTAREA/.test(a.tagName)) render(); }, 60000);
 setInterval(loadWeather, 30 * 60000);
-document.addEventListener("visibilitychange", () => { if (!document.hidden) { VIEW = today(); render(); } });
+setInterval(checkReminders, 30000);
+checkReminders();
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { VIEW = today(); render(); checkReminders(); } });
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
