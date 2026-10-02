@@ -687,6 +687,43 @@ def t_v025_people_leave(b, base):
     a.close()
 
 
+def t_v026_upkeep(b, base):
+    print("\n[v0.26 home & car upkeep]")
+    a = App(b, base); setup(a)                     # Thu 2026-10-01 08:00
+    check("empty Home card offers common ones", "HVAC filter" in a.card("home") and "Trash day" in a.card("home"))
+    check("empty Car card offers common ones", "Oil change" in a.card("auto") and "Registration renewal" in a.card("auto"))
+    # trash day: tap the chip, set next pickup = Fri Oct 2
+    a.page.click('[data-card="home"] [data-upreset="home:0"]')
+    check("chip opens the form filled in", a.js("document.querySelector('#qaForm [name=name]').value") == "🗑️ Trash day"
+          and a.js("document.querySelector('#qaForm [name=auto]').checked"))
+    a.page.fill("#qaForm [name=next]", "2026-10-02"); a.page.click("#qaForm > .btn:last-child")
+    check("trash day shows tomorrow", "tomorrow" in a.card("home"))
+    check("cans-out reminder tonight at 7 PM", any(r["key"].startswith("up:") and "tomorrow" in r["title"] and r["at"] == a.js("atMs(today(), '19:00')") for r in a.js("reminderList()")))
+    # HVAC: last done 3 months ago -> due today, ✓ Done restarts the clock
+    a.page.click('[data-card="home"] [data-upreset="home:2"]')
+    a.page.fill("#qaForm [name=last]", "2026-07-01"); a.page.click("#qaForm > .btn:last-child")
+    check("HVAC filter due today", "due today" in a.card("home") and "HVAC filter" in a.page.inner_text("#hero"))
+    check("on today's schedule", a.js("dayItems(today()).some(i => i.kind === 'upkeep' && /HVAC/.test(i.title))"))
+    check("morning brief mentions it", any("HVAC filter is due today" in x for x in a.js("briefLines()")))
+    a.page.click('[data-card="home"] [data-updone]')
+    check("✓ Done -> next in 3 months", a.js("upkeepNext(S.upkeep.find(x => /HVAC/.test(x.name)))") == "2027-01-01")
+    # car: registration with a fixed date
+    a.page.click('[data-card="auto"] [data-upreset="auto:2"]')
+    a.page.fill("#qaForm [name=next]", "2026-10-10"); a.page.click("#qaForm > .btn:last-child")
+    check("registration due in 9 days", "in 9 days" in a.card("auto"))
+    # trash rolls forward by itself
+    a.page.clock.run_for("48:00:00"); a.js("render()")
+    check("trash day rolled to next week", a.js("upkeepNext(S.upkeep.find(x => x.auto))") == "2026-10-09")
+    # overdue
+    a.page.clock.fast_forward(10 * 86400000); a.js("render()")
+    check("registration shows overdue", "overdue" in a.card("auto"))
+    check("month math: Jan 31 + 1 month = Feb 28", a.js("addEvery('2027-01-31', 1, 'months')") == "2027-02-28")
+    a.page.click('[data-card="auto"] [data-upedit]')
+    a.page.click("[data-updel]")
+    check("✏️ -> Delete", a.js("S.upkeep.filter(x => x.area === 'auto').length") == 0)
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -695,7 +732,8 @@ def main():
                   t_trips_cruise, t_reminders_backup_update, t_notes_data, t_settings_layout_offline, t_v018_fixes,
                   t_v019_calendar_arrange, t_v020_nightly_reset,
                   t_v021_brief_sync, t_v022_brain_dump,
-                  t_v024_weather_intel, t_v025_people_leave):
+                  t_v024_weather_intel, t_v025_people_leave,
+                  t_v026_upkeep):
             try:
                 t(b, base)
             except Exception as e:

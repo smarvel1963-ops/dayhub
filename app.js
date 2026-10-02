@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.25";
+const VERSION = "0.26";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -51,7 +51,7 @@ const FEATURES = {
 const can = f => !PRO_LIVE || FEATURES[f] !== "pro" || TIER === "pro";
 
 // ---------------------------------------------------------------- packs
-const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "schedule", "leave", "reset", "tomorrow", "work", "budget", "weather", "todos", "notes", "packages", "bills", "people", "countdowns", "lists"];
+const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "schedule", "leave", "reset", "tomorrow", "work", "budget", "weather", "todos", "notes", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
 const PACKS = {
   general:  { label: "General",              cards: [] },
   trucker:  { label: "Trucker / Dispatcher", cards: ["route", "loads"] },
@@ -70,6 +70,7 @@ const blank = () => ({
   remind: { on: false, lead: 15, billDays: 1, billHour: "09:00", morning: 420, night: 1260, fired: {} },
   remember: [], resetDay: null, resetAt: null,
   people: [],
+  upkeep: [],
   leave: { items: LEAVE_DEFAULT.map(text => ({ id: uid(), text })), day: null, done: [] },
   packages: [],
   mail: { on: false, last: null, seen: {}, found: [] },
@@ -115,6 +116,8 @@ function normalize(raw) {
   if (!obj(s.route)) s.route = blank().route;
   s.people = (Array.isArray(s.people) ? s.people : []).filter(x => obj(x) && typeof x.name === "string" && /^\d{2}-\d{2}$/.test(x.md || ""));
   s.people.forEach(x => { if (!obj(x.got)) x.got = {}; x.lead = Number(x.lead ?? 14) || 0; });
+  s.upkeep = (Array.isArray(s.upkeep) ? s.upkeep : []).filter(x => obj(x) && x.name && ["home", "auto"].includes(x.area) && Number(x.every) > 0
+    && ["days", "weeks", "months", "years"].includes(x.unit) && (isDay(x.next) || isDay(x.last)));
   s.leave = Object.assign({ items: null, day: null, done: [] }, obj(s.leave) ? s.leave : {});
   if (!Array.isArray(s.leave.items)) s.leave.items = LEAVE_DEFAULT.map(text => ({ id: uid(), text }));
   if (!Array.isArray(s.leave.done)) s.leave.done = [];
@@ -529,6 +532,7 @@ function briefLines() {
   const f = plans.find(i => i.t && i.t >= nowT());
   if (f) s.push(`Your first one is at ${hm(f.t)}: ${f.title}.`);
   S.remember.filter(r => r.day === t).forEach(r => s.push(`You asked to remember: ${r.text}.`));
+  upkeepDue(null, 0).forEach(({ x, day }) => s.push(`${x.name.replace(/^\S+\s/, "")} ${x.auto ? "is today" : daysUntil(day) < 0 ? "is overdue" : "is due today"}.`));
   upcomingPeople(14).forEach(({ p, day }) => { const n = daysUntil(day);
     if (n === 0) s.push(`Today is ${personLabel(p, day)}.`); else if (giftDue(p, day)) s.push(`${personLabel(p, day)} is ${inDays(n)} — got a gift?`); });
   { const ex = leaveExtras(); if (ex.length) s.push(`Don't forget: ${ex.map(x => x.text.replace(/^\S+\s/, "").toLowerCase()).join(", ")}.`); }
@@ -769,6 +773,10 @@ function reminderList() {
     const at = atMs(today(), `${pad(Math.floor(R.morning / 60))}:${pad(R.morning % 60)}`);
     add(`mb:${today()}`, atMs(today(), "12:00"), at, `☀️ Good morning${S.name ? ", " + S.name : ""}`, morningBrief());
   }
+  S.upkeep.forEach(x => { const d = upkeepNext(x);
+    if (x.auto && inWin(addDays(d, -1))) add(`up:${x.id}:${d}`, atMs(d, "08:00"), atMs(addDays(d, -1), "19:00"), `${x.name} tomorrow`, "Put it out tonight.");
+    else if (!x.auto && inWin(d)) add(`up:${x.id}:${d}`, atMs(d, "23:59"), atMs(d, R.billHour), `${x.name} due ${d === today() ? "today" : prettyDate(d)}`, "Tap ✓ Done in Day Hub when it's handled.");
+  });
   S.people.forEach(p => {
     for (let day = from; day <= to; day = addDays(day, 1)) {
       if (personOn(p, day)) add(`pp:${p.id}:${day}`, atMs(day, "23:59"), atMs(day, "08:00"), `${PKIND[p.kind] || "⭐"} Today: ${personLabel(p, day)}`, "Call, text or a card?");
@@ -1652,6 +1660,8 @@ function dayItems(day) {
       tick: `${k}:${x.id}`, done: x.done, del: `${k}:${x.id}`, cal: `${k}:${x.id}` })); });
   S.work.shifts.filter(x => x.day === day).forEach(x => it.push({ t: x.start, end: x.end, title: "Work shift", sub: fmtH(shiftHours(x)), kind: "work", icon: "💼", cal: `shift:${x.id}` }));
   upcomingBills().filter(b => b.due === day).forEach(b => it.push({ t: null, title: `${b.name} due`, sub: money(b.amount), kind: "bill", icon: "💳", cal: `bill:${b.id}` }));
+  S.upkeep.filter(x => upkeepNext(x) === day || (day === today() && !x.auto && upkeepNext(x) < day)).forEach(x =>
+    it.push({ t: null, title: x.auto ? x.name : `${x.name} due`, sub: x.auto ? "" : upkeepWhen(x, upkeepNext(x)), kind: "upkeep", icon: x.area === "auto" ? "🚗" : "🏠" }));
   S.people.filter(p => personOn(p, day)).forEach(p => it.push({ t: null, title: personLabel(p, day), sub: giftDue(p, day) ? "🎁 gift?" : "", kind: "person", icon: PKIND[p.kind] || "⭐" }));
   S.countdowns.filter(c => c.date === day).forEach(c => it.push({ t: null, title: c.title, sub: "The day is here", kind: "cd", icon: "🎉" }));
   S.trips.forEach(tr => {
@@ -1915,6 +1925,51 @@ const leaveDone = () => S.leave.day === today() ? S.leave.done : [];
 const leaveAll = () => [...leaveExtras().map(x => ({ ...x, extra: true })), ...S.leave.items];
 const leaveLeft = () => { const d = leaveDone(); return leaveAll().filter(x => !d.includes(x.id)).length; };
 
+// ------------------------------------------------------- home & car upkeep
+// Scott 10/2 (list #9 + #10, "cont"): the things a house and a car need on a
+// clock - trash day, HVAC filter, smoke-alarm batteries, oil change,
+// registration, insurance... Tap a common one, set the date, ✓ Done restarts
+// the clock. Trash / recycling roll forward by themselves with a "cans out
+// tonight" nudge the evening before. On the schedule, the top of the screen,
+// the morning brief and as reminders.
+const UPKEEP_PRESETS = {
+  home: [["🗑️ Trash day", 1, "weeks", true], ["♻️ Recycling", 2, "weeks", true], ["🌬️ HVAC filter", 3, "months"], ["🔥 Smoke alarm batteries", 12, "months"],
+         ["🐜 Pest control", 3, "months"], ["🌱 Mow the lawn", 1, "weeks"], ["💧 Water heater flush", 12, "months"], ["🧺 Dryer vent clean", 12, "months"], ["🧊 Fridge water filter", 6, "months"]],
+  auto: [["🛢️ Oil change", 3, "months"], ["🛞 Tire rotation", 6, "months"], ["📋 Registration renewal", 12, "months"], ["🛡️ Insurance renewal", 6, "months"],
+         ["🔍 Inspection", 12, "months"], ["🧽 Car wash", 2, "weeks"], ["🌧️ Wiper blades", 12, "months"]],
+};
+const UNIT_WORD = { days: "day", weeks: "week", months: "month", years: "year" };
+function addEvery(day, n, unit) {
+  const d = parseDay(day); n = Number(n);
+  if (unit === "days") d.setDate(d.getDate() + n); else if (unit === "weeks") d.setDate(d.getDate() + 7 * n);
+  else { const m = unit === "years" ? 12 * n : n, dd = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + m);
+    d.setDate(Math.min(dd, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate())); }
+  return ymd(d);
+}
+function upkeepNext(x) {
+  const t = today();
+  if (x.auto) { let d = x.next || x.last; let guard = 0; while (d < t && guard++ < 600) d = addEvery(d, x.every, x.unit); return d; }
+  if (x.next) return x.next;
+  return addEvery(x.last, x.every, x.unit);
+}
+const upkeepDue = (area, within = 14) => S.upkeep.filter(x => !area || x.area === area).map(x => ({ x, day: upkeepNext(x) }))
+  .filter(o => daysUntil(o.day) <= within).sort((a, b) => a.day.localeCompare(b.day));
+const upkeepWhen = (x, day) => { const n = daysUntil(day);
+  return n < 0 ? `${-n} day${n === -1 ? "" : "s"} overdue` : n === 0 ? (x.auto ? "today" : "due today") : n === 1 ? "tomorrow" : `in ${n} days`; };
+let UPKEEP_EDIT = null, UPKEEP_PRESET = null;
+function upkeepCard(area) {
+  const list = S.upkeep.filter(x => x.area === area).map(x => ({ x, day: upkeepNext(x) })).sort((a, b) => a.day.localeCompare(b.day));
+  const chips = UPKEEP_PRESETS[area].filter(([n]) => !S.upkeep.some(x => x.area === area && x.name === n))
+    .map(([n], i) => `<button class="chip" data-upreset="${area}:${UPKEEP_PRESETS[area].findIndex(p => p[0] === n)}">${esc(n)}</button>`).join("");
+  return (list.length ? list.map(({ x, day }) => { const n = daysUntil(day);
+      return `<div class="row ${n < 0 ? "late" : ""}"><span class="grow"><b>${esc(x.name)}</b>
+          <span class="sub">${upkeepWhen(x, day)} · ${prettyDate(day)} · every ${x.every > 1 ? x.every + " " + x.unit : UNIT_WORD[x.unit]}</span></span>
+        ${!x.auto && n <= 14 ? `<button class="btn sm ghost" data-updone="${x.id}">✓ Done</button>` : ""}
+        <button class="x" data-upedit="${x.id}" aria-label="Edit">✏️</button></div>`; }).join("")
+      : `<div class="empty">${area === "home" ? "Trash day, filters, batteries — tap one to start:" : "Oil, tires, registration, insurance — tap one to start:"}</div>`) +
+    (chips ? `<div class="chips up-chips">${chips}</div>` : "");
+}
+
 function heroHtml() {
   const now = new Date(), h = now.getHours();
   const w = WXDATA && WXDATA.here;
@@ -1932,6 +1987,8 @@ function heroHtml() {
       : daysUntil(tr.end || tr.start) >= 0 ? `🚢 Enjoy ${esc(tr.name)}!` : `🏠 Welcome home from ${esc(tr.name)}`; }
 
   const chips = [];
+  upkeepDue(null, 1).filter(({ x, day }) => x.auto ? (daysUntil(day) === 0 || (daysUntil(day) === 1 && h >= 15)) : daysUntil(day) <= 0)
+    .slice(0, 2).forEach(({ x, day }) => chips.push(`<span class="chip ${daysUntil(day) < 0 ? "warn" : ""}">${esc(x.name)} ${x.auto && daysUntil(day) === 1 ? "tomorrow — out tonight" : upkeepWhen(x, day)}</span>`));
   upcomingPeople(3).forEach(({ p, day }) => { const n = daysUntil(day);
     chips.push(`<span class="chip ${n === 0 ? "good" : ""}">${PKIND[p.kind] || "⭐"} ${esc(n === 0 ? personLabel(p, day) + " — today!" : `${p.name} ${inDays(n)}`)}</span>`); });
   if (MODE !== "cruise" && h >= 5 && h < 11 && leaveLeft() && leaveDone().length < leaveAll().length && S.hidden.indexOf("leave") < 0)
@@ -2318,6 +2375,11 @@ const CARDS = {
         (later.length ? `<details class="steps"><summary>All dates (${S.people.length})</summary>${later.map(row).join("")}</details>` : "");
     } },
 
+  home: { icon: "🏠", title: "Home", add: ["upkeep", "Add something"],
+    meta: () => { const n = upkeepDue("home", 7).length; return n ? `${n} coming up` : ""; }, body: () => upkeepCard("home") },
+  auto: { icon: "🚗", title: "Car", add: ["upkeep", "Add something"],
+    meta: () => { const n = upkeepDue("auto", 14).length; return n ? `${n} coming up` : ""; }, body: () => upkeepCard("auto") },
+
   leave: { icon: "🚪", title: "Don't forget",
     meta: () => { const n = leaveLeft(); return n ? `${n} left` : "all set ✓"; },
     body: () => {
@@ -2603,7 +2665,7 @@ function micToggle(btn) {
 }
 
 function qaTypes() {
-  const t = [["dump", "🧠 Brain dump"], ["event", "📅 Event"], ["person", "🎂 Birthday / date"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["package", "📦 Package"], ["trip", "🚢 Trip"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
+  const t = [["dump", "🧠 Brain dump"], ["event", "📅 Event"], ["person", "🎂 Birthday / date"], ["upkeep", "🏠 Home / car"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["package", "📦 Package"], ["trip", "🚢 Trip"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
   if (S.pack === "trucker") t.splice(1, 0, ["loads", "🚚 Load"]);
   if (S.pack === "trades") t.splice(1, 0, ["jobs", "🔧 Job"]);
   return t;
@@ -2691,6 +2753,17 @@ function qaFields(type) {
       <label class="field">Gift reminder<select name="lead">${o(0, "Off", p.lead)}${o(7, "1 week before", p.lead)}${o(14, "2 weeks before", p.lead)}${o(21, "3 weeks before", p.lead)}${o(28, "4 weeks before", p.lead)}</select></label>
       <input name="ideas" placeholder="Gift ideas, sizes, favorites (optional)" value="${esc(p.ideas || "")}" autocomplete="off">
       ${PERSON_EDIT ? `<button type="button" class="btn sm ghost" data-pdel="${PERSON_EDIT}">Delete this date</button>` : ""}`; })(),
+    upkeep: (() => { const x = S.upkeep.find(y => y.id === UPKEEP_EDIT) || (UPKEEP_PRESET ? { area: UPKEEP_PRESET[0], name: UPKEEP_PRESET[1][0], every: UPKEEP_PRESET[1][1], unit: UPKEEP_PRESET[1][2], auto: !!UPKEEP_PRESET[1][3] } : { area: "home", every: 3, unit: "months" });
+      const o = (v, l, cur) => `<option value="${v}" ${String(v) === String(cur) ? "selected" : ""}>${l}</option>`;
+      return `<div class="two"><select name="area">${o("home", "🏠 Home", x.area)}${o("auto", "🚗 Car", x.area)}</select>
+          <input name="name" list="upList" placeholder="What? (e.g. HVAC filter)" value="${esc(x.name || "")}" required autocomplete="off"></div>
+        <datalist id="upList">${[...UPKEEP_PRESETS.home, ...UPKEEP_PRESETS.auto].map(([n]) => `<option value="${esc(n)}">`).join("")}</datalist>
+        <div class="two"><label class="field">Every<input name="every" type="number" min="1" max="99" value="${x.every || 1}" required></label>
+          <label class="field">&nbsp;<select name="unit">${["days", "weeks", "months", "years"].map(u => o(u, u, x.unit)).join("")}</select></label></div>
+        <label class="field">${x.auto ? "Next pickup day" : "Next due (or leave blank and set Last done)"}<input name="next" type="date" value="${x.next || (x.auto || !x.last ? (x.id ? upkeepNext(x) : "") : "")}"></label>
+        ${x.auto ? "" : `<label class="field">Last done<input name="last" type="date" value="${x.last || ""}"></label>`}
+        <label class="check"><input type="checkbox" name="auto" ${x.auto ? "checked" : ""}> Repeats on its own (like trash day) — no ✓ Done needed</label>
+        ${UPKEEP_EDIT ? `<button type="button" class="btn sm ghost" data-updel="${UPKEEP_EDIT}">Delete</button>` : ""}`; })(),
     countdown: `<input name="title" placeholder="What are you counting down to?" required autocomplete="off">
       <input name="date" type="date" min="${today()}" required>`,
     list: `<input name="name" placeholder="List name (e.g. Hardware store)" required autocomplete="off">`,
@@ -2722,7 +2795,7 @@ function qaFields(type) {
 let NOTE_EDIT = null, ERASE_ARMED = 0;
 let TRIP_EDIT = null, PORT_EDIT = null, PORT_DAY = null, PERK_EDIT = null;
 function openQA(type, keepEdit) {
-  if (!keepEdit) { TRIP_EDIT = null; PERSON_EDIT = null; }
+  if (!keepEdit) { TRIP_EDIT = null; PERSON_EDIT = null; UPKEEP_EDIT = null; UPKEEP_PRESET = null; }
   QA_TYPE = type || QA_TYPE;
   if (QA_TYPE !== "dump") DUMP = [];
   if (RECOG) RECOG.stop();
@@ -2758,6 +2831,14 @@ function submitQA(f) {
     // Added after this month's due day = treat this month as handled; before it = due this month.
     const paid = day < now.getDate() ? today().slice(0, 7) : prevMonthKey();
     S.bills.push({ id: uid(), name: d.title.trim(), amount: Number(d.amount), day, paid });
+  }
+  else if (ty === "upkeep") {
+    const auto = !!d.auto, rec = { area: d.area, name: d.name.trim(), every: Math.max(1, Number(d.every) || 1), unit: d.unit, auto,
+      next: d.next || null, last: auto ? null : (d.last || (d.next ? null : today())) };
+    if (auto && !rec.next) rec.next = today();
+    const old = S.upkeep.find(x => x.id === UPKEEP_EDIT);
+    if (old) Object.assign(old, rec); else S.upkeep.push({ id: uid(), ...rec });
+    UPKEEP_EDIT = UPKEEP_PRESET = null;
   }
   else if (ty === "person") {
     const rec = { name: d.name.trim(), kind: d.kind || "birthday", md: d.date.slice(5), year: d.noyear ? null : Number(d.date.slice(0, 4)),
@@ -2929,6 +3010,11 @@ document.addEventListener("click", e => {
     pick.filter(Boolean).forEach(x => { x.day = T1; }); save(); render(); toast(`Moved to tomorrow (${pick.length})`, true); return; }
   if (ds.rmdel) { S.remember = S.remember.filter(r => r.id !== ds.rmdel); save(); render(); return; }
   if (ds.syncall) { syncTap(); return; }
+  if (ds.upreset) { const [a, i] = ds.upreset.split(":"); UPKEEP_EDIT = null; UPKEEP_PRESET = [a, UPKEEP_PRESETS[a][Number(i)]]; openQA("upkeep", true); return; }
+  if (ds.upedit) { UPKEEP_EDIT = ds.upedit; UPKEEP_PRESET = null; openQA("upkeep", true); return; }
+  if (ds.updone) { const x = S.upkeep.find(y => y.id === ds.updone); if (x) { snap(); x.last = today(); x.next = null; save(); render(); buzz();
+    toast(`✓ ${x.name.replace(/^\S+\s/, "")} — next ${prettyDate(upkeepNext(x))}`, true); } return; }
+  if (ds.updel) { snap(); S.upkeep = S.upkeep.filter(x => x.id !== ds.updel); UPKEEP_EDIT = null; closeQA(); save(); render(); toast("Deleted", true); return; }
   if (ds.pedit) { PERSON_EDIT = ds.pedit; openQA("person", true); return; }
   if (ds.pgot) { const p = S.people.find(x => x.id === ds.pgot); if (p) { p.got[personNext(p).slice(0, 4)] = true; save(); render(); buzz(); toast("🎁 Got it ✓"); } return; }
   if (ds.pdel) { snap(); S.people = S.people.filter(x => x.id !== ds.pdel); PERSON_EDIT = null; closeQA(); save(); render(); toast("Date deleted", true); return; }
