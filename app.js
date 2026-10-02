@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.17";
+const VERSION = "0.18";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -77,27 +77,54 @@ const blank = () => ({
 let S;                     // loaded at start-up, after the date helpers exist
 let WXDATA = null;          // { here, from, to } weather payloads (not stored)
 let VIEW = null;            // the day the schedule shows (YYYY-MM-DD)
+let LAST_DAY = null;        // today() at the last render - spots midnight
 let QA_TYPE = "event";
 let UNDO = null, toastTimer = null;
 let GTOKEN = null, GTOKEN_EXP = 0, gisLoading = null;
 
 function load() {
   let s;
-  try { s = Object.assign(blank(), JSON.parse(localStorage.getItem(STORE) || "{}")); }
-  catch (e) { s = blank(); }
+  try { s = JSON.parse(localStorage.getItem(STORE) || "{}"); }
+  catch (e) { s = {}; }
+  return normalize(s);
+}
+// Start-up AND restore/import both come through here (v0.17 restore skipped it,
+// so an old backup could stop reminders). Bad or old-shape data is repaired
+// rather than allowed to blank the app: one broken entry is dropped, not fatal.
+function normalize(raw) {
+  const s = Object.assign(blank(), raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {});
+  const obj = v => v && typeof v === "object" && !Array.isArray(v);
+  const isDay = v => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
+  const isT = v => typeof v === "string" && /^\d{1,2}:\d{2}$/.test(v);
+  ["events", "todos", "loads", "jobs", "bills", "countdowns", "lists", "hidden", "collapsed", "packages", "notes", "trips"]
+    .forEach(k => { s[k] = Array.isArray(s[k]) ? s[k].filter(x => x != null && (typeof x === "string" ? ["hidden", "collapsed"].includes(k) : typeof x === "object")) : []; });
+  s.events = s.events.filter(e => isDay(e.day) && (!e.time || isT(e.time)));
+  s.loads = s.loads.filter(x => isDay(x.day) && isT(x.time));
+  s.jobs = s.jobs.filter(x => isDay(x.day) && isT(x.time));
+  s.countdowns = s.countdowns.filter(c => isDay(c.date));
+  s.bills = s.bills.filter(b => Number(b.day) >= 1 && Number(b.day) <= 31);
+  s.bills.forEach(b => { b.day = Number(b.day); });
+  s.lists = s.lists.filter(l => l.id).map(l => ({ ...l, items: Array.isArray(l.items) ? l.items : [] }));
+  if (!s.lists.length) s.lists = blank().lists;
+  if (!s.lists.some(l => l.id === s.listSel)) s.listSel = s.lists[0].id;
+  if (!PACKS[s.pack]) s.pack = "general";
+  if (!obj(s.route)) s.route = blank().route;
   // v0.2 bills stored paid = null; v0.3 reads paid as "paid THROUGH this month",
   // so null would show last month's bill as late. Treat old bills as current.
   const pm = prevMonthKey();
   s.bills.forEach(b => { if (!b.paid) b.paid = pm; });
-  if (!s.gcal) s.gcal = { connected: false, events: [], fetched: null };
-  s.work = Object.assign(blank().work, s.work || {});
-  s.sync = Object.assign(blank().sync, s.sync || {});
-  s.remind = Object.assign(blank().remind, s.remind || {});
-  s.money = Object.assign(blank().money, s.money || {});
-  if (!Array.isArray(s.packages)) s.packages = [];
-  s.mail = Object.assign(blank().mail, s.mail || {});
-  if (!Array.isArray(s.trips)) s.trips = [];
-  if (!Array.isArray(s.notes)) s.notes = [];
+  s.gcal = Object.assign(blank().gcal, obj(s.gcal) ? s.gcal : {});
+  if (!Array.isArray(s.gcal.events)) s.gcal.events = [];
+  s.work = Object.assign(blank().work, obj(s.work) ? s.work : {});
+  s.work.shifts = Array.isArray(s.work.shifts) ? s.work.shifts.filter(x => obj(x) && isDay(x.day) && isT(x.start) && isT(x.end)) : [];
+  s.sync = Object.assign(blank().sync, obj(s.sync) ? s.sync : {});
+  s.remind = Object.assign(blank().remind, obj(s.remind) ? s.remind : {});
+  if (!obj(s.remind.fired)) s.remind.fired = {};
+  s.money = Object.assign(blank().money, obj(s.money) ? s.money : {});
+  if (!Array.isArray(s.money.spends)) s.money.spends = [];
+  s.mail = Object.assign(blank().mail, obj(s.mail) ? s.mail : {});
+  if (!obj(s.mail.seen)) s.mail.seen = {};
+  if (!Array.isArray(s.mail.found)) s.mail.found = [];
   return s;
 }
 function saveLocal() {
@@ -132,7 +159,7 @@ const fmtTime = iso => iso ? new Date(iso).toLocaleTimeString([], { hour: "numer
 const hm = t => { if (!t) return ""; const [h, m] = t.split(":").map(Number); const d = new Date(); d.setHours(h, m);
   return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); };
 const uid = () => Math.random().toString(36).slice(2, 10);
-const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const money = n => "$" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const buzz = () => { try { navigator.vibrate && navigator.vibrate(8); } catch (e) { /* no haptics */ } };
 
@@ -368,8 +395,11 @@ async function restoreNow() {
 }
 function restoreFrom(cloud) {
   snap();
-  const keepCal = S.gcal;
-  S = Object.assign(blank(), cloud.data);
+  const keepCal = S.gcal, keepFired = S.remind.fired;
+  S = normalize(cloud.data);
+  // Keep this phone's "already fired" marks: an older backup's marks alone
+  // would let a reminder from the last few hours fire a second time.
+  S.remind.fired = Object.assign({}, S.remind.fired, keepFired);
   S.gcal = keepCal; S.sync = { on: true, last: cloud.savedAt, dirty: false };
   CLOUD_PENDING = null; saveLocal(); drawSyncBox(); render(); loadWeather();
   toast(`Restored from ${new Date(cloud.savedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`, true);
@@ -516,7 +546,9 @@ function icsFor(ref) {
   const txt = v => String(v || "").replace(/[\\,;]/g, m => "\\" + m).replace(/\n/g, "\\n");
   let ev = null;
   if (k === "events") { const e = S.events.find(x => x.id === id); if (e) { const [ed, et] = plusMin(e.day, e.time, 60);
-    const rr = { daily: "FREQ=DAILY", weekdays: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", weekly: "FREQ=WEEKLY", monthly: "FREQ=MONTHLY", yearly: "FREQ=YEARLY" }[e.rep];
+    const md = Number(e.day.slice(8)), feb29 = e.day.slice(5) === "02-29";
+    const rr = { daily: "FREQ=DAILY", weekdays: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", weekly: "FREQ=WEEKLY",
+      monthly: md > 28 ? `FREQ=MONTHLY;${mdRule(md)}` : "FREQ=MONTHLY", yearly: feb29 ? `FREQ=YEARLY;BYMONTH=2;${mdRule(29)}` : "FREQ=YEARLY" }[e.rep];
     ev = [`SUMMARY:${txt(e.title)}`, e.where ? `LOCATION:${txt(e.where)}` : "", `DTSTART:${D(e.day, e.time)}`,
           `DTEND:${D(ed, et)}${rr ? `\nRRULE:${rr}` : ""}`, `TRIGGER:-PT${lead}M`, e.title]; } }
   else if (k === "loads" || k === "jobs") { const x = S[k].find(y => y.id === id); if (x) { const [ed, et] = plusMin(x.day, x.time, 60);
@@ -525,14 +557,33 @@ function icsFor(ref) {
     ev = ["SUMMARY:Work shift", "", `DTSTART:${D(x.day, x.start)}`, `DTEND:${D(ed, x.end)}`, `TRIGGER:-PT${lead}M`, "Work shift"]; } }
   else if (k === "bill") { const b = S.bills.find(y => y.id === id); const due = b && nextDue(b); if (due) {
     const nx = addDays(due, 1).replace(/-/g, "");
-    ev = [`SUMMARY:${txt(b.name)} due ${money(b.amount)}`, "", `DTSTART;VALUE=DATE:${due.replace(/-/g, "")}`,
-          `DTEND;VALUE=DATE:${nx}\nRRULE:FREQ=MONTHLY;BYMONTHDAY=${b.day >= 29 ? -1 : b.day}`, "TRIGGER:-PT15H", `${b.name} bill`]; } }
+    ev = [`SUMMARY:${txt(`${b.name} due ${money(b.amount)}`)}`, "", `DTSTART;VALUE=DATE:${due.replace(/-/g, "")}`,
+          `DTEND;VALUE=DATE:${nx}\nRRULE:FREQ=MONTHLY;${mdRule(b.day)}`, "TRIGGER:-PT15H", `${b.name} bill`]; } }
   if (!ev) return null;
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
+  // DESCRIPTION reuses the SUMMARY text, which is already escaped (v0.17
+  // escaped it twice: the alarm read "Dinner\, Bob").
   const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Day Hub//EN", "BEGIN:VEVENT", `UID:${ref.replace(":", "-")}@dayhub`, `DTSTAMP:${stamp}`,
-    ev[0], ev[1], ev[2], ev[3], "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${txt(ev[0].slice(8))}`, ev[4], "END:VALARM", "END:VEVENT", "END:VCALENDAR"]
-    .filter(Boolean).join("\r\n").replace(/\n(?!$)/g, "\r\n").replace(/\r\r/g, "\r");
+    ev[0], ev[1], ev[2], ev[3], "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${ev[0].slice(8)}`, ev[4], "END:VALARM", "END:VEVENT", "END:VCALENDAR"]
+    .filter(Boolean).join("\n").split("\n").map(icsFold).join("\r\n");
   return { text: lines, name: ev[5] };
+}
+// Day-of-month for an RRULE, clamped the way Day Hub shows it: the 31st = last
+// day; the 29th / 30th = that day or the month's last day if it is shorter
+// (v0.17 sent -1 for both, so a 30th bill landed on the 31st).
+function mdRule(day) {
+  if (day <= 28) return `BYMONTHDAY=${day}`;
+  if (day >= 31) return "BYMONTHDAY=-1";
+  const ds = []; for (let n = 28; n <= day; n++) ds.push(n);
+  return `BYMONTHDAY=${ds.join(",")};BYSETPOS=-1`;
+}
+// RFC 5545: lines over 75 octets are folded (CRLF + space).
+function icsFold(line) {
+  const enc = new TextEncoder(); let out = "", cur = "", n = 0;
+  for (const ch of line) { const b = enc.encode(ch).length;
+    if (n + b > (out ? 74 : 75)) { out += (out ? "\r\n " : "") + cur; cur = ""; n = 0; }
+    cur += ch; n += b; }
+  return out ? out + "\r\n " + cur : cur;
 }
 function addToPhoneCalendar(ref) {
   const r = icsFor(ref);
@@ -559,8 +610,9 @@ function occursOn(x, day) {
     case "daily": return true;
     case "weekdays": return d.getDay() >= 1 && d.getDay() <= 5;
     case "weekly": return d.getDay() === s0.getDay();
-    case "monthly": return d.getDate() === s0.getDate();
-    case "yearly": return d.getMonth() === s0.getMonth() && d.getDate() === s0.getDate();
+    // Clamped like bills: a 31st lands on the 30th in 30-day months, a Feb 29 on Feb 28 in other years.
+    case "monthly": return d.getDate() === Math.min(s0.getDate(), new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate());
+    case "yearly": return d.getMonth() === s0.getMonth() && d.getDate() === Math.min(s0.getDate(), new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate());
     default: return day === x.day;
   }
 }
@@ -683,7 +735,10 @@ function ldBlocks(html) {
 }
 
 const nm = x => (x && (typeof x === "string" ? x : x.name || x.iataCode)) || "";
-const dtOf = v => { if (!v) return null; const d = new Date(v); return isNaN(d) ? null : { day: ymd(d), time: /T\d/.test(String(v)) ? hhmm(d) : null }; };
+// A date-only "2026-10-03" is parsed by new Date() as UTC midnight = 7 PM the
+// day BEFORE in Central, so packages read "arriving" a day early. Keep it as is.
+const dtOf = v => { if (!v) return null; if (/^\d{4}-\d{2}-\d{2}$/.test(String(v).trim())) return { day: String(v).trim(), time: null };
+  const d = new Date(v); return isNaN(d) ? null : { day: ymd(d), time: /T\d/.test(String(v)) ? hhmm(d) : null }; };
 
 // One message -> zero or more suggestions. Pure: unit-tested without Gmail.
 function extractFromMessage(msg) {
@@ -1335,6 +1390,9 @@ const toMin = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m;
 function shiftHours(x) {
   let m = toMin(x.end) - toMin(x.start);
   if (m < 0) m += 1440;                                  // overnight shift
+  // Real clock time, so a shift over the clock change counts 9 h (Nov) / 7 h (Mar).
+  if (x.day && m > 0) m = Math.round((atMs(m + toMin(x.start) >= 1440 ? addDays(x.day, 1) : x.day, x.end) - atMs(x.day, x.start)) / 60000);
+  if (x.mins != null) m = Number(x.mins);                // clock in/out: the measured minutes (can pass 24 h)
   return Math.max(0, m - Number(x.brk || 0)) / 60;
 }
 function weekStart(iso) { const d = parseDay(iso); const dow = (d.getDay() + 6) % 7; d.setDate(d.getDate() - dow); return ymd(d); }
@@ -1877,6 +1935,10 @@ function welcomeHtml() {
 function render() {
   const t = today();
   if (!VIEW || (VIEW < addDays(t, -60))) VIEW = t;
+  // Left open past midnight: a schedule that was on "today" moves to the new
+  // today instead of reading "Yesterday" until the app is reopened.
+  if (LAST_DAY && LAST_DAY !== t && VIEW === LAST_DAY) VIEW = t;
+  LAST_DAY = t;
   paintHero();
   const hr = new Date().getHours();
   let order = cardOrder().filter(k => !S.hidden.includes(k) && !(k === "tomorrow" && hr < 15) && !(k === "inbox" && !S.mail.on && !S.mail.found.length));
@@ -2164,7 +2226,7 @@ document.addEventListener("click", e => {
   if (ds.clock === "in") { S.work.clockIn = new Date().toISOString(); save(); render(); buzz(); toast("Clocked in ✓"); return; }
   if (ds.clock === "out") { const st = new Date(S.work.clockIn), en = new Date();
     snap();
-    if (en - st >= 60000) S.work.shifts.push({ id: uid(), day: ymd(st), start: hhmm(st), end: hhmm(en), brk: 0 });
+    if (en - st >= 60000) S.work.shifts.push({ id: uid(), day: ymd(st), start: hhmm(st), end: hhmm(en), brk: 0, mins: Math.round((en - st) / 60000) });
     S.work.clockIn = null; save(); render(); buzz(); toast(`Clocked out · ${fmtH((en - st) / 3600000)}`, true); return; }
   if (ds.addfound) { addFound(ds.addfound); return; }
   if (ds.dropfound) { snap(); S.mail.found = S.mail.found.filter(x => x.key !== ds.dropfound); save(); render(); toast("Dismissed", true); return; }
@@ -2298,7 +2360,19 @@ function closeSettings() {
 
 // --------------------------------------------------------------- start
 S = load();
-render();
+// If saved data still breaks the first draw, never leave a blank screen with
+// the Erase button out of reach: offer to save the raw data, then start fresh.
+try { render(); }
+catch (e) {
+  console.warn("Day Hub could not draw saved data", e);
+  document.getElementById("cards").innerHTML = `<section class="card"><h3>Something in your saved data won't open</h3><div class="body">
+    <p>Save a copy first, then start fresh. Nothing is erased until you tap Start fresh.</p>
+    <div class="foot-actions"><button class="btn sm" id="bootSave">Save a copy</button><button class="btn sm ghost" id="bootReset">Start fresh</button></div></div></section>`;
+  document.getElementById("bootSave").onclick = () => { const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([localStorage.getItem(STORE) || ""], { type: "application/json" }));
+    a.download = "dayhub-saved-data.json"; document.body.appendChild(a); a.click(); };
+  document.getElementById("bootReset").onclick = () => { S = blank(); saveLocal(); location.reload(); };
+}
 loadWeather();
 setInterval(tick, 10000);
 // Once a minute: move the NOW line and the chips - unless someone is typing.

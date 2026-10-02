@@ -1,6 +1,16 @@
 {
- "version": "0.17",
+ "version": "0.18",
  "notes": {
+  "0.18": [
+   "Fix: a pasted link (Zoom, maps) no longer pushes the delete button off the screen",
+   "Fix: package and email dates no longer land a day early",
+   "Fix: left open past midnight, the schedule moves to the new day",
+   "Fix: monthly events on the 29th-31st and Feb 29 birthdays show every month / year (on the last day when the month is shorter)",
+   "Fix: 📲 bills due on the 29th or 30th land on the right day in your phone calendar; alarm text no longer shows stray backslashes",
+   "Fix: shifts over the clock change count the real hours; clock-ins over 24 hours count in full",
+   "Fix: restoring a backup keeps reminders working and never repeats one",
+   "Safety: damaged saved data can no longer leave a blank screen"
+  ],
   "0.17": [
    "📝 Notes: jot things down, pin the important ones, tap to edit",
    "Your data (⚙): download a backup file, load one back, or erase everything (undo-able)",

@@ -337,12 +337,68 @@ def t_notes_data(b, base):
     a.close()
 
 
+def boot_with(b, base, data, at="2026-10-01T08:00:00"):
+    """A phone whose saved data is `data` (raw string), reopened."""
+    a = App(b, base, at=at)
+    a.js("(d) => localStorage.setItem('dayhub.v1', d)", data)
+    a.page.reload(); a.page.wait_for_timeout(500)
+    return a
+
+
+def t_v018_fixes(b, base):
+    # Each check here is a bug found in the 2026-10-02 deep test of v0.17.
+    print("\n[v0.18 fixes - edge cases]")
+    a = App(b, base); setup(a)
+    a.qa("event", {"title": "Zoom", "date": "2026-10-01", "time": "10:00",
+                   "where": "https://us02web.zoom.us/j/81234567890?pwd=abcdefghijklmnopqrstuvwxyz123456"})
+    a.js("closeQA()")
+    check("pasted link: ✕ stays on screen", a.js("[...document.querySelectorAll('[data-card=schedule] .ti .x')].every(x => x.getBoundingClientRect().right <= innerWidth)"))
+    check("pasted link: no sideways scrolling", a.js("document.documentElement.scrollWidth <= document.documentElement.clientWidth"))
+    check("email date-only '2026-10-03' stays Oct 3", a.js("dtOf('2026-10-03')") == {"day": "2026-10-03", "time": None}, a.js("dtOf('2026-10-03')"))
+    check("monthly on the 31st shows Nov 30 (and not Nov 29)", a.js("occursOn({day:'2026-10-31',rep:'monthly'},'2026-11-30') && !occursOn({day:'2026-10-31',rep:'monthly'},'2026-11-29') && occursOn({day:'2026-10-31',rep:'monthly'},'2026-12-31')"))
+    check("Feb 29 yearly shows Feb 28 in 2029, Feb 29 in 2032", a.js("occursOn({day:'2028-02-29',rep:'yearly'},'2029-02-28') && occursOn({day:'2028-02-29',rep:'yearly'},'2032-02-29') && !occursOn({day:'2028-02-29',rep:'yearly'},'2032-02-28')"))
+    check("overnight shift on Nov 1 (clock change) = 9 h", a.js("shiftHours({day:'2026-10-31',start:'22:00',end:'06:00',brk:0})") == 9)
+    check("normal overnight shift = 8 h", a.js("shiftHours({day:'2026-10-07',start:'22:00',end:'06:00',brk:0})") == 8)
+    check("clocked in 26 h counts 26 h", a.js("shiftHours({day:'2026-10-01',start:'08:00',end:'10:00',brk:0,mins:1560})") == 26)
+    a.qa("bill", {"title": "Car", "amount": "1200", "day": "30"})
+    a.qa("event", {"title": "Dinner, Bob", "date": "2026-10-01", "time": "19:00"})
+    bill = a.js("icsFor('bill:' + S.bills[0].id).text")
+    check(".ics bill on the 30th never lands on the 31st", "BYMONTHDAY=28,29,30;BYSETPOS=-1" in bill and "BYMONTHDAY=-1" not in bill, bill)
+    check(".ics bill amount comma escaped", "$1\\,200.00" in bill)
+    din = a.js("icsFor('events:' + S.events.find(e => e.title === 'Dinner, Bob').id).text")
+    check(".ics alarm text escaped once", "DESCRIPTION:Dinner\\, Bob\r\n" in din, din)
+    check(".ics lines folded at 75 octets", all(len(l.encode()) <= 75 for l in a.js("icsFor('events:' + S.events[0].id).text").split("\r\n")))
+    a.close()
+
+    a = App(b, base, at="2026-10-01T23:58:00"); setup(a)
+    a.page.clock.run_for("00:03:00"); a.page.wait_for_timeout(200)
+    check("open past midnight: schedule moves to the new day", a.js("VIEW") == "2026-10-02" and "Yesterday" not in a.card("schedule"))
+    a.close()
+
+    a = App(b, base); setup(a)
+    a.js("S.remind.fired = {'ev:x:2026-10-01': Date.now()}; saveLocal()")
+    a.js("restoreFrom({savedAt: new Date().toISOString(), data: {name: 'Old', bills: [{id:'b', name:'Gas', amount: 50, day: 9, paid: null}], remind: {on: true}}})")
+    check("old backup restore: reminders still have their marks", a.js("typeof S.remind.fired === 'object' && !!S.remind.fired['ev:x:2026-10-01']"))
+    check("old backup restore: old bill not shown late", a.js("upcomingBills()[0].due") == "2026-10-09")
+    check("old backup restore: checkReminders runs", a.js("checkReminders().then(() => true)"))
+    a.close()
+
+    for label, data in [("empty slots", '{"name":"S","events":null,"todos":null,"bills":null,"lists":null}'),
+                        ("text instead of lists", '{"name":"S","events":"x","todos":"y","lists":"z","pack":"nope"}'),
+                        ("entries missing their date", '{"name":"S","city":"72032","events":[{"id":"a"}],"bills":[{"id":"c"}],"work":{"shifts":[{"id":"s"}]}}')]:
+        before = len(ERRORS)
+        a = boot_with(b, base, data)
+        check(f"damaged data ({label}) still opens", a.js("document.querySelectorAll('[data-card]').length > 0") and len(ERRORS) == before,
+              "; ".join(ERRORS[before:])[:200])
+        a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
         b = p.chromium.launch()
         for t in (t_first_run, t_schedule, t_todos_lists_countdowns, t_bills_budget_work, t_packages_email,
-                  t_trips_cruise, t_reminders_backup_update, t_notes_data, t_settings_layout_offline):
+                  t_trips_cruise, t_reminders_backup_update, t_notes_data, t_settings_layout_offline, t_v018_fixes):
             try:
                 t(b, base)
             except Exception as e:
