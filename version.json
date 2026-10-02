@@ -1,6 +1,12 @@
 {
- "version": "0.20",
+ "version": "0.21",
  "notes": {
+  "0.21": [
+   "☀️ Morning brief: the first time you open Day Hub each morning, your whole day on one screen — weather and what to bring, your first appointment, top to-dos, bills, packages and last night's 📌 notes. 🔊 Read it to me reads it out loud",
+   "🔄 Syncs every time you open it: your calendar (both ways), backup, email and weather update by themselves",
+   "When Google's sign-in runs out (about an hour), one 🔄 Tap to sync button renews everything at once",
+   "Cards you open or close stay that way after you close the app, even when a backup syncs in"
+  ],
   "0.20": [
    "🛏️ Nightly reset (from 6 PM): see what got done, wrap up what didn't (✓ done, ✕ drop, → move to tomorrow), and a look at tomorrow",
    "📌 \"Anything to remember tomorrow?\" comes back on your morning screen and in the 7 AM brief",

@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.20";
+const VERSION = "0.21";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -238,7 +238,9 @@ async function forecast(place) {
            sunrise: D.sunrise[0], sunset: D.sunset[0], rainFrom } };
 }
 
+let WX_AT = 0;
 async function loadWeather() {
+  WX_AT = Date.now();
   WXDATA = {};
   try {
     if (S.city) { const p = await geocode(S.city); if (p) WXDATA.here = await forecast(p); }
@@ -249,6 +251,7 @@ async function loadWeather() {
     }
   } catch (e) { WXDATA.error = "Weather unavailable right now."; }
   render();
+  if (briefOpen()) showBrief();
 }
 
 // ------------------------------------------------------- google calendar
@@ -272,7 +275,7 @@ async function gcalConnect() {
     client_id: GCAL_CLIENT_ID, scope: GCAL_SCOPE, prompt: S.gcal.connected && S.gcal.scope === GCAL_SCOPE && !S.gcal.needsWrite ? "" : "consent",
     callback: async r => {
       if (r.error) { toast("Google sign-in was cancelled"); return; }
-      GTOKEN = r.access_token; GTOKEN_EXP = Date.now() + ((r.expires_in || 3600) - 60) * 1000;
+      GTOKEN = r.access_token; GTOKEN_EXP = Date.now() + ((r.expires_in || 3600) - 60) * 1000; saveTokens();
       if (!google.accounts.oauth2.hasGrantedAllScopes(r, GCAL_SCOPE)) { toast("Day Hub needs the calendar box ticked — tap Connect again and tick it"); GTOKEN = null; return; }
       S.gcal.connected = true; S.gcal.scope = GCAL_SCOPE; S.gcal.needsWrite = false; save();
       await gcalFetch(); await gcalPush();
@@ -281,7 +284,7 @@ async function gcalConnect() {
   client.requestAccessToken();
 }
 
-async function gcalFetch() {
+async function gcalFetch(quiet) {
   if (!gReady()) { render(); return; }
   const from = parseDay(today()); from.setDate(from.getDate() - 1);
   const to = new Date(from); to.setDate(to.getDate() + 16);
@@ -299,8 +302,8 @@ async function gcalFetch() {
                end: e.end && e.end.dateTime ? hhmm(new Date(e.end.dateTime)) : null, where: e.location || "" };
     });
     S.gcal.fetched = new Date().toISOString(); saveLocal(); render();
-    toast("Google Calendar synced ✓");
-  } catch (e) { toast("Google Calendar didn't answer — try again"); }
+    if (!quiet) toast("Google Calendar synced ✓");
+  } catch (e) { if (!quiet) toast("Google Calendar didn't answer — try again"); }
 }
 
 // ------------------------------------ Day Hub -> Google Calendar (two-way)
@@ -390,9 +393,139 @@ async function gcalPush() {
   } finally { gPushing = false; render(); }
 }
 
+// ------------------------------------------------------------ sync on open
+// Scott 10/2: "MAKE THING SYNC WHEN APP OPENS SO ALWAYS UPDATED". Every open
+// (and every return to the app) pulls/pushes everything it can: weather, the
+// update check, Google Calendar both ways, the Drive backup (a newer copy from
+// another device comes in by itself) and email. Google's sign-in lasts about an
+// hour and a web app cannot renew it in the background, so the tokens are kept
+// across closing/reopening (this phone only, never backed up) and, once they
+// run out, ONE tap ("🔄 Tap to sync") renews all three Google links together.
+const TOK_KEY = "dayhub.gtok";
+function saveTokens() {
+  try { localStorage.setItem(TOK_KEY, JSON.stringify({ g: [GTOKEN, GTOKEN_EXP], d: [DTOKEN, DTOKEN_EXP], m: [MTOKEN, MTOKEN_EXP] })); } catch (e) { /* private mode */ }
+}
+function loadTokens() {
+  try {
+    const t = JSON.parse(localStorage.getItem(TOK_KEY) || "{}"), now = Date.now(), ok = x => Array.isArray(x) && x[0] && x[1] > now;
+    if (ok(t.g)) [GTOKEN, GTOKEN_EXP] = t.g;
+    if (ok(t.d)) [DTOKEN, DTOKEN_EXP] = t.d;
+    if (ok(t.m)) [MTOKEN, MTOKEN_EXP] = t.m;
+  } catch (e) { /* none kept */ }
+}
+// Which Google links are on but signed out (they need the one tap).
+const needTap = () => [S.gcal.connected && !gReady() && "gcal", S.sync.on && !dReady() && "sync", S.mail.on && !mReady() && can("mail") && "mail"].filter(Boolean);
+let LAST_SYNC = 0;
+async function syncDrive() {
+  try {
+    const cloud = await driveDownload();
+    const newer = cloud && hasData(cloud.data) && cloud.savedAt > (S.sync.last || "");
+    if (newer && !S.sync.dirty) { restoreFrom(cloud); return; }           // changed on another device
+    if (newer) { CLOUD_PENDING = cloud; toast("Day Hub changed on another device too — ⚙ Backup to choose"); return; }
+    if (S.sync.dirty) await driveUpload();
+  } catch (e) { /* stays dirty; next open tries again */ }
+}
+async function syncOnOpen(force) {
+  if (!force && Date.now() - LAST_SYNC < 60000) return;
+  LAST_SYNC = Date.now();
+  if (Date.now() - WX_AT > 15 * 60000) loadWeather();
+  checkUpdate();
+  if (S.gcal.connected && gReady()) { await gcalFetch(true); await gcalPush(); }
+  if (S.sync.on && dReady()) await syncDrive();
+  if (S.mail.on && mReady() && can("mail")) scanMail();
+  render();
+}
+// The one tap: a single Google window for every link that is on.
+async function syncTap() {
+  const want = needTap(); if (!want.length) { syncOnOpen(true); return; }
+  const scopes = { gcal: GCAL_SCOPE, sync: DRIVE_SCOPE, mail: GMAIL_SCOPE };
+  try { await loadGis(); } catch (e) { toast("Couldn't reach Google — check your connection"); return; }
+  google.accounts.oauth2.initTokenClient({
+    client_id: GCAL_CLIENT_ID, scope: want.map(k => scopes[k]).join(" "), prompt: "", include_granted_scopes: true,
+    callback: r => {
+      if (r.error) { toast("Google sign-in was cancelled"); return; }
+      const exp = Date.now() + ((r.expires_in || 3600) - 60) * 1000, has = sc => google.accounts.oauth2.hasGrantedAllScopes(r, sc);
+      if (has(GCAL_SCOPE)) { GTOKEN = r.access_token; GTOKEN_EXP = exp; }
+      if (has(DRIVE_SCOPE)) { DTOKEN = r.access_token; DTOKEN_EXP = exp; }
+      if (has(GMAIL_SCOPE)) { MTOKEN = r.access_token; MTOKEN_EXP = exp; }
+      saveTokens(); toast("Syncing…"); syncOnOpen(true);
+    },
+    error_callback: () => toast("Sign-in window closed"),
+  }).requestAccessToken();
+}
+
+// ------------------------------------------------------ smart morning brief
+// Scott 10/2 ("now morning brief"): the signature Day Hub screen. First open
+// of the morning (4-11 AM) it fills the screen: a spoken-style summary, the
+// weather with what to bring, today's plan, top to-dos, money and packages,
+// 📌 notes from last night's reset - and 🔊 reads it out loud.
+function briefLines() {
+  const t = today(), w = WXDATA && WXDATA.here, items = dayItems(t), plans = items.filter(isPlan), s = [];
+  if (w && w.cur) {
+    s.push(`It's ${Math.round(w.cur.temperature_2m)}° and ${wmo(w.cur.weather_code)[1]}, with a high of ${Math.round(w.day.hi)}°` +
+      (w.day.rainFrom ? ` — rain likely after ${fmtTime(w.day.rainFrom)}.` : w.day.rain < 20 ? " and no rain." : "."));
+  }
+  const todo = S.todos.filter(x => todoShown(x) && !todoDone(x)).length;
+  s.push(plans.length || todo ? `You have ${plans.length ? `${plans.length} thing${plans.length === 1 ? "" : "s"} on the schedule` : "nothing on the schedule"}${todo ? ` and ${todo} to-do${todo === 1 ? "" : "s"}` : ""}.`
+    : "Your day is wide open.");
+  const f = plans.find(i => i.t && i.t >= nowT());
+  if (f) s.push(`Your first one is at ${hm(f.t)}: ${f.title}.`);
+  S.remember.filter(r => r.day === t).forEach(r => s.push(`You asked to remember: ${r.text}.`));
+  upcomingBills().filter(b => daysUntil(b.due) <= 2).forEach(b => s.push(`${b.name} (${money(b.amount)}) is ${daysUntil(b.due) < 0 ? "late" : "due " + inDays(daysUntil(b.due))}.`));
+  const pk = items.filter(i => i.kind === "pkg").length;
+  if (pk) s.push(`${pk} package${pk === 1 ? " is" : "s are"} arriving today.`);
+  const cd = liveCountdowns().find(c => daysUntil(c.date) > 0 && daysUntil(c.date) <= 60);
+  if (cd) s.push(`${daysUntil(cd.date)} day${daysUntil(cd.date) === 1 ? "" : "s"} until ${cd.title}.`);
+  return s;
+}
+const briefOpen = () => { const el = document.getElementById("brief"); return !!el && !el.classList.contains("hidden"); };
+function showBrief() {
+  let el = document.getElementById("brief");
+  if (!el) { el = document.createElement("div"); el.id = "brief"; el.className = "brief"; el.setAttribute("role", "dialog");
+    el.setAttribute("aria-label", "Morning brief"); document.body.appendChild(el); }
+  const t = today(), items = dayItems(t), plans = items.filter(isPlan), w = WXDATA && WXDATA.here;
+  const todos = S.todos.filter(x => todoShown(x) && !todoDone(x)).slice(0, 3);
+  const tips = [];
+  if (w && w.day) { if (w.day.rainFrom || w.day.rain >= 50) tips.push("☔ take an umbrella"); if (w.day.lo <= 40) tips.push("🧥 grab a jacket"); if (w.day.hi >= 92) tips.push("🥵 bring water"); }
+  const sec = (title, body) => body ? `<section class="brief-sec"><h3>${title}</h3>${body}</section>` : "";
+  el.innerHTML = `<div class="brief-body">
+    <div class="brief-date">${esc(longDate(t))}</div>
+    <h1>☀️ Good morning${S.name ? ", " + esc(S.name) : ""}</h1>
+    <p class="brief-say">${briefLines().map(esc).join(" ")}</p>
+    <button class="btn sm ghost" data-brief="speak">🔊 Read it to me</button>
+    ${sec("Weather", w && w.cur ? `<div class="brief-wx"><span class="big">${wmo(w.cur.weather_code)[0]} ${Math.round(w.cur.temperature_2m)}°</span>
+       <span>H ${Math.round(w.day.hi)}° · L ${Math.round(w.day.lo)}°${w.day.rainFrom ? `<br>Rain from ${esc(fmtTime(w.day.rainFrom))}` : w.day.rain >= 20 ? `<br>Rain ${w.day.rain}%` : "<br>No rain"}</span></div>
+       ${tips.length ? `<div class="sub">${tips.join(" · ")}</div>` : ""}` : "")}
+    ${sec("Today", plans.slice(0, 6).map(i => `<div class="row"><span class="time">${i.t ? hm(i.t) : "All day"}</span><span class="grow">${i.icon} ${esc(i.title)}</span></div>`).join(""))}
+    ${sec("Top to-dos", todos.map(x => `<div class="row"><span class="grow">✅ ${esc(x.title)}</span></div>`).join(""))}
+    ${sec("Heads up", [...S.remember.filter(r => r.day === t).map(r => `📌 ${esc(r.text)}`),
+        ...upcomingBills().filter(b => daysUntil(b.due) <= 2).map(b => `💳 ${esc(b.name)} ${money(b.amount)} — ${daysUntil(b.due) < 0 ? "late" : inDays(daysUntil(b.due))}`),
+        ...items.filter(i => i.kind === "pkg").map(i => `📦 ${esc(i.title)}`)].map(x => `<div class="today-line">${x}</div>`).join(""))}
+    <button class="btn brief-go" data-brief="go">Start my day →</button>
+    <label class="brief-auto"><input type="checkbox" data-briefauto ${S.briefAuto === false ? "" : "checked"}> Show this when I open Day Hub in the morning</label>
+  </div>`;
+  el.classList.remove("hidden");
+}
+function closeBrief() {
+  const el = document.getElementById("brief"); if (el) el.classList.add("hidden");
+  try { speechSynthesis.cancel(); } catch (e) { /* no speech */ }
+}
+function maybeBrief() {
+  const h = new Date().getHours();
+  if (MODE === "cruise" || S.briefAuto === false || !(S.name || hasData(S)) || h < 4 || h >= 11 || S.briefDay === today()) return;
+  S.briefDay = today(); saveLocal(); showBrief();
+}
+function speakBrief() {
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance([`Good morning${S.name ? ", " + S.name : ""}.`, ...briefLines()].join(" ").replace(/°/g, " degrees"));
+    u.rate = 1; speechSynthesis.speak(u);
+  } catch (e) { toast("This phone can't read aloud"); }
+}
+
 function gcalDisconnect() {
   try { if (GTOKEN && window.google) google.accounts.oauth2.revoke(GTOKEN, () => {}); } catch (e) { /* already gone */ }
-  GTOKEN = null; S.gcal = { connected: false, events: [], fetched: null }; save(); drawSettings(); render();
+  GTOKEN = null; saveTokens(); S.gcal = { connected: false, events: [], fetched: null }; save(); drawSettings(); render();
   toast("Google Calendar disconnected");
 }
 
@@ -415,7 +548,7 @@ function driveSignIn(prompt) {                                 // must run from 
       client_id: GCAL_CLIENT_ID, scope: DRIVE_SCOPE, prompt,
       callback: r => {
         if (r.error) { toast("Google sign-in was cancelled"); res(false); return; }
-        DTOKEN = r.access_token; DTOKEN_EXP = Date.now() + ((r.expires_in || 3600) - 60) * 1000; res(true);
+        DTOKEN = r.access_token; DTOKEN_EXP = Date.now() + ((r.expires_in || 3600) - 60) * 1000; saveTokens(); res(true);
       },
       error_callback: () => { toast("Sign-in window closed"); res(false); },
     });
@@ -488,8 +621,11 @@ async function restoreNow() {
 }
 function restoreFrom(cloud) {
   snap();
-  const keepCal = S.gcal, keepFired = S.remind.fired;
+  const keepCal = S.gcal, keepFired = S.remind.fired, keepUI = { collapsed: S.collapsed, briefDay: S.briefDay, briefAuto: S.briefAuto };
   S = normalize(cloud.data);
+  // Which cards are open or closed belongs to THIS phone (Scott 10/2: closing
+  // the app keeps what you opened or closed) - a backup never changes it.
+  Object.assign(S, keepUI);
   // Keep this phone's "already fired" marks: an older backup's marks alone
   // would let a reminder from the last few hours fire a second time.
   S.remind.fired = Object.assign({}, S.remind.fired, keepFired);
@@ -967,7 +1103,7 @@ function mailSignIn(prompt) {                                 // must run from a
     google.accounts.oauth2.initTokenClient({
       client_id: GCAL_CLIENT_ID, scope: GMAIL_SCOPE, prompt,
       callback: r => { if (r.error) { toast("Google sign-in was cancelled"); res(false); return; }
-        MTOKEN = r.access_token; MTOKEN_EXP = Date.now() + ((r.expires_in || 3600) - 60) * 1000; res(true); },
+        MTOKEN = r.access_token; MTOKEN_EXP = Date.now() + ((r.expires_in || 3600) - 60) * 1000; saveTokens(); res(true); },
       error_callback: () => { toast("Sign-in window closed"); res(false); },
     }).requestAccessToken();
   })).catch(() => { toast("Couldn't reach Google — check your connection"); return false; });
@@ -1672,10 +1808,11 @@ function heroHtml() {
   if (pkToday) chips.push(`<span class="chip">📦 ${pkToday} arriving today</span>`);
   const cd = liveCountdowns()[0];
   if (cd) chips.push(`<span class="chip">⏳ ${esc(cd.title)} ${daysUntil(cd.date) === 0 ? "today!" : inDays(daysUntil(cd.date))}</span>`);
-  if (S.gcal.connected && !gReady()) chips.push(`<button class="chip" data-gsync="1">🔄 Sync Google Calendar${S.gcal.dirty ? " · changes waiting" : ""}</button>`);
+  if (needTap().length) chips.push(`<button class="chip" data-syncall="1">🔄 Tap to sync${S.gcal.dirty || S.sync.dirty ? " · changes waiting" : ""}</button>`);
+  if (MODE !== "cruise" && h >= 4 && h < 12 && (S.name || hasData(S))) chips.push(`<button class="chip" data-brief="open">☀️ Morning brief</button>`);
   if (UPDATE) chips.unshift(`<button class="chip good" data-update="1">✨ New version ready — tap to update</button>`);
   if (INSTALL_EVT && !standalone()) chips.push(`<button class="chip" data-install="1">📲 Install ${APP_NAME}</button>`);
-  if (S.sync.on && S.sync.dirty && !dReady()) chips.push(`<button class="chip" data-sync="now">☁️ Back up changes</button>`);
+
 
   const wx = w ? (() => { const [ic] = wxIcon(w.cur.weather_code, w.cur.is_day);
       return `<div class="hero-wx"><div class="ic">${ic}</div><div class="t">${Math.round(w.cur.temperature_2m)}°</div>
@@ -2434,6 +2571,9 @@ document.addEventListener("click", e => {
     const pick = ds.rmove === "all" ? ["loads", "jobs"].flatMap(k => S[k].filter(x => x.day === today() && !x.done)) : [S[ds.rmove.split(":")[0]].find(y => y.id === ds.rmove.split(":")[1])];
     pick.filter(Boolean).forEach(x => { x.day = T1; }); save(); render(); toast(`Moved to tomorrow (${pick.length})`, true); return; }
   if (ds.rmdel) { S.remember = S.remember.filter(r => r.id !== ds.rmdel); save(); render(); return; }
+  if (ds.syncall) { syncTap(); return; }
+  if (ds.brief) { if (ds.brief === "go") { S.briefDay = today(); saveLocal(); closeBrief(); render(); }
+    else if (ds.brief === "speak") speakBrief(); else showBrief(); return; }
   if (ds.orderreset) { S.order = null; save(); drawCardList(); render(); toast("Standard order back"); return; }
   if (ds.arrange) { openSettings(); setTimeout(() => { const h = document.getElementById("arrangeHead"); if (h) h.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50); return; }
   if (ds.gconnect) { gcalConnect(); return; }
@@ -2458,6 +2598,7 @@ document.addEventListener("click", e => {
 document.addEventListener("change", e => {
   const t = e.target, ds = t.dataset;
   if (t.id === "importFile" && t.files && t.files[0]) { importData(t.files[0]); t.value = ""; return; }
+  if (t.dataset.briefauto !== undefined) { S.briefAuto = t.checked; saveLocal(); toast(t.checked ? "Morning brief on" : "Morning brief off — ☀️ chip still opens it"); return; }
   if (ds.tick) { const x = S.todos.find(y => y.id === ds.tick); if (x) { x.done = t.checked; x.doneDay = t.checked ? today() : null; } }
   else if (ds.tickl) { const [k, id] = ds.tickl.split(":"); const x = S[k].find(y => y.id === id); if (x) x.done = t.checked; }
   else if (ds.item) { const [l, id] = ds.item.split(":"); const L = S.lists.find(x => x.id === l); const i = L && L.items.find(y => y.id === id); if (i) i.done = t.checked; }
@@ -2559,6 +2700,7 @@ function closeSettings() {
 
 // --------------------------------------------------------------- start
 S = load();
+loadTokens();
 // If saved data still breaks the first draw, never leave a blank screen with
 // the Erase button out of reach: offer to save the raw data, then start fresh.
 try { render(); }
@@ -2583,5 +2725,7 @@ checkUpdate();
 setInterval(checkUpdate, 30 * 60000);
 setInterval(() => { if (S.mail.on && mReady()) scanMail(); }, 20 * 60000);
 checkReminders();
-document.addEventListener("visibilitychange", () => { if (!document.hidden) { VIEW = today(); render(); checkReminders(); checkUpdate(); } });
+syncOnOpen(true);
+maybeBrief();
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { VIEW = today(); render(); checkReminders(); syncOnOpen(); maybeBrief(); } });
 if ("serviceWorker" in navigator) navigator.serviceWorker.register(new URL("sw.js", BASE_URL)).catch(() => {});

@@ -488,13 +488,77 @@ def t_v020_nightly_reset(b, base):
     a.close()
 
 
+FAKE_GCAL = """(() => { window.__g = window.__g || {}; let n = 0; const real = window.fetch;
+  window.fetch = async (u, o = {}) => { u = String(u);
+    if (!u.startsWith('https://www.googleapis.com/calendar/v3/calendars/primary/events')) return real(u, o);
+    const m = o.method || 'GET', id = decodeURIComponent((u.split('/events/')[1] || '').split('?')[0]);
+    const J = (x, st = 200) => new Response(x == null ? null : JSON.stringify(x), { status: st });
+    const store = JSON.parse(sessionStorage.getItem('__g') || '{}'), keep = () => sessionStorage.setItem('__g', JSON.stringify(store));
+    if (m === 'GET') return J({ items: Object.values(store) });
+    if (m === 'POST') { const e = { ...JSON.parse(o.body), id: 'g' + Date.now() + (++n) }; store[e.id] = e; keep(); return J(e); }
+    if (m === 'PUT') { store[id] = { ...JSON.parse(o.body), id }; keep(); return J(store[id]); }
+    if (m === 'DELETE') { delete store[id]; keep(); return J(null, 204); } }; })()"""
+
+
+def t_v021_brief_sync(b, base):
+    print("\n[v0.21 morning brief + sync on open + remembered cards]")
+    a = App(b, base); setup(a)
+    a.qa("event", {"title": "Dentist", "date": "2026-10-01", "time": "10:30"})
+    a.qa("todo", {"title": "Call insurance"})
+    a.qa("bill", {"title": "Phone", "amount": "85", "day": "2"})
+    a.js("S.briefDay = null; saveLocal()")
+    a.page.reload(); a.page.wait_for_function("WXDATA && WXDATA.here"); a.page.wait_for_timeout(300)
+    br = a.page.inner_text("#brief") if a.page.query_selector("#brief") else ""
+    check("first morning open shows the brief", a.js("briefOpen()") and "Good morning, Scott" in br, br[:120])
+    check("brief: weather, first item, bill due", "72°" in br and "10:30 AM: Dentist" in br and "Phone" in br and "tomorrow" in br, br[:400])
+    a.js("(() => { window.__said = ''; speechSynthesis.speak = u => { window.__said = u.text; }; })()")
+    a.page.click('[data-brief="speak"]')
+    check("🔊 reads it out loud", "Good morning, Scott" in a.js("window.__said") and "degrees" in a.js("window.__said"))
+    a.page.click('[data-brief="go"]')
+    check("Start my day closes it", not a.js("briefOpen()"))
+    a.page.reload(); a.page.wait_for_timeout(400)
+    check("only once per morning", not a.js("briefOpen()"))
+    a.page.click('#hero [data-brief="open"]')
+    check("☀️ chip opens it any time in the morning", a.js("briefOpen()"))
+    a.page.click("[data-briefauto]")
+    a.page.click('[data-brief="go"]')
+    a.page.clock.run_for("24:00:00"); a.js("maybeBrief()")
+    check("turned off: no brief next morning", not a.js("briefOpen()") and a.js("S.briefAuto") is False)
+    a.close()
+
+    a = App(b, base, at="2026-10-01T14:00:00"); setup(a)
+    a.js("S.briefDay = null; saveLocal()"); a.page.reload(); a.page.wait_for_timeout(400)
+    check("no brief in the afternoon", not a.js("briefOpen()"))
+    # remembered open/closed cards
+    a.page.click('h3[data-collapse="weather"]')
+    a.page.reload(); a.page.wait_for_timeout(300)
+    check("closed card stays closed after closing the app", a.js("document.querySelector('[data-card=weather]').classList.contains('collapsed')"))
+    a.js("restoreFrom({savedAt: new Date().toISOString(), data: {...JSON.parse(JSON.stringify(S)), collapsed: []}})")
+    check("a backup restore doesn't reopen it", a.js("S.collapsed.includes('weather')"))
+    a.close()
+
+    # sync on open: a kept Google sign-in syncs with no tap
+    a = App(b, base); setup(a)
+    a.ctx.add_init_script(FAKE_GCAL)
+    a.js("S.gcal.connected = true; S.gcal.scope = GCAL_SCOPE; S.events.push({id:'e1',day:'2026-10-03',time:'09:00',title:'Vet',rep:'none'}); saveLocal();"
+         "localStorage.setItem('dayhub.gtok', JSON.stringify({g:['tok', Date.now() + 3000000]}))")
+    a.page.reload(); a.page.wait_for_timeout(1200)
+    check("open = synced: event is on the phone calendar, no tap", a.js("Object.values(JSON.parse(sessionStorage.getItem('__g') || '{}')).some(e => e.summary === 'Vet')"))
+    check("signed in: no 'Tap to sync' chip", "Tap to sync" not in a.page.inner_text("#hero"))
+    a.js("localStorage.setItem('dayhub.gtok', JSON.stringify({g:['tok', Date.now() - 1000]}))")
+    a.page.reload(); a.page.wait_for_timeout(500)
+    check("sign-in ran out: one '🔄 Tap to sync' chip", a.page.inner_text("#hero").count("Tap to sync") == 1)
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
         b = p.chromium.launch()
         for t in (t_first_run, t_schedule, t_todos_lists_countdowns, t_bills_budget_work, t_packages_email,
                   t_trips_cruise, t_reminders_backup_update, t_notes_data, t_settings_layout_offline, t_v018_fixes,
-                  t_v019_calendar_arrange, t_v020_nightly_reset):
+                  t_v019_calendar_arrange, t_v020_nightly_reset,
+                  t_v021_brief_sync):
             try:
                 t(b, base)
             except Exception as e:
