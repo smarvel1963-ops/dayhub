@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.8";
+const VERSION = "0.9";
 
 const STORE = "dayhub.v1";
 const WX = "https://api.open-meteo.com/v1/forecast";
@@ -34,13 +34,13 @@ const PRO_LIVE = false;
 let TIER = "free";
 const FEATURES = {
   schedule: "free", weather: "free", todos: "free", lists: "free", countdowns: "free",
-  bills: "free", work: "free", tomorrow: "free", route: "free", loads: "free", jobs: "free", nextup: "free", games: "free",
+  bills: "free", work: "free", tomorrow: "free", packages: "free", route: "free", loads: "free", jobs: "free", nextup: "free", games: "free",
   gcal: "pro", sync: "pro", reminders: "pro", budget: "pro",   // candidates - Scott decides at launch
 };
 const can = f => !PRO_LIVE || FEATURES[f] !== "pro" || TIER === "pro";
 
 // ---------------------------------------------------------------- packs
-const BASE = ["schedule", "tomorrow", "work", "budget", "weather", "todos", "bills", "countdowns", "lists"];
+const BASE = ["schedule", "tomorrow", "work", "budget", "weather", "todos", "packages", "bills", "countdowns", "lists"];
 const PACKS = {
   general:  { label: "General",              cards: [] },
   trucker:  { label: "Trucker / Dispatcher", cards: ["route", "loads"] },
@@ -56,7 +56,8 @@ const blank = () => ({
   bills: [], countdowns: [], lists: [{ id: "grocery", name: "Grocery", items: [] }], listSel: "grocery",
   gcal: { connected: false, events: [], fetched: null },
   sync: { on: false, last: null, dirty: false },
-  remind: { on: false, lead: 15, billDays: 1, billHour: "09:00", fired: {} },
+  remind: { on: false, lead: 15, billDays: 1, billHour: "09:00", morning: 420, fired: {} },
+  packages: [],
   money: { type: "hourly", salary: 0, spends: [] },
   work: { rate: 0, taxPct: 20, otAfter: 40, shifts: [], clockIn: null },
 });
@@ -80,6 +81,7 @@ function load() {
   s.sync = Object.assign(blank().sync, s.sync || {});
   s.remind = Object.assign(blank().remind, s.remind || {});
   s.money = Object.assign(blank().money, s.money || {});
+  if (!Array.isArray(s.packages)) s.packages = [];
   return s;
 }
 function saveLocal() {
@@ -269,7 +271,7 @@ const DFILE = "dayhub.json";
 const dReady = () => DTOKEN && Date.now() < DTOKEN_EXP;
 const hasData = d => !!d && ((d.events || []).length + (d.todos || []).length + (d.bills || []).length +
   (d.countdowns || []).length + ((d.work || {}).shifts || []).length + ((d.money || {}).spends || []).length +
-  (d.lists || []).reduce((n, l) => n + (l.items || []).length, 0)) > 0;
+  (d.packages || []).length + (d.lists || []).reduce((n, l) => n + (l.items || []).length, 0)) > 0;
 
 function driveSignIn(prompt) {                                 // must run from a tap
   return loadGis().then(() => new Promise(res => {
@@ -404,6 +406,10 @@ function reminderList() {
     add(`tm:${T1}`, atMs(today(), "23:59"), at, "🌙 Tomorrow",
         [f ? `First up ${hm(f.t)} ${f.title}` : `${plans.length} planned`, w1 && w1.rain >= 50 ? `rain ${w1.rain}%` : ""].filter(Boolean).join(" · "));
   }
+  if (R.morning >= 0) {
+    const at = atMs(today(), `${pad(Math.floor(R.morning / 60))}:${pad(R.morning % 60)}`);
+    add(`mb:${today()}`, atMs(today(), "12:00"), at, `☀️ Good morning${S.name ? ", " + S.name : ""}`, morningBrief());
+  }
   if (R.billDays >= 0) upcomingBills().forEach(b => { const d = addDays(b.due, -R.billDays);
     if (inWin(d)) { const at = atMs(d, R.billHour); add(`bill:${b.id}:${b.due}`, atMs(d, "23:59"), at, `💳 ${b.name} ${money(b.amount)}`, `Due ${prettyDate(b.due)}`); } });
   return out;
@@ -455,6 +461,8 @@ function drawRemindBox() {
   g.innerHTML = `<h3>Reminders</h3>` + (R.on
     ? `<label class="field" style="margin-top:0">Before events, shifts and jobs
          <select data-rset="lead">${[5, 10, 15, 30, 60, 120].map(m => opt(m, m < 60 ? `${m} minutes` : `${m / 60} hour${m > 60 ? "s" : ""}`, R.lead)).join("")}</select></label>
+       <label class="field">Morning brief
+         <select data-rset="morning">${opt(-1, "Off", R.morning)}${[360, 390, 420, 450, 480, 540].map(m => opt(m, `${m / 60 > 12 ? m / 60 - 12 : Math.floor(m / 60)}:${pad(m % 60)} AM`, R.morning)).join("")}</select></label>
        <label class="field">Bills
          <select data-rset="billDays">${opt(-1, "Off", R.billDays)}${opt(0, "Morning of the due day", R.billDays)}${opt(1, "Morning, 1 day before", R.billDays)}${opt(3, "Morning, 3 days before", R.billDays)}</select></label>
        <div class="foot-actions" style="margin-top:10px"><button class="btn sm" data-remind="test">Send a test</button><button class="btn sm ghost" data-remind="off">Turn off</button></div>`
@@ -545,6 +553,46 @@ function drawInstallBox() {
     : `<p class="fine" style="margin-top:0">In your browser menu <b>⋮</b> choose <b>Install app</b> or <b>Add to Home screen</b>.</p>`);
 }
 
+// --------------------------------------------------------------- packages
+// v0.9 (Scott 10/1 "all"). Live delivery status needs a paid tracking service
+// (a Pro candidate later). What works free: the carrier is recognised from the
+// number, Track opens the carrier's own page, and the expected day lands on
+// the schedule, the Tomorrow card and the morning brief.
+const CARRIERS = {
+  ups:    ["UPS",    n => `https://www.ups.com/track?tracknum=${n}`],
+  usps:   ["USPS",   n => `https://tools.usps.com/go/TrackConfirmAction?tLabels=${n}`],
+  fedex:  ["FedEx",  n => `https://www.fedex.com/fedextrack/?trknbr=${n}`],
+  amazon: ["Amazon", n => `https://track.amazon.com/tracking/${n}`],
+  dhl:    ["DHL",    n => `https://www.dhl.com/us-en/home/tracking/tracking-express.html?submit=1&tracking-id=${n}`],
+  other:  ["Other",  n => `https://www.google.com/search?q=${encodeURIComponent("track package " + n)}`],
+};
+const cleanNum = raw => String(raw || "").replace(/[\s-]/g, "").toUpperCase();
+function detectCarrier(raw) {
+  const n = cleanNum(raw);
+  if (/^1Z[0-9A-Z]{16}$/.test(n)) return "ups";
+  if (/^TBA\d{9,15}$/.test(n)) return "amazon";
+  if (/^9[1-5]\d{18,24}$/.test(n) || /^[A-Z]{2}\d{9}US$/.test(n) || (/^420\d{5}/.test(n) && n.length >= 26)) return "usps";
+  if (/^(\d{12}|\d{15}|\d{20}|\d{22})$/.test(n)) return "fedex";
+  if (/^\d{10}$/.test(n)) return "dhl";
+  return "other";
+}
+const trackUrl = pk => (CARRIERS[pk.carrier] || CARRIERS.other)[1](encodeURIComponent(cleanNum(pk.num)));
+
+// The morning brief - one notification at wake-up (reminders on, time in Settings).
+function morningBrief() {
+  const t = today(), w = WXDATA && WXDATA.here, items = dayItems(t), plans = items.filter(isPlan), parts = [];
+  if (w) parts.push(`${wmo(w.day.code)[0]} ${Math.round(w.day.lo)}°–${Math.round(w.day.hi)}°` +
+    (w.day.rainFrom ? ` · rain from ${fmtTime(w.day.rainFrom)}` : w.day.rain < 20 ? " · no rain" : ""));
+  const f = plans.find(i => i.t && i.t >= nowT()) || plans.find(i => i.t);
+  parts.push(plans.length ? `${plans.length} planned${f ? ` · first ${hm(f.t)} ${f.title}` : ""}` : "nothing planned");
+  const todo = S.todos.filter(x => todoShown(x) && !todoDone(x)).length;
+  if (todo) parts.push(`${todo} to-do${todo === 1 ? "" : "s"}`);
+  items.filter(i => i.kind === "bill").forEach(i => parts.push(`💳 ${i.title}`));
+  const pk = items.filter(i => i.kind === "pkg").length;
+  if (pk) parts.push(`📦 ${pk} arriving`);
+  return parts.join(" · ");
+}
+
 // ------------------------------------------------------------- the day
 // A bill repeats monthly on its day (clamped to the month's length). `paid`
 // = the last month paid ("YYYY-MM"). Unpaid and past due = LATE, shown red.
@@ -575,6 +623,7 @@ function dayItems(day) {
   S.work.shifts.filter(x => x.day === day).forEach(x => it.push({ t: x.start, end: x.end, title: "Work shift", sub: fmtH(shiftHours(x)), kind: "work", icon: "💼", cal: `shift:${x.id}` }));
   upcomingBills().filter(b => b.due === day).forEach(b => it.push({ t: null, title: `${b.name} due`, sub: money(b.amount), kind: "bill", icon: "💳", cal: `bill:${b.id}` }));
   S.countdowns.filter(c => c.date === day).forEach(c => it.push({ t: null, title: c.title, sub: "The day is here", kind: "cd", icon: "🎉" }));
+  S.packages.filter(p => !p.delivered && p.eta === day).forEach(p => it.push({ t: null, title: `${p.name} arriving`, sub: (CARRIERS[p.carrier] || CARRIERS.other)[0], kind: "pkg", icon: "📦" }));
   const w = WXDATA && WXDATA.here;
   if (w && day === today()) {
     it.push({ t: w.day.sunrise.slice(11, 16), title: "Sunrise", kind: "sun", icon: "🌅" });
@@ -715,6 +764,8 @@ function heroHtml() {
   if (open) chips.push(`<span class="chip">✅ ${open} to-do${open === 1 ? "" : "s"}</span>`);
   upcomingBills().filter(b => daysUntil(b.due) <= 3).forEach(b =>
     chips.push(`<span class="chip ${daysUntil(b.due) < 0 ? "warn" : ""}">💳 ${esc(b.name)} ${inDays(daysUntil(b.due))}</span>`));
+  const pkToday = S.packages.filter(p => !p.delivered && p.eta === today()).length;
+  if (pkToday) chips.push(`<span class="chip">📦 ${pkToday} arriving today</span>`);
   const cd = liveCountdowns()[0];
   if (cd) chips.push(`<span class="chip">⏳ ${esc(cd.title)} ${daysUntil(cd.date) === 0 ? "today!" : inDays(daysUntil(cd.date))}</span>`);
   if (S.gcal.connected && !gReady()) chips.push(`<button class="chip" data-gsync="1">🔄 Sync Google Calendar</button>`);
@@ -795,6 +846,7 @@ const CARDS = {
       else L.push(`<div class="today-line">📅 Nothing planned yet — a clear day.</div>`);
       items.filter(i => i.kind === "bill").forEach(i => L.push(`<div class="today-line">💳 <b>${esc(i.title)}</b> ${esc(i.sub || "")}</div>`));
       items.filter(i => i.kind === "cd").forEach(i => L.push(`<div class="today-line">🎉 <b>${esc(i.title)}</b> is tomorrow!</div>`));
+      items.filter(i => i.kind === "pkg").forEach(i => L.push(`<div class="today-line">📦 <b>${esc(i.title)}</b> (${esc(i.sub)})</div>`));
       const left = S.todos.filter(t => todoShown(t) && !todoDone(t) && !isRep(t)).length;
       if (left) L.push(`<div class="today-line">✅ ${left} to-do${left === 1 ? "" : "s"} still open today — they carry over.</div>`);
       return L.join("") + `<div class="foot-actions" style="margin-top:10px"><button class="btn sm" data-plan="tomorrow">＋ Plan tomorrow</button>
@@ -887,6 +939,22 @@ const CARDS = {
           <button class="x" data-ics="bill:${b.id}" aria-label="Add to phone calendar">📲</button>
           <button class="x" data-del="bills:${b.id}" aria-label="Remove">✕</button></div>`; }).join("") +
         `<div class="total"><span>Every month</span><b>${money(S.bills.reduce((s, b) => s + Number(b.amount || 0), 0))}</b></div>`;
+    } },
+
+  packages: { icon: "📦", title: "Packages", add: ["package", "Add a package"],
+    meta: () => { const n = S.packages.filter(p => !p.delivered).length; return n ? `${n} on the way` : ""; },
+    body: () => {
+      const recent = addDays(today(), -3);
+      const list = S.packages.filter(p => !p.delivered || (p.deliveredDay || "") >= recent)
+        .sort((a, b) => (a.delivered - b.delivered) || (a.eta || "9999").localeCompare(b.eta || "9999"));
+      if (!list.length) return `<div class="empty">Add a tracking number — Day Hub knows UPS, USPS, FedEx, Amazon and DHL and puts the arrival day on your schedule.</div>`;
+      return list.map(p => { const n = p.eta ? daysUntil(p.eta) : null;
+        return `<div class="row ${p.delivered ? "done" : ""}"><div class="grow">${esc(p.name)}<span class="sub">${(CARRIERS[p.carrier] || CARRIERS.other)[0]} · …${esc(cleanNum(p.num).slice(-6))}${p.delivered ? " · delivered" : p.eta ? ` · arrives ${prettyDate(p.eta)}` : " · no date yet"}</span></div>
+          ${!p.delivered && n !== null && n <= 1 ? `<span class="pill ${n <= 0 ? "soon" : ""}">${n < 0 ? "late?" : inDays(n)}</span>` : ""}
+          <a class="btn sm ghost" href="${trackUrl(p)}" target="_blank" rel="noopener">Track</a>
+          ${p.delivered ? "" : `<button class="btn sm ghost" data-pkgdone="${p.id}" aria-label="Delivered">✓</button>`}
+          <button class="x" data-del="packages:${p.id}" aria-label="Remove">✕</button></div>`; }).join("") +
+        `<div class="fine" style="margin-top:6px">Track opens the carrier's page. Live status updates are planned for Day Hub Pro.</div>`;
     } },
 
   countdowns: { icon: "⏳", title: "Countdowns", add: ["countdown", "Add a countdown"],
@@ -1009,7 +1077,7 @@ const snap = () => { UNDO = JSON.stringify(S); };
 
 // ------------------------------------------------------------ quick add
 function qaTypes() {
-  const t = [["event", "📅 Event"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
+  const t = [["event", "📅 Event"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["package", "📦 Package"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
   if (S.pack === "trucker") t.splice(1, 0, ["loads", "🚚 Load"]);
   if (S.pack === "trades") t.splice(1, 0, ["jobs", "🔧 Job"]);
   return t;
@@ -1032,6 +1100,11 @@ function qaFields(type) {
       <div class="two"><input name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount $" required>
       <input name="day" type="number" min="1" max="31" inputmode="numeric" placeholder="Due day (1-31)" required></div>
       <div class="hint">Repeats every month. Tap Paid and it moves to next month.</div>`,
+    package: `<input name="name" placeholder="What is it (e.g. New boots)" required autocomplete="off">
+      <input name="num" placeholder="Tracking number" required autocomplete="off" autocapitalize="characters">
+      <div class="two"><select name="carrier"><option value="auto">Carrier: figure it out</option>${Object.entries(CARRIERS).map(([k, v]) => `<option value="${k}">${v[0]}</option>`).join("")}</select>
+      <input name="eta" type="date" min="${today()}" title="Expected delivery (optional)"></div>
+      <div class="hint">Expected date is optional — add it and the delivery shows on your schedule.</div>`,
     countdown: `<input name="title" placeholder="What are you counting down to?" required autocomplete="off">
       <input name="date" type="date" min="${today()}" required>`,
     list: `<input name="name" placeholder="List name (e.g. Hardware store)" required autocomplete="off">`,
@@ -1087,6 +1160,8 @@ function submitQA(f) {
     S.bills.push({ id: uid(), name: d.title.trim(), amount: Number(d.amount), day, paid });
   }
   else if (ty === "countdown") S.countdowns.push({ id: uid(), title: d.title.trim(), date: d.date });
+  else if (ty === "package") S.packages.push({ id: uid(), name: d.name.trim(), num: cleanNum(d.num),
+    carrier: d.carrier === "auto" ? detectCarrier(d.num) : d.carrier, eta: d.eta || null, delivered: false });
   else if (ty === "list") { const id = uid(); S.lists.push({ id, name: d.name.trim(), items: [] }); S.listSel = id; }
   else if (ty === "item") {
     const L = S.lists.find(l => l.id === d.list);
@@ -1154,6 +1229,8 @@ document.addEventListener("click", e => {
     snap();
     if (en - st >= 60000) S.work.shifts.push({ id: uid(), day: ymd(st), start: hhmm(st), end: hhmm(en), brk: 0 });
     S.work.clockIn = null; save(); render(); buzz(); toast(`Clocked out · ${fmtH((en - st) / 3600000)}`, true); return; }
+  if (ds.pkgdone) { const pk = S.packages.find(x => x.id === ds.pkgdone);
+    if (pk) { snap(); pk.delivered = true; pk.deliveredDay = today(); save(); render(); buzz(); toast(`${pk.name} delivered ✓`, true); } return; }
   if (ds.paid) { const b = S.bills.find(x => x.id === ds.paid); const due = b && nextDue(b);
     if (due) { snap(); b.paid = due.slice(0, 7); save(); render(); buzz(); toast(`${b.name} paid ✓`, true); } return; }
   if (ds.delitem) { snap(); const [l, id] = ds.delitem.split(":"); const L = S.lists.find(x => x.id === l);

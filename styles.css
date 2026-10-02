@@ -269,3 +269,6 @@ input[type=date], input[type=time] { color-scheme: dark; }
   .fab { right: max(22px, calc(50% - 540px)); }
 }
 .today-line .sub { display: block; color: var(--dim); font-size: 12px; margin-top: 1px; }
+
+/* v0.9 - a link styled as a button (package Track) */
+a.btn { text-decoration: none; display: inline-block; }
