@@ -268,3 +268,4 @@ input[type=date], input[type=time] { color-scheme: dark; }
   .card { break-inside: avoid; margin-bottom: 16px; }
   .fab { right: max(22px, calc(50% - 540px)); }
 }
+.today-line .sub { display: block; color: var(--dim); font-size: 12px; margin-top: 1px; }

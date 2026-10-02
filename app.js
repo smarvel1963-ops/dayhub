@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.7.1";
+const VERSION = "0.8";
 
 const STORE = "dayhub.v1";
 const WX = "https://api.open-meteo.com/v1/forecast";
@@ -34,13 +34,13 @@ const PRO_LIVE = false;
 let TIER = "free";
 const FEATURES = {
   schedule: "free", weather: "free", todos: "free", lists: "free", countdowns: "free",
-  bills: "free", work: "free", route: "free", loads: "free", jobs: "free", nextup: "free", games: "free",
+  bills: "free", work: "free", tomorrow: "free", route: "free", loads: "free", jobs: "free", nextup: "free", games: "free",
   gcal: "pro", sync: "pro", reminders: "pro", budget: "pro",   // candidates - Scott decides at launch
 };
 const can = f => !PRO_LIVE || FEATURES[f] !== "pro" || TIER === "pro";
 
 // ---------------------------------------------------------------- packs
-const BASE = ["schedule", "work", "budget", "weather", "todos", "bills", "countdowns", "lists"];
+const BASE = ["schedule", "tomorrow", "work", "budget", "weather", "todos", "bills", "countdowns", "lists"];
 const PACKS = {
   general:  { label: "General",              cards: [] },
   trucker:  { label: "Trucker / Dispatcher", cards: ["route", "loads"] },
@@ -398,6 +398,12 @@ function reminderList() {
     add(`sh:${x.id}`, st, st - lead, "💼 Work shift", `${hm(x.start)} – ${hm(x.end)}`); });
   ["loads", "jobs"].forEach(k => S[k].filter(x => inWin(x.day) && !x.done).forEach(x => { const st = atMs(x.day, x.time);
     add(`${k}:${x.id}`, st, st - lead, `${k === "loads" ? "🚚" : "🔧"} ${x.title}`, hm(x.time)); }));
+  const T1 = addDays(today(), 1), plans = dayItems(T1).filter(isPlan), w1 = WXDATA && WXDATA.here && WXDATA.here.days[1];
+  if (plans.length || (w1 && w1.rain >= 50)) {
+    const at = atMs(today(), "20:00"), f = plans.find(i => i.t);
+    add(`tm:${T1}`, atMs(today(), "23:59"), at, "🌙 Tomorrow",
+        [f ? `First up ${hm(f.t)} ${f.title}` : `${plans.length} planned`, w1 && w1.rain >= 50 ? `rain ${w1.rain}%` : ""].filter(Boolean).join(" · "));
+  }
   if (R.billDays >= 0) upcomingBills().forEach(b => { const d = addDays(b.due, -R.billDays);
     if (inWin(d)) { const at = atMs(d, R.billHour); add(`bill:${b.id}:${b.due}`, atMs(d, "23:59"), at, `💳 ${b.name} ${money(b.amount)}`, `Due ${prettyDate(b.due)}`); } });
   return out;
@@ -765,6 +771,36 @@ const CARDS = {
       return html + `<div class="tl">${rows.join("")}</div>`;
     } },
 
+  // v0.8 (Scott 10/1 "next Day Hub feature"): the evening look at tomorrow.
+  // Shown from 3 PM; from 5 PM it moves to the top (see render()).
+  tomorrow: { icon: "🌙", title: "Tomorrow",
+    meta: () => { const n = dayItems(addDays(today(), 1)).filter(isPlan).length; return n ? `${n} planned` : "clear"; },
+    body: () => {
+      const T1 = addDays(today(), 1), items = dayItems(T1), plans = items.filter(isPlan);
+      const w = WXDATA && WXDATA.here && WXDATA.here.days[1];
+      const L = [];
+      if (w) {
+        const tips = [];
+        if (w.rain >= 50) tips.push("☔ rain likely — take an umbrella");
+        if (w.lo <= 40) tips.push("🧥 cold start — grab a jacket");
+        if (w.hi >= 92) tips.push("🥵 hot one — bring water");
+        L.push(`<div class="today-line">${wmo(w.code)[0]} <b>${Math.round(w.hi)}°</b> / ${Math.round(w.lo)}° · ${wmo(w.code)[1]}${w.rain >= 20 ? ` · rain ${w.rain}%` : ""}${tips.length ? `<br><span class="sub">${tips.join(" · ")}</span>` : ""}</div>`);
+      }
+      const first = plans.find(i => i.t);
+      if (first) {
+        const alarm = new Date(atMs(T1, first.t) - 60 * 60000);
+        L.push(`<div class="today-line">⏰ First up <b>${hm(first.t)}</b> — ${esc(first.title)}<br><span class="sub">Alarm idea: ${alarm.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} (an hour before)</span></div>`);
+      }
+      if (plans.length) L.push(plans.slice(0, 5).map(i => `<div class="row"><span class="time">${i.t ? hm(i.t) : "All day"}</span><span class="grow">${i.icon} ${esc(i.title)}</span></div>`).join(""));
+      else L.push(`<div class="today-line">📅 Nothing planned yet — a clear day.</div>`);
+      items.filter(i => i.kind === "bill").forEach(i => L.push(`<div class="today-line">💳 <b>${esc(i.title)}</b> ${esc(i.sub || "")}</div>`));
+      items.filter(i => i.kind === "cd").forEach(i => L.push(`<div class="today-line">🎉 <b>${esc(i.title)}</b> is tomorrow!</div>`));
+      const left = S.todos.filter(t => todoShown(t) && !todoDone(t) && !isRep(t)).length;
+      if (left) L.push(`<div class="today-line">✅ ${left} to-do${left === 1 ? "" : "s"} still open today — they carry over.</div>`);
+      return L.join("") + `<div class="foot-actions" style="margin-top:10px"><button class="btn sm" data-plan="tomorrow">＋ Plan tomorrow</button>
+        <button class="btn sm ghost" data-day="1" data-goto="schedule">See tomorrow's schedule</button></div>`;
+    } },
+
   work: { icon: "💼", title: "Work hours", add: ["shift", "Add a shift"],
     meta: () => { const p = periodPay(periodStart(today())); return p.hrs ? `${fmtH(p.hrs)} this ${periodWeeks() > 1 ? "period" : "week"}` : ""; },
     body: () => {
@@ -934,7 +970,10 @@ function render() {
   const t = today();
   if (!VIEW || (VIEW < addDays(t, -60))) VIEW = t;
   paintHero();
-  const cards = cardOrder().filter(k => !S.hidden.includes(k)).map(k => {
+  const hr = new Date().getHours();
+  let order = cardOrder().filter(k => !S.hidden.includes(k) && !(k === "tomorrow" && hr < 15));
+  if (hr >= 17 && order.includes("tomorrow")) order = ["tomorrow", ...order.filter(k => k !== "tomorrow")];
+  const cards = order.map(k => {
     const c = CARDS[k]; const col = S.collapsed.includes(k);
     const tag = PACKS[S.pack].cards.includes(k) ? ` <span class="tag">${PACKS[S.pack].label}</span>` : "";
     if (!can(k)) return `<section class="card" data-card="${k}"><h3><span class="ci">${c.icon}</span>${c.title} <span class="tag">PRO</span></h3>
@@ -1093,6 +1132,9 @@ document.addEventListener("click", e => {
   if (ds.undo) { if (UNDO) { S = JSON.parse(UNDO); UNDO = null; save(); render(); toast("Restored ✓"); } return; }
   if (ds.collapse) { const k = ds.collapse;
     S.collapsed = S.collapsed.includes(k) ? S.collapsed.filter(x => x !== k) : [...S.collapsed, k]; save(); render(); return; }
+  if (ds.plan === "tomorrow") { VIEW = addDays(today(), 1); openQA("event"); return; }
+  if (ds.goto) { VIEW = addDays(today(), Number(ds.day)); render();
+    const c = document.querySelector(`[data-card="${ds.goto}"]`); if (c) c.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   if (ds.day !== undefined) { const n = Number(ds.day); VIEW = n === 0 ? today() : addDays(VIEW, n); render(); return; }
   if (ds.tact) { const f = TOAST_ACT; TOAST_ACT = null; if (f) f(); return; }
   if (ds.install && INSTALL_EVT) { INSTALL_EVT.prompt(); INSTALL_EVT.userChoice.finally(() => { INSTALL_EVT = null; drawInstallBox(); render(); }); return; }
