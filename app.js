@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.16";
+const VERSION = "0.16.1";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -958,7 +958,7 @@ const TRIP_LISTS = { packing: "Packing", docs: "Documents", before: "Before you 
 const CRUISE_ONLY_LISTS = ["requests", "home", "after"];
 const TEMPLATES = {
   cruise: {
-    packing: ["Swimsuits + cover-up", "Formal-night outfit", "Comfortable walking shoes", "Sandals / flip-flops",
+    packing: ["Swimsuits + cover-up", "Formal-night outfit", "Comfortable walking shoes", "Sandals / flip-flops", "Water shoes (rocky beaches, snorkeling, coral)",
       "Light jacket or sweater (ships are cold inside)", "Sunscreen (reef-safe for some ports)", "Sunglasses + hat",
       "Seasickness remedy - bands, patch or pills", "Daily medications (keep in your carry-on)", "Phone charger + cables",
       "Magnetic hooks (cabin walls are metal)", "Lanyard for your cruise card / Medallion", "Small day bag for port days", "Reusable water bottle",
@@ -1011,6 +1011,8 @@ const CRUISE_TIPS = [
   "Passport care: keep it in the cabin safe on sea days, in a waterproof pouch when you carry it, never in checked bags — and keep a phone photo + paper copy separate from it.",
   "A waterproof lanyard pouch keeps papers, phone, cards and cash dry on beach and boat excursions.",
   "Getting to the port: cruise-terminal parking is charged per day, so on a week-long cruise compare it with a hotel 'park & cruise' package (a night's stay + parking + shuttle) or a shuttle / rideshare.",
+  "Carry-on: you carry it aboard yourself — meds, documents, valuables, chargers, a swimsuit and a change of clothes go in it. Many lines ban clothes irons / steamers, surge protectors and candles in ANY bag — check your line's list.",
+  "Water shoes save your feet on rocky beaches, snorkel stops and coral — and they dry fast.",
   "Luggage tags: print them from online check-in, fold them into clear tag holders with steel loops (paper tags tear off), and put a card with your name, ship, cabin and phone INSIDE every bag.",
   "Port safety: keep your cruise card / Medallion and ID on you, don't flash valuables, drink plenty of water, and follow the flags at beaches.",
 ];
