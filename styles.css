@@ -363,3 +363,10 @@ details.steps .fine { margin-top: 8px; }
 .dow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .dow label { display: flex; align-items: center; gap: 4px; font-size: 13px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; }
 .dow input { width: auto; margin: 0; }
+/* Payday (v0.28) */
+.pay-head { display: flex; flex-direction: column; gap: 2px; font-size: 16px; margin-bottom: 4px; }
+.pay-left { font-size: 15px; } .pay-left.neg b { color: #fb7185; } .pay-left b { color: var(--accent); }
+.pay-setup select, .pay-setup input { display: block; width: 100%; margin-top: 4px; }
+.goal { border-top: 1px solid var(--line); padding-top: 4px; }
+.gbar { height: 8px; border-radius: 6px; background: rgba(255,255,255,.08); overflow: hidden; margin: 2px 0 6px; }
+.gbar span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); }

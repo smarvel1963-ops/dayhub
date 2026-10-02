@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.27";
+const VERSION = "0.28";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -51,7 +51,7 @@ const FEATURES = {
 const can = f => !PRO_LIVE || FEATURES[f] !== "pro" || TIER === "pro";
 
 // ---------------------------------------------------------------- packs
-const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "schedule", "leave", "routines", "reset", "tomorrow", "work", "budget", "weather", "todos", "notes", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
+const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "schedule", "leave", "routines", "reset", "tomorrow", "work", "payday", "budget", "weather", "todos", "notes", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
 const PACKS = {
   general:  { label: "General",              cards: [] },
   trucker:  { label: "Trucker / Dispatcher", cards: ["route", "loads"] },
@@ -72,6 +72,7 @@ const blank = () => ({
   people: [],
   upkeep: [],
   routines: [], rdone: {},
+  payday: { freq: null, next: null, amount: null, d1: 1, d2: 15 }, goals: [],
   leave: { items: LEAVE_DEFAULT.map(text => ({ id: uid(), text })), day: null, done: [] },
   packages: [],
   mail: { on: false, last: null, seen: {}, found: [] },
@@ -119,6 +120,9 @@ function normalize(raw) {
   s.people.forEach(x => { if (!obj(x.got)) x.got = {}; x.lead = Number(x.lead ?? 14) || 0; });
   s.upkeep = (Array.isArray(s.upkeep) ? s.upkeep : []).filter(x => obj(x) && x.name && ["home", "auto"].includes(x.area) && Number(x.every) > 0
     && ["days", "weeks", "months", "years"].includes(x.unit) && (isDay(x.next) || isDay(x.last)));
+  s.payday = Object.assign({ freq: null, next: null, amount: null, d1: 1, d2: 15 }, obj(s.payday) ? s.payday : {});
+  if (s.payday.freq && !isDay(s.payday.next)) s.payday.freq = null;
+  s.goals = (Array.isArray(s.goals) ? s.goals : []).filter(g => obj(g) && g.name).map(g => ({ ...g, target: Number(g.target) || 0, saved: Number(g.saved) || 0 }));
   s.routines = (Array.isArray(s.routines) ? s.routines : []).filter(r => obj(r) && r.name && Array.isArray(r.steps));
   s.routines.forEach(r => { r.steps = r.steps.filter(x => obj(x) && x.text); if (!Array.isArray(r.days)) r.days = []; if (r.time && !isT(r.time)) r.time = null; });
   if (!obj(s.rdone)) s.rdone = {};
@@ -536,6 +540,9 @@ function briefLines() {
   const f = plans.find(i => i.t && i.t >= nowT());
   if (f) s.push(`Your first one is at ${hm(f.t)}: ${f.title}.`);
   S.remember.filter(r => r.day === t).forEach(r => s.push(`You asked to remember: ${r.text}.`));
+  { const nx = payNext(); if (nx) { const n = daysUntil(nx);
+      if (n === 0) { const c = dueBetween(nx, payAfter(nx)); s.push(`Payday today — ${c.length} bill${c.length === 1 ? "" : "s"} (${money(c.reduce((x, o) => x + o.amt, 0))}) before the next check.`); }
+      else if (n <= 3) { const b = dueBetween(today(), nx); s.push(`Payday ${inDays(n)}${b.length ? ` — ${money(b.reduce((x, o) => x + o.amt, 0))} in bills due before then` : ""}.`); } } }
   upkeepDue(null, 0).forEach(({ x, day }) => s.push(`${x.name.replace(/^\S+\s/, "")} ${x.auto ? "is today" : daysUntil(day) < 0 ? "is overdue" : "is due today"}.`));
   upcomingPeople(14).forEach(({ p, day }) => { const n = daysUntil(day);
     if (n === 0) s.push(`Today is ${personLabel(p, day)}.`); else if (giftDue(p, day)) s.push(`${personLabel(p, day)} is ${inDays(n)} — got a gift?`); });
@@ -777,6 +784,8 @@ function reminderList() {
     const at = atMs(today(), `${pad(Math.floor(R.morning / 60))}:${pad(R.morning % 60)}`);
     add(`mb:${today()}`, atMs(today(), "12:00"), at, `☀️ Good morning${S.name ? ", " + S.name : ""}`, morningBrief());
   }
+  { const nx = payNext(); if (nx && inWin(nx)) { const c = dueBetween(nx, payAfter(nx));
+      add(`pay:${nx}`, atMs(nx, "23:59"), atMs(nx, "08:00"), "💵 Payday", `${c.length} bill${c.length === 1 ? "" : "s"} (${money(c.reduce((x, o) => x + o.amt, 0))}) before the next check${S.goals.length ? " — put a little toward your goals?" : ""}`); } }
   S.routines.filter(r => r.time && rToday(r)).forEach(r => {
     if (rLeft(r)) add(`rt:${r.id}:${today()}`, atMs(today(), r.time) + 3600000, atMs(today(), r.time), `🔁 ${r.name.replace(/^\S+\s/, "")} routine`, `${r.steps.length} steps — tap to start`); });
   S.upkeep.forEach(x => { const d = upkeepNext(x);
@@ -1666,6 +1675,7 @@ function dayItems(day) {
       tick: `${k}:${x.id}`, done: x.done, del: `${k}:${x.id}`, cal: `${k}:${x.id}` })); });
   S.work.shifts.filter(x => x.day === day).forEach(x => it.push({ t: x.start, end: x.end, title: "Work shift", sub: fmtH(shiftHours(x)), kind: "work", icon: "💼", cal: `shift:${x.id}` }));
   upcomingBills().filter(b => b.due === day).forEach(b => it.push({ t: null, title: `${b.name} due`, sub: money(b.amount), kind: "bill", icon: "💳", cal: `bill:${b.id}` }));
+  if (payNext(day) === day) it.push({ t: null, title: "Payday", sub: (a => a.amt ? `${a.est ? "≈ " : ""}${money(a.amt)}` : "")(payAmount()), kind: "pay", icon: "💵" });
   S.upkeep.filter(x => upkeepNext(x) === day || (day === today() && !x.auto && upkeepNext(x) < day)).forEach(x =>
     it.push({ t: null, title: x.auto ? x.name : `${x.name} due`, sub: x.auto ? "" : upkeepWhen(x, upkeepNext(x)), kind: "upkeep", icon: x.area === "auto" ? "🚗" : "🏠" }));
   S.people.filter(p => personOn(p, day)).forEach(p => it.push({ t: null, title: personLabel(p, day), sub: giftDue(p, day) ? "🎁 gift?" : "", kind: "person", icon: PKIND[p.kind] || "⭐" }));
@@ -2017,6 +2027,81 @@ function routinesCard() {
     + `<div class="chips up-chips">${ROUTINE_PRESETS.filter(p => !S.routines.some(r => r.name === p[0])).map(p => `<button class="chip" data-radd="${ROUTINE_PRESETS.indexOf(p)}">＋ ${esc(p[0])}</button>`).join("")}</div>`;
 }
 
+// ---------------------------------------------------------------- payday
+// Scott 10/2 (list #7, "next"): organise around the paycheck, not a bank app.
+// When it comes, which bills land before it, which bills THIS check has to
+// cover until the one after, roughly what's left, and savings goals to put
+// a little toward. Take-home is what you type, or an estimate from Work hours.
+const PAY_FREQ = { weekly: "Every week", biweekly: "Every 2 weeks", semimonthly: "Twice a month", monthly: "Once a month" };
+const PER_YEAR = { weekly: 52, biweekly: 26, semimonthly: 24, monthly: 12 };
+function payNext(from = today()) {
+  const P = S.payday; if (!P.freq || !P.next) return null;
+  const clamp = (y, m, d) => ymd(new Date(y, m, Math.min(d, new Date(y, m + 1, 0).getDate())));
+  if (P.freq === "weekly" || P.freq === "biweekly") {
+    const step = P.freq === "weekly" ? 7 : 14; let d = P.next, g = 0;
+    while (d < from && g++ < 2000) d = addDays(d, step);
+    while (addDays(d, -step) >= from && g++ < 4000) d = addDays(d, -step);
+    return d;
+  }
+  const f = parseDay(from);
+  for (let k = 0; k < 14; k++) {
+    const y = f.getFullYear(), m = f.getMonth() + Math.floor(k / 2);
+    const days = P.freq === "monthly" ? [Number(P.next.slice(8))] : [Number(P.d1) || 1, Number(P.d2) || 15].sort((a, b) => a - b);
+    for (const d of days) { const c = clamp(y, m, d); if (c >= from) return c; }
+  }
+  return null;
+}
+const payAfter = d => payNext(addDays(d, 1));
+function payAmount() {
+  const P = S.payday, keep = 1 - (S.work.taxPct || 0) / 100;
+  if (Number(P.amount) > 0) return { amt: Number(P.amount), est: false };
+  if (S.money.type === "salary" && S.money.salary) return { amt: S.money.salary * keep / PER_YEAR[P.freq], est: true };
+  if (S.work.rate) { const per = PER_YEAR[P.freq], last = grossBetween(addDays(today(), -28), addDays(today(), -1)) * keep;
+    if (last) return { amt: last * 13 / per, est: true }; }              // the last 4 weeks, spread per check
+  return { amt: 0, est: true };
+}
+// Bills (and trip final payments) due from `from` up to (not including) `to`.
+function dueBetween(from, to) {
+  const out = [];
+  S.bills.forEach(b => { for (let k = 0; k < 3; k++) { const d = nextDueFrom(b, from, k); if (d && d >= from && d < to && !out.some(o => o.id === b.id && o.day === d)) out.push({ id: b.id, name: b.name, amt: Number(b.amount) || 0, day: d, icon: "💳" }); } });
+  S.trips.forEach(tr => { if (tr.finalDue && tr.finalDue >= from && tr.finalDue < to && tripLeft(tr)) out.push({ id: tr.id, name: `${tr.name} final payment`, amt: tripLeft(tr), day: tr.finalDue, icon: "🚢" }); });
+  return out.sort((a, b) => a.day.localeCompare(b.day));
+}
+// The k-th monthly due date of bill b on/after `from` (ignores "paid" - this is planning).
+function nextDueFrom(b, from, k) {
+  const f = parseDay(from), y = f.getFullYear(), m = f.getMonth() + k;
+  const d = ymd(new Date(y, m, Math.min(b.day, new Date(y, m + 1, 0).getDate())));
+  return d >= from ? d : null;
+}
+const goalPct = g => g.target ? Math.min(100, Math.round(g.saved / g.target * 100)) : 0;
+function paydayCard() {
+  const P = S.payday;
+  if (!P.freq) return `<p class="fine" style="margin-top:0">Set it up once (30 seconds):</p>
+    <form class="pay-setup" data-paysetup="1">
+      <ol class="steps"><li>How often do you get paid?<select name="freq">${Object.entries(PAY_FREQ).map(([k, v]) => `<option value="${k}" ${k === "biweekly" ? "selected" : ""}>${v}</option>`).join("")}</select></li>
+      <li>Your next payday<input name="next" type="date" value="${addDays(today(), 7)}" required></li>
+      <li>Twice a month only — the other payday (day of the month, 31 = last day)<input name="d2" type="number" min="1" max="31" value="15"></li>
+      <li>Take-home per check (optional — leave blank and Day Hub estimates from Work hours)<input name="amount" type="number" min="0" step="0.01" placeholder="$"></li></ol>
+      <button class="btn sm">Save</button></form>`;
+  const t = today(), nx = payNext(t), n = daysUntil(nx), after = payAfter(nx), pa = payAmount();
+  const before = n > 0 ? dueBetween(t, nx) : [], covers = dueBetween(nx, after);
+  const tot = l => l.reduce((x, o) => x + o.amt, 0), row = o => `<div class="row"><span class="time">${prettyDate(o.day)}</span><span class="grow">${o.icon} ${esc(o.name)}</span><b>${money(o.amt)}</b></div>`;
+  const left = pa.amt ? pa.amt - tot(covers) : null;
+  return `<div class="pay-head">${n === 0 ? "💵 <b>Payday today!</b>" : `💵 Next payday <b>${dayName(nx) === "Tomorrow" ? "tomorrow" : prettyDate(nx)}</b> <span class="sub">${inDays(n)}</span>`}
+      ${pa.amt ? `<span class="sub">${pa.est ? "≈ " : ""}${money(pa.amt)} take-home${pa.est ? " (estimate)" : ""}</span>` : ""}</div>
+    ${before.length ? `<div class="rs-h">Due before payday · ${money(tot(before))}</div>${before.map(row).join("")}` : ""}
+    <div class="rs-h">${n === 0 ? "This check covers" : "That check covers"} (until ${prettyDate(after)}) · ${money(tot(covers))}</div>
+    ${covers.length ? covers.map(row).join("") : `<div class="today-line">No bills in that stretch 🎉</div>`}
+    ${left !== null ? `<div class="today-line pay-left ${left < 0 ? "neg" : ""}">${left < 0 ? "⚠️ Short by" : "Left after bills ≈"} <b>${money(Math.abs(left))}</b></div>` : ""}
+    <div class="rs-h">Savings goals</div>
+    ${S.goals.map(g => `<div class="goal"><div class="row"><span class="grow"><b>${esc(g.name)}</b> <span class="sub">${money(g.saved)} of ${money(g.target)} · ${goalPct(g)}%</span></span>
+        <button class="x" data-goaldel="${g.id}" aria-label="Remove">✕</button></div>
+        <div class="gbar"><span style="width:${goalPct(g)}%"></span></div>
+        <form class="inline-add" data-goaladd="${g.id}"><input name="amt" type="number" min="0" step="0.01" placeholder="Put $ toward it" required><button class="btn sm">＋ Add</button></form></div>`).join("")}
+    <form class="inline-add" data-goalnew="1"><input name="name" placeholder="New goal (e.g. Christmas)" required autocomplete="off"><input name="target" type="number" min="1" step="1" placeholder="$ target" required style="max-width:110px"><button class="btn sm">Add</button></form>
+    <div class="foot-actions"><button class="add-link" data-payedit="1">Change payday settings</button></div>`;
+}
+
 function heroHtml() {
   const now = new Date(), h = now.getHours();
   const w = WXDATA && WXDATA.here;
@@ -2035,6 +2120,8 @@ function heroHtml() {
 
   const chips = [];
   { const rn = routineNow(); if (rn) chips.unshift(`<button class="chip good" data-ropen="${rn.id}">🔁 ${esc(rn.name.replace(/^\S+\s/, ""))}: ${rDone(rn).length}/${rn.steps.length}</button>`); }
+  { const nx = payNext(); if (nx === today()) { const c = dueBetween(nx, payAfter(nx));
+      chips.unshift(`<span class="chip good">💵 Payday! ${c.length} bill${c.length === 1 ? "" : "s"} before the next check — ${money(c.reduce((x, o) => x + o.amt, 0))}</span>`); } }
   upkeepDue(null, 1).filter(({ x, day }) => x.auto ? (daysUntil(day) === 0 || (daysUntil(day) === 1 && h >= 15)) : daysUntil(day) <= 0)
     .slice(0, 2).forEach(({ x, day }) => chips.push(`<span class="chip ${daysUntil(day) < 0 ? "warn" : ""}">${esc(x.name)} ${x.auto && daysUntil(day) === 1 ? "tomorrow — out tonight" : upkeepWhen(x, day)}</span>`));
   upcomingPeople(3).forEach(({ p, day }) => { const n = daysUntil(day);
@@ -2423,6 +2510,8 @@ const CARDS = {
         (later.length ? `<details class="steps"><summary>All dates (${S.people.length})</summary>${later.map(row).join("")}</details>` : "");
     } },
 
+  payday: { icon: "💵", title: "Payday",
+    meta: () => { const nx = payNext(); return nx ? (daysUntil(nx) === 0 ? "today!" : inDays(daysUntil(nx))) : ""; }, body: () => paydayCard() },
   routines: { icon: "🔁", title: "Routines", add: ["routine", "Make your own routine"],
     meta: () => { const r = routineNow(); return r ? `${esc(r.name.replace(/^\S+\s/, ""))} now` : ""; }, body: () => routinesCard() },
   home: { icon: "🏠", title: "Home", add: ["upkeep", "Add something"],
@@ -2975,6 +3064,12 @@ document.addEventListener("submit", e => {
   if (f.dataset.tadd) { const [tid, k] = f.dataset.tadd.split(":"); const tr = S.trips.find(x => x.id === tid);
     if (tr) tr.lists[k].push({ id: uid(), text: data.text.trim(), done: false });
     save(); render(); const again = document.querySelector(`form[data-tadd="${f.dataset.tadd}"] input`); if (again) again.focus(); return; }
+  if (f.dataset.paysetup) { S.payday = { ...S.payday, freq: data.freq, next: data.next, amount: Number(data.amount) > 0 ? Number(data.amount) : null };
+    if (data.freq === "semimonthly") { S.payday.d1 = Number(data.next.slice(8)); S.payday.d2 = Math.min(31, Math.max(1, Number(data.d2) || 15)); }
+    save(); render(); buzz(); toast("💵 Payday set ✓"); return; }
+  if (f.dataset.goalnew) { S.goals.push({ id: uid(), name: data.name.trim(), target: Number(data.target) || 0, saved: 0 }); save(); render(); buzz(); return; }
+  if (f.dataset.goaladd) { const g = S.goals.find(x => x.id === f.dataset.goaladd); if (g) { snap(); g.saved = Math.round((g.saved + Number(data.amt || 0)) * 100) / 100; save(); render(); buzz();
+    toast(g.saved >= g.target ? `🎉 ${g.name} — goal reached!` : `${money(Number(data.amt))} toward ${g.name} ✓`, true); } return; }
   if (f.dataset.addleave) { const x = (data.text || "").trim(); if (!x) return;
     S.leave.items.push({ id: uid(), text: x }); save(); render(); buzz();
     const again = document.querySelector('form[data-addleave] input'); if (again) again.focus(); return; }
@@ -3074,6 +3169,8 @@ document.addEventListener("click", e => {
     pick.filter(Boolean).forEach(x => { x.day = T1; }); save(); render(); toast(`Moved to tomorrow (${pick.length})`, true); return; }
   if (ds.rmdel) { S.remember = S.remember.filter(r => r.id !== ds.rmdel); save(); render(); return; }
   if (ds.syncall) { syncTap(); return; }
+  if (ds.payedit) { S.payday.freq = null; render(); return; }
+  if (ds.goaldel) { snap(); S.goals = S.goals.filter(g => g.id !== ds.goaldel); save(); render(); toast("Goal removed", true); return; }
   if (ds.radd !== undefined) { const p = ROUTINE_PRESETS[Number(ds.radd)]; ROUTINE_OPEN = addRoutine(p[0], p[1], p[2], p[3]).id; save(); render(); buzz();
     toast(`${p[0]} added — ✏️ to change the steps`); return; }
   if (ds.ropen) { const cur = ROUTINE_OPEN || (routineNow() || {}).id;

@@ -1,6 +1,11 @@
 {
- "version": "0.27",
+ "version": "0.28",
  "notes": {
+  "0.28": [
+   "💵 Payday: set it up once (every week / 2 weeks / twice a month / monthly) — see your next payday, bills due before it, what that check has to cover until the next one, and roughly what's left",
+   "🎯 Savings goals: Christmas, vacation, emergency fund — put a little toward each and watch the bar fill",
+   "On payday: a 💵 chip at the top, an 8 AM reminder and a line in your Morning brief"
+  ],
   "0.27": [
    "🔁 Routines: Morning, Workday shutdown, Evening, Weekend reset, Vacation prep — one tap adds the whole checklist, ticks start fresh every day",
    "Make your own (✏️ to change steps), pick the days and a time: it pops up at the top and nudges you when it's time"

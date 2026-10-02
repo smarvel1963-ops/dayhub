@@ -760,6 +760,45 @@ def t_v027_routines(b, base):
     a.close()
 
 
+def t_v028_payday(b, base):
+    print("\n[v0.28 payday]")
+    a = App(b, base); setup(a)                     # Thu 2026-10-01 08:00
+    check("not set up: 3 easy steps", "How often do you get paid?" in a.card("payday") and "Your next payday" in a.card("payday"))
+    a.qa("bill", {"title": "Phone", "amount": "85", "day": "3"})
+    a.qa("bill", {"title": "Rent", "amount": "900", "day": "12"})
+    a.qa("bill", {"title": "Car", "amount": "350", "day": "20"})
+    a.js("closeQA()")
+    f = '[data-card="payday"] form[data-paysetup]'
+    a.page.select_option(f + " [name=freq]", "biweekly"); a.page.fill(f + " [name=next]", "2026-10-09"); a.page.fill(f + " [name=amount]", "1500")
+    a.page.click(f + " button")
+    card = a.card("payday")
+    check("next payday in 8 days", "Next payday" in card and "in 8 days" in card, card[:200])
+    check("due before payday: Phone $85", "due before payday · $85.00" in card.lower())
+    check("that check covers Rent + Car until Oct 23", "until oct 23" in card.lower() and "$1,250.00" in card, card[:500])
+    check("left after bills ≈ $250", "Left after bills ≈ $250.00" in card)
+    check("paydays repeat every 2 weeks", a.js("payNext('2026-10-10')") == "2026-10-23" and a.js("payNext('2026-09-20')") == "2026-09-25")
+    # goals
+    gf = '[data-card="payday"] form[data-goalnew]'
+    a.page.fill(gf + " [name=name]", "Christmas"); a.page.fill(gf + " [name=target]", "600"); a.page.click(gf + " button")
+    a.page.fill('[data-card="payday"] form[data-goaladd] [name=amt]', "150"); a.page.click('[data-card="payday"] form[data-goaladd] button')
+    check("savings goal: $150 of $600 · 25%", "$150.00 of $600.00 · 25%" in a.card("payday"))
+    # payday day itself
+    a.page.clock.fast_forward("192:00:00") if False else a.page.clock.fast_forward(8 * 86400000)
+    a.js("render()")
+    check("payday: chip at the top", "Payday!" in a.page.inner_text("#hero") and "$1,250.00" in a.page.inner_text("#hero"), a.page.inner_text("#hero")[:200])
+    check("payday on the schedule", a.js("dayItems(today()).some(i => i.kind === 'pay')"))
+    check("payday reminder at 8 AM", any(r["key"].startswith("pay:") for r in a.js("reminderList()")))
+    check("brief says payday", any("Payday today" in x for x in a.js("briefLines()")))
+    # twice a month: 1st + 15th; monthly clamps to month end
+    a.js("S.payday = { freq: 'semimonthly', next: '2026-10-15', d1: 15, d2: 31, amount: null }")
+    check("twice a month 15th + last day", a.js("payNext('2026-10-16')") == "2026-10-31" and a.js("payNext('2026-11-01')") == "2026-11-15")
+    a.js("S.payday = { freq: 'monthly', next: '2026-10-31', d1: 1, d2: 15, amount: null }")
+    check("monthly on the 31st lands Nov 30", a.js("payNext('2026-11-01')") == "2026-11-30")
+    a.js("S.money.type = 'salary'; S.money.salary = 52000; S.work.taxPct = 20")
+    check("no amount: estimate from salary", abs(a.js("payAmount().amt") - 52000 * 0.8 / 12) < 0.01 and a.js("payAmount().est"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -769,7 +808,8 @@ def main():
                   t_v019_calendar_arrange, t_v020_nightly_reset,
                   t_v021_brief_sync, t_v022_brain_dump,
                   t_v024_weather_intel, t_v025_people_leave,
-                  t_v026_upkeep, t_v027_routines):
+                  t_v026_upkeep, t_v027_routines,
+                  t_v028_payday):
             try:
                 t(b, base)
             except Exception as e:
