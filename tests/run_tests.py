@@ -799,6 +799,32 @@ def t_v028_payday(b, base):
     a.close()
 
 
+def t_v029_pulse(b, base):
+    print("\n[v0.29 life pulse]")
+    a = App(b, base, at="2026-10-01T13:00:00"); setup(a)
+    a.js("WXDATA.here.day.rainFrom = null; WXDATA.here.days[0].rain = 0; render()")
+    check("empty day = 100 Ready", a.js("pulseScore()") == 100 and "Ready" in a.page.inner_text("#hero"))
+    a.qa("todo", {"title": "Call insurance"})
+    a.qa("bill", {"title": "Phone", "amount": "85", "day": "1"})
+    a.qa("event", {"title": "Dentist", "date": "2026-10-01", "time": "15:00"})
+    a.qa("event", {"title": "School pickup", "date": "2026-10-01", "time": "15:30"})
+    a.js("closeQA()")
+    items = a.js("pulseItems().map(x => x.text)")
+    check("bill due today counted", any("Phone due today" in i for i in items), items)
+    check("overlap spotted", any("Dentist (3:00 PM) overlaps School pickup (3:30 PM)" in i for i in items), items)
+    check("open to-do counted", any("1 to-do open" in i for i in items))
+    check("score drops to 77 = Mostly ready", a.js("pulseScore()") == 77 and "Mostly ready" in a.page.inner_text("#hero"), a.js("pulseScore()"))
+    a.page.click("[data-pulse]")
+    sheet = a.page.inner_text("#pulseSheet")
+    check("tap the ring: list, worst first", sheet.index("overlaps") < sheet.index("Phone due today") < sheet.index("to-do open"), sheet[:300])
+    a.page.click('[data-pulsego="todos"]'); a.page.wait_for_timeout(900)
+    check("Go jumps to the card", a.js("document.getElementById('pulseSheet').classList.contains('hidden')")
+          and a.js("Math.abs(document.querySelector('[data-card=todos]').getBoundingClientRect().top) < 400"))
+    a.page.click('[data-tick]'); a.page.wait_for_timeout(300)
+    check("finishing things raises it", a.js("pulseScore()") == 82)
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -809,7 +835,7 @@ def main():
                   t_v021_brief_sync, t_v022_brain_dump,
                   t_v024_weather_intel, t_v025_people_leave,
                   t_v026_upkeep, t_v027_routines,
-                  t_v028_payday):
+                  t_v028_payday, t_v029_pulse):
             try:
                 t(b, base)
             except Exception as e:

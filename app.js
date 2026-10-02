@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.28";
+const VERSION = "0.29";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -2102,6 +2102,61 @@ function paydayCard() {
     <div class="foot-actions"><button class="add-link" data-payedit="1">Change payday settings</button></div>`;
 }
 
+// ------------------------------------------------------------- life pulse
+// Scott 10/2 (list #1, "next"): one number for how READY today is. Starts at
+// 100 and loses points for what still needs you - late or near bills, open
+// to-dos, weather that clashes with a plan, appointments that overlap, overdue
+// home/car items, the leaving list, a routine waiting, a gift not bought, a
+// payday that comes up short. Tap the ring: the list, worst first, each with
+// a button that jumps to the card that fixes it.
+function overlaps(day) {
+  const ev = dayItems(day).filter(i => isPlan(i) && i.t).map(i => ({ ...i, a: toMin(i.t), b: i.end ? toMin(i.end) : toMin(i.t) + 60 }))
+    .sort((x, y) => x.a - y.a), out = [];
+  for (let i = 1; i < ev.length; i++) if (ev[i].a < ev[i - 1].b && ev[i].kind !== "work" && ev[i - 1].kind !== "work") out.push([ev[i - 1], ev[i]]);
+  return out;
+}
+function pulseItems() {
+  const t = today(), h = new Date().getHours(), out = [], add = (pts, icon, text, card) => out.push({ pts, icon, text, card });
+  upcomingBills().forEach(b => { const n = daysUntil(b.due);
+    if (n < 0) add(15, "💳", `${b.name} is ${-n} day${n === -1 ? "" : "s"} late (${money(b.amount)})`, "bills");
+    else if (n <= 1) add(8, "💳", `${b.name} due ${inDays(n)} (${money(b.amount)})`, "bills"); });
+  overlaps(t).forEach(([a, b]) => add(10, "⚠️", `${a.title} (${hm(a.t)}) overlaps ${b.title} (${hm(b.t)})`, "schedule"));
+  wxAlerts(t).slice(0, 2).forEach(a => add(8, a.icon, a.text, "weather"));
+  const todo = S.todos.filter(x => todoShown(x) && !todoDone(x));
+  if (todo.length) add(Math.min(25, todo.length * 5), "✅", `${todo.length} to-do${todo.length === 1 ? "" : "s"} open — ${todo.slice(0, 2).map(x => x.title).join(", ")}${todo.length > 2 ? "…" : ""}`, "todos");
+  S.upkeep.map(x => ({ x, d: upkeepNext(x) })).filter(o => !o.x.auto && daysUntil(o.d) <= 0)
+    .forEach(o => add(daysUntil(o.d) < 0 ? 6 : 4, o.x.area === "auto" ? "🚗" : "🏠", `${o.x.name} ${upkeepWhen(o.x, o.d)}`, o.x.area));
+  if (h < 11 && S.hidden.indexOf("leave") < 0) { const n = leaveLeft(); if (n && leaveDone().length) add(Math.min(10, n * 2), "🚪", `${n} thing${n === 1 ? "" : "s"} left on your leaving list`, "leave"); }
+  const rn = routineNow(); if (rn) add(5, "🔁", `${rn.name.replace(/^\S+\s/, "")} routine — ${rLeft(rn)} step${rLeft(rn) === 1 ? "" : "s"} left`, "routines");
+  upcomingPeople(7).filter(({ p, day }) => giftDue(p, day) && daysUntil(day) > 0).forEach(({ p, day }) => add(5, "🎁", `Gift for ${personLabel(p, day)} — ${inDays(daysUntil(day))}`, "people"));
+  S.remember.filter(r => r.day === t).forEach(r => add(3, "📌", r.text, null));
+  { const nx = payNext(); if (nx && daysUntil(nx) <= 3) { const pa = payAmount(), c = dueBetween(nx, payAfter(nx)), tot = c.reduce((x, o) => x + o.amt, 0);
+      if (pa.amt && pa.amt < tot) add(10, "💵", `Next check comes up ${money(tot - pa.amt)} short of the bills it covers`, "payday"); } }
+  return out.sort((a, b) => b.pts - a.pts);
+}
+function pulseScore() { return Math.max(0, 100 - pulseItems().reduce((n, x) => n + x.pts, 0)); }
+const pulseWord = n => n >= 90 ? "Ready" : n >= 70 ? "Mostly ready" : n >= 50 ? "A few things" : "Needs you";
+function pulseRing() {
+  const n = pulseScore(), c = n >= 90 ? "#34d399" : n >= 70 ? "#a3e635" : n >= 50 ? "#fbbf24" : "#fb7185", r = 15, L = 2 * Math.PI * r;
+  return `<button class="pulse" data-pulse="1" aria-label="Life pulse ${n} — ${pulseWord(n)}">
+    <svg viewBox="0 0 36 36" width="40" height="40"><circle cx="18" cy="18" r="${r}" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="4"/>
+      <circle cx="18" cy="18" r="${r}" fill="none" stroke="${c}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${(L * n / 100).toFixed(1)} ${L.toFixed(1)}" transform="rotate(-90 18 18)"/>
+      <text x="18" y="22" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">${n}</text></svg>
+    <span class="pw">${pulseWord(n)}</span></button>`;
+}
+function showPulse() {
+  let el = document.getElementById("pulseSheet");
+  if (!el) { el = document.createElement("div"); el.id = "pulseSheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); document.body.appendChild(el); }
+  const items = pulseItems(), n = pulseScore();
+  el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
+    <div class="sheet-head"><h2>Life pulse · ${n}</h2><button class="icon-btn" data-pulseclose="1" aria-label="Close">✕</button></div>
+    <p class="fine" style="margin-top:4px">${n >= 90 ? "You're ready for today 🟢" : "What still needs you today — biggest first:"}</p>
+    ${items.length ? items.map(x => `<div class="row pulse-row"><span class="grow">${x.icon} ${esc(x.text)}</span><span class="sub">−${x.pts}</span>
+      ${x.card ? `<button class="btn sm ghost" data-pulsego="${x.card}">Go</button>` : ""}</div>`).join("") : `<div class="today-line">Nothing waiting on you. Enjoy the day ✨</div>`}
+  </div>`;
+  el.classList.remove("hidden");
+}
+
 function heroHtml() {
   const now = new Date(), h = now.getHours();
   const w = WXDATA && WXDATA.here;
@@ -2169,7 +2224,7 @@ function heroHtml() {
   return `<div class="hero-top"><div class="greet">${greet()}</div>
       <span class="hero-btns">${MODE !== "cruise" ? `<button class="icon-btn" data-leave="1" aria-label="Don't forget">🚪</button><button class="icon-btn" data-dump="1" aria-label="Brain dump">🧠</button>` : ""}<button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button></span></div>
     <div class="hero-main"><div><div class="hero-clock" id="clockNow"></div><div class="hero-date">${longDate(today())}</div></div>${wx}</div>
-    <div class="verdict">${verdict}</div>
+    <div class="verdict-row">${MODE !== "cruise" && (S.name || hasData(S)) ? pulseRing() : ""}<div class="verdict">${verdict}</div></div>
     <div class="chips">${keep.join("")}</div>`;
 }
 function paintHero() {
@@ -3085,7 +3140,7 @@ document.addEventListener("click", e => {
   const ne = e.target.closest && e.target.closest("[data-noteedit]");
   if (ne) { NOTE_EDIT = ne.dataset.noteedit; openQA("note"); return; }
   if (e.target.classList && e.target.classList.contains("sheet")) {         // tap on the dim backdrop
-    if (e.target.id === "sheet") closeSettings(); else closeQA(); return;
+    if (e.target.id === "sheet") closeSettings(); else if (e.target.id === "pulseSheet") e.target.classList.add("hidden"); else closeQA(); return;
   }
   const t = e.target.closest("button, h3[data-collapse]");
   if (!t) return;
@@ -3169,6 +3224,11 @@ document.addEventListener("click", e => {
     pick.filter(Boolean).forEach(x => { x.day = T1; }); save(); render(); toast(`Moved to tomorrow (${pick.length})`, true); return; }
   if (ds.rmdel) { S.remember = S.remember.filter(r => r.id !== ds.rmdel); save(); render(); return; }
   if (ds.syncall) { syncTap(); return; }
+  if (ds.pulse) { showPulse(); return; }
+  if (ds.pulseclose) { document.getElementById("pulseSheet").classList.add("hidden"); return; }
+  if (ds.pulsego) { document.getElementById("pulseSheet").classList.add("hidden"); const k = ds.pulsego;
+    if (S.hidden.includes(k)) S.hidden = S.hidden.filter(x => x !== k); if (S.collapsed.includes(k)) S.collapsed = S.collapsed.filter(x => x !== k);
+    save(); render(); const el = document.querySelector(`[data-card="${k}"]`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   if (ds.payedit) { S.payday.freq = null; render(); return; }
   if (ds.goaldel) { snap(); S.goals = S.goals.filter(g => g.id !== ds.goaldel); save(); render(); toast("Goal removed", true); return; }
   if (ds.radd !== undefined) { const p = ROUTINE_PRESETS[Number(ds.radd)]; ROUTINE_OPEN = addRoutine(p[0], p[1], p[2], p[3]).id; save(); render(); buzz();

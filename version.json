@@ -1,6 +1,10 @@
 {
- "version": "0.28",
+ "version": "0.29",
  "notes": {
+  "0.29": [
+   "🟢 Life pulse: one ring at the top shows how ready your day is (100 = ready) — late or near bills, open to-dos, appointments that overlap, weather vs your plans, home/car items, your leaving list, a routine waiting, a gift to buy, a short payday",
+   "Tap the ring: what still needs you, biggest first, with a Go button to each one"
+  ],
   "0.28": [
    "💵 Payday: set it up once (every week / 2 weeks / twice a month / monthly) — see your next payday, bills due before it, what that check has to cover until the next one, and roughly what's left",
    "🎯 Savings goals: Christmas, vacation, emergency fund — put a little toward each and watch the bar fill",
