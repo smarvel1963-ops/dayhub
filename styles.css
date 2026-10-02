@@ -275,3 +275,11 @@ a.btn { text-decoration: none; display: inline-block; }
 
 /* v0.11 - what's new after an update */
 .card.whatsnew { background: linear-gradient(145deg, rgba(94,234,212,.18), rgba(129,140,248,.18)); border-color: rgba(94,234,212,.4); }
+
+/* v0.12 - trips */
+.trip-hero { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 16px;
+  background: linear-gradient(135deg, rgba(56,189,248,.20), rgba(251,146,60,.18)); border: 1px solid var(--line); }
+.trip-n { font-size: 40px; font-weight: 800; letter-spacing: -1px; min-width: 64px; text-align: center; line-height: 1; }
+.trip-hero .sub { display: block; color: var(--dim); font-size: 12px; margin-top: 2px; }
+.catrow { display: grid; grid-template-columns: 90px 1fr 80px; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; }
+.catrow b { text-align: right; }

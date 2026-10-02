@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.11.1";
+const VERSION = "0.12";
 
 const STORE = "dayhub.v1";
 const WX = "https://api.open-meteo.com/v1/forecast";
@@ -35,13 +35,13 @@ const PRO_LIVE = false;
 let TIER = "free";
 const FEATURES = {
   schedule: "free", weather: "free", todos: "free", lists: "free", countdowns: "free",
-  bills: "free", work: "free", tomorrow: "free", packages: "free", inbox: "free", route: "free", loads: "free", jobs: "free", nextup: "free", games: "free",
+  bills: "free", work: "free", tomorrow: "free", packages: "free", inbox: "free", trips: "free", route: "free", loads: "free", jobs: "free", nextup: "free", games: "free",
   gcal: "pro", sync: "pro", reminders: "pro", budget: "pro", mail: "pro",   // candidates - Scott decides at launch
 };
 const can = f => !PRO_LIVE || FEATURES[f] !== "pro" || TIER === "pro";
 
 // ---------------------------------------------------------------- packs
-const BASE = ["inbox", "schedule", "tomorrow", "work", "budget", "weather", "todos", "packages", "bills", "countdowns", "lists"];
+const BASE = ["inbox", "trips", "schedule", "tomorrow", "work", "budget", "weather", "todos", "packages", "bills", "countdowns", "lists"];
 const PACKS = {
   general:  { label: "General",              cards: [] },
   trucker:  { label: "Trucker / Dispatcher", cards: ["route", "loads"] },
@@ -60,6 +60,7 @@ const blank = () => ({
   remind: { on: false, lead: 15, billDays: 1, billHour: "09:00", morning: 420, fired: {} },
   packages: [],
   mail: { on: false, last: null, seen: {}, found: [] },
+  trips: [], tripSel: null, tripTab: "money", tripList: "packing",
   money: { type: "hourly", salary: 0, spends: [] },
   work: { rate: 0, taxPct: 20, otAfter: 40, shifts: [], clockIn: null },
 });
@@ -85,6 +86,7 @@ function load() {
   s.money = Object.assign(blank().money, s.money || {});
   if (!Array.isArray(s.packages)) s.packages = [];
   s.mail = Object.assign(blank().mail, s.mail || {});
+  if (!Array.isArray(s.trips)) s.trips = [];
   return s;
 }
 function saveLocal() {
@@ -274,7 +276,7 @@ const DFILE = "dayhub.json";
 const dReady = () => DTOKEN && Date.now() < DTOKEN_EXP;
 const hasData = d => !!d && ((d.events || []).length + (d.todos || []).length + (d.bills || []).length +
   (d.countdowns || []).length + ((d.work || {}).shifts || []).length + ((d.money || {}).spends || []).length +
-  (d.packages || []).length + (d.lists || []).reduce((n, l) => n + (l.items || []).length, 0)) > 0;
+  (d.packages || []).length + (d.trips || []).length + (d.lists || []).reduce((n, l) => n + (l.items || []).length, 0)) > 0;
 
 function driveSignIn(prompt) {                                 // must run from a tap
   return loadGis().then(() => new Promise(res => {
@@ -409,6 +411,16 @@ function reminderList() {
     add(`tm:${T1}`, atMs(today(), "23:59"), at, "🌙 Tomorrow",
         [f ? `First up ${hm(f.t)} ${f.title}` : `${plans.length} planned`, w1 && w1.rain >= 50 ? `rain ${w1.rain}%` : ""].filter(Boolean).join(" · "));
   }
+  S.trips.forEach(tr => {
+    if (tr.finalDue && tripLeft(tr) !== 0) [14, 3, 1, 0].forEach(n => { const d = addDays(tr.finalDue, -n);
+      if (inWin(d)) { const at = atMs(d, R.billHour); add(`tf:${tr.id}:${n}`, atMs(d, "23:59"), at,
+        `💳 Final payment ${n === 0 ? "due TODAY" : `due in ${n} day${n === 1 ? "" : "s"}`}`,
+        `${tr.name}${tripLeft(tr) ? ` — ${money(tripLeft(tr))} left` : ""}. Miss it and the booking can be cancelled.`); } });
+    if (tr.start) [[7, "check in online + print luggage tags"], [1, "documents, meds and swimsuit in your carry-on"]].forEach(([n, what]) => {
+      const d = addDays(tr.start, -n);
+      if (inWin(d)) { const at = atMs(d, "10:00"); add(`ts:${tr.id}:${n}`, atMs(d, "23:59"), at,
+        `${isCruise(tr) ? "🚢" : "✈️"} ${n === 1 ? "Tomorrow you go" : `${n} days to go`} — ${tr.name}`, what); } });
+  });
   if (R.morning >= 0) {
     const at = atMs(today(), `${pad(Math.floor(R.morning / 60))}:${pad(R.morning % 60)}`);
     add(`mb:${today()}`, atMs(today(), "12:00"), at, `☀️ Good morning${S.name ? ", " + S.name : ""}`, morningBrief());
@@ -804,6 +816,74 @@ function whatsNewHtml() {
     <button class="btn sm" data-seen="1" style="margin-top:10px">Got it</button></div></section>`;
 }
 
+// ------------------------------------------------------------------ trips
+// v0.12 (Scott 10/1: "cruise app countdown payment tracker reminders and
+// travel list" -> "final payment reminder and onboard spending tracker, all
+// list preplanned in advance, and lil note some people dont know about
+// cruises"). He had just come back from one. A CRUISE gets the full kit; any
+// other trip gets the countdown, money and lists without the cruise extras.
+const ONBOARD_CATS = ["Drinks", "Excursions", "Gratuities", "Dining", "Spa", "Casino", "Wi-Fi", "Photos", "Shopping", "Other"];
+const GRAT_PER_DAY = 18;          // per person per night - most mainstream lines charge about $16-18
+const TRIP_LISTS = { packing: "Packing", docs: "Documents", before: "Before you go", embark: "Sail day" };
+const TEMPLATES = {
+  cruise: {
+    packing: ["Swimsuits + cover-up", "Formal-night outfit", "Comfortable walking shoes", "Sandals / flip-flops",
+      "Light jacket or sweater (ships are cold inside)", "Sunscreen (reef-safe for some ports)", "Sunglasses + hat",
+      "Seasickness remedy - bands, patch or pills", "Daily medications (keep in your carry-on)", "Phone charger + cables",
+      "Magnetic hooks (cabin walls are metal)", "Lanyard for your cruise card", "Small day bag for port days", "Reusable water bottle"],
+    docs: ["Passport (or birth certificate + photo ID on closed-loop US cruises)", "Cruise boarding pass / app check-in done",
+      "Luggage tags printed and attached", "Credit card for the onboard account", "Some cash for tips and ports",
+      "Travel insurance details", "Excursion confirmations", "Flight + hotel confirmations", "Emergency contacts on paper"],
+    before: ["Pay the final payment (Day Hub reminds you)", "Check in online as soon as it opens + pick an arrival time",
+      "Book excursions you really want (popular ones sell out)", "Decide on drink / Wi-Fi packages - often cheaper before you sail",
+      "Book the flight to arrive THE DAY BEFORE sailing", "Tell your bank you'll be travelling", "Print luggage tags",
+      "Plan phone use at sea (airplane mode or a cruise plan)"],
+    embark: ["Carry-on: documents, meds, swimsuit, chargers", "Arrive at your check-in time - not hours early",
+      "Tip the porters ($1-2 a bag)", "Muster / safety drill (required)", "Lunch at the buffet while cabins get ready",
+      "Find your cabin, check the bags arrived (can be evening)", "Look at tomorrow's daily planner in the app"],
+  },
+  trip: {
+    packing: ["Clothes for each day", "Comfortable shoes", "Toiletries", "Medications", "Phone charger", "Sunglasses", "Jacket"],
+    docs: ["ID / passport", "Tickets / boarding passes", "Hotel confirmation", "Car rental confirmation", "Travel insurance details"],
+    before: ["Confirm bookings", "Tell your bank you'll be travelling", "Arrange pet / house sitting", "Check the weather where you're going"],
+    embark: ["Leave early - traffic and lines", "Documents + meds in your carry-on"],
+  },
+};
+const CRUISE_TIPS = [
+  "Final payment is usually due 75-90 days before sailing - miss it and the cruise line can cancel your booking.",
+  "Daily gratuities (around $16-18 per person per night) are added to your onboard account automatically.",
+  "Your cruise card is your room key AND your wallet - everything onboard charges to it.",
+  "The main dining room and buffet are included. Drinks, specialty restaurants, Wi-Fi, spa and most excursions cost extra.",
+  "Fly in the day before you sail - if your flight is late, the ship will not wait.",
+  "'All aboard' is usually 30-60 minutes before the ship leaves a port. Be back on time or it sails without you.",
+  "Put your phone in airplane mode at sea - the ship's cell network can cost a fortune.",
+  "On sail day your big bags may not reach your cabin until evening - keep a carry-on with what you need.",
+  "Surge-protector power strips get taken at security, and cabins have few outlets.",
+  "Prone to seasickness? A cabin low and in the middle of the ship moves the least.",
+];
+const isCruise = tr => tr.type === "cruise";
+const tripNights = tr => tr.start && tr.end ? Math.max(0, Math.round((parseDay(tr.end) - parseDay(tr.start)) / 86400000)) : 0;
+const tripPaid = tr => (tr.payments || []).reduce((n, x) => n + Number(x.amt || 0), 0);
+const tripLeft = tr => tr.total ? Math.max(0, tr.total - tripPaid(tr)) : null;
+const tripSpent = tr => (tr.spends || []).reduce((n, x) => n + Number(x.amt || 0), 0);
+const gratEstimate = tr => isCruise(tr) ? (Number(tr.travelers) || 1) * tripNights(tr) * GRAT_PER_DAY : 0;
+const upcomingTrips = () => S.trips.filter(tr => tr.end ? tr.end >= addDays(today(), -7) : true)
+  .sort((a, b) => (a.start || "9999").localeCompare(b.start || "9999"));
+const curTrip = () => S.trips.find(t => t.id === S.tripSel) || upcomingTrips()[0] || null;
+function newLists(type) {
+  const T = TEMPLATES[type] || TEMPLATES.trip, out = {};
+  for (const k of Object.keys(TRIP_LISTS)) out[k] = (T[k] || []).map(text => ({ id: uid(), text, done: false }));
+  return out;
+}
+// Save per month: what is still owed, spread over the months left until the
+// final payment (or sail day when no final date is known).
+function savePerMonth(tr) {
+  const left = tripLeft(tr), by = tr.finalDue || tr.start;
+  if (!left || !by) return null;
+  const months = Math.max(1, daysUntil(by) / 30.44);
+  return daysUntil(by) <= 0 ? left : left / months;
+}
+
 // ------------------------------------------------------------- the day
 // A bill repeats monthly on its day (clamped to the month's length). `paid`
 // = the last month paid ("YYYY-MM"). Unpaid and past due = LATE, shown red.
@@ -834,6 +914,15 @@ function dayItems(day) {
   S.work.shifts.filter(x => x.day === day).forEach(x => it.push({ t: x.start, end: x.end, title: "Work shift", sub: fmtH(shiftHours(x)), kind: "work", icon: "💼", cal: `shift:${x.id}` }));
   upcomingBills().filter(b => b.due === day).forEach(b => it.push({ t: null, title: `${b.name} due`, sub: money(b.amount), kind: "bill", icon: "💳", cal: `bill:${b.id}` }));
   S.countdowns.filter(c => c.date === day).forEach(c => it.push({ t: null, title: c.title, sub: "The day is here", kind: "cd", icon: "🎉" }));
+  S.trips.forEach(tr => {
+    if (tr.start && day >= tr.start && day <= (tr.end || tr.start)) {
+      const n = Math.round((parseDay(day) - parseDay(tr.start)) / 86400000) + 1;
+      it.push({ t: null, title: day === tr.start ? `${isCruise(tr) ? "Sail day" : "Trip starts"} — ${tr.name}` : `${tr.name} — day ${n}`,
+                sub: [tr.ship, tr.port].filter(Boolean).join(" · "), kind: "trip", icon: isCruise(tr) ? "🚢" : "✈️" });
+    }
+    if (tr.finalDue === day && tripLeft(tr) !== 0)
+      it.push({ t: null, title: `Final payment — ${tr.name}`, sub: tripLeft(tr) ? money(tripLeft(tr)) + " left" : "", kind: "bill", icon: "💳" });
+  });
   S.packages.filter(p => !p.delivered && p.eta === day).forEach(p => it.push({ t: null, title: `${p.name} arriving`, sub: (CARRIERS[p.carrier] || CARRIERS.other)[0], kind: "pkg", icon: "📦" }));
   const w = WXDATA && WXDATA.here;
   if (w && day === today()) {
@@ -975,6 +1064,14 @@ function heroHtml() {
   if (open) chips.push(`<span class="chip">✅ ${open} to-do${open === 1 ? "" : "s"}</span>`);
   upcomingBills().filter(b => daysUntil(b.due) <= 3).forEach(b =>
     chips.push(`<span class="chip ${daysUntil(b.due) < 0 ? "warn" : ""}">💳 ${esc(b.name)} ${inDays(daysUntil(b.due))}</span>`));
+  const nt = upcomingTrips()[0];
+  if (nt && nt.start) {
+    const fd = nt.finalDue ? daysUntil(nt.finalDue) : null;
+    if (fd !== null && fd >= 0 && fd <= 30 && tripLeft(nt) !== 0) chips.push(`<span class="chip warn">💳 Final payment ${inDays(fd)}</span>`);
+    const sd = daysUntil(nt.start);
+    if (sd > 0 && sd <= 365) chips.push(`<span class="chip">${isCruise(nt) ? "🚢" : "✈️"} ${esc(nt.name)} in ${sd} day${sd === 1 ? "" : "s"}</span>`);
+    else if (sd <= 0 && daysUntil(nt.end || nt.start) >= 0) chips.push(`<span class="chip good">${isCruise(nt) ? "🚢" : "✈️"} Enjoy ${esc(nt.name)}!</span>`);
+  }
   const pkToday = S.packages.filter(p => !p.delivered && p.eta === today()).length;
   if (pkToday) chips.push(`<span class="chip">📦 ${pkToday} arriving today</span>`);
   const cd = liveCountdowns()[0];
@@ -1165,6 +1262,69 @@ const CARDS = {
         <button class="btn sm" data-addfound="${esc(x.key)}">Add</button><button class="x" data-dropfound="${esc(x.key)}" aria-label="Dismiss">✕</button></div>`).join("");
     } },
 
+  trips: { icon: "🚢", title: "Trips",
+    meta: () => { const tr = curTrip(); return tr && tr.start ? (daysUntil(tr.start) > 0 ? `${daysUntil(tr.start)} days` : "now") : ""; },
+    body: () => {
+      const tr = curTrip();
+      if (!tr) return `<div class="empty">Got a cruise or trip coming? Day Hub counts down, reminds you about the final payment, tracks onboard spending and hands you ready-made packing and document lists.</div>
+        <button class="btn sm" data-qa="trip" style="margin-top:10px">🚢 Plan a trip</button>`;
+      const all = upcomingTrips();
+      const pick = all.length > 1 ? `<div class="tabs">${all.map(t => `<button class="tab ${t.id === tr.id ? "on" : ""}" data-tripsel="${t.id}">${esc(t.name)}</button>`).join("")}</div>` : "";
+      const sd = tr.start ? daysUntil(tr.start) : null, nights = tripNights(tr);
+      const big = sd === null ? "?" : sd > 0 ? sd : daysUntil(tr.end || tr.start) >= 0 ? "🎉" : "✓";
+      const lab = sd === null ? "add the dates" : sd > 0 ? (sd === 1 ? "day to go" : "days to go") : daysUntil(tr.end || tr.start) >= 0 ? "you're away!" : "back home";
+      const head = `<div class="trip-hero"><div class="trip-n">${big}</div><div class="grow"><b>${isCruise(tr) ? "🚢" : "✈️"} ${esc(tr.name)}</b>
+          <span class="sub">${lab}${tr.start ? ` · ${prettyDate(tr.start)}${tr.end ? ` – ${prettyDate(tr.end)}` : ""}${nights ? ` · ${nights} nights` : ""}` : ""}</span>
+          <span class="sub">${[tr.line, tr.ship, tr.port].filter(Boolean).map(esc).join(" · ")}</span></div>
+          <button class="btn sm ghost" data-tripedit="${tr.id}">Edit</button></div>`;
+      const tabs = ["money", "onboard", "lists"].concat(isCruise(tr) ? ["tips"] : []);
+      const TL = { money: "💳 Payments", onboard: isCruise(tr) ? "🍹 Onboard" : "💵 Spending", lists: "📋 Lists", tips: "💡 Good to know" };
+      const tab = tabs.includes(S.tripTab) ? S.tripTab : "money";
+      let body = "";
+      if (tab === "money") {
+        const paid = tripPaid(tr), left = tripLeft(tr), spm = savePerMonth(tr), fd = tr.finalDue ? daysUntil(tr.finalDue) : null;
+        body = tr.total ? `<div class="paygrid"><div class="fact">Total<b>${money(tr.total)}</b></div><div class="fact">Paid<b>${money(paid)}</b></div>
+            <div class="fact ${left ? "" : "take"}">Left<b>${money(left)}</b></div></div>
+            <div class="bar" style="margin-top:10px"><span style="left:0;width:${Math.min(100, paid / tr.total * 100)}%"></span></div>`
+          : `<div class="empty">Add the total price (Edit) to see what's left to pay.</div>`;
+        if (tr.finalDue) body += `<div class="today-line" style="margin-top:8px">💳 Final payment due <b>${prettyDate(tr.finalDue)}</b>
+            ${left === 0 ? `<span class="pill">paid off ✓</span>` : `<span class="pill ${fd !== null && fd <= 14 ? "late" : fd <= 45 ? "soon" : ""}">${fd < 0 ? `${-fd} days ago` : inDays(fd)}</span>`}</div>`;
+        else if (isCruise(tr)) body += `<div class="today-line sub" style="margin-top:8px">Add the final-payment date (Edit) — Day Hub reminds you 14, 3 and 1 day before.</div>`;
+        if (spm && left) body += `<div class="today-line">💰 Put aside about <b>${money(spm)}</b> a month to be ready.</div>`;
+        body += (tr.payments || []).slice().sort((a, b) => b.day.localeCompare(a.day)).map(x => `<div class="row"><span class="time">${prettyDate(x.day)}</span>
+            <span class="grow">${esc(x.note || "Payment")}</span><b>${money(x.amt)}</b><button class="x" data-tripdel="${tr.id}:payments:${x.id}" aria-label="Remove">✕</button></div>`).join("");
+        body += `<button class="add-link" data-tripqa="tpay">＋ Log a payment</button>`;
+      } else if (tab === "onboard") {
+        const spent = tripSpent(tr), bud = Number(tr.onboardBudget || 0), gr = gratEstimate(tr);
+        const cats = {}; (tr.spends || []).forEach(x => { cats[x.cat] = (cats[x.cat] || 0) + Number(x.amt || 0); });
+        body = `<div class="paygrid"><div class="fact">Budget<b>${bud ? money(bud) : "--"}</b></div><div class="fact">Spent<b>${money(spent)}</b></div>
+            <div class="fact ${bud && spent > bud ? "" : "take"}">Left<b>${bud ? money(bud - spent) : "--"}</b></div></div>`;
+        if (bud && spent > bud) body += `<div class="bstat over" style="margin-top:8px">⚠ ${money(spent - bud)} over your onboard budget.</div>`;
+        if (gr) body += `<div class="today-line" style="margin-top:8px">🧾 Automatic gratuities: about <b>${money(gr)}</b> (${Number(tr.travelers) || 1} × ${nights} nights × ~$${GRAT_PER_DAY}) — they hit your account even if you never log them.</div>`;
+        const mx = Math.max(1, ...Object.values(cats));
+        body += Object.entries(cats).sort((a, b) => b[1] - a[1]).map(([c, v]) => `<div class="catrow"><span>${esc(c)}</span>
+            <span class="bar"><span style="left:0;width:${v / mx * 100}%"></span></span><b>${money(v)}</b></div>`).join("");
+        body += (tr.spends || []).slice().sort((a, b) => b.day.localeCompare(a.day)).slice(0, 6).map(x => `<div class="row"><span class="time">${prettyDate(x.day)}</span>
+            <span class="grow">${esc(x.cat)}${x.note ? `<span class="sub">${esc(x.note)}</span>` : ""}</span><b>${money(x.amt)}</b>
+            <button class="x" data-tripdel="${tr.id}:spends:${x.id}" aria-label="Remove">✕</button></div>`).join("");
+        body += `<button class="add-link" data-tripqa="tspend">＋ Log ${isCruise(tr) ? "onboard " : ""}spending</button>`;
+      } else if (tab === "lists") {
+        const lk = TRIP_LISTS[S.tripList] ? S.tripList : "packing", L = (tr.lists && tr.lists[lk]) || [];
+        const done = L.filter(i => i.done).length;
+        body = `<div class="tabs">${Object.entries(TRIP_LISTS).map(([k, l]) => { const n = ((tr.lists || {})[k] || []);
+            return `<button class="tab ${k === lk ? "on" : ""}" data-triplist="${k}">${l}<small>${n.filter(i => i.done).length}/${n.length}</small></button>`; }).join("")}</div>
+          <div class="today-line sub">${done} of ${L.length} done</div>` +
+          L.map(i => `<div class="row ${i.done ? "done" : ""}"><input type="checkbox" class="tick" data-titem="${tr.id}:${lk}:${i.id}" ${i.done ? "checked" : ""} aria-label="Done">
+            <span class="grow">${esc(i.text)}</span><button class="x" data-tripdel="${tr.id}:lists.${lk}:${i.id}" aria-label="Remove">✕</button></div>`).join("") +
+          `<form class="inline-add" data-tadd="${tr.id}:${lk}"><input name="text" placeholder="Add to ${TRIP_LISTS[lk]}…" required autocomplete="off"><button class="btn sm">Add</button></form>`;
+      } else {
+        body = `<div class="today-line sub">For first-timers — things most people wish someone had told them.</div>` +
+          CRUISE_TIPS.map(t => `<div class="today-line">💡 ${esc(t)}</div>`).join("");
+      }
+      return pick + head + `<div class="tabs" style="margin-top:10px">${tabs.map(k => `<button class="tab ${k === tab ? "on" : ""}" data-triptab="${k}">${TL[k]}</button>`).join("")}</div>` +
+        body + `<div class="foot-actions" style="margin-top:6px"><button class="add-link" data-qa="trip">＋ Another trip</button></div>`;
+    } },
+
   packages: { icon: "📦", title: "Packages", add: ["package", "Add a package"],
     meta: () => { const n = S.packages.filter(p => !p.delivered).length; return n ? `${n} on the way` : ""; },
     body: () => {
@@ -1302,7 +1462,7 @@ const snap = () => { UNDO = JSON.stringify(S); };
 
 // ------------------------------------------------------------ quick add
 function qaTypes() {
-  const t = [["event", "📅 Event"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["package", "📦 Package"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
+  const t = [["event", "📅 Event"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["package", "📦 Package"], ["trip", "🚢 Trip"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
   if (S.pack === "trucker") t.splice(1, 0, ["loads", "🚚 Load"]);
   if (S.pack === "trades") t.splice(1, 0, ["jobs", "🔧 Job"]);
   return t;
@@ -1325,6 +1485,23 @@ function qaFields(type) {
       <div class="two"><input name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount $" required>
       <input name="day" type="number" min="1" max="31" inputmode="numeric" placeholder="Due day (1-31)" required></div>
       <div class="hint">Repeats every month. Tap Paid and it moves to next month.</div>`,
+    trip: (() => { const tr = S.trips.find(x => x.id === TRIP_EDIT) || {}; const v = k => esc(tr[k] ?? "");
+      return `<div class="two"><select name="ttype"><option value="cruise" ${tr.type !== "trip" ? "selected" : ""}>🚢 Cruise</option><option value="trip" ${tr.type === "trip" ? "selected" : ""}>✈️ Other trip</option></select>
+        <input name="tname" placeholder="Name (e.g. Caribbean cruise)" value="${v("name")}" required autocomplete="off"></div>
+      <div class="two"><label class="field" style="margin:0">Leave<input name="start" type="date" value="${v("start")}" required></label>
+        <label class="field" style="margin:0">Back<input name="end" type="date" value="${v("end")}"></label></div>
+      <div class="two"><input name="line" placeholder="Cruise line / airline" value="${v("line")}"><input name="ship" placeholder="Ship (optional)" value="${v("ship")}"></div>
+      <div class="two"><input name="port" placeholder="Leaving from (port / city)" value="${v("port")}"><input name="travelers" type="number" min="1" inputmode="numeric" placeholder="People" value="${v("travelers")}"></div>
+      <div class="two"><input name="total" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Total price $" value="${v("total")}">
+        <label class="field" style="margin:0">Final payment due<input name="finalDue" type="date" value="${v("finalDue")}"></label></div>
+      <input name="onboardBudget" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Onboard / spending budget $ (optional)" value="${v("onboardBudget")}">
+      <div class="hint">${TRIP_EDIT ? "Changing a trip keeps its payments, spending and lists." : "Packing, documents and before-you-go lists are filled in for you."}</div>
+      ${TRIP_EDIT ? `<button type="button" class="btn sm ghost" data-tripremove="${TRIP_EDIT}">Delete this trip</button>` : ""}`; })(),
+    tpay: `<input name="amt" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount paid $" required>
+      <div class="two"><input name="date" type="date" value="${today()}" required><input name="note" placeholder="Note (deposit, final…)" autocomplete="off"></div>`,
+    tspend: `<div class="two"><input name="amt" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount $" required>
+      <select name="cat">${ONBOARD_CATS.map(c => `<option>${c}</option>`).join("")}</select></div>
+      <div class="two"><input name="date" type="date" value="${today()}" required><input name="note" placeholder="What (optional)" autocomplete="off"></div>`,
     package: `<input name="name" placeholder="What is it (e.g. New boots)" required autocomplete="off">
       <input name="num" placeholder="Tracking number" required autocomplete="off" autocapitalize="characters">
       <div class="two"><select name="carrier"><option value="auto">Carrier: figure it out</option>${Object.entries(CARRIERS).map(([k, v]) => `<option value="${k}">${v[0]}</option>`).join("")}</select>
@@ -1354,9 +1531,11 @@ function qaFields(type) {
       <label class="field" style="margin:0">A pay period started on (for every 2 weeks)<input name="pstart" type="date" value="${S.work.periodStart || weekStart(today())}"></label>
       <div class="hint">Not sure of your tax %? 15–25% covers most people. Check one real paycheck: take-home ÷ gross.</div>`,
   };
-  return (F[type] || F.todo) + `<button class="btn">${type === "pay" ? "Save" : "Add"}</button>`;
+  return (F[type] || F.todo) + `<button class="btn">${type === "pay" || (type === "trip" && TRIP_EDIT) ? "Save" : "Add"}</button>`;
 }
-function openQA(type) {
+let TRIP_EDIT = null;
+function openQA(type, keepEdit) {
+  if (!keepEdit) TRIP_EDIT = null;
   QA_TYPE = type || QA_TYPE;
   document.getElementById("qaTypes").innerHTML = qaTypes().map(([k, l]) => `<button class="${k === QA_TYPE ? "on" : ""}" data-qtype="${k}">${l}</button>`).join("");
   const f = document.getElementById("qaForm");
@@ -1385,6 +1564,20 @@ function submitQA(f) {
     S.bills.push({ id: uid(), name: d.title.trim(), amount: Number(d.amount), day, paid });
   }
   else if (ty === "countdown") S.countdowns.push({ id: uid(), title: d.title.trim(), date: d.date });
+  else if (ty === "trip") {
+    const fields = { type: d.ttype, name: d.tname.trim(), start: d.start || null, end: d.end || null, line: (d.line || "").trim(),
+      ship: (d.ship || "").trim(), port: (d.port || "").trim(), travelers: Number(d.travelers || 0) || null,
+      total: Number(d.total || 0) || null, finalDue: d.finalDue || null, onboardBudget: Number(d.onboardBudget || 0) || null };
+    const old = S.trips.find(x => x.id === TRIP_EDIT);
+    if (old) Object.assign(old, fields);
+    else { const id = uid(); S.trips.push({ id, ...fields, payments: [], spends: [], lists: newLists(fields.type) }); S.tripSel = id; S.tripTab = "money"; }
+    TRIP_EDIT = null;
+  }
+  else if (ty === "tpay" || ty === "tspend") {
+    const tr = curTrip(); if (!tr) { closeQA(); return; }
+    if (ty === "tpay") tr.payments.push({ id: uid(), day: d.date, amt: Number(d.amt), note: (d.note || "").trim() });
+    else tr.spends.push({ id: uid(), day: d.date, amt: Number(d.amt), cat: d.cat, note: (d.note || "").trim() });
+  }
   else if (ty === "package") S.packages.push({ id: uid(), name: d.name.trim(), num: cleanNum(d.num),
     carrier: d.carrier === "auto" ? detectCarrier(d.num) : d.carrier, eta: d.eta || null, delivered: false });
   else if (ty === "list") { const id = uid(); S.lists.push({ id, name: d.name.trim(), items: [] }); S.listSel = id; }
@@ -1408,6 +1601,9 @@ document.addEventListener("submit", e => {
     save(); WXDATA = null; render(); loadWeather(); toast("You're all set ✓"); return;
   }
   if (f.dataset.route) { S.route = { from: data.from.trim(), to: data.to.trim() }; save(); loadWeather(); return; }
+  if (f.dataset.tadd) { const [tid, k] = f.dataset.tadd.split(":"); const tr = S.trips.find(x => x.id === tid);
+    if (tr) tr.lists[k].push({ id: uid(), text: data.text.trim(), done: false });
+    save(); render(); const again = document.querySelector(`form[data-tadd="${f.dataset.tadd}"] input`); if (again) again.focus(); return; }
   if (f.dataset.additem) {
     const L = S.lists.find(l => l.id === f.dataset.additem);
     if (L) L.items.push({ id: uid(), text: data.text.trim(), done: false });
@@ -1461,6 +1657,16 @@ document.addEventListener("click", e => {
   if (ds.mail === "scan") { scanMail(); return; }
   if (ds.mail === "off") { try { if (MTOKEN && window.google) google.accounts.oauth2.revoke(MTOKEN, () => {}); } catch (e) { /* gone */ }
     MTOKEN = null; S.mail = { on: false, last: null, seen: {}, found: [] }; save(); drawMailBox(); render(); toast("Gmail disconnected"); return; }
+  if (ds.tripremove) { snap(); S.trips = S.trips.filter(x => x.id !== ds.tripremove); S.tripSel = null; TRIP_EDIT = null; closeQA(); save(); render(); toast("Trip deleted", true); return; }
+  if (ds.tripsel) { S.tripSel = ds.tripsel; save(); render(); return; }
+  if (ds.triptab) { S.tripTab = ds.triptab; save(); render(); return; }
+  if (ds.triplist) { S.tripList = ds.triplist; save(); render(); return; }
+  if (ds.tripedit) { TRIP_EDIT = ds.tripedit; openQA("trip", true); return; }
+  if (ds.tripqa) { openQA(ds.tripqa); return; }
+  if (ds.tripdel) { snap(); const [tid, where, id] = ds.tripdel.split(":"); const tr = S.trips.find(x => x.id === tid);
+    if (tr) { if (where.startsWith("lists.")) { const k = where.slice(6); tr.lists[k] = tr.lists[k].filter(i => i.id !== id); }
+              else tr[where] = tr[where].filter(i => i.id !== id); }
+    save(); render(); toast("Removed", true); return; }
   if (ds.pkgdone) { const pk = S.packages.find(x => x.id === ds.pkgdone);
     if (pk) { snap(); pk.delivered = true; pk.deliveredDay = today(); save(); render(); buzz(); toast(`${pk.name} delivered ✓`, true); } return; }
   if (ds.paid) { const b = S.bills.find(x => x.id === ds.paid); const due = b && nextDue(b);
@@ -1496,6 +1702,8 @@ document.addEventListener("change", e => {
   if (ds.tick) { const x = S.todos.find(y => y.id === ds.tick); if (x) { x.done = t.checked; x.doneDay = t.checked ? today() : null; } }
   else if (ds.tickl) { const [k, id] = ds.tickl.split(":"); const x = S[k].find(y => y.id === id); if (x) x.done = t.checked; }
   else if (ds.item) { const [l, id] = ds.item.split(":"); const L = S.lists.find(x => x.id === l); const i = L && L.items.find(y => y.id === id); if (i) i.done = t.checked; }
+  else if (ds.titem) { const [tid, k, id] = ds.titem.split(":"); const tr = S.trips.find(x => x.id === tid);
+    const i = tr && tr.lists[k].find(y => y.id === id); if (i) i.done = t.checked; }
   else if (ds.rset) { S.remind[ds.rset] = Number(t.value); saveLocal(); return; }
   else if (ds.show) { S.hidden = t.checked ? S.hidden.filter(k => k !== ds.show) : [...S.hidden, ds.show]; save(); drawCardList(); render(); return; }
   else return;

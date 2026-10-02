@@ -1,6 +1,13 @@
 {
- "version": "0.11.1",
+ "version": "0.12",
  "notes": {
+  "0.12": [
+   "Trips: countdown to your cruise or trip, with Edit any time",
+   "Final payment reminders 14, 3 and 1 day before — plus how much to put aside each month",
+   "Onboard spending tracker with automatic-gratuity estimate",
+   "Ready-made packing, documents, before-you-go and sail-day lists",
+   "Good to know: cruise tips for first-timers"
+  ],
   "0.11.1": [
    "New Day Hub icon — the sunrise over the water"
   ],
