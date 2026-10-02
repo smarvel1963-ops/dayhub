@@ -23,3 +23,13 @@ screen but could customize by profession"). Tracked on Marvel Desktop -> MOBILE 
 ## Not yet
 - On a PHONE: needs hosting (free: GitHub Pages / Netlify) - GitHub account first.
 - Google Calendar sync (needs Google sign-in), sports games feed, accounts / payments.
+
+## Releasing an update (since v0.11)
+Every push that changes the app MUST bump the version in **three** places, or users never hear about it:
+1. `const VERSION` in `app.js`
+2. `version.json` - `"version"` plus a new entry in `"notes"` (one plain-English line per change, newest first)
+3. `const CACHE` in `sw.js`
+
+Open copies of Day Hub check `version.json` on open, every 30 minutes and when brought back to the front:
+a mismatch shows "New version ready - tap to update" (and a notification if reminders are on).
+After updating, the "What's new" card lists the notes once.

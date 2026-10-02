@@ -272,3 +272,6 @@ input[type=date], input[type=time] { color-scheme: dark; }
 
 /* v0.9 - a link styled as a button (package Track) */
 a.btn { text-decoration: none; display: inline-block; }
+
+/* v0.11 - what's new after an update */
+.card.whatsnew { background: linear-gradient(145deg, rgba(94,234,212,.18), rgba(129,140,248,.18)); border-color: rgba(94,234,212,.4); }

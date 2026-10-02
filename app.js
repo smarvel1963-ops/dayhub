@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.10.2";
+const VERSION = "0.11";
 
 const STORE = "dayhub.v1";
 const WX = "https://api.open-meteo.com/v1/forecast";
@@ -762,6 +762,48 @@ function drawMailBox() {
     `<p class="fine" style="margin-top:8px">Day Hub reads your last 2 weeks of email on this phone to find appointments, flights, hotel and dinner reservations and package tracking. Nothing is sent anywhere, and nothing is added until you tap Add.</p>`;
 }
 
+// ---------------------------------------------------------------- updates
+// v0.11 (Scott 10/1: "a reminder the app has updates notification"). The
+// network-first service worker already fetches new files when the app is
+// OPENED, but a page left open keeps running the old code. version.json (cache
+// busted) says what is published; a mismatch shows "New version ready", and
+// after updating the WHAT'S NEW card lists the changes once.
+// RELEASE RULE: every push bumps VERSION here AND version.json, with notes.
+let UPDATE = null, NOTES = null;
+async function checkUpdate() {
+  try {
+    const r = await fetch(`version.json?x=${Date.now()}`, { cache: "no-store" });
+    if (!r.ok) return;
+    const j = await r.json(); NOTES = j.notes || {};
+    if (j.version && j.version !== VERSION) {
+      const first = !UPDATE; UPDATE = j; render();
+      if (first && S.remind.on && S.lastNotifiedVersion !== j.version) {
+        S.lastNotifiedVersion = j.version; saveLocal();
+        notify("✨ Day Hub update ready", (j.notes && j.notes[j.version] || ["Tap to get the newest version."])[0], "dh-update");
+      }
+    } else if (S.seenVersion !== VERSION) render();          // notes arrived: show WHAT'S NEW
+  } catch (e) { /* offline - try again later */ }
+}
+async function applyUpdate() {
+  toast("Updating…");
+  try { const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration(); if (reg) await reg.update(); } catch (e) { /* reload anyway */ }
+  location.reload();
+}
+function whatsNewHtml() {
+  // Brand-new user: nothing is "new". Someone who used Day Hub before this
+  // feature existed (has data, no mark yet) sees this release's notes once.
+  if (!S.seenVersion) { S.seenVersion = hasData(S) ? "0.10.2" : VERSION; saveLocal(); }
+  if (S.seenVersion === VERSION || !NOTES) return "";
+  const vers = Object.keys(NOTES).filter(v => v.localeCompare(S.seenVersion, undefined, { numeric: true }) > 0 &&
+                                              v.localeCompare(VERSION, undefined, { numeric: true }) <= 0)
+    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+  const items = vers.flatMap(v => NOTES[v]).slice(0, 8);
+  if (!items.length) { S.seenVersion = VERSION; saveLocal(); return ""; }
+  return `<section class="card whatsnew"><h3><span class="ci">✨</span>What's new in Day Hub ${VERSION}</h3>
+    <div class="body">${items.map(x => `<div class="today-line">• ${esc(x)}</div>`).join("")}
+    <button class="btn sm" data-seen="1" style="margin-top:10px">Got it</button></div></section>`;
+}
+
 // ------------------------------------------------------------- the day
 // A bill repeats monthly on its day (clamped to the month's length). `paid`
 // = the last month paid ("YYYY-MM"). Unpaid and past due = LATE, shown red.
@@ -938,6 +980,7 @@ function heroHtml() {
   const cd = liveCountdowns()[0];
   if (cd) chips.push(`<span class="chip">⏳ ${esc(cd.title)} ${daysUntil(cd.date) === 0 ? "today!" : inDays(daysUntil(cd.date))}</span>`);
   if (S.gcal.connected && !gReady()) chips.push(`<button class="chip" data-gsync="1">🔄 Sync Google Calendar</button>`);
+  if (UPDATE) chips.unshift(`<button class="chip good" data-update="1">✨ New version ready — tap to update</button>`);
   if (INSTALL_EVT && !standalone()) chips.push(`<button class="chip" data-install="1">📲 Install Day Hub</button>`);
   if (S.sync.on && S.sync.dirty && !dReady()) chips.push(`<button class="chip" data-sync="now">☁️ Back up changes</button>`);
 
@@ -1232,7 +1275,7 @@ function render() {
       <h3 data-collapse="${k}"><span class="ci">${c.icon}</span>${c.title}${tag}<span class="meta">${c.meta ? c.meta() : ""}</span><span class="chev">⌄</span></h3>
       <div class="body">${c.body()}${c.add ? `<button class="add-link" data-qa="${c.add[0]}">＋ ${c.add[1]}</button>` : ""}</div></section>`;
   }).join("");
-  document.getElementById("cards").innerHTML = (!S.city && !S.name ? welcomeHtml() : "") + cards;
+  document.getElementById("cards").innerHTML = whatsNewHtml() + (!S.city && !S.name ? welcomeHtml() : "") + cards;
   tick();
 }
 
@@ -1393,6 +1436,8 @@ document.addEventListener("click", e => {
   if (ds.goto) { VIEW = addDays(today(), Number(ds.day)); render();
     const c = document.querySelector(`[data-card="${ds.goto}"]`); if (c) c.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   if (ds.day !== undefined) { const n = Number(ds.day); VIEW = n === 0 ? today() : addDays(VIEW, n); render(); return; }
+  if (ds.update) { applyUpdate(); return; }
+  if (ds.seen) { S.seenVersion = VERSION; saveLocal(); render(); return; }
   if (ds.tact) { const f = TOAST_ACT; TOAST_ACT = null; if (f) f(); return; }
   if (ds.install && INSTALL_EVT) { INSTALL_EVT.prompt(); INSTALL_EVT.userChoice.finally(() => { INSTALL_EVT = null; drawInstallBox(); render(); }); return; }
   if (ds.del && ds.del.startsWith("occ:")) {            // one day of a repeating event
@@ -1524,7 +1569,9 @@ setInterval(() => { const a = document.activeElement;
   if (!a || !/INPUT|SELECT|TEXTAREA/.test(a.tagName)) render(); }, 60000);
 setInterval(loadWeather, 30 * 60000);
 setInterval(checkReminders, 30000);
+checkUpdate();
+setInterval(checkUpdate, 30 * 60000);
 setInterval(() => { if (S.mail.on && mReady()) scanMail(); }, 20 * 60000);
 checkReminders();
-document.addEventListener("visibilitychange", () => { if (!document.hidden) { VIEW = today(); render(); checkReminders(); } });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { VIEW = today(); render(); checkReminders(); checkUpdate(); } });
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});

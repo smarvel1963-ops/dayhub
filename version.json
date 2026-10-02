@@ -1,0 +1,29 @@
+{
+ "version": "0.11",
+ "notes": {
+  "0.11": [
+   "Update notices: Day Hub tells you when a new version is ready, and shows what's new after you update"
+  ],
+  "0.10.2": [
+   "Events can repeat Every year — birthdays, anniversaries, renewals"
+  ],
+  "0.10": [
+   "Email → calendar: connect Gmail (read-only) and Day Hub finds appointments, flights, hotels, reservations and packages — you tap Add"
+  ],
+  "0.9": [
+   "Packages: paste a tracking number, Day Hub knows the carrier and puts the delivery on your schedule",
+   "Morning brief: one notification at wake-up with your whole day"
+  ],
+  "0.8": [
+   "Tomorrow card: tomorrow's weather, first thing up with an alarm idea, and a Plan tomorrow button"
+  ],
+  "0.7": [
+   "Budget check: warns you if spending is running ahead of what you bring home",
+   "Two columns on tablets and computers"
+  ],
+  "0.6": [
+   "Repeating events and to-dos",
+   "Pay period: every week or every 2 weeks"
+  ]
+ }
+}
