@@ -641,6 +641,52 @@ def t_v024_weather_intel(b, base):
     a.close()
 
 
+def t_v025_people_leave(b, base):
+    print("\n[v0.25 people & dates + don't forget]")
+    a = App(b, base); setup(a)                     # Thu 2026-10-01 08:00
+    a.qa("person", {"name": "Roxanne", "kind": "birthday", "date": "1985-10-13", "lead": "14", "ideas": "candles, size M"})
+    card = a.card("people")
+    check("birthday shows days to go + age", "Roxanne's birthday (turns 41)" in card and "in 12 days" in card, card[:200])
+    check("gift prompt with your ideas", "🎁 Gift?" in card and "candles, size M" in card)
+    check("morning brief asks about the gift", any("Roxanne's birthday (turns 41) is in 12 days — got a gift?" in x for x in a.js("briefLines()")))
+    a.page.click("[data-pgot]")
+    check("✓ Got it clears the gift prompt", "🎁 Gift?" not in a.card("people"))
+    a.qa("person", {"name": "Mom & Dad", "kind": "anniversary", "date": "2026-10-02", "noyear": True, "lead": "0"})
+    check("yearless anniversary: no age", "Mom & Dad anniversary" in a.card("people") and "years" not in a.card("people").split("Mom & Dad")[1][:30])
+    check("tomorrow's date shows as a chip at the top", "Mom & Dad tomorrow" in a.page.inner_text("#hero"))
+    check("it's on that day's schedule", a.js("dayItems('2026-10-02').some(i => i.kind === 'person')"))
+    check("day-of reminder at 8 AM", any(r["key"].startswith("pp:") and "Today:" in r["title"] for r in a.js("reminderList()")))
+    a.qa("person", {"name": "Leap baby", "kind": "birthday", "date": "2028-02-29", "lead": "0"})
+    check("Feb 29 birthday shows Feb 28 in other years", a.js("personNext(S.people.find(p => p.name === 'Leap baby'))") == "2027-02-28")
+    a.page.click('[data-pedit]')
+    check("✏️ opens the date to edit", a.js("QA_TYPE") == "person" and a.js("document.querySelector('#qaForm [name=name]').value") != "")
+    a.js("closeQA()")
+
+    # don't forget
+    lv = a.card("leave")
+    check("default leaving list", all(x in lv for x in ["Wallet", "Keys", "Medication", "Lunch"]), lv[:200])
+    check("today adds an umbrella (rain from 3 PM)", "Umbrella" in lv and "rain from 3:00 PM" in lv)
+    check("brief says what to bring", any("Don't forget: umbrella" in x for x in a.js("briefLines()")))
+    check("morning chip: Don't forget", "Don't forget:" in a.page.inner_text("#hero"))
+    a.page.click('[data-leavechk="x-umbrella"]')
+    check("ticking saves", a.js("S.leave.done.includes('x-umbrella')"))
+    a.page.fill("form[data-addleave] input", "🕶️ Sunglasses"); a.page.click("form[data-addleave] button")
+    check("add your own item", "Sunglasses" in a.card("leave"))
+    for i in a.js("leaveAll().map(x => x.id)"):
+        a.js("id => { if (!S.leave.done.includes(id)) { S.leave.done.push(id); S.leave.day = today(); } }", i)
+    a.js("save(); render()")
+    check("all checked: All set", "All set" in a.card("leave") and a.js("leaveLeft()") == 0)
+    a.page.clock.run_for("24:00:00"); a.js("render()")
+    check("next day the checklist starts fresh", a.js("leaveLeft()") > 0 and not a.js("leaveDone().length"))
+    a.js("S.events.push({id:'g1',day:today(),time:'17:00',title:'Gym',rep:'none'}); S.events.push({id:'d1',day:today(),time:'10:00',title:'Dentist',rep:'none'}); save(); render()")
+    check("gym day + doctor day extras", "Gym bag" in a.card("leave") and "Insurance card" in a.card("leave"))
+    a.page.click('#hero [data-leave]'); a.page.wait_for_timeout(1000)
+    check("🚪 jumps to the checklist", a.js("Math.abs(document.querySelector('[data-card=leave]').getBoundingClientRect().top) < 400"))
+    a.js("eraseAll(); eraseAll()")
+    check("after Erase the card still works", "Wallet" in a.card("leave"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -649,7 +695,7 @@ def main():
                   t_trips_cruise, t_reminders_backup_update, t_notes_data, t_settings_layout_offline, t_v018_fixes,
                   t_v019_calendar_arrange, t_v020_nightly_reset,
                   t_v021_brief_sync, t_v022_brain_dump,
-                  t_v024_weather_intel):
+                  t_v024_weather_intel, t_v025_people_leave):
             try:
                 t(b, base)
             except Exception as e:

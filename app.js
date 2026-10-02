@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.24";
+const VERSION = "0.25";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -51,7 +51,7 @@ const FEATURES = {
 const can = f => !PRO_LIVE || FEATURES[f] !== "pro" || TIER === "pro";
 
 // ---------------------------------------------------------------- packs
-const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "schedule", "reset", "tomorrow", "work", "budget", "weather", "todos", "notes", "packages", "bills", "countdowns", "lists"];
+const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "schedule", "leave", "reset", "tomorrow", "work", "budget", "weather", "todos", "notes", "packages", "bills", "people", "countdowns", "lists"];
 const PACKS = {
   general:  { label: "General",              cards: [] },
   trucker:  { label: "Trucker / Dispatcher", cards: ["route", "loads"] },
@@ -69,6 +69,8 @@ const blank = () => ({
   sync: { on: false, last: null, dirty: false },
   remind: { on: false, lead: 15, billDays: 1, billHour: "09:00", morning: 420, night: 1260, fired: {} },
   remember: [], resetDay: null, resetAt: null,
+  people: [],
+  leave: { items: LEAVE_DEFAULT.map(text => ({ id: uid(), text })), day: null, done: [] },
   packages: [],
   mail: { on: false, last: null, seen: {}, found: [] },
   notes: [],
@@ -111,6 +113,11 @@ function normalize(raw) {
   if (!s.lists.some(l => l.id === s.listSel)) s.listSel = s.lists[0].id;
   if (!PACKS[s.pack]) s.pack = "general";
   if (!obj(s.route)) s.route = blank().route;
+  s.people = (Array.isArray(s.people) ? s.people : []).filter(x => obj(x) && typeof x.name === "string" && /^\d{2}-\d{2}$/.test(x.md || ""));
+  s.people.forEach(x => { if (!obj(x.got)) x.got = {}; x.lead = Number(x.lead ?? 14) || 0; });
+  s.leave = Object.assign({ items: null, day: null, done: [] }, obj(s.leave) ? s.leave : {});
+  if (!Array.isArray(s.leave.items)) s.leave.items = LEAVE_DEFAULT.map(text => ({ id: uid(), text }));
+  if (!Array.isArray(s.leave.done)) s.leave.done = [];
   s.remember = (Array.isArray(s.remember) ? s.remember : []).filter(r => obj(r) && isDay(r.day) && r.day >= addDays(today(), -7));
   // v0.2 bills stored paid = null; v0.3 reads paid as "paid THROUGH this month",
   // so null would show last month's bill as late. Treat old bills as current.
@@ -348,6 +355,9 @@ function gcalWanted() {
     put(`ev:${e.id}`, e.title, e.where, e.time ? timed(e.day, e.time, 60) : allDay(e.day), rule, e.skip, e.time ? lead : 900); });
   S.work.shifts.forEach(x => { if (x.day < old) return;
     put(`sh:${x.id}`, "💼 Work shift", "", timed(x.day, x.start, Math.round(shiftHours({ ...x, brk: 0 }) * 60) || 60), null, null, lead); });
+  S.people.forEach(p => { const d = personNext(p);
+    put(`pp:${p.id}`, `${PKIND[p.kind] || "⭐"} ${p.kind === "birthday" ? `${p.name}'s birthday` : p.name}`, "", allDay(d),
+        p.md === "02-29" ? `FREQ=YEARLY;BYMONTH=2;${mdRule(29)}` : "FREQ=YEARLY", null, p.lead > 0 ? Math.min(p.lead, 28) * 1440 - 540 : 900); });
   S.bills.forEach(b => { const due = nextDue(b); if (!due) return;
     put(`bill:${b.id}`, `💳 ${b.name} due ${money(b.amount)}`, "", allDay(due), `FREQ=MONTHLY;${mdRule(b.day)}`, null, 900); });
   return out;
@@ -356,7 +366,7 @@ function gcalWanted() {
 function gcalItemExists(key) {
   const [k, id] = key.split(":");
   return k === "ev" ? S.events.some(e => e.id === id) : k === "sh" ? S.work.shifts.some(x => x.id === id)
-       : k === "bill" ? S.bills.some(b => b.id === id) : false;
+       : k === "bill" ? S.bills.some(b => b.id === id) : k === "pp" ? S.people.some(p => p.id === id) : false;
 }
 async function gcalPush() {
   if (!S.gcal.connected || !gReady() || gPushing) return;
@@ -519,6 +529,9 @@ function briefLines() {
   const f = plans.find(i => i.t && i.t >= nowT());
   if (f) s.push(`Your first one is at ${hm(f.t)}: ${f.title}.`);
   S.remember.filter(r => r.day === t).forEach(r => s.push(`You asked to remember: ${r.text}.`));
+  upcomingPeople(14).forEach(({ p, day }) => { const n = daysUntil(day);
+    if (n === 0) s.push(`Today is ${personLabel(p, day)}.`); else if (giftDue(p, day)) s.push(`${personLabel(p, day)} is ${inDays(n)} — got a gift?`); });
+  { const ex = leaveExtras(); if (ex.length) s.push(`Don't forget: ${ex.map(x => x.text.replace(/^\S+\s/, "").toLowerCase()).join(", ")}.`); }
   upcomingBills().filter(b => daysUntil(b.due) <= 2).forEach(b => s.push(`${b.name} (${money(b.amount)}) is ${daysUntil(b.due) < 0 ? "late" : "due " + inDays(daysUntil(b.due))}.`));
   const pk = items.filter(i => i.kind === "pkg").length;
   if (pk) s.push(`${pk} package${pk === 1 ? " is" : "s are"} arriving today.`);
@@ -546,7 +559,9 @@ function showBrief() {
        ${tips.length ? `<div class="sub">${tips.join(" · ")}</div>` : ""}` : "")}
     ${sec("Today", plans.slice(0, 6).map(i => `<div class="row"><span class="time">${i.t ? hm(i.t) : "All day"}</span><span class="grow">${i.icon} ${esc(i.title)}</span></div>`).join(""))}
     ${sec("Top to-dos", todos.map(x => `<div class="row"><span class="grow">✅ ${esc(x.title)}</span></div>`).join(""))}
-    ${sec("Heads up", [...wxAlerts(t).map(a => `${a.icon} ${esc(a.text)}`), ...S.remember.filter(r => r.day === t).map(r => `📌 ${esc(r.text)}`),
+    ${sec("Heads up", [...wxAlerts(t).map(a => `${a.icon} ${esc(a.text)}`),
+        ...upcomingPeople(14).filter(({ p, day }) => daysUntil(day) === 0 || giftDue(p, day)).map(({ p, day }) => `${PKIND[p.kind] || "⭐"} ${esc(personLabel(p, day))} — ${daysUntil(day) === 0 ? "today!" : inDays(daysUntil(day)) + " · 🎁 gift?"}`),
+        ...leaveExtras().map(x => `🚪 ${esc(x.text)} <span class="sub">${esc(x.why)}</span>`), ...S.remember.filter(r => r.day === t).map(r => `📌 ${esc(r.text)}`),
         ...upcomingBills().filter(b => daysUntil(b.due) <= 2).map(b => `💳 ${esc(b.name)} ${money(b.amount)} — ${daysUntil(b.due) < 0 ? "late" : inDays(daysUntil(b.due))}`),
         ...items.filter(i => i.kind === "pkg").map(i => `📦 ${esc(i.title)}`)].map(x => `<div class="today-line">${x}</div>`).join(""))}
     <button class="btn brief-go" data-brief="go">Start my day →</button>
@@ -754,6 +769,14 @@ function reminderList() {
     const at = atMs(today(), `${pad(Math.floor(R.morning / 60))}:${pad(R.morning % 60)}`);
     add(`mb:${today()}`, atMs(today(), "12:00"), at, `☀️ Good morning${S.name ? ", " + S.name : ""}`, morningBrief());
   }
+  S.people.forEach(p => {
+    for (let day = from; day <= to; day = addDays(day, 1)) {
+      if (personOn(p, day)) add(`pp:${p.id}:${day}`, atMs(day, "23:59"), atMs(day, "08:00"), `${PKIND[p.kind] || "⭐"} Today: ${personLabel(p, day)}`, "Call, text or a card?");
+      const due = personNext(p);
+      if (p.lead > 0 && !p.got[due.slice(0, 4)]) [p.lead, 3].filter((n, i, a) => a.indexOf(n) === i).forEach(n => {
+        if (addDays(due, -n) === day) add(`pg:${p.id}:${due}:${n}`, atMs(day, "23:59"), atMs(day, R.billHour), `🎁 ${personLabel(p, due)} in ${n} days`, p.ideas ? `Gift ideas: ${p.ideas}` : "Time to get a gift?"); });
+    }
+  });
   // Freeze tonight: one heads-up at 6 PM (drip faucets, plants, pets).
   const fz = wxAlerts(today()).find(a => a.key === "freeze");
   if (fz) add(`fz:${today()}`, atMs(today(), "23:59"), atMs(today(), "18:00"), "🥶 Freeze tonight", fz.text.split(" — ")[1] || fz.text);
@@ -1629,6 +1652,7 @@ function dayItems(day) {
       tick: `${k}:${x.id}`, done: x.done, del: `${k}:${x.id}`, cal: `${k}:${x.id}` })); });
   S.work.shifts.filter(x => x.day === day).forEach(x => it.push({ t: x.start, end: x.end, title: "Work shift", sub: fmtH(shiftHours(x)), kind: "work", icon: "💼", cal: `shift:${x.id}` }));
   upcomingBills().filter(b => b.due === day).forEach(b => it.push({ t: null, title: `${b.name} due`, sub: money(b.amount), kind: "bill", icon: "💳", cal: `bill:${b.id}` }));
+  S.people.filter(p => personOn(p, day)).forEach(p => it.push({ t: null, title: personLabel(p, day), sub: giftDue(p, day) ? "🎁 gift?" : "", kind: "person", icon: PKIND[p.kind] || "⭐" }));
   S.countdowns.filter(c => c.date === day).forEach(c => it.push({ t: null, title: c.title, sub: "The day is here", kind: "cd", icon: "🎉" }));
   S.trips.forEach(tr => {
     if (tr.start && day >= tr.start && day <= (tr.end || tr.start)) {
@@ -1848,6 +1872,49 @@ function wxAlerts(day) {
 }
 const wxAlertHtml = list => list.map(a => `<div class="wx-alert">${a.icon} ${esc(a.text)}</div>`).join("");
 
+// ------------------------------------------------------- people & dates
+// Scott 10/2 (list #11, "do both its a mobil planner"): birthdays,
+// anniversaries and important dates that do more than sit there -
+// "Roxanne's birthday in 12 days — gift?" with your gift ideas, a ✓ Got it,
+// a nudge 2 weeks / 3 days ahead and on the day, on the schedule and in the
+// phone calendar every year.
+const PKIND = { birthday: "🎂", anniversary: "💍", other: "⭐" };
+const pDayIn = (p, y) => { const [m, d] = p.md.split("-").map(Number); return `${y}-${pad(m)}-${pad(Math.min(d, new Date(y, m, 0).getDate()))}`; };
+function personNext(p) { const t = today(), y = Number(t.slice(0, 4)); const d = pDayIn(p, y); return d >= t ? d : pDayIn(p, y + 1); }
+const personOn = (p, day) => pDayIn(p, Number(day.slice(0, 4))) === day;
+function personLabel(p, day) {
+  const n = p.year ? Number(day.slice(0, 4)) - Number(p.year) : null;
+  return p.kind === "birthday" ? `${p.name}'s birthday${n > 0 ? ` (turns ${n})` : ""}`
+       : p.kind === "anniversary" ? `${p.name}${/anniversary/i.test(p.name) ? "" : " anniversary"}${n > 0 ? ` (${n} years)` : ""}` : p.name;
+}
+const giftDue = (p, day) => p.lead > 0 && !p.got[day.slice(0, 4)] && daysUntil(day) <= p.lead && daysUntil(day) >= 0;
+const upcomingPeople = (within = 60) => S.people.map(p => ({ p, day: personNext(p) })).filter(x => daysUntil(x.day) <= within).sort((a, b) => a.day.localeCompare(b.day));
+let PERSON_EDIT = null;
+
+// ------------------------------------------------------- don't forget
+// Scott 10/2 (list #15): the leaving-home check - wallet, keys, meds, lunch,
+// badge... your own list, ticked fresh each day, plus what TODAY adds on its
+// own: umbrella when it will rain, a jacket when it's cold, water when it's
+// hot, ID on a travel day, the gym bag on a gym day, the insurance card on a
+// doctor day.
+const LEAVE_DEFAULT = ["👛 Wallet", "🔑 Keys", "📱 Phone + charger", "💊 Medication", "🥪 Lunch", "🪪 Work badge"];
+function leaveExtras() {
+  const t = today(), w = WXDATA && WXDATA.here, out = [], add = (id, text, why) => out.push({ id: "x-" + id, text, why });
+  if (w && w.day) {
+    if (w.day.rainFrom || w.day.rain >= 50) add("umbrella", "☂️ Umbrella", w.day.rainFrom ? `rain from ${fmtTime(w.day.rainFrom)}` : `rain ${w.day.rain}%`);
+    if (w.day.lo <= 45) add("jacket", "🧥 Jacket", `low ${Math.round(w.day.lo)}°`);
+    if (w.day.hi >= 92) add("water", "💧 Water bottle", `high ${Math.round(w.day.hi)}°`);
+  }
+  const plans = dayItems(t).filter(isPlan).map(i => `${i.title} ${i.sub || ""}`).join(" | ");
+  if (/\b(gym|workout|lift|yoga|swim|crossfit|practice)\b/i.test(plans)) add("gym", "👟 Gym bag", "on today's plan");
+  if (/\b(doctor|dentist|dr\.?|clinic|hospital|appointment|vet|eye exam|physical)\b/i.test(plans)) add("ins", "🪪 Insurance card", "appointment today");
+  if (S.trips.some(tr => tr.start === t || tr.start === addDays(t, 1))) add("id", "🛂 ID / passport + travel docs", "trip");
+  return out;
+}
+const leaveDone = () => S.leave.day === today() ? S.leave.done : [];
+const leaveAll = () => [...leaveExtras().map(x => ({ ...x, extra: true })), ...S.leave.items];
+const leaveLeft = () => { const d = leaveDone(); return leaveAll().filter(x => !d.includes(x.id)).length; };
+
 function heroHtml() {
   const now = new Date(), h = now.getHours();
   const w = WXDATA && WXDATA.here;
@@ -1865,6 +1932,10 @@ function heroHtml() {
       : daysUntil(tr.end || tr.start) >= 0 ? `🚢 Enjoy ${esc(tr.name)}!` : `🏠 Welcome home from ${esc(tr.name)}`; }
 
   const chips = [];
+  upcomingPeople(3).forEach(({ p, day }) => { const n = daysUntil(day);
+    chips.push(`<span class="chip ${n === 0 ? "good" : ""}">${PKIND[p.kind] || "⭐"} ${esc(n === 0 ? personLabel(p, day) + " — today!" : `${p.name} ${inDays(n)}`)}</span>`); });
+  if (MODE !== "cruise" && h >= 5 && h < 11 && leaveLeft() && leaveDone().length < leaveAll().length && S.hidden.indexOf("leave") < 0)
+    chips.push(`<button class="chip" data-leave="1">🚪 Don't forget: ${leaveLeft()} to check</button>`);
   const wa = wxAlerts(today());
   wa.slice(0, 2).forEach(a => chips.push(`<span class="chip warn">${a.icon} ${esc(a.text.split(" — ")[0])}</span>`));
   if (w && w.day.rainFrom && !wa.some(a => a.key === "rain-plan")) chips.push(`<span class="chip warn">☔ Rain from ${fmtTime(w.day.rainFrom)}</span>`);
@@ -1904,7 +1975,7 @@ function heroHtml() {
   // Cruise Hub's top line is about the cruise only (Day Hub's chips stay in Day Hub).
   const keep = MODE !== "cruise" ? chips : chips.filter(c => /forgetting|Final payment|🚢|✈️|[Rr]ain|New version|Install|⚓/.test(c));
   return `<div class="hero-top"><div class="greet">${greet()}</div>
-      <span class="hero-btns">${MODE !== "cruise" ? `<button class="icon-btn" data-dump="1" aria-label="Brain dump">🧠</button>` : ""}<button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button></span></div>
+      <span class="hero-btns">${MODE !== "cruise" ? `<button class="icon-btn" data-leave="1" aria-label="Don't forget">🚪</button><button class="icon-btn" data-dump="1" aria-label="Brain dump">🧠</button>` : ""}<button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button></span></div>
     <div class="hero-main"><div><div class="hero-clock" id="clockNow"></div><div class="hero-date">${longDate(today())}</div></div>${wx}</div>
     <div class="verdict">${verdict}</div>
     <div class="chips">${keep.join("")}</div>`;
@@ -2232,6 +2303,33 @@ const CARDS = {
         `<div class="fine" style="margin-top:6px">Track opens the carrier's page. Live status updates are planned for Day Hub Pro.</div>`;
     } },
 
+  people: { icon: "🎂", title: "People & dates", add: ["person", "Add a birthday or date"],
+    meta: () => { const u = upcomingPeople(14); return u.length ? `${u.length} coming up` : ""; },
+    body: () => {
+      if (!S.people.length) return `<div class="empty">Birthdays, anniversaries, important dates — Day Hub reminds you in time to get a gift.</div>`;
+      const row = ({ p, day }) => { const n = daysUntil(day);
+        return `<div class="row pp ${n === 0 ? "today" : ""}"><span class="grow"><b>${PKIND[p.kind] || "⭐"} ${esc(personLabel(p, day))}</b>
+            <span class="sub">${n === 0 ? "🎉 TODAY — call, text or card?" : `${inDays(n)} · ${prettyDate(day)}`}</span>
+            ${giftDue(p, day) && n > 0 ? `<span class="sub gift">🎁 Gift?${p.ideas ? ` Ideas: ${esc(p.ideas)}` : ""}</span>` : ""}</span>
+          ${giftDue(p, day) ? `<button class="btn sm ghost" data-pgot="${p.id}">✓ Got it</button>` : ""}
+          <button class="x" data-pedit="${p.id}" aria-label="Edit">✏️</button></div>`; };
+      const soon = upcomingPeople(60), later = S.people.map(p => ({ p, day: personNext(p) })).filter(x => daysUntil(x.day) > 60).sort((a, b) => a.day.localeCompare(b.day));
+      return (soon.length ? soon.map(row).join("") : `<div class="empty">Nothing in the next 60 days.</div>`) +
+        (later.length ? `<details class="steps"><summary>All dates (${S.people.length})</summary>${later.map(row).join("")}</details>` : "");
+    } },
+
+  leave: { icon: "🚪", title: "Don't forget",
+    meta: () => { const n = leaveLeft(); return n ? `${n} left` : "all set ✓"; },
+    body: () => {
+      const d = leaveDone(), all = leaveAll(), left = all.filter(x => !d.includes(x.id)).length;
+      return (left ? "" : `<div class="today-line">✅ All set — have a good day!</div>`) +
+        all.map(x => `<label class="row leave ${d.includes(x.id) ? "done" : ""}"><input type="checkbox" class="tick" data-leavechk="${x.id}" ${d.includes(x.id) ? "checked" : ""}>
+          <span class="grow">${esc(x.text)}${x.extra ? ` <span class="sub">today · ${esc(x.why)}</span>` : ""}</span>
+          ${x.extra ? "" : `<button type="button" class="x" data-leavedel="${x.id}" aria-label="Remove">✕</button>`}</label>`).join("") +
+        `<form class="inline-add" data-addleave="1"><input name="text" placeholder="Add to your list (gym bag, sunglasses…)" required autocomplete="off"><button class="btn sm">Add</button></form>
+        ${d.length ? `<div class="foot-actions"><button class="add-link" data-leavereset="1">Uncheck all</button></div>` : ""}`;
+    } },
+
   countdowns: { icon: "⏳", title: "Countdowns", add: ["countdown", "Add a countdown"],
     body: () => {
       const cs = liveCountdowns();
@@ -2505,7 +2603,7 @@ function micToggle(btn) {
 }
 
 function qaTypes() {
-  const t = [["dump", "🧠 Brain dump"], ["event", "📅 Event"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["package", "📦 Package"], ["trip", "🚢 Trip"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
+  const t = [["dump", "🧠 Brain dump"], ["event", "📅 Event"], ["person", "🎂 Birthday / date"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["package", "📦 Package"], ["trip", "🚢 Trip"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
   if (S.pack === "trucker") t.splice(1, 0, ["loads", "🚚 Load"]);
   if (S.pack === "trades") t.splice(1, 0, ["jobs", "🔧 Job"]);
   return t;
@@ -2583,6 +2681,16 @@ function qaFields(type) {
       <div class="two"><select name="carrier"><option value="auto">Carrier: figure it out</option>${Object.entries(CARRIERS).map(([k, v]) => `<option value="${k}">${v[0]}</option>`).join("")}</select>
       <input name="eta" type="date" min="${today()}" title="Expected delivery (optional)"></div>
       <div class="hint">Expected date is optional — add it and the delivery shows on your schedule.</div>`,
+    person: (() => { const p = S.people.find(x => x.id === PERSON_EDIT) || { kind: "birthday", lead: 14 };
+      const o = (v, l, cur) => `<option value="${v}" ${String(v) === String(cur) ? "selected" : ""}>${l}</option>`;
+      const dv = p.md ? `${p.year || today().slice(0, 4)}-${p.md}` : "";
+      return `<input name="name" placeholder="Whose? (e.g. Roxanne) or what date" value="${esc(p.name || "")}" required autocomplete="off">
+      <div class="two"><select name="kind">${o("birthday", "🎂 Birthday", p.kind)}${o("anniversary", "💍 Anniversary", p.kind)}${o("other", "⭐ Other date", p.kind)}</select>
+        <input name="date" type="date" value="${dv}" required></div>
+      <label class="check"><input type="checkbox" name="noyear" ${p.md && !p.year ? "checked" : ""}> I don't know the year</label>
+      <label class="field">Gift reminder<select name="lead">${o(0, "Off", p.lead)}${o(7, "1 week before", p.lead)}${o(14, "2 weeks before", p.lead)}${o(21, "3 weeks before", p.lead)}${o(28, "4 weeks before", p.lead)}</select></label>
+      <input name="ideas" placeholder="Gift ideas, sizes, favorites (optional)" value="${esc(p.ideas || "")}" autocomplete="off">
+      ${PERSON_EDIT ? `<button type="button" class="btn sm ghost" data-pdel="${PERSON_EDIT}">Delete this date</button>` : ""}`; })(),
     countdown: `<input name="title" placeholder="What are you counting down to?" required autocomplete="off">
       <input name="date" type="date" min="${today()}" required>`,
     list: `<input name="name" placeholder="List name (e.g. Hardware store)" required autocomplete="off">`,
@@ -2614,7 +2722,7 @@ function qaFields(type) {
 let NOTE_EDIT = null, ERASE_ARMED = 0;
 let TRIP_EDIT = null, PORT_EDIT = null, PORT_DAY = null, PERK_EDIT = null;
 function openQA(type, keepEdit) {
-  if (!keepEdit) TRIP_EDIT = null;
+  if (!keepEdit) { TRIP_EDIT = null; PERSON_EDIT = null; }
   QA_TYPE = type || QA_TYPE;
   if (QA_TYPE !== "dump") DUMP = [];
   if (RECOG) RECOG.stop();
@@ -2650,6 +2758,13 @@ function submitQA(f) {
     // Added after this month's due day = treat this month as handled; before it = due this month.
     const paid = day < now.getDate() ? today().slice(0, 7) : prevMonthKey();
     S.bills.push({ id: uid(), name: d.title.trim(), amount: Number(d.amount), day, paid });
+  }
+  else if (ty === "person") {
+    const rec = { name: d.name.trim(), kind: d.kind || "birthday", md: d.date.slice(5), year: d.noyear ? null : Number(d.date.slice(0, 4)),
+                  lead: Number(d.lead || 0), ideas: (d.ideas || "").trim() };
+    const old = S.people.find(x => x.id === PERSON_EDIT);
+    if (old) Object.assign(old, rec); else S.people.push({ id: uid(), got: {}, ...rec });
+    PERSON_EDIT = null;
   }
   else if (ty === "countdown") S.countdowns.push({ id: uid(), title: d.title.trim(), date: d.date });
   else if (ty === "trip") {
@@ -2715,6 +2830,9 @@ document.addEventListener("submit", e => {
   if (f.dataset.tadd) { const [tid, k] = f.dataset.tadd.split(":"); const tr = S.trips.find(x => x.id === tid);
     if (tr) tr.lists[k].push({ id: uid(), text: data.text.trim(), done: false });
     save(); render(); const again = document.querySelector(`form[data-tadd="${f.dataset.tadd}"] input`); if (again) again.focus(); return; }
+  if (f.dataset.addleave) { const x = (data.text || "").trim(); if (!x) return;
+    S.leave.items.push({ id: uid(), text: x }); save(); render(); buzz();
+    const again = document.querySelector('form[data-addleave] input'); if (again) again.focus(); return; }
   if (f.dataset.additem) {
     const L = S.lists.find(l => l.id === f.dataset.additem);
     if (L) L.items.push({ id: uid(), text: data.text.trim(), done: false });
@@ -2811,6 +2929,15 @@ document.addEventListener("click", e => {
     pick.filter(Boolean).forEach(x => { x.day = T1; }); save(); render(); toast(`Moved to tomorrow (${pick.length})`, true); return; }
   if (ds.rmdel) { S.remember = S.remember.filter(r => r.id !== ds.rmdel); save(); render(); return; }
   if (ds.syncall) { syncTap(); return; }
+  if (ds.pedit) { PERSON_EDIT = ds.pedit; openQA("person", true); return; }
+  if (ds.pgot) { const p = S.people.find(x => x.id === ds.pgot); if (p) { p.got[personNext(p).slice(0, 4)] = true; save(); render(); buzz(); toast("🎁 Got it ✓"); } return; }
+  if (ds.pdel) { snap(); S.people = S.people.filter(x => x.id !== ds.pdel); PERSON_EDIT = null; closeQA(); save(); render(); toast("Date deleted", true); return; }
+  if (ds.leave) { const c = document.querySelector('[data-card="leave"]');
+    if (S.hidden.includes("leave")) { S.hidden = S.hidden.filter(k => k !== "leave"); save(); render(); }
+    if (S.collapsed.includes("leave")) { S.collapsed = S.collapsed.filter(k => k !== "leave"); save(); render(); }
+    const el = document.querySelector('[data-card="leave"]') || c; if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+  if (ds.leavedel) { snap(); S.leave.items = S.leave.items.filter(x => x.id !== ds.leavedel); save(); render(); toast("Removed", true); return; }
+  if (ds.leavereset) { S.leave.done = []; S.leave.day = today(); save(); render(); return; }
   if (ds.dump) { DUMP = []; openQA("dump"); return; }
   if (ds.dumpsort) { dumpSort(); return; }
   if (ds.mic) { micToggle(t); return; }
@@ -2849,6 +2976,9 @@ document.addEventListener("change", e => {
   if (ds.dday !== undefined) { DUMP[Number(ds.dday)].day = t.value; return; }
   if (ds.dtime !== undefined) { DUMP[Number(ds.dtime)].time = t.value; return; }
   if (t.dataset.briefauto !== undefined) { S.briefAuto = t.checked; saveLocal(); toast(t.checked ? "Morning brief on" : "Morning brief off — ☀️ chip still opens it"); return; }
+  if (ds.leavechk) { if (S.leave.day !== today()) { S.leave.day = today(); S.leave.done = []; }
+    S.leave.done = t.checked ? [...new Set([...S.leave.done, ds.leavechk])] : S.leave.done.filter(x => x !== ds.leavechk);
+    save(); render(); buzz(); if (!leaveLeft()) toast("✅ All set — have a good day!"); return; }
   if (ds.tick) { const x = S.todos.find(y => y.id === ds.tick); if (x) { x.done = t.checked; x.doneDay = t.checked ? today() : null; } }
   else if (ds.tickl) { const [k, id] = ds.tickl.split(":"); const x = S[k].find(y => y.id === id); if (x) x.done = t.checked; }
   else if (ds.item) { const [l, id] = ds.item.split(":"); const L = S.lists.find(x => x.id === l); const i = L && L.items.find(y => y.id === id); if (i) i.done = t.checked; }
