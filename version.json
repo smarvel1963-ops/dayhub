@@ -1,6 +1,9 @@
 {
- "version": "0.11",
+ "version": "0.11.1",
  "notes": {
+  "0.11.1": [
+   "New Day Hub icon — the sunrise over the water"
+  ],
   "0.11": [
    "Update notices: Day Hub tells you when a new version is ready, and shows what's new after you update"
   ],
