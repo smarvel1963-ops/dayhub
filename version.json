@@ -1,6 +1,16 @@
 {
- "version": "0.15",
+ "version": "0.16",
  "notes": {
+  "0.16": [
+   "🎁 Perks: pick Princess Plus or Premier and see exactly what's included (from Princess's own terms) — plus a drink-price check",
+   "Use it before you lose it: track meals, photo prints and credits, with reminders 2 days and 1 day before the cruise ends",
+   "Gratuities show $0 when your package pays them",
+   "☀️ Weather for each port day (up to 16 days ahead)",
+   "Cabin requests list: what to ask your steward vs tell the cruise line before sailing",
+   "Princess Medallion explained — how it works and how to get it",
+   "Packing from a real cruise: charging station, USB fan, dinner outfits; excursion savings vs safety tips",
+   "Passport care, waterproof lanyard pouch, luggage-tag holders, and parking vs park-and-cruise vs shuttle"
+  ],
   "0.15": [
    "Zero-effort cruises: connect the email you booked with and the ship, dates, booking number, cabin, ports and final payment fill in — tap Add trip",
    "More emails about the same booking add what's missing, and never overwrite what you typed"
