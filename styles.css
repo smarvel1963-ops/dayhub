@@ -291,3 +291,8 @@ a.btn { text-decoration: none; display: inline-block; }
 .ring.big b { position: absolute; font-size: 17px; }
 .ready .sub { display: block; color: var(--dim); font-size: 12px; }
 .ready .next { margin-top: 6px; font-size: 14px; }
+
+/* v0.14 - what am I forgetting */
+.fg-h { font-weight: 800; margin: 12px 0 4px; color: var(--accent); letter-spacing: .02em; }
+.fg-h:first-child { margin-top: 2px; }
+.big-aboard { font-size: 19px; padding: 8px 0; }

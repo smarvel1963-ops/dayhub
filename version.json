@@ -1,6 +1,13 @@
 {
- "version": "0.13",
+ "version": "0.14",
  "notes": {
+  "0.14": [
+   "🛳️ What am I forgetting? — one tap shows what matters today: sail-day bag, port morning, last night, getting home",
+   "Leave-the-cabin alarm before excursions, and an extra 90-minute alarm for independent tours",
+   "Port notes: cash, currency, cards, tipping — and ship time vs local time",
+   "Cellular-at-sea warning on sail day",
+   "Cruise Hub: its own app at /dayhub/cruise/ — same trips as Day Hub"
+  ],
   "0.13": [
    "Cruise Mode: a % READY score and the one NEXT thing to do, stage by stage",
    "Port days: arrival, ALL ABOARD time and excursion for every port — alarms 60 and 30 minutes before all aboard",

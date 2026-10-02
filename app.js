@@ -12,7 +12,16 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.13";
+const VERSION = "0.14";
+// CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
+// day hub as well"). The SAME code runs from /dayhub/cruise/ with
+// window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
+// but the SAME data - same origin (shared storage on Android / computer) and
+// the same Google Drive backup file (iPhone keeps each installed app apart, so
+// there the backup is what carries trips between the two).
+const MODE = window.DH_MODE === "cruise" ? "cruise" : "day";
+const APP_NAME = MODE === "cruise" ? "Cruise Hub" : "Day Hub";
+const BASE_URL = new URL(".", (document.currentScript && document.currentScript.src) || location.href).href;   // where app.js lives
 
 const STORE = "dayhub.v1";
 const WX = "https://api.open-meteo.com/v1/forecast";
@@ -41,7 +50,7 @@ const FEATURES = {
 const can = f => !PRO_LIVE || FEATURES[f] !== "pro" || TIER === "pro";
 
 // ---------------------------------------------------------------- packs
-const BASE = ["inbox", "trips", "schedule", "tomorrow", "work", "budget", "weather", "todos", "packages", "bills", "countdowns", "lists"];
+const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "schedule", "tomorrow", "work", "budget", "weather", "todos", "packages", "bills", "countdowns", "lists"];
 const PACKS = {
   general:  { label: "General",              cards: [] },
   trucker:  { label: "Trucker / Dispatcher", cards: ["route", "loads"] },
@@ -126,7 +135,7 @@ const money = n => "$" + Number(n || 0).toLocaleString("en-US", { minimumFractio
 const buzz = () => { try { navigator.vibrate && navigator.vibrate(8); } catch (e) { /* no haptics */ } };
 
 function cardOrder() {
-  const want = [...BASE, ...PACKS[S.pack].cards];
+  const want = [...BASE, ...(MODE === "cruise" ? [] : PACKS[S.pack].cards)];
   let order = (S.order || []).filter(k => want.includes(k));
   // A card new in this version goes to its DEFAULT place, not to the bottom
   // of someone's saved order.
@@ -417,10 +426,12 @@ function reminderList() {
         `💳 Final payment ${n === 0 ? "due TODAY" : `due in ${n} day${n === 1 ? "" : "s"}`}`,
         `${tr.name}${tripLeft(tr) ? ` — ${money(tripLeft(tr))} left` : ""}. Miss it and the booking can be cancelled.`); } });
     (tr.ports || []).filter(pt => inWin(pt.day)).forEach(pt => {
-      if (pt.allAboard) [60, 30].forEach(m => { const aa = atMs(pt.day, pt.allAboard);
+      if (pt.allAboard) (pt.indie ? [90, 60, 30] : [60, 30]).forEach(m => { const aa = atMs(pt.day, pt.allAboard);
         add(`aa:${pt.id}:${m}`, aa, aa - m * 60000, `⚓ Back on the ship by ${hm(pt.allAboard)}`, `${m} minutes — ${pt.name}. The ship will not wait.`); });
       if (pt.meet && pt.excursion && pt.excursion.toLowerCase() !== "none") { const mt = atMs(pt.day, pt.meet);
-        add(`ex:${pt.id}`, mt, mt - R.lead * 60000, `🤿 ${pt.excursion}`, `Meet ${hm(pt.meet)}${pt.where ? " at " + pt.where : ""} — ${pt.name}`); }
+        add(`ex:${pt.id}`, mt, mt - R.lead * 60000, `🤿 ${pt.excursion}`, `Meet ${hm(pt.meet)}${pt.where ? " at " + pt.where : ""} — ${pt.name}`);
+        const lc = mt - (Number(pt.walk) || 15) * 60000;
+        add(`lc:${pt.id}`, mt, lc, `⏰ Leave the cabin now`, `${pt.excursion} — meet ${hm(pt.meet)}${pt.where ? " at " + pt.where : ""}. Cruise card + ID!`); }
     });
     if (tr.start) [[7, "check in online + print luggage tags"], [1, "documents, meds and swimsuit in your carry-on"]].forEach(([n, what]) => {
       const d = addDays(tr.start, -n);
@@ -569,8 +580,8 @@ const standalone = () => matchMedia("(display-mode: standalone)").matches || nav
 function drawInstallBox() {
   const g = document.getElementById("installBox"); if (!g) return;
   g.innerHTML = `<h3>On your home screen</h3>` + (standalone()
-    ? `<div class="leg"><span>✅ Day Hub is installed</span></div>`
-    : INSTALL_EVT ? `<button class="btn sm" data-install="1">📲 Install Day Hub</button>`
+    ? `<div class="leg"><span>✅ ${APP_NAME} is installed</span></div>`
+    : INSTALL_EVT ? `<button class="btn sm" data-install="1">📲 Install ${APP_NAME}</button>`
     : isIOS() ? `<p class="fine" style="margin-top:0">Tap <b>Share</b> (the square with the arrow) → <b>Add to Home Screen</b>. Open Day Hub from that icon — iPhone only sends reminders to installed apps.</p>`
     : `<p class="fine" style="margin-top:0">In your browser menu <b>⋮</b> choose <b>Install app</b> or <b>Add to Home screen</b>.</p>`);
 }
@@ -790,7 +801,7 @@ function drawMailBox() {
 let UPDATE = null, NOTES = null;
 async function checkUpdate() {
   try {
-    const r = await fetch(`version.json?x=${Date.now()}`, { cache: "no-store" });
+    const r = await fetch(new URL(`version.json?x=${Date.now()}`, BASE_URL), { cache: "no-store" });
     if (!r.ok) return;
     const j = await r.json(); NOTES = j.notes || {};
     if (j.version && j.version !== VERSION) {
@@ -817,7 +828,7 @@ function whatsNewHtml() {
     .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
   const items = vers.flatMap(v => NOTES[v]).slice(0, 8);
   if (!items.length) { S.seenVersion = VERSION; saveLocal(); return ""; }
-  return `<section class="card whatsnew"><h3><span class="ci">✨</span>What's new in Day Hub ${VERSION}</h3>
+  return `<section class="card whatsnew"><h3><span class="ci">✨</span>What's new in ${APP_NAME} ${VERSION}</h3>
     <div class="body">${items.map(x => `<div class="today-line">• ${esc(x)}</div>`).join("")}
     <button class="btn sm" data-seen="1" style="margin-top:10px">Got it</button></div></section>`;
 }
@@ -931,6 +942,76 @@ function readiness(tr) {
   return { pct, items, next, phase, sd };
 }
 const portOn = (tr, day) => (tr.ports || []).find(pt => pt.day === day);
+
+// ------------------------------------------------- what am I forgetting? (v0.14)
+// Scott 10/1 ("Cruise Secrets" list): ONE button that looks at everything Day
+// Hub knows and says what matters for TODAY of the trip - sail-day bag, port
+// morning (all aboard, leave-cabin time, take-with-you, port money notes),
+// last night, getting home. Built only from what the traveller entered.
+const TAKE_WITH = ["Cruise card / Medallion / ship app", "Photo ID (passport if this port needs it)", "Phone, charged",
+  "Credit card + some cash", "Sunscreen + sunglasses", "Water bottle"];
+const FIRST_BAG = ["Documents + boarding pass", "Medications", "Phone + charger", "Valuables", "Swimsuit + sunscreen", "Change of clothes for dinner"];
+const CELL_WARN = "⚠️ CELLULAR AT SEA — before the ship leaves port turn on airplane mode (then Wi-Fi back on), or check your phone plan's cruise coverage. The ship's cell network can cost a fortune.";
+const addMinT = (t, m) => { const x = toMin(t) + m; const y = ((x % 1440) + 1440) % 1440; return `${pad(Math.floor(y / 60))}:${pad(y % 60)}`; };
+const shipNote = pt => Number(pt.shipOffset) ? ` <span class="sub" style="display:inline">SHIP time · ${hm(addMinT(pt.allAboard, -Number(pt.shipOffset)))} local</span>` : "";
+const hasExc = pt => pt && pt.excursion && pt.excursion.toLowerCase() !== "none";
+function forgetHtml() {
+  const tr = curTrip();
+  if (!tr) return `<div class="empty">Plan a trip first — then this button knows what to remind you.</div>`;
+  ensureLists(tr);
+  const t = today(), sd = tr.start ? daysUntil(tr.start) : 999, ed = tr.end ? daysUntil(tr.end) : sd, cruise = isCruise(tr), pt = portOn(tr, t);
+  const L = [], h = x => L.push(`<div class="fg-h">${x}</div>`), li = (x, warn) => L.push(`<div class="today-line">${warn ? "⚠️" : "☐"} ${x}</div>`);
+  const open = k => (tr.lists[k] || []).filter(i => !i.done).map(i => esc(i.text));
+  if (sd > 1) {
+    const R = readiness(tr);
+    h(`${cruise ? "🚢" : "✈️"} ${esc(tr.name)} — ${sd} days · ${R.pct}% ready`);
+    if (R.next) L.push(`<div class="today-line">➡️ <b>${esc(R.next.action)}</b></div>`);
+    R.items.filter(i => i.now && i.score < 1).forEach(i => li(esc(i.label), true));
+    const d = open("docs").slice(0, 4); if (d.length) { h("Documents still to do"); d.forEach(x => li(x)); }
+  } else if (sd === 1) {
+    h(`TOMORROW YOU ${cruise ? "SAIL" : "GO"}${tr.port ? " — " + esc(tr.port) : ""}`);
+    h("🧳 Keep with you — your big bag may not reach the cabin until evening"); FIRST_BAG.forEach(x => li(esc(x)));
+    open("docs").forEach(x => li(x, true));
+    open("packing").slice(0, 6).forEach(x => li(`Pack: ${x}`));
+    if (cruise) L.push(`<div class="bstat tight">${CELL_WARN}</div>`);
+  } else if (sd === 0) {
+    h(`${cruise ? "🚢 SAIL DAY" : "✈️ TRAVEL DAY"}${tr.port ? " — " + esc(tr.port) : ""}`);
+    h("🧳 Keep with you"); FIRST_BAG.forEach(x => li(esc(x)));
+    open("embark").forEach(x => li(x));
+    if (cruise) L.push(`<div class="bstat tight">${CELL_WARN}</div>`);
+  } else if (ed > 0 && pt) {
+    h(`⚓ GOOD MORNING — ${esc(pt.name).toUpperCase()}`);
+    if (pt.allAboard) L.push(`<div class="today-line big-aboard">🚢 ALL ABOARD <b>${hm(pt.allAboard)}</b>${shipNote(pt)}</div>`);
+    if (hasExc(pt)) {
+      L.push(`<div class="today-line">🏝️ ${esc(pt.excursion)}${pt.meet ? ` — meet <b>${hm(pt.meet)}</b>` : ""}${pt.where ? ` at ${esc(pt.where)}` : ""}</div>`);
+      if (pt.meet) L.push(`<div class="today-line">⏰ Leave the cabin by <b>${hm(addMinT(pt.meet, -(Number(pt.walk) || 15)))}</b></div>`);
+      if (pt.indie) L.push(`<div class="bstat over">Independent tour — the ship does NOT wait for a late private tour. Plan to be back an hour early.</div>`);
+    }
+    h("Take with you"); TAKE_WITH.forEach(x => li(esc(x))); if (hasExc(pt)) li("Excursion confirmation");
+    const money4 = [["Cash", pt.cash], ["Currency", pt.currency], ["Cards", pt.cards], ["Tipping", pt.tipping]].filter(x => x[1]);
+    if (money4.length) { h("💰 In port"); money4.forEach(([k, v]) => L.push(`<div class="today-line">${k}: <b>${esc(v)}</b></div>`)); }
+    if (pt.allAboard) L.push(`<div class="today-line">⚠️ Back-on-ship alarms at <b>${(pt.indie ? [90, 60, 30] : [60, 30]).map(m => hm(addMinT(pt.allAboard, -m))).join(", ")}</b>${S.remind.on ? "" : " — turn reminders on in ⚙"}</div>`);
+  } else if (ed === 1) {
+    h("🌙 LAST NIGHT ON BOARD");
+    const bal = tripSpent(tr) + gratEstimate(tr) - Number(tr.credit || 0);
+    li(`Check your ship account — about <b>${money(bal)}</b> by Day Hub's count`, !tr.accountVerified);
+    open("home").forEach(x => li(x));
+  } else if (ed === 0) {
+    h("🏠 GETTING HOME"); open("home").forEach(x => li(x));
+  } else if (ed > 0) {
+    const n = Math.round((parseDay(t) - parseDay(tr.start)) / 86400000) + 1;
+    h(`🌊 ${cruise ? "AT SEA" : "ON THE TRIP"} — day ${n}`);
+    const bud = Number(tr.onboardBudget || 0), sp = tripSpent(tr);
+    L.push(`<div class="today-line">🍹 Spent so far <b>${money(sp)}</b>${bud ? ` of ${money(bud)}` : ""}</div>`);
+    const nx = (tr.ports || []).find(x => x.day > t);
+    if (nx) L.push(`<div class="today-line">⚓ Next port: <b>${esc(nx.name)}</b> ${dayName(nx.day)}${nx.allAboard ? ` · all aboard ${hm(nx.allAboard)}` : ""}</div>`);
+  } else {
+    h("📝 After the trip"); open("after").forEach(x => li(x));
+  }
+  const tonight = dayItems(t).filter(i => i.t && i.t >= "17:00" && isPlan(i));
+  if (tonight.length && sd <= 0 && ed >= 0) { h("Tonight"); tonight.forEach(i => L.push(`<div class="today-line">${hm(i.t)} ${i.icon} ${esc(i.title)}</div>`)); }
+  return L.join("") || `<div class="empty">Nothing to remind you right now.</div>`;
+}
 
 function newLists(type) {
   const T = TEMPLATES[type] || TEMPLATES.trip, out = {};
@@ -1121,6 +1202,10 @@ function heroHtml() {
     verdict = n ? `Tomorrow: ${n} thing${n === 1 ? "" : "s"} planned.` : "Nothing planned tomorrow. Rest up."; }
   else { const busy = left + open;
     verdict = busy === 0 ? "A clear day ahead." : busy <= 3 ? "A light day." : busy <= 7 ? "A full day — you've got this." : "A busy one. Pace yourself."; }
+  if (MODE === "cruise") { const tr = curTrip();
+    verdict = !tr ? "Plan your next cruise ⛴️" : !tr.start ? `🚢 ${esc(tr.name)}` : daysUntil(tr.start) > 0
+      ? `🚢 ${isCruise(tr) ? "Cruise" : "Trip"} in ${daysUntil(tr.start)} day${daysUntil(tr.start) === 1 ? "" : "s"} · ${readiness(tr).pct}% ready`
+      : daysUntil(tr.end || tr.start) >= 0 ? `🚢 Enjoy ${esc(tr.name)}!` : `🏠 Welcome home from ${esc(tr.name)}`; }
 
   const chips = [];
   if (w && w.day.rainFrom) chips.push(`<span class="chip warn">☔ Rain from ${fmtTime(w.day.rainFrom)}</span>`);
@@ -1140,6 +1225,7 @@ function heroHtml() {
     const sd = daysUntil(nt.start);
     if (sd > 0 && sd <= 365) chips.push(`<span class="chip">${isCruise(nt) ? "🚢" : "✈️"} ${esc(nt.name)} in ${sd} day${sd === 1 ? "" : "s"}</span>`);
     else if (sd <= 0 && daysUntil(nt.end || nt.start) >= 0) chips.push(`<span class="chip good">${isCruise(nt) ? "🚢" : "✈️"} Enjoy ${esc(nt.name)}!</span>`);
+    if (sd <= 2 && daysUntil(nt.end || nt.start) >= -2) chips.unshift(`<button class="chip good" data-forget="1">🛳️ What am I forgetting?</button>`);
   }
   const pkToday = S.packages.filter(p => !p.delivered && p.eta === today()).length;
   if (pkToday) chips.push(`<span class="chip">📦 ${pkToday} arriving today</span>`);
@@ -1147,18 +1233,20 @@ function heroHtml() {
   if (cd) chips.push(`<span class="chip">⏳ ${esc(cd.title)} ${daysUntil(cd.date) === 0 ? "today!" : inDays(daysUntil(cd.date))}</span>`);
   if (S.gcal.connected && !gReady()) chips.push(`<button class="chip" data-gsync="1">🔄 Sync Google Calendar</button>`);
   if (UPDATE) chips.unshift(`<button class="chip good" data-update="1">✨ New version ready — tap to update</button>`);
-  if (INSTALL_EVT && !standalone()) chips.push(`<button class="chip" data-install="1">📲 Install Day Hub</button>`);
+  if (INSTALL_EVT && !standalone()) chips.push(`<button class="chip" data-install="1">📲 Install ${APP_NAME}</button>`);
   if (S.sync.on && S.sync.dirty && !dReady()) chips.push(`<button class="chip" data-sync="now">☁️ Back up changes</button>`);
 
   const wx = w ? (() => { const [ic] = wxIcon(w.cur.weather_code, w.cur.is_day);
       return `<div class="hero-wx"><div class="ic">${ic}</div><div class="t">${Math.round(w.cur.temperature_2m)}°</div>
               <div class="hl">H ${Math.round(w.day.hi)}° · L ${Math.round(w.day.lo)}°</div></div>`; })()
     : S.city && !WXDATA ? `<div class="hero-wx"><div class="skel" style="width:84px;height:74px"></div></div>` : "";
+  // Cruise Hub's top line is about the cruise only (Day Hub's chips stay in Day Hub).
+  const keep = MODE !== "cruise" ? chips : chips.filter(c => /forgetting|Final payment|🚢|✈️|[Rr]ain|New version|Install|⚓/.test(c));
   return `<div class="hero-top"><div class="greet">${greet()}</div>
       <button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button></div>
     <div class="hero-main"><div><div class="hero-clock" id="clockNow"></div><div class="hero-date">${longDate(today())}</div></div>${wx}</div>
     <div class="verdict">${verdict}</div>
-    <div class="chips">${chips.join("")}</div>`;
+    <div class="chips">${keep.join("")}</div>`;
 }
 function paintHero() {
   const hero = document.getElementById("hero");
@@ -1345,7 +1433,8 @@ const CARDS = {
       const head = `<div class="trip-hero"><div class="trip-n">${big}</div><div class="grow"><b>${isCruise(tr) ? "🚢" : "✈️"} ${esc(tr.name)}</b>
           <span class="sub">${lab}${tr.start ? ` · ${prettyDate(tr.start)}${tr.end ? ` – ${prettyDate(tr.end)}` : ""}${nights ? ` · ${nights} nights` : ""}` : ""}</span>
           <span class="sub">${[tr.line, tr.ship, tr.port].filter(Boolean).map(esc).join(" · ")}</span></div>
-          <button class="btn sm ghost" data-tripedit="${tr.id}">Edit</button></div>`;
+          <button class="btn sm ghost" data-tripedit="${tr.id}">Edit</button></div>
+        <button class="btn" data-forget="1" style="width:100%;margin-top:10px">🛳️ What am I forgetting?</button>`;
       const tabs = ["ready", "money"].concat(isCruise(tr) ? ["ports"] : [], ["onboard", "lists"], isCruise(tr) ? ["tips"] : []);
       const TL = { ready: "✅ Ready", money: "💳 Payments", ports: "🗺️ Ports", onboard: isCruise(tr) ? "🍹 Onboard" : "💵 Spending", lists: "📋 Lists", tips: "💡 Good to know" };
       const tab = tabs.includes(S.tripTab) ? S.tripTab : "ready";
@@ -1361,7 +1450,8 @@ const CARDS = {
         const days = []; if (tr.start) for (let d = tr.start; d <= (tr.end || tr.start); d = addDays(d, 1)) days.push(d);
         body = days.length ? days.map(d => { const pt = portOn(tr, d);
           const label = pt ? `⚓ <b>${esc(pt.name)}</b>` : d === tr.start ? `🚢 <b>Sail day</b> — ${esc(tr.port || "")}` : d === tr.end ? `🏠 <b>Back in port</b> — getting home` : "🌊 At sea";
-          const sub = pt ? [pt.arrive && `in ${hm(pt.arrive)}`, pt.allAboard && `<b style="color:var(--orange)">all aboard ${hm(pt.allAboard)}</b>`,
+          const sub = pt ? [pt.arrive && `in ${hm(pt.arrive)}`, pt.allAboard && `<b style="color:var(--orange)">all aboard ${hm(pt.allAboard)}${Number(pt.shipOffset) ? " ship time" : ""}</b>`,
+                            pt.indie && `<b style="color:var(--red)">independent tour</b>`,
                             pt.excursion && (pt.excursion.toLowerCase() === "none" ? "no excursion" : `🤿 ${esc(pt.excursion)}${pt.meet ? ` · meet ${hm(pt.meet)}` : ""}${pt.where ? ` · ${esc(pt.where)}` : ""}`)].filter(Boolean).join(" · ") : "";
           return `<div class="row"><span class="time">${parseDay(d).toLocaleDateString([], { weekday: "short", month: "numeric", day: "numeric" })}</span>
             <span class="grow">${label}${sub ? `<span class="sub">${sub}</span>` : ""}</span>
@@ -1605,7 +1695,13 @@ function qaFields(type) {
       <input name="excursion" placeholder="Excursion (or type none)" value="${v("excursion")}" autocomplete="off">
       <div class="two"><label class="field" style="margin:0">Meet at<input name="meet" type="time" value="${v("meet")}"></label>
         <input name="where" placeholder="Meeting point" value="${v("where")}" autocomplete="off"></div>
-      <div class="hint">All aboard is printed in your cruise app / daily planner — usually 30-60 min before the ship leaves.</div>`; })(),
+      <div class="two"><label class="field" style="margin:0">Walk to meeting point (min)<input name="walk" type="number" min="0" inputmode="numeric" value="${v("walk") || 15}"></label>
+        <label class="field" style="margin:0">Ship clock<select name="shipOffset">${[[0, "Same as local"], [60, "Ship 1 hr AHEAD"], [-60, "Ship 1 hr BEHIND"]].map(([o, l]) => `<option value="${o}" ${Number(pt.shipOffset || 0) === o ? "selected" : ""}>${l}</option>`).join("")}</select></label></div>
+      <label class="row" style="border:none"><input type="checkbox" name="indie" value="1" ${pt.indie ? "checked" : ""} style="width:20px;height:20px"> <span class="grow">Independent tour (not booked through the ship) — extra alarm 90 min before all aboard</span></label>
+      <div class="two"><input name="cash" placeholder="Cash to bring (e.g. $40)" value="${v("cash")}" autocomplete="off"><input name="currency" placeholder="Currency (e.g. USD ok)" value="${v("currency")}" autocomplete="off"></div>
+      <div class="two"><input name="cards" placeholder="Cards (yes / cash better)" value="${v("cards")}" autocomplete="off"><input name="tipping" placeholder="Tipping custom" value="${v("tipping")}" autocomplete="off"></div>
+      <div class="hint">All aboard is printed in your cruise app / daily planner — usually 30-60 min before the ship leaves. It's SHIP time, which can differ from your phone's local time.</div>`; })(),
+    forget: forgetHtml(),
     tspend: `<div class="two"><input name="amt" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount $" required>
       <select name="cat">${ONBOARD_CATS.map(c => `<option>${c}</option>`).join("")}</select></div>
       <div class="two"><input name="date" type="date" value="${today()}" required><input name="note" placeholder="What (optional)" autocomplete="off"></div>`,
@@ -1638,7 +1734,7 @@ function qaFields(type) {
       <label class="field" style="margin:0">A pay period started on (for every 2 weeks)<input name="pstart" type="date" value="${S.work.periodStart || weekStart(today())}"></label>
       <div class="hint">Not sure of your tax %? 15–25% covers most people. Check one real paycheck: take-home ÷ gross.</div>`,
   };
-  return (F[type] || F.todo) + `<button class="btn">${type === "pay" || (type === "trip" && TRIP_EDIT) ? "Save" : "Add"}</button>`;
+  return (F[type] || F.todo) + `<button class="btn">${type === "forget" ? "Got it" : type === "pay" || (type === "trip" && TRIP_EDIT) ? "Save" : "Add"}</button>`;
 }
 let TRIP_EDIT = null, PORT_EDIT = null, PORT_DAY = null;
 function openQA(type, keepEdit) {
@@ -1682,9 +1778,12 @@ function submitQA(f) {
     else { const id = uid(); S.trips.push(ensureLists({ id, ...fields, payments: [], spends: [], ports: [], lists: newLists(fields.type) })); S.tripSel = id; S.tripTab = "ready"; }
     TRIP_EDIT = null;
   }
+  else if (ty === "forget") { closeQA(); return; }
   else if (ty === "tport") {
     const tr = curTrip(); if (!tr) { closeQA(); return; } ensureLists(tr);
-    const f2 = { day: d.pday, name: d.pname.trim(), arrive: d.arrive || "", allAboard: d.allAboard || "", excursion: (d.excursion || "").trim(), meet: d.meet || "", where: (d.where || "").trim() };
+    const f2 = { day: d.pday, name: d.pname.trim(), arrive: d.arrive || "", allAboard: d.allAboard || "", excursion: (d.excursion || "").trim(), meet: d.meet || "", where: (d.where || "").trim(),
+      walk: Number(d.walk || 15), shipOffset: Number(d.shipOffset || 0), indie: d.indie === "1",
+      cash: (d.cash || "").trim(), currency: (d.currency || "").trim(), cards: (d.cards || "").trim(), tipping: (d.tipping || "").trim() };
     const old = tr.ports.find(x => x.id === PORT_EDIT);
     if (old) Object.assign(old, f2); else tr.ports.push({ id: uid(), ...f2 });
     tr.ports.sort((a, b) => a.day.localeCompare(b.day)); PORT_EDIT = PORT_DAY = null;
@@ -1774,6 +1873,7 @@ document.addEventListener("click", e => {
   if (ds.mail === "off") { try { if (MTOKEN && window.google) google.accounts.oauth2.revoke(MTOKEN, () => {}); } catch (e) { /* gone */ }
     MTOKEN = null; S.mail = { on: false, last: null, seen: {}, found: [] }; save(); drawMailBox(); render(); toast("Gmail disconnected"); return; }
   if (ds.tripremove) { snap(); S.trips = S.trips.filter(x => x.id !== ds.tripremove); S.tripSel = null; TRIP_EDIT = null; closeQA(); save(); render(); toast("Trip deleted", true); return; }
+  if (ds.forget) { openQA("forget"); return; }
   if (ds.portadd) { PORT_EDIT = null; PORT_DAY = ds.portadd; openQA("tport"); return; }
   if (ds.portedit) { PORT_EDIT = ds.portedit; PORT_DAY = null; openQA("tport"); return; }
   if (ds.tripsel) { S.tripSel = ds.tripsel; save(); render(); return; }
@@ -1901,4 +2001,4 @@ setInterval(checkUpdate, 30 * 60000);
 setInterval(() => { if (S.mail.on && mReady()) scanMail(); }, 20 * 60000);
 checkReminders();
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { VIEW = today(); render(); checkReminders(); checkUpdate(); } });
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+if ("serviceWorker" in navigator) navigator.serviceWorker.register(new URL("sw.js", BASE_URL)).catch(() => {});
