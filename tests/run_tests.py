@@ -75,6 +75,14 @@ def route(ctx):
             if u.path.endswith("/00000"):
                 return r.fulfill(status=404, body="{}")
             return r.fulfill(json={"places": [{"place name": "Conway", "state abbreviation": "AR", "latitude": "35.09", "longitude": "-92.44"}]})
+        if u.netloc == "accounts.google.com" and u.path == "/o/oauth2/v2/auth":
+            back = q["redirect_uri"][0]
+            if getattr(ctx, "_oauth", None) == "ok":
+                frag = urllib.parse.urlencode({"access_token": "tok-auto", "expires_in": "3599", "scope": q["scope"][0], "state": q["state"][0]})
+            else:
+                frag = urllib.parse.urlencode({"error": "interaction_required", "state": q["state"][0]})
+            ctx._oauth_hits = getattr(ctx, "_oauth_hits", 0) + 1
+            return r.fulfill(status=302, headers={"Location": back + "#" + frag})
         if "fonts.g" in u.netloc or "accounts.google.com" in u.netloc:
             return r.fulfill(status=204, body="")
         return r.continue_()
@@ -545,9 +553,21 @@ def t_v021_brief_sync(b, base):
     a.page.reload(); a.page.wait_for_timeout(1200)
     check("open = synced: event is on the phone calendar, no tap", a.js("Object.values(JSON.parse(sessionStorage.getItem('__g') || '{}')).some(e => e.summary === 'Vet')"))
     check("signed in: no 'Tap to sync' chip", "Tap to sync" not in a.page.inner_text("#hero"))
-    a.js("localStorage.setItem('dayhub.gtok', JSON.stringify({g:['tok', Date.now() - 1000]}))")
+    # sign-in ran out + Google says "needs you": one chip, and no redirect loop
+    a.js("localStorage.setItem('dayhub.gtok', JSON.stringify({g:['tok', Date.now() - 1000]})); localStorage.removeItem('dayhub.autoauth')")
+    a.page.reload(); a.page.wait_for_timeout(800)
+    check("Google needs you: one '🔄 Tap to sync' chip", a.page.inner_text("#hero").count("Tap to sync") == 1)
+    hits = getattr(a.ctx, "_oauth_hits", 0)
     a.page.reload(); a.page.wait_for_timeout(500)
-    check("sign-in ran out: one '🔄 Tap to sync' chip", a.page.inner_text("#hero").count("Tap to sync") == 1)
+    check("...and it does not keep bouncing to Google", getattr(a.ctx, "_oauth_hits", 0) == hits and "state=" not in a.page.url)
+    # sign-in ran out + phone signed in to Google: renewed with NO tap, then synced
+    a.ctx._oauth = "ok"
+    a.js("localStorage.setItem('dayhub.gtok', JSON.stringify({g:['tok', Date.now() - 1000]})); localStorage.removeItem('dayhub.autoauth');"
+         "S.events.push({id:'e2',day:'2026-10-04',time:'11:00',title:'Car wash',rep:'none'}); saveLocal()")
+    a.page.reload(); a.page.wait_for_timeout(1500)
+    check("zero-tap: fresh Google sign-in on open", a.js("GTOKEN") == "tok-auto" and "access_token" not in a.page.url)
+    check("zero-tap: new event reached the phone calendar", a.js("Object.values(JSON.parse(sessionStorage.getItem('__g') || '{}')).some(e => e.summary === 'Car wash')"))
+    check("zero-tap: no 'Tap to sync' chip", "Tap to sync" not in a.page.inner_text("#hero"))
     a.close()
 
 

@@ -1,6 +1,10 @@
 {
- "version": "0.22",
+ "version": "0.23",
  "notes": {
+  "0.23": [
+   "🔄 Your calendar now syncs on open with NO tap: when Google's hour is up, Day Hub quietly renews your sign-in (a quick flash at most once an hour) and syncs",
+   "Works as long as you're signed in to Google in Chrome on this phone; if Google ever needs you, one 🔄 Tap to sync puts it back"
+  ],
   "0.22": [
    "🧠 Brain dump (top right, or the first tab on +): say or type everything on your mind — \"need tires next month, call Dan Tuesday at 2, buy toothpaste, vacation idea for December\"",
    "Day Hub sorts it into to-dos, reminders (with the day and time), shopping and ideas — you check it, change anything, then Add all. Undo takes it all back",

@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.22";
+const VERSION = "0.23";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -277,7 +277,7 @@ async function gcalConnect() {
       if (r.error) { toast("Google sign-in was cancelled"); return; }
       GTOKEN = r.access_token; GTOKEN_EXP = Date.now() + ((r.expires_in || 3600) - 60) * 1000; saveTokens();
       if (!google.accounts.oauth2.hasGrantedAllScopes(r, GCAL_SCOPE)) { toast("Day Hub needs the calendar box ticked — tap Connect again and tick it"); GTOKEN = null; return; }
-      S.gcal.connected = true; S.gcal.scope = GCAL_SCOPE; S.gcal.needsWrite = false; save();
+      S.gcal.connected = true; S.gcal.scope = GCAL_SCOPE; S.gcal.needsWrite = false; setAutoState({ at: 0, off: false }); save();
       await gcalFetch(); await gcalPush();
     },
   });
@@ -435,6 +435,51 @@ async function syncOnOpen(force) {
   if (S.mail.on && mReady() && can("mail")) scanMail();
   render();
 }
+// ZERO-TAP renew (Scott 10/2: "still need calendar to auto sync on open").
+// A popup needs a tap, but a full-page redirect does not: on open, when a
+// Google link is on and its hour is up, Day Hub hops to Google with
+// prompt=none and Google sends a fresh sign-in straight back (no screen, no
+// tap) as long as the phone's Chrome is signed in to Google. One short flash,
+// at most once an hour. If Google says it needs the person (signed out /
+// permission removed), it stops trying until the next "Tap to sync" - never
+// a redirect loop (one try per 10 minutes at most).
+// NEEDS: this page's address in the Google client's "Authorized redirect URIs".
+const AUTO_KEY = "dayhub.autoauth";
+const autoState = () => { try { return JSON.parse(localStorage.getItem(AUTO_KEY) || "{}"); } catch (e) { return {}; } };
+const setAutoState = st => { try { localStorage.setItem(AUTO_KEY, JSON.stringify(st)); } catch (e) { /* private mode */ } };
+const redirectUri = () => location.origin + location.pathname.replace(/index\.html$/, "");
+function autoScopes() {
+  return [S.gcal.connected && S.gcal.scope === GCAL_SCOPE && !gReady() && GCAL_SCOPE, S.sync.on && !dReady() && DRIVE_SCOPE,
+          S.mail.on && !mReady() && can("mail") && GMAIL_SCOPE].filter(Boolean);
+}
+function autoRenew() {
+  if (!GCAL_CLIENT_ID || navigator.onLine === false || !/^https?:/.test(location.protocol)) return false;
+  const scopes = autoScopes(), st = autoState();
+  if (!scopes.length || st.off || Date.now() - (st.at || 0) < 10 * 60000) return false;
+  const busy = ["qa", "sheet"].some(id => { const el = document.getElementById(id); return el && !el.classList.contains("hidden"); });
+  if (busy) return false;                                       // never yank someone out of a form
+  setAutoState({ ...st, at: Date.now() });
+  const u = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  Object.entries({ client_id: GCAL_CLIENT_ID, redirect_uri: redirectUri(), response_type: "token", scope: scopes.join(" "),
+    prompt: "none", include_granted_scopes: "true", state: "dh-auto" }).forEach(([k, v]) => u.searchParams.set(k, v));
+  location.replace(u.toString());
+  return true;
+}
+// Back from Google: take the token out of the address and tidy the address.
+function takeRedirectToken() {
+  if (!/state=dh-auto/.test(location.hash)) return;
+  const h = new URLSearchParams(location.hash.slice(1));
+  history.replaceState(null, "", location.pathname + location.search);
+  const st = autoState();
+  if (h.get("error") || !h.get("access_token")) { setAutoState({ ...st, off: true, why: h.get("error") || "no token" }); return; }
+  const tok = h.get("access_token"), exp = Date.now() + ((Number(h.get("expires_in")) || 3600) - 60) * 1000;
+  const got = (h.get("scope") || "").split(/\s+/);
+  if (got.includes(GCAL_SCOPE)) { GTOKEN = tok; GTOKEN_EXP = exp; }
+  if (got.includes(DRIVE_SCOPE)) { DTOKEN = tok; DTOKEN_EXP = exp; }
+  if (got.includes(GMAIL_SCOPE)) { MTOKEN = tok; MTOKEN_EXP = exp; }
+  saveTokens(); setAutoState({ at: st.at || 0, off: false });
+}
+
 // The one tap: a single Google window for every link that is on.
 async function syncTap() {
   const want = needTap(); if (!want.length) { syncOnOpen(true); return; }
@@ -448,7 +493,7 @@ async function syncTap() {
       if (has(GCAL_SCOPE)) { GTOKEN = r.access_token; GTOKEN_EXP = exp; }
       if (has(DRIVE_SCOPE)) { DTOKEN = r.access_token; DTOKEN_EXP = exp; }
       if (has(GMAIL_SCOPE)) { MTOKEN = r.access_token; MTOKEN_EXP = exp; }
-      saveTokens(); toast("Syncing…"); syncOnOpen(true);
+      saveTokens(); setAutoState({ at: 0, off: false }); toast("Syncing…"); syncOnOpen(true);
     },
     error_callback: () => toast("Sign-in window closed"),
   }).requestAccessToken();
@@ -2866,6 +2911,8 @@ function closeSettings() {
 // --------------------------------------------------------------- start
 S = load();
 loadTokens();
+takeRedirectToken();
+const RENEWING = autoRenew();                                   // hops to Google and straight back
 // If saved data still breaks the first draw, never leave a blank screen with
 // the Erase button out of reach: offer to save the raw data, then start fresh.
 try { render(); }
@@ -2890,7 +2937,6 @@ checkUpdate();
 setInterval(checkUpdate, 30 * 60000);
 setInterval(() => { if (S.mail.on && mReady()) scanMail(); }, 20 * 60000);
 checkReminders();
-syncOnOpen(true);
-maybeBrief();
-document.addEventListener("visibilitychange", () => { if (!document.hidden) { VIEW = today(); render(); checkReminders(); syncOnOpen(); maybeBrief(); } });
+if (!RENEWING) { syncOnOpen(true); maybeBrief(); }
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { if (autoRenew()) return; VIEW = today(); render(); checkReminders(); syncOnOpen(); maybeBrief(); } });
 if ("serviceWorker" in navigator) navigator.serviceWorker.register(new URL("sw.js", BASE_URL)).catch(() => {});
