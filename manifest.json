@@ -1,7 +1,7 @@
 {
   "name": "Day Hub",
   "short_name": "Day Hub",
-  "description": "Your morning brief: clock, weather, calendar and to-dos on one screen.",
+  "description": "Day Hub by Marvel Corp - your whole day on one screen: schedule, weather, work hours, budget, reminders. No ads, ever.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0b1020",
