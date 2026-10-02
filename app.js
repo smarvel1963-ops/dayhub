@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.16.1";
+const VERSION = "0.17";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -44,13 +44,13 @@ const PRO_LIVE = false;
 let TIER = "free";
 const FEATURES = {
   schedule: "free", weather: "free", todos: "free", lists: "free", countdowns: "free",
-  bills: "free", work: "free", tomorrow: "free", packages: "free", inbox: "free", trips: "free", route: "free", loads: "free", jobs: "free", nextup: "free", games: "free",
+  bills: "free", work: "free", tomorrow: "free", packages: "free", inbox: "free", trips: "free", notes: "free", route: "free", loads: "free", jobs: "free", nextup: "free", games: "free",
   gcal: "pro", sync: "pro", reminders: "pro", budget: "pro", mail: "pro",   // candidates - Scott decides at launch
 };
 const can = f => !PRO_LIVE || FEATURES[f] !== "pro" || TIER === "pro";
 
 // ---------------------------------------------------------------- packs
-const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "schedule", "tomorrow", "work", "budget", "weather", "todos", "packages", "bills", "countdowns", "lists"];
+const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "schedule", "tomorrow", "work", "budget", "weather", "todos", "notes", "packages", "bills", "countdowns", "lists"];
 const PACKS = {
   general:  { label: "General",              cards: [] },
   trucker:  { label: "Trucker / Dispatcher", cards: ["route", "loads"] },
@@ -69,6 +69,7 @@ const blank = () => ({
   remind: { on: false, lead: 15, billDays: 1, billHour: "09:00", morning: 420, fired: {} },
   packages: [],
   mail: { on: false, last: null, seen: {}, found: [] },
+  notes: [],
   trips: [], tripSel: null, tripTab: "money", tripList: "packing",
   money: { type: "hourly", salary: 0, spends: [] },
   work: { rate: 0, taxPct: 20, otAfter: 40, shifts: [], clockIn: null },
@@ -96,6 +97,7 @@ function load() {
   if (!Array.isArray(s.packages)) s.packages = [];
   s.mail = Object.assign(blank().mail, s.mail || {});
   if (!Array.isArray(s.trips)) s.trips = [];
+  if (!Array.isArray(s.notes)) s.notes = [];
   return s;
 }
 function saveLocal() {
@@ -285,7 +287,7 @@ const DFILE = "dayhub.json";
 const dReady = () => DTOKEN && Date.now() < DTOKEN_EXP;
 const hasData = d => !!d && ((d.events || []).length + (d.todos || []).length + (d.bills || []).length +
   (d.countdowns || []).length + ((d.work || {}).shifts || []).length + ((d.money || {}).spends || []).length +
-  (d.packages || []).length + (d.trips || []).length + (d.lists || []).reduce((n, l) => n + (l.items || []).length, 0)) > 0;
+  (d.packages || []).length + (d.trips || []).length + (d.notes || []).length + (d.lists || []).reduce((n, l) => n + (l.items || []).length, 0)) > 0;
 
 function driveSignIn(prompt) {                                 // must run from a tap
   return loadGis().then(() => new Promise(res => {
@@ -1215,6 +1217,47 @@ function savePerMonth(tr) {
   return daysUntil(by) <= 0 ? left : left / months;
 }
 
+// ------------------------------------------------------------- your data
+// v0.17: a file the user keeps (no Google needed), loading one back, and
+// erasing the phone - two taps, and Undo still works.
+function exportData() {
+  const data = JSON.parse(JSON.stringify(S)); delete data.gcal;
+  const body = JSON.stringify({ app: "dayhub", v: VERSION, savedAt: new Date().toISOString(), data }, null, 1);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([body], { type: "application/json" }));
+  a.download = `day-hub-backup-${today()}.json`;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  toast("Backup file saved ✓");
+}
+function importData(file) {
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const j = JSON.parse(r.result), data = j && j.app === "dayhub" ? j.data : null;
+      if (!data || typeof data !== "object") { toast("That file isn't a Day Hub backup"); return; }
+      restoreFrom({ savedAt: j.savedAt || new Date().toISOString(), data });
+    } catch (e) { toast("Couldn't read that file"); }
+  };
+  r.readAsText(file);
+}
+function eraseAll() {
+  if (Date.now() - ERASE_ARMED > 5000) { ERASE_ARMED = Date.now(); toast("Tap Erase again to wipe this phone's Day Hub"); drawDataBox(true); return; }
+  ERASE_ARMED = 0; snap(); const keepName = S.name;
+  // NOT closeSettings(): that saves the still-open form, which would write the
+  // old name / city straight back into the erased app (caught by the test suite).
+  S = blank(); saveLocal(); WXDATA = null; document.getElementById("sheet").classList.add("hidden"); render();
+  toast(`Erased${keepName ? ", " + keepName : ""}`, true);
+}
+function drawDataBox(armed) {
+  const g = document.getElementById("dataBox"); if (!g) return;
+  g.innerHTML = `<h3>Your data</h3><div class="foot-actions" style="flex-wrap:wrap">
+      <button class="btn sm ghost" data-data="export">⬇️ Download my data</button>
+      <button class="btn sm ghost" data-data="import">⬆️ Load a backup file</button>
+      <button class="btn sm ${armed ? "" : "ghost"}" data-data="erase" style="${armed ? "background:var(--red);color:#fff" : ""}">🗑️ ${armed ? "Tap again to erase" : "Erase everything"}</button></div>
+    <input type="file" id="importFile" accept="application/json,.json" style="display:none">
+    <p class="fine" style="margin-top:6px">The download is a file you keep anywhere (email it to yourself, save it to Drive). Erasing can be undone right after.</p>`;
+}
+
 // ------------------------------------------------------------- the day
 // A bill repeats monthly on its day (clamped to the month's length). `paid`
 // = the last month paid ("YYYY-MM"). Unpaid and past due = LATE, shown red.
@@ -1581,6 +1624,18 @@ const CARDS = {
         : `<div class="empty">Nothing to do. Enjoy it. 🎉</div>`;
     } },
 
+  // v0.17 (Scott 10/1: "get day hub totally loaded"): the Notes card from his icon sheet.
+  notes: { icon: "📝", title: "Notes",
+    meta: () => S.notes.length ? `${S.notes.length}` : "",
+    body: () => {
+      const list = S.notes.slice().sort((a, b) => (b.pinned - a.pinned) || String(b.updated).localeCompare(String(a.updated)));
+      return `<form class="inline-add" data-noteadd="1" style="margin-top:0"><input name="text" placeholder="Jot something down…" required autocomplete="off"><button class="btn sm">Save</button></form>` +
+        (list.length ? list.map(n => `<div class="row"><button class="x" data-notepin="${n.id}" aria-label="${n.pinned ? "Unpin" : "Pin"}" style="opacity:${n.pinned ? 1 : .35}">📌</button>
+            <span class="grow note-text" data-noteedit="${n.id}">${esc(n.text).replace(/\n/g, "<br>")}<span class="sub">${prettyDate(String(n.updated).slice(0, 10))}</span></span>
+            <button class="x" data-del="notes:${n.id}" aria-label="Delete">✕</button></div>`).join("")
+          : `<div class="empty">Ideas, gate codes, wifi passwords for guests, what the doctor said — keep it here.</div>`);
+    } },
+
   bills: { icon: "💳", title: "Bills due", add: ["bill", "Add a bill"],
     meta: () => S.bills.length ? `${money(S.bills.reduce((s, b) => s + Number(b.amount || 0), 0))}/mo` : "",
     body: () => {
@@ -1940,6 +1995,8 @@ function qaFields(type) {
     countdown: `<input name="title" placeholder="What are you counting down to?" required autocomplete="off">
       <input name="date" type="date" min="${today()}" required>`,
     list: `<input name="name" placeholder="List name (e.g. Hardware store)" required autocomplete="off">`,
+    note: (() => { const n = S.notes.find(x => x.id === NOTE_EDIT) || {};
+      return `<textarea name="text" rows="6" placeholder="Your note" required>${esc(n.text || "")}</textarea>`; })(),
     spend: `<input name="amt" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount $" required>
       <input name="what" placeholder="What for (gas, groceries, eating out…)" autocomplete="off">
       <input name="date" type="date" value="${today()}" required>
@@ -1963,6 +2020,7 @@ function qaFields(type) {
   };
   return (F[type] || F.todo) + `<button class="btn">${type === "forget" ? "Got it" : type === "pay" || (type === "trip" && TRIP_EDIT) ? "Save" : "Add"}</button>`;
 }
+let NOTE_EDIT = null, ERASE_ARMED = 0;
 let TRIP_EDIT = null, PORT_EDIT = null, PORT_DAY = null, PERK_EDIT = null;
 function openQA(type, keepEdit) {
   if (!keepEdit) TRIP_EDIT = null;
@@ -1984,6 +2042,9 @@ function submitQA(f) {
     S.money.type = d.itype || "hourly"; S.money.salary = Number(d.salary || 0);
     S.work.period = d.period || "weekly"; S.work.periodStart = d.pstart || null;
     save(); closeQA(); render(); toast("Pay saved ✓"); return; }
+  else if (ty === "note") { const n = S.notes.find(x => x.id === NOTE_EDIT);
+    if (n) { n.text = d.text.trim(); n.updated = new Date().toISOString(); } else S.notes.push({ id: uid(), text: d.text.trim(), pinned: false, updated: new Date().toISOString() });
+    NOTE_EDIT = null; }
   else if (ty === "spend") S.money.spends.push({ id: uid(), day: d.date, amt: Number(d.amt), what: (d.what || "").trim() });
   else if (ty === "todo") S.todos.push({ id: uid(), title: d.title.trim(), done: false, rep: d.rep || "none", day: today() });
   else if (ty === "loads" || ty === "jobs") { S[ty].push({ id: uid(), day: d.date, time: d.time, title: d.title.trim(), done: false }); VIEW = d.date; }
@@ -2051,6 +2112,7 @@ document.addEventListener("submit", e => {
   if (f.dataset.drink) { const tr = S.trips.find(x => x.id === f.dataset.drink); const P = tr && pkgOf(tr); const pr = Number(data.price);
     if (P) toast(pr <= P.drinkCap ? `✅ $${pr.toFixed(2)} — included in ${P.name} (up to $${P.drinkCap})` : `⚠️ $${pr.toFixed(2)} is over ${P.name}'s $${P.drinkCap} limit — ask the bartender before you order`);
     f.reset(); return; }
+  if (f.dataset.noteadd) { S.notes.push({ id: uid(), text: data.text.trim(), pinned: false, updated: new Date().toISOString() }); save(); render(); buzz(); return; }
   if (f.dataset.tadd) { const [tid, k] = f.dataset.tadd.split(":"); const tr = S.trips.find(x => x.id === tid);
     if (tr) tr.lists[k].push({ id: uid(), text: data.text.trim(), done: false });
     save(); render(); const again = document.querySelector(`form[data-tadd="${f.dataset.tadd}"] input`); if (again) again.focus(); return; }
@@ -2063,6 +2125,8 @@ document.addEventListener("submit", e => {
 });
 
 document.addEventListener("click", e => {
+  const ne = e.target.closest && e.target.closest("[data-noteedit]");
+  if (ne) { NOTE_EDIT = ne.dataset.noteedit; openQA("note"); return; }
   if (e.target.classList && e.target.classList.contains("sheet")) {         // tap on the dim backdrop
     if (e.target.id === "sheet") closeSettings(); else closeQA(); return;
   }
@@ -2108,6 +2172,10 @@ document.addEventListener("click", e => {
   if (ds.mail === "off") { try { if (MTOKEN && window.google) google.accounts.oauth2.revoke(MTOKEN, () => {}); } catch (e) { /* gone */ }
     MTOKEN = null; S.mail = { on: false, last: null, seen: {}, found: [] }; save(); drawMailBox(); render(); toast("Gmail disconnected"); return; }
   if (ds.tripremove) { snap(); S.trips = S.trips.filter(x => x.id !== ds.tripremove); S.tripSel = null; TRIP_EDIT = null; closeQA(); save(); render(); toast("Trip deleted", true); return; }
+  if (ds.notepin) { const n = S.notes.find(x => x.id === ds.notepin); if (n) { n.pinned = !n.pinned; save(); render(); } return; }
+  if (ds.data === "export") { exportData(); return; }
+  if (ds.data === "import") { document.getElementById("importFile").click(); return; }
+  if (ds.data === "erase") { eraseAll(); return; }
   if (ds.forget) { openQA("forget"); return; }
   if (ds.perk) { const [tid, pid] = ds.perk.split(":"); const tr = S.trips.find(x => x.id === tid); const x = tr && tr.perks.find(y => y.id === pid);
     if (x) { if (x.unit === "$") { PERK_EDIT = pid; openQA("tperkset"); return; } x.used = Math.min(x.used + 1, x.total || x.used + 1); save(); render(); buzz(); } return; }
@@ -2155,6 +2223,7 @@ document.addEventListener("click", e => {
 
 document.addEventListener("change", e => {
   const t = e.target, ds = t.dataset;
+  if (t.id === "importFile" && t.files && t.files[0]) { importData(t.files[0]); t.value = ""; return; }
   if (ds.tick) { const x = S.todos.find(y => y.id === ds.tick); if (x) { x.done = t.checked; x.doneDay = t.checked ? today() : null; } }
   else if (ds.tickl) { const [k, id] = ds.tickl.split(":"); const x = S[k].find(y => y.id === id); if (x) x.done = t.checked; }
   else if (ds.item) { const [l, id] = ds.item.split(":"); const L = S.lists.find(x => x.id === l); const i = L && L.items.find(y => y.id === id); if (i) i.done = t.checked; }
@@ -2178,6 +2247,9 @@ function drawSettings() {
   document.getElementById("setCity").value = S.city;
   document.getElementById("setPack").innerHTML = Object.entries(PACKS).map(([k, p]) => `<option value="${k}" ${k === S.pack ? "selected" : ""}>${p.label}</option>`).join("");
   drawCardList();
+  let db = document.getElementById("dataBox");
+  if (!db) { db = document.createElement("div"); db.id = "dataBox"; document.getElementById("cardList").after(db); }
+  drawDataBox();
   let ib = document.getElementById("installBox");
   if (!ib) { ib = document.createElement("div"); ib.id = "installBox"; document.getElementById("cardList").before(ib); }
   drawInstallBox();

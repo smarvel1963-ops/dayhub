@@ -25,6 +25,8 @@ screen but could customize by profession"). Tracked on Marvel Desktop -> MOBILE 
 - Google Calendar sync (needs Google sign-in), sports games feed, accounts / payments.
 
 ## Releasing an update (since v0.11)
+0. **Run the tests first:** `python tests/run_tests.py` - drives the real app in a headless browser (frozen clock,
+   fake weather, empty phone each time) and checks every feature at phone + tablet size. Must end "0 failed".
 Every push that changes the app MUST bump the version in **three** places, or users never hear about it:
 1. `const VERSION` in `app.js`
 2. `version.json` - `"version"` plus a new entry in `"notes"` (one plain-English line per change, newest first)

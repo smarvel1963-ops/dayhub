@@ -1,6 +1,11 @@
 {
- "version": "0.16.1",
+ "version": "0.17",
  "notes": {
+  "0.17": [
+   "📝 Notes: jot things down, pin the important ones, tap to edit",
+   "Your data (⚙): download a backup file, load one back, or erase everything (undo-able)",
+   "Behind the scenes: an automatic test suite now checks every feature before each update"
+  ],
   "0.16.1": [
    "Water shoes + what goes in your carry-on (and what lines ban in any bag)"
   ],
