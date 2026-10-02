@@ -1,6 +1,10 @@
 {
- "version": "0.14.1",
+ "version": "0.15",
  "notes": {
+  "0.15": [
+   "Zero-effort cruises: connect the email you booked with and the ship, dates, booking number, cabin, ports and final payment fill in — tap Add trip",
+   "More emails about the same booking add what's missing, and never overwrite what you typed"
+  ],
   "0.14.1": [
    "Cruise Hub has its own icon — the ship at sunset"
   ],

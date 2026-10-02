@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.14.1";
+const VERSION = "0.15";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -705,6 +705,8 @@ function extractFromMessage(msg) {
       push({ type: "event", title: nm(f) || subj, day: d.day, time: d.time, where: nm(f.location) });
     }
   }
+  const cr = extractCruise(msg, text);
+  if (cr) push(cr);
   if (!out.length && /ship|track|deliver|on its way|out for|order/i.test(subj + " " + (msg.from || ""))) {
     const re = /\b(1Z[0-9A-Z]{16}|TBA\d{12}|9[2-5]\d{20,24}|[A-Z]{2}\d{9}US)\b/g; let m;
     while ((m = re.exec(text)) && out.length < 3) { const num = cleanNum(m[1]); if (seenNum.has(num)) continue; seenNum.add(num);
@@ -717,6 +719,87 @@ function extractFromMessage(msg) {
              day: d.day, time: d.time });
   }
   return out;
+}
+
+// v0.15 (Scott 10/1: "we can use cruise itinerary in email to make all data
+// chime in" / "if they use same email all data gets added zero effort").
+// Cruise lines write the trip as LABEL + VALUE lines - verified on Scott's own
+// Princess mail 10/1: "Ship Caribbean Princess", "Sail Date Aug 30, 2026",
+// "Stateroom Premium Balcony", "Booking # DN9MWJ" (upgrade offers repeat it).
+// Full confirmations add itinerary rows: a date, a port, and 1-2 times.
+// Every cruise mail for the same booking MERGES into one suggestion, and
+// applying it fills BLANKS only - nothing the traveller typed is overwritten.
+const CRUISE_LINES = ["princess", "carnival", "royal caribbean", "rccl", "norwegian", "ncl", "celebrity", "msc", "holland america",
+  "disney cruise", "virgin voyages", "cunard", "oceania", "viking", "regent seven seas", "silversea", "azamara"];
+const LINE_NAMES = { princess: "Princess", carnival: "Carnival", "royal caribbean": "Royal Caribbean", rccl: "Royal Caribbean", norwegian: "Norwegian",
+  ncl: "Norwegian", celebrity: "Celebrity", msc: "MSC", "holland america": "Holland America", "disney cruise": "Disney", "virgin voyages": "Virgin Voyages",
+  cunard: "Cunard", oceania: "Oceania", viking: "Viking", "regent seven seas": "Regent", silversea: "Silversea", azamara: "Azamara" };
+const TIME_RE = /\b(\d{1,2}):(\d{2})\s*([ap])\.?\s?m\.?/gi;
+const t24 = (h, m, ap) => { let H = Number(h) % 12; if (ap.toLowerCase() === "p") H += 12; return `${pad(H)}:${m}`; };
+function extractCruise(msg, text) {
+  const subj = msg.subject || "", from = (msg.from || "").toLowerCase(), all = `${subj}\n${text}`;
+  const lineKey = CRUISE_LINES.find(k => from.includes(k.replace(/ /g, "")) || from.includes(k)) ||
+                  CRUISE_LINES.find(k => new RegExp(`\\b${k}\\b`, "i").test(subj));
+  if (!lineKey) return null;
+  const c = { line: LINE_NAMES[lineKey] };
+  const bk = all.match(/\bbooking\s*(?:#|id|number|no\.?)?\s*:?\s*([A-Z0-9]{6,8})\b/i) || all.match(/\b(?:confirmation|reservation)\s*(?:#|number|no\.?)\s*:?\s*([A-Z0-9]{6,10})\b/i);
+  if (bk && /\d/.test(bk[1]) || bk && /^[A-Z]{6,8}$/.test(bk[1])) c.booking = bk[1].toUpperCase();
+  for (const raw of text.split(/\n+/)) {
+    const l = raw.replace(/\s+/g, " ").trim(); if (!l || l.length > 120) continue;
+    let m;
+    if (!c.ship && (m = l.match(/^ship(?: name)?\s*:?\s+([A-Z][A-Za-z'’. ]{2,40}?)\s*$/i)) && !/\d/.test(m[1])) c.ship = m[1].trim();
+    else if (!c.start && (m = l.match(/^(?:sail(?:ing)? date|departure date|embark(?:ation)? date|sails?)\s*:?\s+(.+)$/i))) { const d = parseDateTime(m[1]); if (d) c.start = d.day; }
+    else if (!c.end && (m = l.match(/^(?:return date|disembark(?:ation)? date|returns?)\s*:?\s+(.+)$/i))) { const d = parseDateTime(m[1]); if (d) c.end = d.day; }
+    else if ((m = l.match(/^(?:stateroom|cabin)(?: number| #| no\.?)?\s*:?\s+(.+)$/i))) {
+      const v = m[1].trim(), num = v.match(/\b([A-Z]{0,2}-?\d{3,5}[A-Z]?)\b/);
+      if (num && !c.cabin) c.cabin = num[1]; else if (!num && !c.category && v.length < 40) c.category = v; }
+    else if (!c.finalDue && (m = l.match(/final payment(?: due| date)?\s*:?\s*(.+)$/i))) { const d = parseDateTime(m[1]); if (d) c.finalDue = d.day; }
+    else if (!c.total && (m = l.match(/^(?:total(?: price| fare| cruise fare| vacation price)?|grand total|cruise fare)\s*:?\s*\$\s?([\d,]+(?:\.\d{2})?)/i))) c.total = Number(m[1].replace(/,/g, ""));
+    else if (!c.paid && (m = l.match(/^(?:amount paid|total paid|payments? received|paid to date)\s*:?\s*\$\s?([\d,]+(?:\.\d{2})?)/i))) c.paid = Number(m[1].replace(/,/g, ""));
+    else if (!c.port && (m = l.match(/^(?:embarkation port|departure port|port of embarkation|departs? from|sailing from)\s*:?\s+([A-Z][A-Za-z .,'()-]{2,50})$/i))) c.port = m[1].trim();
+    if (!c.nights && (m = l.match(/\b(\d{1,2})[- ]night\b/i))) c.nights = Number(m[1]);
+  }
+  if (!c.ship) { const m = all.match(/\b([A-Z][a-z]+ Princess|[A-Z][a-z]+ of the Seas|Carnival [A-Z][a-z]+|Norwegian [A-Z][a-z]+|Celebrity [A-Z][a-z]+|MSC [A-Z][a-z]+)\b/); if (m) c.ship = m[1]; }
+  if (c.start && !c.end && c.nights) c.end = addDays(c.start, c.nights);
+  // Itinerary rows: a date inside the voyage, a place, and 1-2 times. "At sea" rows are skipped.
+  const ports = [];
+  if (c.start) {
+    const last = c.end || addDays(c.start, 30);
+    for (const raw of text.split(/\n+/)) {
+      const l = raw.replace(/\s+/g, " ").trim(); if (!l || l.length > 140 || /at sea|cruising|scenic|sail date|booking|final payment/i.test(l)) continue;
+      const d = parseDateTime(l.replace(TIME_RE, ""), parseDay(c.start)); if (!d || d.day < c.start || d.day > last) continue;
+      const times = [...l.matchAll(TIME_RE)].map(m => t24(m[1], m[2], m[3]));
+      if (!times.length) continue;
+      const name = l.replace(TIME_RE, "").replace(/\b(day\s*\d+|mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?,?/gi, "")
+        .replace(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d{1,2}(st|nd|rd|th)?,?\s*(\d{4})?/gi, "")
+        .replace(/\b\d{1,2}\/\d{1,2}(\/\d{2,4})?/g, "").replace(/\b(arrive|depart|arrival|departure|embark|disembark)s?\b/gi, "")
+        .replace(/[|:–-]+/g, " ").replace(/\s+/g, " ").trim().replace(/^,|,$/g, "").trim();
+      if (!/[A-Za-z]{3}/.test(name) || name.length > 50) continue;
+      if (d.day === c.start) { if (!c.port) c.port = name; continue; }
+      if (c.end && d.day === c.end) continue;
+      if (!ports.some(x => x.day === d.day)) ports.push({ day: d.day, name, arrive: times.length > 1 ? times[0] : "", depart: times[times.length - 1] });
+    }
+  }
+  if (ports.length) c.ports = ports;
+  if (!c.ship && !c.start && !c.booking) return null;
+  const parts = [c.ship, c.start && prettyDate(c.start), c.booking && `booking ${c.booking}`].filter(Boolean);
+  return { type: "cruise", title: `🚢 ${c.ship || c.line + " cruise"}`, day: c.start || null, cruise: c, num: c.booking || "",
+           detail: parts.join(" · ") };
+}
+// Several mails about one booking become ONE suggestion: later mails only add what is missing.
+function mergeCruise(a, b) {
+  for (const [k, v] of Object.entries(b)) if (k === "ports") { a.ports = a.ports || []; v.forEach(p => { if (!a.ports.some(x => x.day === p.day)) a.ports.push(p); }); }
+    else if (a[k] == null || a[k] === "") a[k] = v;
+  return a;
+}
+const tripFor = c => S.trips.find(t => (c.booking && t.booking === c.booking) || (c.start && t.start === c.start && (!c.ship || !t.ship || t.ship === c.ship)));
+// What a cruise suggestion would ADD to an existing trip (blanks only).
+function cruiseAdds(c) {
+  const tr = tripFor(c); if (!tr) return null;
+  const want = { ship: c.ship, line: c.line, start: c.start, end: c.end, booking: c.booking, cabin: c.cabin, port: c.port, total: c.total, finalDue: c.finalDue };
+  const add = Object.entries(want).filter(([k, v]) => v && !tr[k]).map(([k]) => k);
+  const newPorts = (c.ports || []).filter(p => !(tr.ports || []).some(x => x.day === p.day)).length;
+  return { tr, add, newPorts };
 }
 
 function mailSignIn(prompt) {                                 // must run from a tap
@@ -752,7 +835,9 @@ async function scanMail() {                                   // from a tap, or 
   try {
     const q = encodeURIComponent("newer_than:14d -in:spam -in:trash (shipped OR tracking OR delivery OR delivered OR appointment OR reservation OR booking OR booked OR confirmation OR confirmed OR itinerary OR flight OR scheduled)");
     const list = await gmail(`messages?q=${q}&maxResults=40`);
-    const ids = (list.messages || []).map(m => m.id).filter(id => !S.mail.seen[id]);
+    const cq = encodeURIComponent("newer_than:400d -in:spam -in:trash {" + CRUISE_LINES.map(k => `from:${k.replace(/ /g, "")}`).join(" ") + "} {booking itinerary confirmation \"final payment\" invoice \"sail date\" stateroom}");
+    const clist = await gmail(`messages?q=${cq}&maxResults=25`).catch(() => ({}));
+    const ids = [...new Set([...(list.messages || []), ...(clist.messages || [])].map(m => m.id))].filter(id => !S.mail.seen[id]);
     let added = 0;
     for (let i = 0; i < ids.length; i += 5) {
       const batch = await Promise.all(ids.slice(i, i + 5).map(id => gmail(`messages/${id}?format=full`).catch(() => null)));
@@ -760,6 +845,12 @@ async function scanMail() {                                   // from a tap, or 
         const h = Object.fromEntries((m.payload.headers || []).map(x => [x.name.toLowerCase(), x.value]));
         const b = bodies(m.payload);
         for (const sug of extractFromMessage({ id: m.id, subject: h.subject, from: h.from, html: b.html, text: b.text || htmlToText(b.html) })) {
+          if (sug.type === "cruise") {
+            const same = S.mail.found.find(f => f.type === "cruise" && ((sug.cruise.booking && f.cruise.booking === sug.cruise.booking) || (sug.cruise.start && f.cruise.start === sug.cruise.start)));
+            if (same) { mergeCruise(same.cruise, sug.cruise); same.day = same.cruise.start || same.day; continue; }
+            const ad = cruiseAdds(sug.cruise); if (ad && !ad.add.length && !ad.newPorts) continue;   // already on the trip
+            S.mail.found.push(sug); added++; continue;
+          }
           const dupe = S.mail.found.some(f => f.key === sug.key) ||
             (sug.type === "package" && S.packages.some(p => cleanNum(p.num) === sug.num)) ||
             (sug.type === "event" && S.events.some(e => e.day === sug.day && e.title === sug.title));
@@ -777,6 +868,25 @@ async function scanMail() {                                   // from a tap, or 
 }
 function addFound(key) {
   const f = S.mail.found.find(x => x.key === key); if (!f) return;
+  if (f.type === "cruise") {
+    const c = f.cruise, old = tripFor(c);
+    if (old) {                                                 // fill BLANKS only - never overwrite what the traveller typed
+      ensureLists(old);
+      for (const k of ["ship", "line", "start", "end", "booking", "cabin", "port", "total", "finalDue"]) if (c[k] && !old[k]) old[k] = c[k];
+      (c.ports || []).forEach(pt => { if (!old.ports.some(x => x.day === pt.day)) old.ports.push({ id: uid(), allAboard: "", excursion: "", meet: "", where: "", ...pt }); });
+      old.ports.sort((a, b) => a.day.localeCompare(b.day)); S.tripSel = old.id;
+    } else {
+      const id = uid();
+      const tr = ensureLists({ id, type: "cruise", name: `${c.ship || c.line + " cruise"}`, start: c.start || null, end: c.end || null, line: c.line || "",
+        ship: c.ship || "", port: c.port || "", travelers: null, total: c.total || null, finalDue: c.finalDue || null, onboardBudget: null,
+        booking: c.booking || "", cabin: c.cabin || "", insurance: "undecided", travel: "", payments: [], spends: [],
+        ports: (c.ports || []).map(pt => ({ id: uid(), allAboard: "", excursion: "", meet: "", where: "", ...pt })), lists: newLists("cruise") });
+      if (c.paid) tr.payments.push({ id: uid(), day: today(), amt: c.paid, note: "Paid so far (from email)" });
+      S.trips.push(tr); S.tripSel = id;
+    }
+    S.tripTab = "ready"; S.mail.found = S.mail.found.filter(x => x.key !== key); save(); render(); buzz();
+    toast(old ? "Trip updated from your email ✓" : "Cruise added from your email ✓"); return;
+  }
   if (f.type === "package") S.packages.push({ id: uid(), name: f.title.slice(0, 60), num: f.num, carrier: f.carrier, eta: f.day || null, delivered: false });
   else S.events.push({ id: uid(), day: f.day, time: f.time || "09:00", title: f.title.slice(0, 80), where: f.where || "", rep: "none", allDayGuess: !f.time });
   S.mail.found = S.mail.found.filter(x => x.key !== key); save(); render(); buzz();
@@ -788,7 +898,7 @@ function drawMailBox() {
     ? `<div class="leg"><span>📬 Gmail connected${S.mail.last ? ` · checked ${fmtTime(S.mail.last)}` : ""}</span></div>
        <div class="foot-actions"><button class="btn sm" data-mail="scan">${MAIL_BUSY ? "Checking…" : "Check email now"}</button><button class="btn sm ghost" data-mail="off">Disconnect</button></div>`
     : `<button class="btn sm" data-mail="scan">Connect Gmail (read-only)</button>`) +
-    `<p class="fine" style="margin-top:8px">Day Hub reads your last 2 weeks of email on this phone to find appointments, flights, hotel and dinner reservations and package tracking. Nothing is sent anywhere, and nothing is added until you tap Add.</p>`;
+    `<p class="fine" style="margin-top:8px"><b>Tip: connect the email you booked with — your cruise fills itself in.</b> Day Hub reads your email on this phone (read-only) to find cruise bookings, appointments, flights, hotel and dinner reservations and package tracking. Nothing is sent anywhere, and nothing is added until you tap Add.</p>`;
 }
 
 // ---------------------------------------------------------------- updates
@@ -928,6 +1038,8 @@ function readiness(tr) {
     const open = tr.ports.filter(pt => !pt.excursion);
     add("Excursions planned", open.length ? 1 - open.length / tr.ports.length : 1, 90, open.length ? `Plan ${open[0].name} (excursion, or type "none")` : "");
   }
+  if (cruise && tr.ports.length) { const noAA = tr.ports.filter(pt => !pt.allAboard);
+    add("All-aboard times", noAA.length ? 1 - noAA.length / tr.ports.length : 1, 7, noAA.length ? `Add the all-aboard time for ${noAA[0].name} (Ports tab ✏️ — from the ship's daily planner)` : ""); }
   if (cruise) add("Cabin number", tr.cabin ? 1 : 0, 60, "Add your cabin number (Edit)");
   add("Getting there planned", tr.travel ? 1 : 0, 60, `Plan how you get to ${tr.port || "the start"} (Edit)`);
   add("Before you go", frac("before"), 60, firstOpen("before") ? firstOpen("before").text : "");
@@ -982,6 +1094,7 @@ function forgetHtml() {
   } else if (ed > 0 && pt) {
     h(`⚓ GOOD MORNING — ${esc(pt.name).toUpperCase()}`);
     if (pt.allAboard) L.push(`<div class="today-line big-aboard">🚢 ALL ABOARD <b>${hm(pt.allAboard)}</b>${shipNote(pt)}</div>`);
+    else if (pt.depart) L.push(`<div class="bstat tight">🚢 The ship leaves at <b>${hm(pt.depart)}</b>. All aboard is EARLIER (often 30-60 min) — check today's planner in your cruise app and add it here for the alarms.</div>`);
     if (hasExc(pt)) {
       L.push(`<div class="today-line">🏝️ ${esc(pt.excursion)}${pt.meet ? ` — meet <b>${hm(pt.meet)}</b>` : ""}${pt.where ? ` at ${esc(pt.where)}` : ""}</div>`);
       if (pt.meet) L.push(`<div class="today-line">⏰ Leave the cabin by <b>${hm(addMinT(pt.meet, -(Number(pt.walk) || 15)))}</b></div>`);
@@ -1412,8 +1525,13 @@ const CARDS = {
     body: () => {
       const f = S.mail.found.slice().sort((a, b) => (a.day || "9999").localeCompare(b.day || "9999"));
       const top = S.mail.on && !mReady() ? `<button class="sync" data-mail="scan">📬 Tap to check your email${S.mail.last ? ` · last ${fmtTime(S.mail.last)}` : ""}</button>` : "";
-      if (!f.length) return top + `<div class="empty">${S.mail.on ? "Nothing waiting. New appointments, flights and deliveries show up here." : "Connect Gmail in ⚙ and Day Hub will find appointments, flights, reservations and packages in your email."}</div>`;
-      return top + f.map(x => `<div class="row"><div class="grow">${x.type === "package" ? "📦" : "📅"} ${esc(x.title)}
+      if (!f.length) return top + `<div class="empty">${S.mail.on ? "Nothing waiting. New cruise bookings, appointments, flights and deliveries show up here." : "Connect Gmail in ⚙ — use the email you book trips with — and Day Hub finds cruises, appointments, flights, reservations and packages in it."}</div>`;
+      return top + f.map(x => x.type === "cruise" ? (() => { const ad = cruiseAdds(x.cruise), c = x.cruise;
+          return `<div class="row"><div class="grow">${esc(x.title)}${c.line ? ` <span class="tag">${esc(c.line)}</span>` : ""}
+            <span class="sub">${[c.start && `${prettyDate(c.start)}${c.end ? " – " + prettyDate(c.end) : ""}`, c.booking && `booking ${esc(c.booking)}`, c.cabin || c.category, c.ports && `${c.ports.length} ports`, c.finalDue && `final payment ${prettyDate(c.finalDue)}`].filter(Boolean).map(String).join(" · ")}
+            ${ad ? ` · adds ${[...ad.add, ad.newPorts ? `${ad.newPorts} ports` : ""].filter(Boolean).join(", ")} to your trip` : ""}</span></div>
+            <button class="btn sm" data-addfound="${esc(x.key)}">${ad ? "Update trip" : "Add trip"}</button><button class="x" data-dropfound="${esc(x.key)}" aria-label="Dismiss">✕</button></div>`; })()
+        : `<div class="row"><div class="grow">${x.type === "package" ? "📦" : "📅"} ${esc(x.title)}
           <span class="sub">${x.type === "package" ? `${(CARRIERS[x.carrier] || CARRIERS.other)[0]} · …${esc(x.num.slice(-6))}${x.day ? ` · arrives ${prettyDate(x.day)}` : ""}`
             : `${dayName(x.day)} ${prettyDate(x.day)}${x.time ? ` · ${hm(x.time)}` : " · time not found"}`} · from "${esc(x.src)}"</span></div>
         <button class="btn sm" data-addfound="${esc(x.key)}">Add</button><button class="x" data-dropfound="${esc(x.key)}" aria-label="Dismiss">✕</button></div>`).join("");
@@ -1424,6 +1542,7 @@ const CARDS = {
     body: () => {
       const tr = curTrip();
       if (!tr) return `<div class="empty">Got a cruise or trip coming? Day Hub counts down, reminds you about the final payment, tracks onboard spending and hands you ready-made packing and document lists.</div>
+        <div class="today-line" style="margin-top:8px">✨ <b>Zero effort:</b> connect the email you booked with (⚙ → Connect Gmail) and the ship, dates, booking number, cabin and ports fill in by themselves.</div>
         <button class="btn sm" data-qa="trip" style="margin-top:10px">🚢 Plan a trip</button>`;
       const all = upcomingTrips();
       const pick = all.length > 1 ? `<div class="tabs">${all.map(t => `<button class="tab ${t.id === tr.id ? "on" : ""}" data-tripsel="${t.id}">${esc(t.name)}</button>`).join("")}</div>` : "";
@@ -1450,7 +1569,8 @@ const CARDS = {
         const days = []; if (tr.start) for (let d = tr.start; d <= (tr.end || tr.start); d = addDays(d, 1)) days.push(d);
         body = days.length ? days.map(d => { const pt = portOn(tr, d);
           const label = pt ? `⚓ <b>${esc(pt.name)}</b>` : d === tr.start ? `🚢 <b>Sail day</b> — ${esc(tr.port || "")}` : d === tr.end ? `🏠 <b>Back in port</b> — getting home` : "🌊 At sea";
-          const sub = pt ? [pt.arrive && `in ${hm(pt.arrive)}`, pt.allAboard && `<b style="color:var(--orange)">all aboard ${hm(pt.allAboard)}${Number(pt.shipOffset) ? " ship time" : ""}</b>`,
+          const sub = pt ? [pt.arrive && `in ${hm(pt.arrive)}`, pt.allAboard ? `<b style="color:var(--orange)">all aboard ${hm(pt.allAboard)}${Number(pt.shipOffset) ? " ship time" : ""}</b>`
+                              : pt.depart && `departs ${hm(pt.depart)} · <b style="color:var(--orange)">add all-aboard ✏️</b>`,
                             pt.indie && `<b style="color:var(--red)">independent tour</b>`,
                             pt.excursion && (pt.excursion.toLowerCase() === "none" ? "no excursion" : `🤿 ${esc(pt.excursion)}${pt.meet ? ` · meet ${hm(pt.meet)}` : ""}${pt.where ? ` · ${esc(pt.where)}` : ""}`)].filter(Boolean).join(" · ") : "";
           return `<div class="row"><span class="time">${parseDay(d).toLocaleDateString([], { weekday: "short", month: "numeric", day: "numeric" })}</span>

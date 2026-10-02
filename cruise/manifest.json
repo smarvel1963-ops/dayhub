@@ -1,7 +1,7 @@
 {
   "name": "Cruise Hub",
   "short_name": "Cruise Hub",
-  "description": "Cruise Hub by Marvel Corp - countdown, final payment reminders, port days with all-aboard alarms, onboard spending and ready-made lists. Works with Day Hub. No ads, ever.",
+  "description": "Cruise Hub by Marvel Corp - connect the email you booked with and your cruise fills itself in. Countdown, final payment reminders, port days with all-aboard alarms, onboard spending, ready-made lists. Works with Day Hub. No ads, ever.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
