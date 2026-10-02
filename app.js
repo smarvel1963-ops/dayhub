@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.23";
+const VERSION = "0.24";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -213,7 +213,7 @@ async function geocode(city) {
 async function forecast(place) {
   const q = `latitude=${place.lat}&longitude=${place.lon}` +
             `&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,is_day` +
-            `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,weather_code` +
+            `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,weather_code,wind_gusts_10m_max` +
             `&hourly=temperature_2m,precipitation_probability,weather_code,is_day` +
             `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=6`;
   const j = await (await fetch(`${WX}?${q}`)).json();
@@ -229,11 +229,13 @@ async function forecast(place) {
     if ((H.precipitation_probability[i] ?? 0) >= 50) { rainFrom = hrs[i]; break; }
   const D = j.daily;
   const days = D.time.map((d, i) => ({ d, hi: D.temperature_2m_max[i], lo: D.temperature_2m_min[i],
-    rain: D.precipitation_probability_max[i] ?? 0, code: D.weather_code[i] }));
+    rain: D.precipitation_probability_max[i] ?? 0, code: D.weather_code[i], gust: (D.wind_gusts_10m_max || [])[i] ?? null }));
+  const byHour = {};                                            // "YYYY-MM-DDTHH" -> that hour (weather intelligence)
+  hrs.forEach((t, i) => { byHour[t.slice(0, 13)] = { rain: H.precipitation_probability[i] ?? 0, temp: H.temperature_2m[i], code: H.weather_code[i] }; });
   // The daily high/low come from a different model run than "now", so they can
   // read 92 while it is 93 out. Never show a high below (or a low above) now.
   days[0].hi = Math.max(days[0].hi, now); days[0].lo = Math.min(days[0].lo, now);
-  return { label: place.label, cur: j.current, hourly, days,
+  return { label: place.label, cur: j.current, hourly, days, byHour,
     day: { hi: days[0].hi, lo: days[0].lo, rain: days[0].rain, code: days[0].code,
            sunrise: D.sunrise[0], sunset: D.sunset[0], rainFrom } };
 }
@@ -510,6 +512,7 @@ function briefLines() {
     s.push(`It's ${Math.round(w.cur.temperature_2m)}° and ${wmo(w.cur.weather_code)[1]}, with a high of ${Math.round(w.day.hi)}°` +
       (w.day.rainFrom ? ` — rain likely after ${fmtTime(w.day.rainFrom)}.` : w.day.rain < 20 ? " and no rain." : "."));
   }
+  wxAlerts(t).slice(0, 2).forEach(a => s.push(a.text.replace(/[“”]/g, "") + "."));
   const todo = S.todos.filter(x => todoShown(x) && !todoDone(x)).length;
   s.push(plans.length || todo ? `You have ${plans.length ? `${plans.length} thing${plans.length === 1 ? "" : "s"} on the schedule` : "nothing on the schedule"}${todo ? ` and ${todo} to-do${todo === 1 ? "" : "s"}` : ""}.`
     : "Your day is wide open.");
@@ -543,7 +546,7 @@ function showBrief() {
        ${tips.length ? `<div class="sub">${tips.join(" · ")}</div>` : ""}` : "")}
     ${sec("Today", plans.slice(0, 6).map(i => `<div class="row"><span class="time">${i.t ? hm(i.t) : "All day"}</span><span class="grow">${i.icon} ${esc(i.title)}</span></div>`).join(""))}
     ${sec("Top to-dos", todos.map(x => `<div class="row"><span class="grow">✅ ${esc(x.title)}</span></div>`).join(""))}
-    ${sec("Heads up", [...S.remember.filter(r => r.day === t).map(r => `📌 ${esc(r.text)}`),
+    ${sec("Heads up", [...wxAlerts(t).map(a => `${a.icon} ${esc(a.text)}`), ...S.remember.filter(r => r.day === t).map(r => `📌 ${esc(r.text)}`),
         ...upcomingBills().filter(b => daysUntil(b.due) <= 2).map(b => `💳 ${esc(b.name)} ${money(b.amount)} — ${daysUntil(b.due) < 0 ? "late" : inDays(daysUntil(b.due))}`),
         ...items.filter(i => i.kind === "pkg").map(i => `📦 ${esc(i.title)}`)].map(x => `<div class="today-line">${x}</div>`).join(""))}
     <button class="btn brief-go" data-brief="go">Start my day →</button>
@@ -751,6 +754,9 @@ function reminderList() {
     const at = atMs(today(), `${pad(Math.floor(R.morning / 60))}:${pad(R.morning % 60)}`);
     add(`mb:${today()}`, atMs(today(), "12:00"), at, `☀️ Good morning${S.name ? ", " + S.name : ""}`, morningBrief());
   }
+  // Freeze tonight: one heads-up at 6 PM (drip faucets, plants, pets).
+  const fz = wxAlerts(today()).find(a => a.key === "freeze");
+  if (fz) add(`fz:${today()}`, atMs(today(), "23:59"), atMs(today(), "18:00"), "🥶 Freeze tonight", fz.text.split(" — ")[1] || fz.text);
   if (R.night >= 0 && MODE !== "cruise" && S.resetDay !== today()) {
     const at = atMs(today(), `${pad(Math.floor(R.night / 60))}:${pad(R.night % 60)}`);
     add(`nr:${today()}`, atMs(today(), "23:59"), at, "🛏️ Nightly reset", resetSummary());
@@ -1812,6 +1818,36 @@ function resetSummary() {
   return `${done.length} done · ${open.length ? `${open.length} still open` : "nothing left over"} · tomorrow: ${tomorrowLine()}`;
 }
 
+// ------------------------------------------------- weather intelligence
+// Scott 10/2 (list #13): don't just say 78° - connect the weather to the day.
+// Outdoor plans in the rain, a freeze tonight, real heat, storms, ice/snow,
+// strong gusts and a big drop tomorrow. Shown on the Weather card, the top of
+// the screen, the morning brief and the Tomorrow card; a freeze also gets a
+// 6 PM reminder. Free: built from the forecast Day Hub already downloads.
+const OUTDOOR = /\b(mow|mowing|lawn|yard|garden|gardening|outside|outdoors?|bbq|barbecue|grill|cookout|picnic|park|hike|hiking|walk|run|jog|bike|biking|golf|fishing|hunt|hunting|game|practice|soccer|baseball|softball|football|tennis|pool|beach|lake|boat|camping|car wash|wash (?:the )?car|roof|gutters?|fence|deck|patio|parade|festival|fair|zoo|farmers market|tailgate|wedding|yard sale|garage sale)\b/i;
+function wxAlerts(day) {
+  const w = WXDATA && WXDATA.here; if (!w || !w.days) return [];
+  const i = w.days.findIndex(d => d.d === day); if (i < 0) return [];
+  const d = w.days[i], next = w.days[i + 1], out = [], add = (icon, text, key) => out.push({ icon, text, key });
+  // Outdoor plans that run into rain (hour by hour when we have it)
+  dayItems(day).filter(x => isPlan(x) && x.t && OUTDOOR.test(`${x.title} ${x.sub || ""}`)).forEach(x => {
+    const h = x.t.slice(0, 2), h2 = pad((Number(h) + 1) % 24), hb = w.byHour || {};
+    const r = Math.max((hb[`${day}T${h}`] || {}).rain ?? -1, (hb[`${day}T${h2}`] || {}).rain ?? -1);
+    if (r >= 50 || (r < 0 && d.rain >= 60)) add("☔", `Rain likely at ${hm(x.t)} — your “${x.title}”${r >= 0 ? ` (${r}%)` : ""}`, "rain-plan");
+    const tp = (hb[`${day}T${h}`] || {}).temp;
+    if (tp != null && tp <= 40) add("🧥", `${Math.round(tp)}° at ${hm(x.t)} for “${x.title}” — dress warm`, "cold-plan");
+  });
+  if ([95, 96, 99].includes(d.code)) add("⛈️", "Thunderstorms possible — check the sky before you head out", "storm");
+  if ([56, 57, 66, 67].includes(d.code)) add("🧊", "Freezing rain — icy roads and steps, leave early", "ice");
+  if ([71, 73, 75, 77, 85, 86].includes(d.code)) add("❄️", "Snow possible — leave early, scrape the car", "snow");
+  if (d.hi >= 95) add("🥵", `Hot one — high ${Math.round(d.hi)}°. Water and shade; never leave kids or pets in the car`, "heat");
+  if (d.gust != null && d.gust >= 35) add("💨", `Gusts to ${Math.round(d.gust)} mph — tie down trash cans and patio stuff`, "wind");
+  if (next && next.lo <= 32) add("🥶", `${next.lo <= 25 ? "Hard freeze" : "Freeze"} tonight — low ${Math.round(next.lo)}°. Drip faucets, cover plants, bring pets in`, "freeze");
+  if (next && d.hi - next.hi >= 15) add("📉", `Much colder tomorrow — high ${Math.round(next.hi)}° (down ${Math.round(d.hi - next.hi)}°)`, "drop");
+  return out;
+}
+const wxAlertHtml = list => list.map(a => `<div class="wx-alert">${a.icon} ${esc(a.text)}</div>`).join("");
+
 function heroHtml() {
   const now = new Date(), h = now.getHours();
   const w = WXDATA && WXDATA.here;
@@ -1829,7 +1865,9 @@ function heroHtml() {
       : daysUntil(tr.end || tr.start) >= 0 ? `🚢 Enjoy ${esc(tr.name)}!` : `🏠 Welcome home from ${esc(tr.name)}`; }
 
   const chips = [];
-  if (w && w.day.rainFrom) chips.push(`<span class="chip warn">☔ Rain from ${fmtTime(w.day.rainFrom)}</span>`);
+  const wa = wxAlerts(today());
+  wa.slice(0, 2).forEach(a => chips.push(`<span class="chip warn">${a.icon} ${esc(a.text.split(" — ")[0])}</span>`));
+  if (w && w.day.rainFrom && !wa.some(a => a.key === "rain-plan")) chips.push(`<span class="chip warn">☔ Rain from ${fmtTime(w.day.rainFrom)}</span>`);
   else if (w && w.day.rain < 20) chips.push(`<span class="chip good">☀ No rain today</span>`);
   const nx = nextPlan();
   if (nx) chips.push(`<span class="chip">⏭ ${esc(nx.when)} · ${esc(nx.title)}</span>`);
@@ -1928,6 +1966,7 @@ const CARDS = {
         if (w.lo <= 40) tips.push("🧥 cold start — grab a jacket");
         if (w.hi >= 92) tips.push("🥵 hot one — bring water");
         L.push(`<div class="today-line">${wmo(w.code)[0]} <b>${Math.round(w.hi)}°</b> / ${Math.round(w.lo)}° · ${wmo(w.code)[1]}${w.rain >= 20 ? ` · rain ${w.rain}%` : ""}${tips.length ? `<br><span class="sub">${tips.join(" · ")}</span>` : ""}</div>`);
+        const al = wxAlerts(T1); if (al.length) L.push(`<div class="wx-alerts">${wxAlertHtml(al)}</div>`);
       }
       const first = plans.find(i => i.t);
       if (first) {
@@ -2001,7 +2040,8 @@ const CARDS = {
         <span>${wmo(d.code)[0]}</span><span class="lo">${Math.round(d.lo)}°</span>
         <span class="bar"><span style="left:${(d.lo - mn) / span * 100}%;width:${Math.max(6, (d.hi - d.lo) / span * 100)}%"></span></span>
         <span class="hi">${Math.round(d.hi)}°${d.rain >= 30 ? `<span class="rn"> ${d.rain}%</span>` : ""}</span></div>`).join("");
-      return `<div class="hours">${hours}</div>
+      const al = wxAlerts(today());
+      return `${al.length ? `<div class="wx-alerts">${wxAlertHtml(al)}</div>` : ""}<div class="hours">${hours}</div>
         <div class="wx-facts"><div class="fact">Feels like<b>${Math.round(w.cur.apparent_temperature)}°</b></div>
           <div class="fact">Wind<b>${Math.round(w.cur.wind_speed_10m)} mph</b></div>
           <div class="fact">Sunrise<b>${fmtTime(w.day.sunrise)}</b></div><div class="fact">Sunset<b>${fmtTime(w.day.sunset)}</b></div></div>

@@ -1,6 +1,11 @@
 {
- "version": "0.23",
+ "version": "0.24",
  "notes": {
+  "0.24": [
+   "🌦️ Weather that knows your day: \"Rain likely at 4 PM — your Mow the lawn\" for outdoor plans (yard, games, practice, BBQ, golf, fishing, car wash and more)",
+   "🥶 Freeze tonight — drip faucets, cover plants, bring pets in (with a 6 PM reminder), plus real heat, storms, ice/snow, strong gusts and \"much colder tomorrow\"",
+   "Shows on the Weather card, at the top of the screen, in your Morning brief and on the Tomorrow card"
+  ],
   "0.23": [
    "🔄 Your calendar now syncs on open with NO tap: when Google's hour is up, Day Hub quietly renews your sign-in (a quick flash at most once an hour) and syncs",
    "Works as long as you're signed in to Google in Chrome on this phone; if Google ever needs you, one 🔄 Tap to sync puts it back"

@@ -347,3 +347,7 @@ details.steps .fine { margin-top: 8px; }
 .dump-line select { flex: 1; min-width: 0; }
 .dump-row > input { width: 100%; }
 .dump-row .two { margin-top: 6px; }
+/* Weather intelligence (v0.24) */
+.wx-alerts { display: grid; gap: 6px; margin: 2px 0 10px; }
+.wx-alert { background: rgba(251,146,60,.14); border: 1px solid rgba(251,146,60,.35); border-radius: 10px; padding: 7px 10px; font-size: 14px; line-height: 1.35; }
+.brief-sec .wx-alert, .brief .wx-alert { background: rgba(0,0,0,.18); border-color: rgba(255,255,255,.25); }

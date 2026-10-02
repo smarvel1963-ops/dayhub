@@ -618,6 +618,29 @@ def t_v022_brain_dump(b, base):
     a.close()
 
 
+def t_v024_weather_intel(b, base):
+    print("\n[v0.24 weather intelligence]")
+    a = App(b, base); setup(a)                     # fixture: 70% rain 3-6 PM today
+    a.qa("event", {"title": "Mow the lawn", "date": "2026-10-01", "time": "16:00"})
+    a.qa("event", {"title": "Dentist", "date": "2026-10-01", "time": "16:00"})
+    al = a.js("wxAlerts(today()).map(x => x.text)")
+    check("outdoor plan in the rain is flagged", any("Rain likely at 4:00 PM" in x and "Mow the lawn" in x for x in al), al)
+    check("indoor plan at the same hour is not", not any("Dentist" in x for x in al), al)
+    check("alert shows on the Weather card", "Mow the lawn" in a.card("weather"))
+    check("alert chip at the top of the screen", "Rain likely at 4:00 PM" in a.page.inner_text("#hero"))
+    a.js("WXDATA.here.days[1].lo = 28; WXDATA.here.days[0].hi = 97; WXDATA.here.days[1].hi = 70; WXDATA.here.days[0].gust = 41; WXDATA.here.days[0].code = 95; render()")
+    al = " | ".join(a.js("wxAlerts(today()).map(x => x.text)"))
+    check("freeze tonight", "Freeze tonight — low 28°" in al, al)
+    check("heat, storms, gusts, big drop", all(k in al for k in ["high 97°", "Thunderstorms", "Gusts to 41 mph", "Much colder tomorrow"]), al)
+    check("freeze gets a 6 PM reminder", any(r["key"].startswith("fz:") and r["title"] == "🥶 Freeze tonight" for r in a.js("reminderList()")))
+    check("morning brief says it out loud", "Rain likely at 4:00 PM" in " ".join(a.js("briefLines()")))
+    a.qa("event", {"title": "Soccer practice", "date": "2026-10-02", "time": "15:00"})
+    a.page.clock.run_for("08:00:00"); a.page.wait_for_timeout(300)
+    a.js("WXDATA.here.byHour['2026-10-02T15'].rain = 80; render()")
+    check("Tomorrow card warns about tomorrow's outdoor plan", "Soccer practice" in a.card("tomorrow") and "Rain likely" in a.card("tomorrow"), a.card("tomorrow")[:300])
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -625,7 +648,8 @@ def main():
         for t in (t_first_run, t_schedule, t_todos_lists_countdowns, t_bills_budget_work, t_packages_email,
                   t_trips_cruise, t_reminders_backup_update, t_notes_data, t_settings_layout_offline, t_v018_fixes,
                   t_v019_calendar_arrange, t_v020_nightly_reset,
-                  t_v021_brief_sync, t_v022_brain_dump):
+                  t_v021_brief_sync, t_v022_brain_dump,
+                  t_v024_weather_intel):
             try:
                 t(b, base)
             except Exception as e:
