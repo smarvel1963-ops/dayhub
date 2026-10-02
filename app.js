@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.26";
+const VERSION = "0.27";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -51,7 +51,7 @@ const FEATURES = {
 const can = f => !PRO_LIVE || FEATURES[f] !== "pro" || TIER === "pro";
 
 // ---------------------------------------------------------------- packs
-const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "schedule", "leave", "reset", "tomorrow", "work", "budget", "weather", "todos", "notes", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
+const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "schedule", "leave", "routines", "reset", "tomorrow", "work", "budget", "weather", "todos", "notes", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
 const PACKS = {
   general:  { label: "General",              cards: [] },
   trucker:  { label: "Trucker / Dispatcher", cards: ["route", "loads"] },
@@ -71,6 +71,7 @@ const blank = () => ({
   remember: [], resetDay: null, resetAt: null,
   people: [],
   upkeep: [],
+  routines: [], rdone: {},
   leave: { items: LEAVE_DEFAULT.map(text => ({ id: uid(), text })), day: null, done: [] },
   packages: [],
   mail: { on: false, last: null, seen: {}, found: [] },
@@ -118,6 +119,9 @@ function normalize(raw) {
   s.people.forEach(x => { if (!obj(x.got)) x.got = {}; x.lead = Number(x.lead ?? 14) || 0; });
   s.upkeep = (Array.isArray(s.upkeep) ? s.upkeep : []).filter(x => obj(x) && x.name && ["home", "auto"].includes(x.area) && Number(x.every) > 0
     && ["days", "weeks", "months", "years"].includes(x.unit) && (isDay(x.next) || isDay(x.last)));
+  s.routines = (Array.isArray(s.routines) ? s.routines : []).filter(r => obj(r) && r.name && Array.isArray(r.steps));
+  s.routines.forEach(r => { r.steps = r.steps.filter(x => obj(x) && x.text); if (!Array.isArray(r.days)) r.days = []; if (r.time && !isT(r.time)) r.time = null; });
+  if (!obj(s.rdone)) s.rdone = {};
   s.leave = Object.assign({ items: null, day: null, done: [] }, obj(s.leave) ? s.leave : {});
   if (!Array.isArray(s.leave.items)) s.leave.items = LEAVE_DEFAULT.map(text => ({ id: uid(), text }));
   if (!Array.isArray(s.leave.done)) s.leave.done = [];
@@ -773,6 +777,8 @@ function reminderList() {
     const at = atMs(today(), `${pad(Math.floor(R.morning / 60))}:${pad(R.morning % 60)}`);
     add(`mb:${today()}`, atMs(today(), "12:00"), at, `☀️ Good morning${S.name ? ", " + S.name : ""}`, morningBrief());
   }
+  S.routines.filter(r => r.time && rToday(r)).forEach(r => {
+    if (rLeft(r)) add(`rt:${r.id}:${today()}`, atMs(today(), r.time) + 3600000, atMs(today(), r.time), `🔁 ${r.name.replace(/^\S+\s/, "")} routine`, `${r.steps.length} steps — tap to start`); });
   S.upkeep.forEach(x => { const d = upkeepNext(x);
     if (x.auto && inWin(addDays(d, -1))) add(`up:${x.id}:${d}`, atMs(d, "08:00"), atMs(addDays(d, -1), "19:00"), `${x.name} tomorrow`, "Put it out tonight.");
     else if (!x.auto && inWin(d)) add(`up:${x.id}:${d}`, atMs(d, "23:59"), atMs(d, R.billHour), `${x.name} due ${d === today() ? "today" : prettyDate(d)}`, "Tap ✓ Done in Day Hub when it's handled.");
@@ -1970,6 +1976,47 @@ function upkeepCard(area) {
     (chips ? `<div class="chips up-chips">${chips}</div>` : "");
 }
 
+// ------------------------------------------------------------- routines
+// Scott 10/2 (list #14): Morning, Workday, Evening, Weekend, Vacation - one
+// tap brings up the whole checklist instead of rebuilding it every time.
+// Your steps, ticked fresh each day; optional days + time for a nudge.
+const ROUTINE_PRESETS = [
+  ["☀️ Morning", ["Make the bed", "Meds", "Glass of water", "Stretch 5 minutes", "Look over today in Day Hub"], [1, 2, 3, 4, 5], "07:00"],
+  ["💼 Workday shutdown", ["Clear the inbox", "Pick tomorrow's top 3", "Log my hours", "Tidy the desk"], [1, 2, 3, 4, 5], "17:00"],
+  ["🌙 Evening", ["Dishes", "Lay out clothes", "Charge phone", "Lock up", "Nightly reset in Day Hub"], [], "21:00"],
+  ["🧹 Weekend reset", ["Laundry", "Groceries", "Clean the kitchen", "Trash out", "Plan the week"], [6], "10:00"],
+  ["🧳 Vacation prep", ["Hold the mail", "Plants / pet care set", "Thermostat down", "Unplug small stuff", "Trash out", "Lock windows + doors"], [], null],
+];
+const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+let ROUTINE_OPEN = null, ROUTINE_EDIT = null;
+const rDone = r => { const x = S.rdone[r.id]; return x && x.day === today() ? x.ids : []; };
+const rToday = r => r.days.includes(new Date().getDay());
+const rLeft = r => r.steps.filter(x => !rDone(r).includes(x.id)).length;
+function addRoutine(name, steps, days, time) {
+  const r = { id: uid(), name, steps: steps.map(text => ({ id: uid(), text })), days: days || [], time: time || null };
+  S.routines.push(r); return r;
+}
+// The routine that matters right now: scheduled today, within 2 h of its time, not finished.
+function routineNow() {
+  const now = toMin(nowT());
+  return S.routines.find(r => rToday(r) && r.time && rLeft(r) && Math.abs(toMin(r.time) - now) <= 120) || null;
+}
+function routinesCard() {
+  if (!S.routines.length) return `<div class="empty">Checklists you run again and again — tap one to add it:</div>
+    <div class="chips up-chips">${ROUTINE_PRESETS.map((r, i) => `<button class="chip" data-radd="${i}">${esc(r[0])}</button>`).join("")}</div>`;
+  const open = ROUTINE_OPEN || (routineNow() || {}).id;
+  return S.routines.map(r => { const d = rDone(r), left = rLeft(r), isOpen = r.id === open;
+    return `<div class="routine ${isOpen ? "open" : ""}">
+      <div class="row"><button class="grow r-head" data-ropen="${r.id}"><b>${esc(r.name)}</b>
+          <span class="sub">${left ? `${d.length}/${r.steps.length}` : "✅ done today"}${r.days.length ? ` · ${r.days.length === 7 ? "every day" : r.days.map(n => DOW[n]).join(" ")}` : ""}${r.time ? ` · ${hm(r.time)}` : ""}</span></button>
+        <button class="btn sm ${isOpen ? "ghost" : ""}" data-ropen="${r.id}">${isOpen ? "Close" : left ? "Start ▸" : "View"}</button>
+        <button class="x" data-redit="${r.id}" aria-label="Edit">✏️</button></div>
+      ${isOpen ? r.steps.map(x => `<label class="row leave ${d.includes(x.id) ? "done" : ""}"><input type="checkbox" class="tick" data-rstep="${r.id}:${x.id}" ${d.includes(x.id) ? "checked" : ""}><span class="grow">${esc(x.text)}</span></label>`).join("")
+        + (left ? "" : `<div class="today-line">✅ ${esc(r.name.replace(/^\S+\s/, ""))} done!</div>`)
+        + (d.length ? `<div class="foot-actions"><button class="add-link" data-rreset="${r.id}">Start over</button></div>` : "") : ""}</div>`; }).join("")
+    + `<div class="chips up-chips">${ROUTINE_PRESETS.filter(p => !S.routines.some(r => r.name === p[0])).map(p => `<button class="chip" data-radd="${ROUTINE_PRESETS.indexOf(p)}">＋ ${esc(p[0])}</button>`).join("")}</div>`;
+}
+
 function heroHtml() {
   const now = new Date(), h = now.getHours();
   const w = WXDATA && WXDATA.here;
@@ -1987,6 +2034,7 @@ function heroHtml() {
       : daysUntil(tr.end || tr.start) >= 0 ? `🚢 Enjoy ${esc(tr.name)}!` : `🏠 Welcome home from ${esc(tr.name)}`; }
 
   const chips = [];
+  { const rn = routineNow(); if (rn) chips.unshift(`<button class="chip good" data-ropen="${rn.id}">🔁 ${esc(rn.name.replace(/^\S+\s/, ""))}: ${rDone(rn).length}/${rn.steps.length}</button>`); }
   upkeepDue(null, 1).filter(({ x, day }) => x.auto ? (daysUntil(day) === 0 || (daysUntil(day) === 1 && h >= 15)) : daysUntil(day) <= 0)
     .slice(0, 2).forEach(({ x, day }) => chips.push(`<span class="chip ${daysUntil(day) < 0 ? "warn" : ""}">${esc(x.name)} ${x.auto && daysUntil(day) === 1 ? "tomorrow — out tonight" : upkeepWhen(x, day)}</span>`));
   upcomingPeople(3).forEach(({ p, day }) => { const n = daysUntil(day);
@@ -2375,6 +2423,8 @@ const CARDS = {
         (later.length ? `<details class="steps"><summary>All dates (${S.people.length})</summary>${later.map(row).join("")}</details>` : "");
     } },
 
+  routines: { icon: "🔁", title: "Routines", add: ["routine", "Make your own routine"],
+    meta: () => { const r = routineNow(); return r ? `${esc(r.name.replace(/^\S+\s/, ""))} now` : ""; }, body: () => routinesCard() },
   home: { icon: "🏠", title: "Home", add: ["upkeep", "Add something"],
     meta: () => { const n = upkeepDue("home", 7).length; return n ? `${n} coming up` : ""; }, body: () => upkeepCard("home") },
   auto: { icon: "🚗", title: "Car", add: ["upkeep", "Add something"],
@@ -2665,7 +2715,7 @@ function micToggle(btn) {
 }
 
 function qaTypes() {
-  const t = [["dump", "🧠 Brain dump"], ["event", "📅 Event"], ["person", "🎂 Birthday / date"], ["upkeep", "🏠 Home / car"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["package", "📦 Package"], ["trip", "🚢 Trip"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
+  const t = [["dump", "🧠 Brain dump"], ["event", "📅 Event"], ["person", "🎂 Birthday / date"], ["upkeep", "🏠 Home / car"], ["routine", "🔁 Routine"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["package", "📦 Package"], ["trip", "🚢 Trip"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
   if (S.pack === "trucker") t.splice(1, 0, ["loads", "🚚 Load"]);
   if (S.pack === "trades") t.splice(1, 0, ["jobs", "🔧 Job"]);
   return t;
@@ -2753,6 +2803,12 @@ function qaFields(type) {
       <label class="field">Gift reminder<select name="lead">${o(0, "Off", p.lead)}${o(7, "1 week before", p.lead)}${o(14, "2 weeks before", p.lead)}${o(21, "3 weeks before", p.lead)}${o(28, "4 weeks before", p.lead)}</select></label>
       <input name="ideas" placeholder="Gift ideas, sizes, favorites (optional)" value="${esc(p.ideas || "")}" autocomplete="off">
       ${PERSON_EDIT ? `<button type="button" class="btn sm ghost" data-pdel="${PERSON_EDIT}">Delete this date</button>` : ""}`; })(),
+    routine: (() => { const r = S.routines.find(x => x.id === ROUTINE_EDIT) || { name: "", steps: [], days: [], time: "" };
+      return `<input name="name" placeholder="Name (e.g. 🏋️ Gym day)" value="${esc(r.name)}" required autocomplete="off">
+        <label class="field">Steps — one per line<textarea name="steps" rows="6" required placeholder="Fill water bottle&#10;Pack gym bag&#10;Protein shake">${esc(r.steps.map(x => x.text).join("\n"))}</textarea></label>
+        <div class="field">Which days? (for a reminder)<div class="dow">${DOW.map((n, i) => `<label><input type="checkbox" name="d${i}" ${r.days.includes(i) ? "checked" : ""}>${n}</label>`).join("")}</div></div>
+        <label class="field">At<input name="time" type="time" value="${r.time || ""}"></label>
+        ${ROUTINE_EDIT ? `<button type="button" class="btn sm ghost" data-rdel="${ROUTINE_EDIT}">Delete this routine</button>` : ""}`; })(),
     upkeep: (() => { const x = S.upkeep.find(y => y.id === UPKEEP_EDIT) || (UPKEEP_PRESET ? { area: UPKEEP_PRESET[0], name: UPKEEP_PRESET[1][0], every: UPKEEP_PRESET[1][1], unit: UPKEEP_PRESET[1][2], auto: !!UPKEEP_PRESET[1][3] } : { area: "home", every: 3, unit: "months" });
       const o = (v, l, cur) => `<option value="${v}" ${String(v) === String(cur) ? "selected" : ""}>${l}</option>`;
       return `<div class="two"><select name="area">${o("home", "🏠 Home", x.area)}${o("auto", "🚗 Car", x.area)}</select>
@@ -2795,7 +2851,7 @@ function qaFields(type) {
 let NOTE_EDIT = null, ERASE_ARMED = 0;
 let TRIP_EDIT = null, PORT_EDIT = null, PORT_DAY = null, PERK_EDIT = null;
 function openQA(type, keepEdit) {
-  if (!keepEdit) { TRIP_EDIT = null; PERSON_EDIT = null; UPKEEP_EDIT = null; UPKEEP_PRESET = null; }
+  if (!keepEdit) { TRIP_EDIT = null; PERSON_EDIT = null; UPKEEP_EDIT = null; UPKEEP_PRESET = null; ROUTINE_EDIT = null; }
   QA_TYPE = type || QA_TYPE;
   if (QA_TYPE !== "dump") DUMP = [];
   if (RECOG) RECOG.stop();
@@ -2831,6 +2887,14 @@ function submitQA(f) {
     // Added after this month's due day = treat this month as handled; before it = due this month.
     const paid = day < now.getDate() ? today().slice(0, 7) : prevMonthKey();
     S.bills.push({ id: uid(), name: d.title.trim(), amount: Number(d.amount), day, paid });
+  }
+  else if (ty === "routine") {
+    const texts = (d.steps || "").split(/\n+/).map(x => x.trim()).filter(Boolean), days = DOW.map((_, i) => d["d" + i] ? i : -1).filter(i => i >= 0);
+    const old = S.routines.find(x => x.id === ROUTINE_EDIT);
+    if (old) { old.name = d.name.trim(); old.days = days; old.time = d.time || null;
+      old.steps = texts.map(t => old.steps.find(x => x.text === t) || { id: uid(), text: t }); }   // keep ticks on unchanged steps
+    else ROUTINE_OPEN = addRoutine(d.name.trim(), texts, days, d.time).id;
+    ROUTINE_EDIT = null;
   }
   else if (ty === "upkeep") {
     const auto = !!d.auto, rec = { area: d.area, name: d.name.trim(), every: Math.max(1, Number(d.every) || 1), unit: d.unit, auto,
@@ -3010,6 +3074,15 @@ document.addEventListener("click", e => {
     pick.filter(Boolean).forEach(x => { x.day = T1; }); save(); render(); toast(`Moved to tomorrow (${pick.length})`, true); return; }
   if (ds.rmdel) { S.remember = S.remember.filter(r => r.id !== ds.rmdel); save(); render(); return; }
   if (ds.syncall) { syncTap(); return; }
+  if (ds.radd !== undefined) { const p = ROUTINE_PRESETS[Number(ds.radd)]; ROUTINE_OPEN = addRoutine(p[0], p[1], p[2], p[3]).id; save(); render(); buzz();
+    toast(`${p[0]} added — ✏️ to change the steps`); return; }
+  if (ds.ropen) { const cur = ROUTINE_OPEN || (routineNow() || {}).id;
+    ROUTINE_OPEN = t.closest("#hero") ? ds.ropen : cur === ds.ropen ? "none" : ds.ropen;
+    if (S.collapsed.includes("routines")) { S.collapsed = S.collapsed.filter(k => k !== "routines"); save(); }
+    render(); const el = document.querySelector('[data-card="routines"]'); if (el && t.closest("#hero")) el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+  if (ds.redit) { ROUTINE_EDIT = ds.redit; openQA("routine", true); return; }
+  if (ds.rreset) { delete S.rdone[ds.rreset]; save(); render(); return; }
+  if (ds.rdel) { snap(); S.routines = S.routines.filter(r => r.id !== ds.rdel); ROUTINE_EDIT = null; closeQA(); save(); render(); toast("Routine deleted", true); return; }
   if (ds.upreset) { const [a, i] = ds.upreset.split(":"); UPKEEP_EDIT = null; UPKEEP_PRESET = [a, UPKEEP_PRESETS[a][Number(i)]]; openQA("upkeep", true); return; }
   if (ds.upedit) { UPKEEP_EDIT = ds.upedit; UPKEEP_PRESET = null; openQA("upkeep", true); return; }
   if (ds.updone) { const x = S.upkeep.find(y => y.id === ds.updone); if (x) { snap(); x.last = today(); x.next = null; save(); render(); buzz();
@@ -3062,6 +3135,10 @@ document.addEventListener("change", e => {
   if (ds.dday !== undefined) { DUMP[Number(ds.dday)].day = t.value; return; }
   if (ds.dtime !== undefined) { DUMP[Number(ds.dtime)].time = t.value; return; }
   if (t.dataset.briefauto !== undefined) { S.briefAuto = t.checked; saveLocal(); toast(t.checked ? "Morning brief on" : "Morning brief off — ☀️ chip still opens it"); return; }
+  if (ds.rstep) { const [rid, sid] = ds.rstep.split(":"), r = S.routines.find(x => x.id === rid); if (!r) return;
+    const cur = rDone(r), ids = t.checked ? [...new Set([...cur, sid])] : cur.filter(x => x !== sid);
+    S.rdone[rid] = { day: today(), ids }; save(); render(); buzz();
+    if (!rLeft(r)) toast(`✅ ${r.name.replace(/^\S+\s/, "")} done!`); return; }
   if (ds.leavechk) { if (S.leave.day !== today()) { S.leave.day = today(); S.leave.done = []; }
     S.leave.done = t.checked ? [...new Set([...S.leave.done, ds.leavechk])] : S.leave.done.filter(x => x !== ds.leavechk);
     save(); render(); buzz(); if (!leaveLeft()) toast("✅ All set — have a good day!"); return; }

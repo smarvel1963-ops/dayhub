@@ -724,6 +724,42 @@ def t_v026_upkeep(b, base):
     a.close()
 
 
+def t_v027_routines(b, base):
+    print("\n[v0.27 routines]")
+    a = App(b, base, at="2026-10-01T06:30:00"); setup(a)          # Thursday
+    check("empty card offers the 5 routines", all(x in a.card("routines") for x in ["Morning", "Workday shutdown", "Evening", "Weekend reset", "Vacation prep"]))
+    a.page.click('[data-card="routines"] [data-radd="0"]')
+    check("one tap adds Morning with its steps", a.js("S.routines.length") == 1 and "Make the bed" in a.card("routines"))
+    check("weekday 7 AM routine shows at the top at 6:30", "Morning: 0/5" in a.page.inner_text("#hero"))
+    check("7 AM reminder", any(r["key"].startswith("rt:") for r in a.js("reminderList()")))
+    ids = a.js("S.routines[0].steps.map(x => S.routines[0].id + ':' + x.id)")
+    a.page.click(f'[data-rstep="{ids[0]}"]')
+    check("ticking a step saves + counts", "1/5" in a.card("routines") and a.js("rDone(S.routines[0]).length") == 1)
+    for i in ids[1:]:
+        a.page.click(f'[data-rstep="{i}"]')
+    check("all steps: done", "done today" in a.card("routines") and "Morning:" not in a.page.inner_text("#hero"))
+    a.page.click('[data-card="routines"] .routine [data-ropen]')
+    check("Close works on an auto-opened routine", not a.js("!!document.querySelector('.routine.open')"))
+    a.page.clock.fast_forward("24:00:00"); a.js("render()")
+    check("next day it starts fresh", a.js("rLeft(S.routines[0])") == 5)
+    # edit: change steps, keep ticks on the ones that stayed
+    rid = a.js("S.routines[0].id"); keep = a.js("S.routines[0].steps[1].id")
+    a.js("(r) => { S.rdone[r] = { day: today(), ids: [S.routines[0].steps[1].id] }; save(); }", rid)
+    a.page.click('[data-redit]')
+    a.page.fill("#qaForm [name=steps]", "Meds\nCoffee\nWalk the dog")
+    a.page.click("#qaForm > .btn:last-child")
+    check("edit keeps the tick on an unchanged step", a.js("rDone(S.routines[0]).includes(S.routines[0].steps[0].id)") and a.js("S.routines[0].steps.length") == 3)
+    # your own routine from +
+    a.js("openQA('routine')")
+    a.page.fill("#qaForm [name=name]", "🏋️ Gym day"); a.page.fill("#qaForm [name=steps]", "Fill water bottle\nPack gym bag")
+    a.page.check("#qaForm [name=d5]"); a.page.fill("#qaForm [name=time]", "17:30")
+    a.page.click("#qaForm > .btn:last-child")
+    check("make your own routine", a.js("S.routines.some(r => r.name === '🏋️ Gym day' && r.days.includes(5) && r.time === '17:30' && r.steps.length === 2)"))
+    a.page.click('[data-redit] >> nth=1'); a.page.click("[data-rdel]")
+    check("delete a routine", a.js("S.routines.length") == 1)
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -733,7 +769,7 @@ def main():
                   t_v019_calendar_arrange, t_v020_nightly_reset,
                   t_v021_brief_sync, t_v022_brain_dump,
                   t_v024_weather_intel, t_v025_people_leave,
-                  t_v026_upkeep):
+                  t_v026_upkeep, t_v027_routines):
             try:
                 t(b, base)
             except Exception as e:

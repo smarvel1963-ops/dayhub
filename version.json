@@ -1,6 +1,10 @@
 {
- "version": "0.26",
+ "version": "0.27",
  "notes": {
+  "0.27": [
+   "🔁 Routines: Morning, Workday shutdown, Evening, Weekend reset, Vacation prep — one tap adds the whole checklist, ticks start fresh every day",
+   "Make your own (✏️ to change steps), pick the days and a time: it pops up at the top and nudges you when it's time"
+  ],
   "0.26": [
    "🏠 Home: trash day, recycling, HVAC filter, smoke alarm batteries, pest control, lawn and more — tap one to start; trash day rolls forward by itself with a \"put it out tonight\" reminder",
    "🚗 Car: oil change, tire rotation, registration, insurance, inspection, wipers — see what's coming up, ✓ Done restarts the clock",

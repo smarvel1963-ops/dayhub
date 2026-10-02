@@ -355,3 +355,11 @@ details.steps .fine { margin-top: 8px; }
 .up-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .up-chips .chip { background: rgba(255,255,255,.06); border: 1px solid var(--line); color: var(--text); }
 .row.late b { color: #fb923c; }
+/* Routines (v0.27) */
+.routine { border: 1px solid var(--line); border-radius: 12px; padding: 4px 10px; margin-bottom: 8px; }
+.routine.open { border-color: var(--accent); }
+.routine .r-head { background: none; border: none; color: inherit; text-align: left; padding: 0; font: inherit; }
+.routine .r-head .sub { display: block; }
+.dow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.dow label { display: flex; align-items: center; gap: 4px; font-size: 13px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; }
+.dow input { width: auto; margin: 0; }
