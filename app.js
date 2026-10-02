@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.12";
+const VERSION = "0.13";
 
 const STORE = "dayhub.v1";
 const WX = "https://api.open-meteo.com/v1/forecast";
@@ -416,6 +416,12 @@ function reminderList() {
       if (inWin(d)) { const at = atMs(d, R.billHour); add(`tf:${tr.id}:${n}`, atMs(d, "23:59"), at,
         `💳 Final payment ${n === 0 ? "due TODAY" : `due in ${n} day${n === 1 ? "" : "s"}`}`,
         `${tr.name}${tripLeft(tr) ? ` — ${money(tripLeft(tr))} left` : ""}. Miss it and the booking can be cancelled.`); } });
+    (tr.ports || []).filter(pt => inWin(pt.day)).forEach(pt => {
+      if (pt.allAboard) [60, 30].forEach(m => { const aa = atMs(pt.day, pt.allAboard);
+        add(`aa:${pt.id}:${m}`, aa, aa - m * 60000, `⚓ Back on the ship by ${hm(pt.allAboard)}`, `${m} minutes — ${pt.name}. The ship will not wait.`); });
+      if (pt.meet && pt.excursion && pt.excursion.toLowerCase() !== "none") { const mt = atMs(pt.day, pt.meet);
+        add(`ex:${pt.id}`, mt, mt - R.lead * 60000, `🤿 ${pt.excursion}`, `Meet ${hm(pt.meet)}${pt.where ? " at " + pt.where : ""} — ${pt.name}`); }
+    });
     if (tr.start) [[7, "check in online + print luggage tags"], [1, "documents, meds and swimsuit in your carry-on"]].forEach(([n, what]) => {
       const d = addDays(tr.start, -n);
       if (inWin(d)) { const at = atMs(d, "10:00"); add(`ts:${tr.id}:${n}`, atMs(d, "23:59"), at,
@@ -824,20 +830,26 @@ function whatsNewHtml() {
 // other trip gets the countdown, money and lists without the cruise extras.
 const ONBOARD_CATS = ["Drinks", "Excursions", "Gratuities", "Dining", "Spa", "Casino", "Wi-Fi", "Photos", "Shopping", "Other"];
 const GRAT_PER_DAY = 18;          // per person per night - most mainstream lines charge about $16-18
-const TRIP_LISTS = { packing: "Packing", docs: "Documents", before: "Before you go", embark: "Sail day" };
+const TRIP_LISTS = { packing: "Packing", docs: "Documents", before: "Before you go", embark: "Sail day", home: "Getting home", after: "After the trip" };
+const CRUISE_ONLY_LISTS = ["home", "after"];
 const TEMPLATES = {
   cruise: {
     packing: ["Swimsuits + cover-up", "Formal-night outfit", "Comfortable walking shoes", "Sandals / flip-flops",
       "Light jacket or sweater (ships are cold inside)", "Sunscreen (reef-safe for some ports)", "Sunglasses + hat",
       "Seasickness remedy - bands, patch or pills", "Daily medications (keep in your carry-on)", "Phone charger + cables",
       "Magnetic hooks (cabin walls are metal)", "Lanyard for your cruise card", "Small day bag for port days", "Reusable water bottle"],
-    docs: ["Passport (or birth certificate + photo ID on closed-loop US cruises)", "Cruise boarding pass / app check-in done",
+    docs: ["Passport valid 6+ months after you return (or birth certificate + photo ID on closed-loop US cruises)", "Cruise boarding pass / app check-in done",
       "Luggage tags printed and attached", "Credit card for the onboard account", "Some cash for tips and ports",
       "Travel insurance details", "Excursion confirmations", "Flight + hotel confirmations", "Emergency contacts on paper"],
     before: ["Pay the final payment (Day Hub reminds you)", "Check in online as soon as it opens + pick an arrival time",
       "Book excursions you really want (popular ones sell out)", "Decide on drink / Wi-Fi packages - often cheaper before you sail",
       "Book the flight to arrive THE DAY BEFORE sailing", "Tell your bank you'll be travelling", "Print luggage tags",
       "Plan phone use at sea (airplane mode or a cruise plan)"],
+    home: ["Check your final ship account the last night", "Put out luggage tags / bags the night before (or carry off)",
+      "Keep documents, meds and a change of clothes in your carry-on", "Breakfast before your exit time", "Cabin empty by the vacate time",
+      "Customs: declare what you bought", "Ride / parking / flight home confirmed"],
+    after: ["Card holds released + final charges match the ship account", "Refunds or unused credits checked", "Loyalty points posted",
+      "Download / sort your photos", "Write down what to do differently next time", "Leave a review", "Look at future-cruise offers"],
     embark: ["Carry-on: documents, meds, swimsuit, chargers", "Arrive at your check-in time - not hours early",
       "Tip the porters ($1-2 a bag)", "Muster / safety drill (required)", "Lunch at the buffet while cabins get ready",
       "Find your cabin, check the bags arrived (can be evening)", "Look at tomorrow's daily planner in the app"],
@@ -870,6 +882,56 @@ const gratEstimate = tr => isCruise(tr) ? (Number(tr.travelers) || 1) * tripNigh
 const upcomingTrips = () => S.trips.filter(tr => tr.end ? tr.end >= addDays(today(), -7) : true)
   .sort((a, b) => (a.start || "9999").localeCompare(b.start || "9999"));
 const curTrip = () => S.trips.find(t => t.id === S.tripSel) || upcomingTrips()[0] || null;
+// Lists added in a later version reach trips planned before it (no data is lost).
+function ensureLists(tr) {
+  tr.lists = tr.lists || {};
+  const T = TEMPLATES[tr.type] || TEMPLATES.trip;
+  for (const k of Object.keys(TRIP_LISTS)) if (!tr.lists[k]) tr.lists[k] = (T[k] || []).map(text => ({ id: uid(), text, done: false }));
+  tr.ports = tr.ports || [];
+  return tr;
+}
+const tripListKeys = tr => Object.keys(TRIP_LISTS).filter(k => isCruise(tr) || !CRUISE_ONLY_LISTS.includes(k));
+
+// v0.13 CRUISE MODE (Scott 10/1, the master list from his other chat): one
+// "% READY", the ✅ / ⚠️ items, and ONE next action - what matters NOW. An
+// item "matters now" from `due` days before sailing; lists count by how much
+// of them is ticked. Nothing here is a judgement call - every item is a field
+// or a checkbox the traveller controls.
+function readiness(tr) {
+  ensureLists(tr);
+  const sd = tr.start ? daysUntil(tr.start) : 9999, cruise = isCruise(tr), L = tr.lists;
+  const frac = k => { const a = L[k] || []; return a.length ? a.filter(i => i.done).length / a.length : 1; };
+  const firstOpen = k => (L[k] || []).find(i => !i.done);
+  const items = [];
+  const add = (label, score, due, action) => items.push({ label, score, due, now: sd <= due, action });
+  if (tr.total) {
+    const left = tripLeft(tr), fd = tr.finalDue ? daysUntil(tr.finalDue) : null;
+    add(left === 0 ? "Paid in full" : `Paid ${money(tripPaid(tr))} of ${money(tr.total)}`, left === 0 ? 1 : 0,
+        fd !== null ? sd - fd + 30 : 90, `Make the final payment — ${money(left)}${tr.finalDue ? ` by ${prettyDate(tr.finalDue)}` : ""}`);
+  }
+  add("Booking number saved", tr.booking ? 1 : 0, 9999, "Add your booking number (Edit)");
+  if (cruise) add("Travel insurance decided", tr.insurance && tr.insurance !== "undecided" ? 1 : 0, 120, "Decide on travel insurance (Edit)");
+  add("Documents", frac("docs"), 90, firstOpen("docs") ? `Documents: ${firstOpen("docs").text}` : "");
+  if (cruise) add("Port days entered", tr.ports.length ? 1 : 0, 90, "Add your port days — the 🗺️ Ports tab");
+  if (cruise && tr.ports.length) {
+    const open = tr.ports.filter(pt => !pt.excursion);
+    add("Excursions planned", open.length ? 1 - open.length / tr.ports.length : 1, 90, open.length ? `Plan ${open[0].name} (excursion, or type "none")` : "");
+  }
+  if (cruise) add("Cabin number", tr.cabin ? 1 : 0, 60, "Add your cabin number (Edit)");
+  add("Getting there planned", tr.travel ? 1 : 0, 60, `Plan how you get to ${tr.port || "the start"} (Edit)`);
+  add("Before you go", frac("before"), 60, firstOpen("before") ? firstOpen("before").text : "");
+  add("Packing", frac("packing"), 30, firstOpen("packing") ? `Pack: ${firstOpen("packing").text}` : "");
+  add(cruise ? "Sail-day plan" : "Travel-day plan", frac("embark"), 7, firstOpen("embark") ? firstOpen("embark").text : "");
+  const pct = Math.round(items.reduce((n, i) => n + i.score, 0) / items.length * 100);
+  // NEXT ACTION: the final payment when it is close, else the first item that matters now.
+  const pay = items[0] && tr.total && items[0].score < 1 && tr.finalDue && daysUntil(tr.finalDue) <= 30 ? items[0] : null;
+  const next = pay || items.find(i => i.now && i.score < 1 && i.action) || null;
+  const phase = sd > 120 ? "Booking" : sd > 90 ? "Documents & excursions" : sd > 60 ? "Dining & packages" : sd > 30 ? "Travel & packing"
+    : sd > 7 ? "Packing" : sd > 0 ? "Final checklist" : daysUntil(tr.end || tr.start) > 0 ? "On the trip" : daysUntil(tr.end || tr.start) === 0 ? "Getting home" : "After the trip";
+  return { pct, items, next, phase, sd };
+}
+const portOn = (tr, day) => (tr.ports || []).find(pt => pt.day === day);
+
 function newLists(type) {
   const T = TEMPLATES[type] || TEMPLATES.trip, out = {};
   for (const k of Object.keys(TRIP_LISTS)) out[k] = (T[k] || []).map(text => ({ id: uid(), text, done: false }));
@@ -917,8 +979,15 @@ function dayItems(day) {
   S.trips.forEach(tr => {
     if (tr.start && day >= tr.start && day <= (tr.end || tr.start)) {
       const n = Math.round((parseDay(day) - parseDay(tr.start)) / 86400000) + 1;
-      it.push({ t: null, title: day === tr.start ? `${isCruise(tr) ? "Sail day" : "Trip starts"} — ${tr.name}` : `${tr.name} — day ${n}`,
-                sub: [tr.ship, tr.port].filter(Boolean).join(" · "), kind: "trip", icon: isCruise(tr) ? "🚢" : "✈️" });
+      const pt = portOn(tr, day);
+      if (pt) {
+        it.push({ t: null, title: `${pt.name} — port day`, sub: [pt.arrive && `in ${hm(pt.arrive)}`, pt.allAboard && `all aboard ${hm(pt.allAboard)}`].filter(Boolean).join(" · "), kind: "trip", icon: "⚓" });
+        if (pt.allAboard) it.push({ t: pt.allAboard, title: `ALL ABOARD — ${pt.name}`, sub: "be on the ship", kind: "aboard", icon: "⚓" });
+        if (pt.meet && pt.excursion && pt.excursion.toLowerCase() !== "none")
+          it.push({ t: pt.meet, title: pt.excursion, sub: pt.where || "excursion meeting point", kind: "exc", icon: "🤿" });
+      } else
+        it.push({ t: null, title: day === tr.start ? `${isCruise(tr) ? "Sail day" : "Trip starts"} — ${tr.name}` : isCruise(tr) && day !== tr.end ? `At sea — ${tr.name}` : `${tr.name} — day ${n}`,
+                  sub: [tr.ship, day === tr.start ? tr.port : ""].filter(Boolean).join(" · "), kind: "trip", icon: isCruise(tr) ? "🚢" : "✈️" });
     }
     if (tr.finalDue === day && tripLeft(tr) !== 0)
       it.push({ t: null, title: `Final payment — ${tr.name}`, sub: tripLeft(tr) ? money(tripLeft(tr)) + " left" : "", kind: "bill", icon: "💳" });
@@ -932,7 +1001,7 @@ function dayItems(day) {
   }
   return it.sort((a, b) => (a.t ? 1 : 0) - (b.t ? 1 : 0) || String(a.t).localeCompare(String(b.t)));
 }
-const isPlan = i => ["event", "g", "loads", "jobs", "work"].includes(i.kind);
+const isPlan = i => ["event", "g", "loads", "jobs", "work", "exc"].includes(i.kind);
 
 function nextPlan() {
   const t = nowT();
@@ -1263,7 +1332,7 @@ const CARDS = {
     } },
 
   trips: { icon: "🚢", title: "Trips",
-    meta: () => { const tr = curTrip(); return tr && tr.start ? (daysUntil(tr.start) > 0 ? `${daysUntil(tr.start)} days` : "now") : ""; },
+    meta: () => { const tr = curTrip(); return tr ? `${readiness(tr).pct}% ready` : ""; },
     body: () => {
       const tr = curTrip();
       if (!tr) return `<div class="empty">Got a cruise or trip coming? Day Hub counts down, reminds you about the final payment, tracks onboard spending and hands you ready-made packing and document lists.</div>
@@ -1277,11 +1346,30 @@ const CARDS = {
           <span class="sub">${lab}${tr.start ? ` · ${prettyDate(tr.start)}${tr.end ? ` – ${prettyDate(tr.end)}` : ""}${nights ? ` · ${nights} nights` : ""}` : ""}</span>
           <span class="sub">${[tr.line, tr.ship, tr.port].filter(Boolean).map(esc).join(" · ")}</span></div>
           <button class="btn sm ghost" data-tripedit="${tr.id}">Edit</button></div>`;
-      const tabs = ["money", "onboard", "lists"].concat(isCruise(tr) ? ["tips"] : []);
-      const TL = { money: "💳 Payments", onboard: isCruise(tr) ? "🍹 Onboard" : "💵 Spending", lists: "📋 Lists", tips: "💡 Good to know" };
-      const tab = tabs.includes(S.tripTab) ? S.tripTab : "money";
+      const tabs = ["ready", "money"].concat(isCruise(tr) ? ["ports"] : [], ["onboard", "lists"], isCruise(tr) ? ["tips"] : []);
+      const TL = { ready: "✅ Ready", money: "💳 Payments", ports: "🗺️ Ports", onboard: isCruise(tr) ? "🍹 Onboard" : "💵 Spending", lists: "📋 Lists", tips: "💡 Good to know" };
+      const tab = tabs.includes(S.tripTab) ? S.tripTab : "ready";
       let body = "";
-      if (tab === "money") {
+      if (tab === "ready") {
+        const R = readiness(tr);
+        body = `<div class="ready"><div class="ring big" style="--p:${R.pct}"><b>${R.pct}%</b></div>
+            <div class="grow"><b>${R.pct >= 100 ? "Ready to go!" : "Ready"}</b><span class="sub">Stage: ${esc(R.phase)}</span>
+            ${R.next ? `<div class="next">➡️ <b>Next:</b> ${esc(R.next.action)}</div>` : `<div class="next">✅ Nothing needs you right now.</div>`}</div></div>` +
+          R.items.map(i => `<div class="today-line">${i.score >= 1 ? "✅" : i.now ? "⚠️" : "⏳"} ${esc(i.label)}${i.score > 0 && i.score < 1 ? ` <span class="sub" style="display:inline">${Math.round(i.score * 100)}%</span>` : ""}</div>`).join("") +
+          `<div class="fine" style="margin-top:6px">⚠️ = matters now · ⏳ = later — Day Hub brings it up when it's time.</div>`;
+      } else if (tab === "ports") {
+        const days = []; if (tr.start) for (let d = tr.start; d <= (tr.end || tr.start); d = addDays(d, 1)) days.push(d);
+        body = days.length ? days.map(d => { const pt = portOn(tr, d);
+          const label = pt ? `⚓ <b>${esc(pt.name)}</b>` : d === tr.start ? `🚢 <b>Sail day</b> — ${esc(tr.port || "")}` : d === tr.end ? `🏠 <b>Back in port</b> — getting home` : "🌊 At sea";
+          const sub = pt ? [pt.arrive && `in ${hm(pt.arrive)}`, pt.allAboard && `<b style="color:var(--orange)">all aboard ${hm(pt.allAboard)}</b>`,
+                            pt.excursion && (pt.excursion.toLowerCase() === "none" ? "no excursion" : `🤿 ${esc(pt.excursion)}${pt.meet ? ` · meet ${hm(pt.meet)}` : ""}${pt.where ? ` · ${esc(pt.where)}` : ""}`)].filter(Boolean).join(" · ") : "";
+          return `<div class="row"><span class="time">${parseDay(d).toLocaleDateString([], { weekday: "short", month: "numeric", day: "numeric" })}</span>
+            <span class="grow">${label}${sub ? `<span class="sub">${sub}</span>` : ""}</span>
+            ${pt ? `<button class="x" data-portedit="${pt.id}" aria-label="Edit">✏️</button><button class="x" data-tripdel="${tr.id}:ports:${pt.id}" aria-label="Remove">✕</button>`
+                 : d !== tr.start && d !== tr.end ? `<button class="btn sm ghost" data-portadd="${d}">＋ Port</button>` : ""}</div>`; }).join("")
+          : `<div class="empty">Add the sailing dates (Edit) and every day shows up here.</div>`;
+        body += `<div class="fine" style="margin-top:6px">⚓ Day Hub alarms you 60 and 30 minutes before all-aboard — the ship will not wait.</div>`;
+      } else if (tab === "money") {
         const paid = tripPaid(tr), left = tripLeft(tr), spm = savePerMonth(tr), fd = tr.finalDue ? daysUntil(tr.finalDue) : null;
         body = tr.total ? `<div class="paygrid"><div class="fact">Total<b>${money(tr.total)}</b></div><div class="fact">Paid<b>${money(paid)}</b></div>
             <div class="fact ${left ? "" : "take"}">Left<b>${money(left)}</b></div></div>
@@ -1300,6 +1388,9 @@ const CARDS = {
         body = `<div class="paygrid"><div class="fact">Budget<b>${bud ? money(bud) : "--"}</b></div><div class="fact">Spent<b>${money(spent)}</b></div>
             <div class="fact ${bud && spent > bud ? "" : "take"}">Left<b>${bud ? money(bud - spent) : "--"}</b></div></div>`;
         if (bud && spent > bud) body += `<div class="bstat over" style="margin-top:8px">⚠ ${money(spent - bud)} over your onboard budget.</div>`;
+        if (isCruise(tr)) { const credit = Number(tr.credit || 0), bal = spent + gr - credit;
+          body += `<div class="today-line" style="margin-top:8px">🧾 Ship account: <b>${money(bal)}</b> <span class="sub" style="display:inline">(spent ${money(spent)} + gratuities ${money(gr)}${credit ? ` − credit ${money(credit)}` : ""})</span></div>`;
+          if (tr.end && daysUntil(tr.end) <= 1) body += `<label class="row"><input type="checkbox" class="tick" data-tverify="${tr.id}" ${tr.accountVerified ? "checked" : ""}><span class="grow">Final ship account checked — charges match</span></label>`; }
         if (gr) body += `<div class="today-line" style="margin-top:8px">🧾 Automatic gratuities: about <b>${money(gr)}</b> (${Number(tr.travelers) || 1} × ${nights} nights × ~$${GRAT_PER_DAY}) — they hit your account even if you never log them.</div>`;
         const mx = Math.max(1, ...Object.values(cats));
         body += Object.entries(cats).sort((a, b) => b[1] - a[1]).map(([c, v]) => `<div class="catrow"><span>${esc(c)}</span>
@@ -1309,9 +1400,10 @@ const CARDS = {
             <button class="x" data-tripdel="${tr.id}:spends:${x.id}" aria-label="Remove">✕</button></div>`).join("");
         body += `<button class="add-link" data-tripqa="tspend">＋ Log ${isCruise(tr) ? "onboard " : ""}spending</button>`;
       } else if (tab === "lists") {
-        const lk = TRIP_LISTS[S.tripList] ? S.tripList : "packing", L = (tr.lists && tr.lists[lk]) || [];
+        ensureLists(tr); const keys = tripListKeys(tr);
+        const lk = keys.includes(S.tripList) ? S.tripList : "packing", L = (tr.lists && tr.lists[lk]) || [];
         const done = L.filter(i => i.done).length;
-        body = `<div class="tabs">${Object.entries(TRIP_LISTS).map(([k, l]) => { const n = ((tr.lists || {})[k] || []);
+        body = `<div class="tabs">${keys.map(k => [k, TRIP_LISTS[k]]).map(([k, l]) => { const n = ((tr.lists || {})[k] || []);
             return `<button class="tab ${k === lk ? "on" : ""}" data-triplist="${k}">${l}<small>${n.filter(i => i.done).length}/${n.length}</small></button>`; }).join("")}</div>
           <div class="today-line sub">${done} of ${L.length} done</div>` +
           L.map(i => `<div class="row ${i.done ? "done" : ""}"><input type="checkbox" class="tick" data-titem="${tr.id}:${lk}:${i.id}" ${i.done ? "checked" : ""} aria-label="Done">
@@ -1494,11 +1586,26 @@ function qaFields(type) {
       <div class="two"><input name="port" placeholder="Leaving from (port / city)" value="${v("port")}"><input name="travelers" type="number" min="1" inputmode="numeric" placeholder="People" value="${v("travelers")}"></div>
       <div class="two"><input name="total" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Total price $" value="${v("total")}">
         <label class="field" style="margin:0">Final payment due<input name="finalDue" type="date" value="${v("finalDue")}"></label></div>
-      <input name="onboardBudget" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Onboard / spending budget $ (optional)" value="${v("onboardBudget")}">
+      <div class="two"><input name="onboardBudget" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Onboard budget $" value="${v("onboardBudget")}">
+        <input name="credit" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Onboard credit $" value="${v("credit")}"></div>
+      <div class="two"><input name="booking" placeholder="Booking number" value="${v("booking")}" autocomplete="off"><input name="cabin" placeholder="Cabin (e.g. D-512)" value="${v("cabin")}" autocomplete="off"></div>
+      <label class="field" style="margin:0">Travel insurance<select name="insurance">${["undecided", "bought", "declined"].map(o => `<option value="${o}" ${(tr.insurance || "undecided") === o ? "selected" : ""}>${{ undecided: "Not decided yet", bought: "Bought", declined: "Decided not to" }[o]}</option>`).join("")}</select></label>
+      <input name="travel" placeholder="Getting there (drive / flight + hotel night before…)" value="${v("travel")}" autocomplete="off">
+      <div class="hint">Day Hub never asks for passport or ID numbers — only whether they're ready.</div>
       <div class="hint">${TRIP_EDIT ? "Changing a trip keeps its payments, spending and lists." : "Packing, documents and before-you-go lists are filled in for you."}</div>
       ${TRIP_EDIT ? `<button type="button" class="btn sm ghost" data-tripremove="${TRIP_EDIT}">Delete this trip</button>` : ""}`; })(),
     tpay: `<input name="amt" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount paid $" required>
       <div class="two"><input name="date" type="date" value="${today()}" required><input name="note" placeholder="Note (deposit, final…)" autocomplete="off"></div>`,
+    tport: (() => { const tr = curTrip() || {}; const pt = (tr.ports || []).find(x => x.id === PORT_EDIT) || { day: PORT_DAY || tr.start };
+      const v = k => esc(pt[k] ?? "");
+      return `<input name="pname" placeholder="Port (e.g. Cozumel)" value="${v("name")}" required autocomplete="off">
+      <input name="pday" type="date" value="${v("day")}" min="${tr.start || ""}" max="${tr.end || ""}" required>
+      <div class="two"><label class="field" style="margin:0">Arrive<input name="arrive" type="time" value="${v("arrive")}"></label>
+        <label class="field" style="margin:0"><b style="color:var(--orange)">All aboard</b><input name="allAboard" type="time" value="${v("allAboard")}"></label></div>
+      <input name="excursion" placeholder="Excursion (or type none)" value="${v("excursion")}" autocomplete="off">
+      <div class="two"><label class="field" style="margin:0">Meet at<input name="meet" type="time" value="${v("meet")}"></label>
+        <input name="where" placeholder="Meeting point" value="${v("where")}" autocomplete="off"></div>
+      <div class="hint">All aboard is printed in your cruise app / daily planner — usually 30-60 min before the ship leaves.</div>`; })(),
     tspend: `<div class="two"><input name="amt" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount $" required>
       <select name="cat">${ONBOARD_CATS.map(c => `<option>${c}</option>`).join("")}</select></div>
       <div class="two"><input name="date" type="date" value="${today()}" required><input name="note" placeholder="What (optional)" autocomplete="off"></div>`,
@@ -1533,7 +1640,7 @@ function qaFields(type) {
   };
   return (F[type] || F.todo) + `<button class="btn">${type === "pay" || (type === "trip" && TRIP_EDIT) ? "Save" : "Add"}</button>`;
 }
-let TRIP_EDIT = null;
+let TRIP_EDIT = null, PORT_EDIT = null, PORT_DAY = null;
 function openQA(type, keepEdit) {
   if (!keepEdit) TRIP_EDIT = null;
   QA_TYPE = type || QA_TYPE;
@@ -1567,11 +1674,20 @@ function submitQA(f) {
   else if (ty === "trip") {
     const fields = { type: d.ttype, name: d.tname.trim(), start: d.start || null, end: d.end || null, line: (d.line || "").trim(),
       ship: (d.ship || "").trim(), port: (d.port || "").trim(), travelers: Number(d.travelers || 0) || null,
-      total: Number(d.total || 0) || null, finalDue: d.finalDue || null, onboardBudget: Number(d.onboardBudget || 0) || null };
+      total: Number(d.total || 0) || null, finalDue: d.finalDue || null, onboardBudget: Number(d.onboardBudget || 0) || null,
+      credit: Number(d.credit || 0) || null, booking: (d.booking || "").trim(), cabin: (d.cabin || "").trim(),
+      insurance: d.insurance || "undecided", travel: (d.travel || "").trim() };
     const old = S.trips.find(x => x.id === TRIP_EDIT);
     if (old) Object.assign(old, fields);
-    else { const id = uid(); S.trips.push({ id, ...fields, payments: [], spends: [], lists: newLists(fields.type) }); S.tripSel = id; S.tripTab = "money"; }
+    else { const id = uid(); S.trips.push(ensureLists({ id, ...fields, payments: [], spends: [], ports: [], lists: newLists(fields.type) })); S.tripSel = id; S.tripTab = "ready"; }
     TRIP_EDIT = null;
+  }
+  else if (ty === "tport") {
+    const tr = curTrip(); if (!tr) { closeQA(); return; } ensureLists(tr);
+    const f2 = { day: d.pday, name: d.pname.trim(), arrive: d.arrive || "", allAboard: d.allAboard || "", excursion: (d.excursion || "").trim(), meet: d.meet || "", where: (d.where || "").trim() };
+    const old = tr.ports.find(x => x.id === PORT_EDIT);
+    if (old) Object.assign(old, f2); else tr.ports.push({ id: uid(), ...f2 });
+    tr.ports.sort((a, b) => a.day.localeCompare(b.day)); PORT_EDIT = PORT_DAY = null;
   }
   else if (ty === "tpay" || ty === "tspend") {
     const tr = curTrip(); if (!tr) { closeQA(); return; }
@@ -1658,6 +1774,8 @@ document.addEventListener("click", e => {
   if (ds.mail === "off") { try { if (MTOKEN && window.google) google.accounts.oauth2.revoke(MTOKEN, () => {}); } catch (e) { /* gone */ }
     MTOKEN = null; S.mail = { on: false, last: null, seen: {}, found: [] }; save(); drawMailBox(); render(); toast("Gmail disconnected"); return; }
   if (ds.tripremove) { snap(); S.trips = S.trips.filter(x => x.id !== ds.tripremove); S.tripSel = null; TRIP_EDIT = null; closeQA(); save(); render(); toast("Trip deleted", true); return; }
+  if (ds.portadd) { PORT_EDIT = null; PORT_DAY = ds.portadd; openQA("tport"); return; }
+  if (ds.portedit) { PORT_EDIT = ds.portedit; PORT_DAY = null; openQA("tport"); return; }
   if (ds.tripsel) { S.tripSel = ds.tripsel; save(); render(); return; }
   if (ds.triptab) { S.tripTab = ds.triptab; save(); render(); return; }
   if (ds.triplist) { S.tripList = ds.triplist; save(); render(); return; }
@@ -1702,6 +1820,7 @@ document.addEventListener("change", e => {
   if (ds.tick) { const x = S.todos.find(y => y.id === ds.tick); if (x) { x.done = t.checked; x.doneDay = t.checked ? today() : null; } }
   else if (ds.tickl) { const [k, id] = ds.tickl.split(":"); const x = S[k].find(y => y.id === id); if (x) x.done = t.checked; }
   else if (ds.item) { const [l, id] = ds.item.split(":"); const L = S.lists.find(x => x.id === l); const i = L && L.items.find(y => y.id === id); if (i) i.done = t.checked; }
+  else if (ds.tverify) { const tr = S.trips.find(x => x.id === ds.tverify); if (tr) tr.accountVerified = t.checked; }
   else if (ds.titem) { const [tid, k, id] = ds.titem.split(":"); const tr = S.trips.find(x => x.id === tid);
     const i = tr && tr.lists[k].find(y => y.id === id); if (i) i.done = t.checked; }
   else if (ds.rset) { S.remind[ds.rset] = Number(t.value); saveLocal(); return; }

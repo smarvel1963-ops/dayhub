@@ -1,6 +1,12 @@
 {
- "version": "0.12",
+ "version": "0.13",
  "notes": {
+  "0.13": [
+   "Cruise Mode: a % READY score and the one NEXT thing to do, stage by stage",
+   "Port days: arrival, ALL ABOARD time and excursion for every port — alarms 60 and 30 minutes before all aboard",
+   "Ship account: onboard credit + gratuities + spending = your balance, and a final-account check",
+   "Getting home and After the trip checklists; booking number, cabin and insurance decision on the trip"
+  ],
   "0.12": [
    "Trips: countdown to your cruise or trip, with Edit any time",
    "Final payment reminders 14, 3 and 1 day before — plus how much to put aside each month",

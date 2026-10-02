@@ -4,7 +4,7 @@
  * NETWORK FIRST, cache as the fallback: the first build was cache-first and a
  * fix to app.js did not show until every tab closed - users would sit on an
  * old version after each update. Online = always the newest files. */
-const CACHE = "dayhub-v0.12";
+const CACHE = "dayhub-v0.13";
 const SHELL = ["./", "index.html", "styles.css", "app.js", "manifest.json", "icon-192.png", "icon-512.png", "icon-180.png"];
 self.addEventListener("install", e => {
   self.skipWaiting();
