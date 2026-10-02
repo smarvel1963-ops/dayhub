@@ -312,3 +312,8 @@ details.steps .fine { margin-top: 8px; }
 .arrange-link { display: block; margin: 6px auto 90px; }
 .card-list li.reset-order { justify-content: center; }
 .card-list li.reset-order span { display: none; }
+/* Nightly reset (v0.20) */
+.rs-h { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin: 12px 0 4px; }
+.rs-h:first-child { margin-top: 0; }
+.rs-mem { display: flex; gap: 8px; margin-top: 12px; }
+.rs-mem input { flex: 1; min-width: 0; }

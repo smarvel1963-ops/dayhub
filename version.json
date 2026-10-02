@@ -1,6 +1,11 @@
 {
- "version": "0.19",
+ "version": "0.20",
  "notes": {
+  "0.20": [
+   "🛏️ Nightly reset (from 6 PM): see what got done, wrap up what didn't (✓ done, ✕ drop, → move to tomorrow), and a look at tomorrow",
+   "📌 \"Anything to remember tomorrow?\" comes back on your morning screen and in the 7 AM brief",
+   "✓ Close my day, plus a 9 PM nudge if reminders are on (pick the time or turn it off in ⚙ → Reminders)"
+  ],
   "0.19": [
    "📅 Your phone calendar: events, bills and work shifts you add in Day Hub now go to your phone's calendar too, with alarms that ring even when Day Hub is closed (⚙ → Your phone calendar)",
    "Easy setup steps right in ⚙, with Samsung and iPhone versions",

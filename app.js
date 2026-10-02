@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.19";
+const VERSION = "0.20";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -51,7 +51,7 @@ const FEATURES = {
 const can = f => !PRO_LIVE || FEATURES[f] !== "pro" || TIER === "pro";
 
 // ---------------------------------------------------------------- packs
-const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "schedule", "tomorrow", "work", "budget", "weather", "todos", "notes", "packages", "bills", "countdowns", "lists"];
+const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "schedule", "reset", "tomorrow", "work", "budget", "weather", "todos", "notes", "packages", "bills", "countdowns", "lists"];
 const PACKS = {
   general:  { label: "General",              cards: [] },
   trucker:  { label: "Trucker / Dispatcher", cards: ["route", "loads"] },
@@ -67,7 +67,8 @@ const blank = () => ({
   bills: [], countdowns: [], lists: [{ id: "grocery", name: "Grocery", items: [] }], listSel: "grocery",
   gcal: { connected: false, events: [], fetched: null },
   sync: { on: false, last: null, dirty: false },
-  remind: { on: false, lead: 15, billDays: 1, billHour: "09:00", morning: 420, fired: {} },
+  remind: { on: false, lead: 15, billDays: 1, billHour: "09:00", morning: 420, night: 1260, fired: {} },
+  remember: [], resetDay: null, resetAt: null,
   packages: [],
   mail: { on: false, last: null, seen: {}, found: [] },
   notes: [],
@@ -110,6 +111,7 @@ function normalize(raw) {
   if (!s.lists.some(l => l.id === s.listSel)) s.listSel = s.lists[0].id;
   if (!PACKS[s.pack]) s.pack = "general";
   if (!obj(s.route)) s.route = blank().route;
+  s.remember = (Array.isArray(s.remember) ? s.remember : []).filter(r => obj(r) && isDay(r.day) && r.day >= addDays(today(), -7));
   // v0.2 bills stored paid = null; v0.3 reads paid as "paid THROUGH this month",
   // so null would show last month's bill as late. Treat old bills as current.
   const pm = prevMonthKey();
@@ -568,6 +570,10 @@ function reminderList() {
     const at = atMs(today(), `${pad(Math.floor(R.morning / 60))}:${pad(R.morning % 60)}`);
     add(`mb:${today()}`, atMs(today(), "12:00"), at, `☀️ Good morning${S.name ? ", " + S.name : ""}`, morningBrief());
   }
+  if (R.night >= 0 && MODE !== "cruise" && S.resetDay !== today()) {
+    const at = atMs(today(), `${pad(Math.floor(R.night / 60))}:${pad(R.night % 60)}`);
+    add(`nr:${today()}`, atMs(today(), "23:59"), at, "🛏️ Nightly reset", resetSummary());
+  }
   if (R.billDays >= 0) upcomingBills().forEach(b => { const d = addDays(b.due, -R.billDays);
     if (inWin(d)) { const at = atMs(d, R.billHour); add(`bill:${b.id}:${b.due}`, atMs(d, "23:59"), at, `💳 ${b.name} ${money(b.amount)}`, `Due ${prettyDate(b.due)}`); } });
   return out;
@@ -621,6 +627,8 @@ function drawRemindBox() {
          <select data-rset="lead">${[5, 10, 15, 30, 60, 120].map(m => opt(m, m < 60 ? `${m} minutes` : `${m / 60} hour${m > 60 ? "s" : ""}`, R.lead)).join("")}</select></label>
        <label class="field">Morning brief
          <select data-rset="morning">${opt(-1, "Off", R.morning)}${[360, 390, 420, 450, 480, 540].map(m => opt(m, `${m / 60 > 12 ? m / 60 - 12 : Math.floor(m / 60)}:${pad(m % 60)} AM`, R.morning)).join("")}</select></label>
+       <label class="field">Nightly reset
+         <select data-rset="night">${opt(-1, "Off", R.night)}${[1200, 1230, 1260, 1290, 1320, 1350, 1380].map(m => opt(m, `${Math.floor(m / 60) - 12}:${pad(m % 60)} PM`, R.night)).join("")}</select></label>
        <label class="field">Bills
          <select data-rset="billDays">${opt(-1, "Off", R.billDays)}${opt(0, "Morning of the due day", R.billDays)}${opt(1, "Morning, 1 day before", R.billDays)}${opt(3, "Morning, 3 days before", R.billDays)}</select></label>
        <div class="foot-actions" style="margin-top:10px"><button class="btn sm" data-remind="test">Send a test</button><button class="btn sm ghost" data-remind="off">Turn off</button></div>`
@@ -762,6 +770,7 @@ const trackUrl = pk => (CARRIERS[pk.carrier] || CARRIERS.other)[1](encodeURIComp
 // The morning brief - one notification at wake-up (reminders on, time in Settings).
 function morningBrief() {
   const t = today(), w = WXDATA && WXDATA.here, items = dayItems(t), plans = items.filter(isPlan), parts = [];
+  S.remember.filter(r => r.day === t).forEach(r => parts.push(`📌 ${r.text}`));
   if (w) parts.push(`${wmo(w.day.code)[0]} ${Math.round(w.day.lo)}°–${Math.round(w.day.hi)}°` +
     (w.day.rainFrom ? ` · rain from ${fmtTime(w.day.rainFrom)}` : w.day.rain < 20 ? " · no rain" : ""));
   const f = plans.find(i => i.t && i.t >= nowT()) || plans.find(i => i.t);
@@ -1571,6 +1580,57 @@ function greet() {
   const part = h < 5 ? "Up late" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
   return S.name ? `${part}, ${esc(S.name)}` : part;
 }
+// ------------------------------------------------------------ nightly reset
+// Scott 10/2 ("now nightly reset"): before bed - what got done, what didn't
+// (one tap moves it to tomorrow), a look at tomorrow, and "anything to
+// remember tomorrow?" which comes back in the morning brief and on the hero.
+function resetData() {
+  const t = today(), done = [], open = [];
+  S.todos.forEach(x => { if (x.doneDay === t && todoDone(x)) done.push(`✅ ${x.title}`);
+    else if (todoShown(x) && !todoDone(x)) open.push({ k: "todos", id: x.id, title: x.title, rep: isRep(x) }); });
+  ["loads", "jobs"].forEach(k => S[k].filter(x => x.day === t).forEach(x => x.done ? done.push(`${k === "loads" ? "🚚" : "🔧"} ${x.title}`)
+    : open.push({ k, id: x.id, title: `${k === "loads" ? "🚚" : "🔧"} ${x.title}` })));
+  const appts = dayItems(t).filter(i => (i.kind === "event" || i.kind === "g") && (!i.t || i.t <= nowT())).length;
+  if (appts) done.push(`📅 ${appts} appointment${appts === 1 ? "" : "s"}`);
+  const hrs = S.work.shifts.filter(x => x.day === t).reduce((n, x) => n + shiftHours(x), 0);
+  if (hrs) done.push(`💼 ${fmtH(hrs)} worked`);
+  return { done, open };
+}
+function tomorrowLine() {
+  const T1 = addDays(today(), 1), w = WXDATA && WXDATA.here && WXDATA.here.days[1];
+  const items = dayItems(T1), plans = items.filter(isPlan), f = plans.find(i => i.t);
+  return [w ? `${wmo(w.code)[0]} ${Math.round(w.hi)}°/${Math.round(w.lo)}°${w.rain >= 40 ? ` · rain ${w.rain}%` : ""}` : "",
+    f ? `first up ${hm(f.t)} ${f.title}` : plans.length ? `${plans.length} planned` : "nothing planned",
+    ...items.filter(i => i.kind === "bill").map(b => `💳 ${b.title} due`)].filter(Boolean).join(" · ");
+}
+function resetHtml() {
+  const t = today(), T1 = addDays(t, 1), { done, open } = resetData();
+  const mem = S.remember.filter(r => r.day === T1);
+  if (S.resetDay === t) return `<div class="today-line">✓ Day closed${S.resetAt ? ` at ${esc(fmtTime(S.resetAt))}` : ""} — ${done.length} thing${done.length === 1 ? "" : "s"} done. Sleep well 😴</div>
+    ${mem.length ? `<div class="today-line">📌 For the morning: ${mem.map(r => esc(r.text)).join(" · ")}</div>` : ""}
+    <div class="foot-actions"><button class="btn sm ghost" data-reset="reopen">Open it again</button></div>`;
+  const moveable = open.filter(o => o.k !== "todos");
+  const rows = open.map(o => `<div class="row"><span class="grow">${esc(o.title)}${o.rep ? ` <span class="sub">repeats — back tomorrow</span>` : ""}</span>
+      <button class="x" data-rdone="${o.k}:${o.id}" aria-label="Done">✓</button>${o.k === "todos"
+      ? (o.rep ? "" : `<button class="x" data-rdrop="${o.id}" aria-label="Drop it">✕</button>`)
+      : `<button class="x" data-rmove="${o.k}:${o.id}" aria-label="Move to tomorrow">→</button>`}</div>`).join("");
+  return `<div class="rs-h">Got done today</div>
+    <div class="today-line">${done.length ? done.map(esc).join("<br>") : "Nothing checked off yet — that's okay."}</div>
+    <div class="rs-h">Still open${open.length ? ` (${open.length})` : ""}</div>
+    ${open.length ? rows
+      + (moveable.length > 1 ? `<button class="add-link" data-rmove="all">→ Move all ${moveable.length} to tomorrow</button>` : "")
+      + (open.some(o => o.k === "todos" && !o.rep) ? `<p class="fine" style="margin-top:6px">Open to-dos stay on your list for tomorrow. ✕ drops one.</p>` : "")
+      : `<div class="today-line">Nothing left over 🎉</div>`}
+    <div class="rs-h">Tomorrow</div><div class="today-line">${esc(tomorrowLine())}</div>
+    <form data-remember class="rs-mem"><input name="text" placeholder="Anything to remember tomorrow?" autocomplete="off" maxlength="200"><button class="btn sm">Add</button></form>
+    ${mem.map(r => `<div class="row"><span class="grow">📌 ${esc(r.text)}</span><button class="x" data-rmdel="${r.id}" aria-label="Remove">✕</button></div>`).join("")}
+    <div class="foot-actions" style="margin-top:10px"><button class="btn sm" data-reset="close">✓ Close my day</button></div>`;
+}
+function resetSummary() {
+  const { done, open } = resetData();
+  return `${done.length} done · ${open.length ? `${open.length} still open` : "nothing left over"} · tomorrow: ${tomorrowLine()}`;
+}
+
 function heroHtml() {
   const now = new Date(), h = now.getHours();
   const w = WXDATA && WXDATA.here;
@@ -1595,6 +1655,7 @@ function heroHtml() {
   const oc = onClock();
   if (budget().status === "over") chips.push(`<span class="chip warn">⚠ Spending is running over budget</span>`);
   if (oc !== null) chips.push(`<span class="chip good">⏱ On the clock ${fmtH(oc)}</span>`);
+  S.remember.filter(r => r.day === today()).forEach(r => chips.unshift(`<button class="chip good" data-rmdel="${r.id}" title="Tap when handled">📌 ${esc(r.text)} ✓</button>`));
   if (open) chips.push(`<span class="chip">✅ ${open} to-do${open === 1 ? "" : "s"}</span>`);
   upcomingBills().filter(b => daysUntil(b.due) <= 3).forEach(b =>
     chips.push(`<span class="chip ${daysUntil(b.due) < 0 ? "warn" : ""}">💳 ${esc(b.name)} ${inDays(daysUntil(b.due))}</span>`));
@@ -1670,6 +1731,9 @@ const CARDS = {
 
   // v0.8 (Scott 10/1 "next Day Hub feature"): the evening look at tomorrow.
   // Shown from 3 PM; from 5 PM it moves to the top (see render()).
+  reset: { icon: "🛏️", title: "Nightly reset",
+    meta: () => S.resetDay === today() ? "done ✓" : (n => n ? `${n} to wrap up` : "all wrapped up")(resetData().open.length),
+    body: () => resetHtml() },
   tomorrow: { icon: "🌙", title: "Tomorrow",
     meta: () => { const n = dayItems(addDays(today(), 1)).filter(isPlan).length; return n ? `${n} planned` : "clear"; },
     body: () => {
@@ -2032,10 +2096,11 @@ function render() {
   LAST_DAY = t;
   paintHero();
   const hr = new Date().getHours();
-  let order = cardOrder().filter(k => !S.hidden.includes(k) && !(k === "tomorrow" && hr < 15) && !(k === "inbox" && !S.mail.on && !S.mail.found.length));
+  let order = cardOrder().filter(k => !S.hidden.includes(k) && !(k === "tomorrow" && hr < 15) && !(k === "reset" && hr < 18) && !(k === "inbox" && !S.mail.on && !S.mail.found.length));
   // Smart jumps only until the user arranges the screen (Scott 10/2: "order the
   // sections how anyone would like") - after that their order always wins.
   if (!S.order && hr >= 17 && order.includes("tomorrow")) order = ["tomorrow", ...order.filter(k => k !== "tomorrow")];
+  if (!S.order && hr >= 18 && order.includes("reset")) order = ["reset", ...order.filter(k => k !== "reset")];
   if (!S.order && S.mail.found.length && order.includes("inbox")) order = ["inbox", ...order.filter(k => k !== "inbox")];   // waiting on you = on top
   const cards = order.map(k => {
     const c = CARDS[k]; const col = S.collapsed.includes(k);
@@ -2264,6 +2329,8 @@ document.addEventListener("submit", e => {
     S.name = (data.name || "").trim(); S.city = (data.city || "").trim(); S.pack = data.pack || "general";
     save(); WXDATA = null; render(); loadWeather(); toast("You're all set ✓"); return;
   }
+  if (f.dataset.remember !== undefined) { const x = (data.text || "").trim(); if (!x) return;
+    S.remember.push({ id: uid(), day: addDays(today(), 1), text: x }); save(); render(); toast("📌 Saved for the morning"); return; }
   if (f.dataset.route) { S.route = { from: data.from.trim(), to: data.to.trim() }; save(); loadWeather(); return; }
   if (f.dataset.drink) { const tr = S.trips.find(x => x.id === f.dataset.drink); const P = tr && pkgOf(tr); const pr = Number(data.price);
     if (P) toast(pr <= P.drinkCap ? `✅ $${pr.toFixed(2)} — included in ${P.name} (up to $${P.drinkCap})` : `⚠️ $${pr.toFixed(2)} is over ${P.name}'s $${P.drinkCap} limit — ask the bartender before you order`);
@@ -2358,6 +2425,15 @@ document.addEventListener("click", e => {
   if (ds.dellist) { snap(); S.lists = S.lists.filter(l => l.id !== ds.dellist); S.listSel = (S.lists[0] || {}).id; save(); render(); toast("List deleted", true); return; }
   if (ds.listsel) { S.listSel = ds.listsel; save(); render(); return; }
   if (ds.move) { moveCard(ds.move, ds.dir === "top" ? "top" : Number(ds.dir)); return; }
+  if (ds.reset) { S.resetDay = ds.reset === "close" ? today() : null; S.resetAt = ds.reset === "close" ? new Date().toISOString() : null;
+    save(); render(); if (ds.reset === "close") { buzz(); toast("Day closed ✓ Sleep well"); } return; }
+  if (ds.rdone) { const [k, id] = ds.rdone.split(":"); const x = S[k].find(y => y.id === id); if (x) { snap();
+    if (k === "todos") { x.done = true; x.doneDay = today(); } else x.done = true; save(); render(); buzz(); } return; }
+  if (ds.rdrop) { snap(); S.todos = S.todos.filter(y => y.id !== ds.rdrop); save(); render(); toast("Dropped", true); return; }
+  if (ds.rmove) { snap(); const T1 = addDays(today(), 1);
+    const pick = ds.rmove === "all" ? ["loads", "jobs"].flatMap(k => S[k].filter(x => x.day === today() && !x.done)) : [S[ds.rmove.split(":")[0]].find(y => y.id === ds.rmove.split(":")[1])];
+    pick.filter(Boolean).forEach(x => { x.day = T1; }); save(); render(); toast(`Moved to tomorrow (${pick.length})`, true); return; }
+  if (ds.rmdel) { S.remember = S.remember.filter(r => r.id !== ds.rmdel); save(); render(); return; }
   if (ds.orderreset) { S.order = null; save(); drawCardList(); render(); toast("Standard order back"); return; }
   if (ds.arrange) { openSettings(); setTimeout(() => { const h = document.getElementById("arrangeHead"); if (h) h.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50); return; }
   if (ds.gconnect) { gcalConnect(); return; }

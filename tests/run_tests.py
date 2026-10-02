@@ -432,7 +432,7 @@ def t_v019_calendar_arrange(b, base):
 
     a = App(b, base, at="2026-10-01T18:00:00"); setup(a)
     first = a.js("[...document.querySelectorAll('#cards [data-card]')].map(c => c.dataset.card)")
-    check("before arranging: Tomorrow jumps up in the evening", first[0] == "tomorrow", first[:3])
+    check("before arranging: evening cards jump up (reset, then Tomorrow)", first[:2] == ["reset", "tomorrow"], first[:3])
     a.page.click("[data-arrange]"); a.page.wait_for_timeout(200)
     check("↕ Arrange opens settings at the card list", a.js("!document.getElementById('sheet').classList.contains('hidden')") and "Arrange your screen" in a.page.inner_text("#sheet"))
     a.page.click('[data-move="weather"][data-dir="top"]')
@@ -443,13 +443,58 @@ def t_v019_calendar_arrange(b, base):
     a.close()
 
 
+def t_v020_nightly_reset(b, base):
+    print("\n[v0.20 nightly reset]")
+    a = App(b, base, at="2026-10-01T15:00:00"); setup(a)
+    check("reset card hidden in the afternoon", not a.page.query_selector('[data-card="reset"]'))
+    a.qa("todo", {"title": "Call insurance"})
+    a.qa("todo", {"title": "Buy stamps"})
+    a.qa("todo", {"title": "Take meds", "rep": "daily"})
+    a.qa("loads", {"title": "Load 4471", "date": "2026-10-01", "time": "16:00"}) if a.js("qaTypes().includes('loads')") else a.js("S.loads.push({id:'L1',day:'2026-10-01',time:'16:00',title:'Load 4471',done:false}); save()")
+    a.js("S.loads.push({id:'L2',day:'2026-10-01',time:'17:00',title:'Load 4472',done:false}); save()")
+    a.qa("event", {"title": "Dentist", "date": "2026-10-01", "time": "10:00"})
+    a.js("const t = S.todos.find(x => x.title === 'Call insurance'); t.done = true; t.doneDay = today(); save()")
+    a.page.clock.run_for("06:00:00"); a.js("render()")
+    order = a.js("[...document.querySelectorAll('#cards [data-card]')].map(c => c.dataset.card)")
+    check("at 9 PM the reset card is first", order[0] == "reset", order[:3])
+    card = a.card("reset")
+    check("Got done lists the finished to-do + appointment", "Call insurance" in card and "1 appointment" in card, card[:300])
+    check("Still open lists what's left (2 to-dos, 2 loads)", "Buy stamps" in card and "Take meds" in card and "Load 4472" in card and "Still open (4)" in card.replace("STILL OPEN", "Still open"), card[:400])
+    a.page.click('[data-rmove="all"]')
+    check("Move all -> loads land on tomorrow", a.js("S.loads.every(x => x.day === '2026-10-02')"))
+    a.page.click('[data-rdrop]')
+    check("✕ drops an open to-do", a.js("!S.todos.some(x => x.title === 'Buy stamps')"))
+    a.page.click('[data-rdone^="todos:"]')
+    check("✓ marks the repeating to-do done today", a.js("todoDone(S.todos.find(x => x.title === 'Take meds'))"))
+    a.page.fill("form[data-remember] input", "Bring the gate key")
+    a.page.click("form[data-remember] button")
+    check("remember item saved for tomorrow", a.js("S.remember.length === 1 && S.remember[0].day === '2026-10-02'"))
+    a.page.click('[data-reset="close"]')
+    check("Close my day: card shows closed + the morning note", "Day closed" in a.card("reset") and "Bring the gate key" in a.card("reset"))
+    check("no nightly reminder once the day is closed", not any(r["key"].startswith("nr:") for r in a.js("reminderList()")))
+    a.page.clock.run_for("11:00:00"); a.js("render()")
+    check("next morning: 📌 chip on the hero", "Bring the gate key" in a.page.inner_text("#hero"))
+    check("next morning: 📌 in the morning brief", "📌 Bring the gate key" in a.js("morningBrief()"))
+    a.page.click('#hero [data-rmdel]')
+    check("tap the 📌 chip when handled", a.js("S.remember.length") == 0)
+    a.close()
+
+    a = App(b, base, at="2026-10-01T20:59:00"); setup(a)
+    a.js("S.remind.on = true; S.remind.fired = {}; saveLocal(); window.__n = []; window.notify = async (t, body) => window.__n.push(t)")
+    a.page.clock.run_for("00:02:00"); a.js("checkReminders()"); a.page.wait_for_timeout(200)
+    check("9 PM nightly reset reminder fires", "🛏️ Nightly reset" in a.js("window.__n"), a.js("window.__n"))
+    a.page.click("#settingsBtn")
+    check("settings: nightly reset time picker", a.js("!!document.querySelector('[data-rset=night]')"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
         b = p.chromium.launch()
         for t in (t_first_run, t_schedule, t_todos_lists_countdowns, t_bills_budget_work, t_packages_email,
                   t_trips_cruise, t_reminders_backup_update, t_notes_data, t_settings_layout_offline, t_v018_fixes,
-                  t_v019_calendar_arrange):
+                  t_v019_calendar_arrange, t_v020_nightly_reset):
             try:
                 t(b, base)
             except Exception as e:
