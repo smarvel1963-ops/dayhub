@@ -551,6 +551,53 @@ def t_v021_brief_sync(b, base):
     a.close()
 
 
+def t_v022_brain_dump(b, base):
+    print("\n[v0.22 brain dump]")
+    a = App(b, base); setup(a)                     # Thu 2026-10-01 08:00
+    P = lambda txt: a.js("t => dumpParse(t).map(x => [x.kind, x.title, x.day || null, x.time || null, x.rep || null])", txt)
+    got = P("Need tires next month, call Dan Tuesday, buy toothpaste, vacation idea for December")
+    check("Scott's example: 4 pieces", len(got) == 4, got)
+    check("'need tires next month' -> reminder Nov 1", got[0][:3] == ["event", "Need tires", "2026-11-01"], got[0])
+    check("'call Dan Tuesday' -> reminder Tue Oct 6", got[1][:3] == ["event", "Call Dan", "2026-10-06"], got[1])
+    check("'buy toothpaste' -> shopping", got[2][:2] == ["item", "Toothpaste"], got[2])
+    check("'vacation idea for December' -> idea", got[3][0] == "note" and "December" in got[3][1], got[3])
+    cases = [
+        ("pick up kids at 3", ["event", "Pick up kids", "2026-10-01", "15:00", "none"]),
+        ("dentist tomorrow at 2:30pm", ["event", "Dentist", "2026-10-02", "14:30", "none"]),
+        ("remind me to pay the electric bill on the 15th", ["event", "Pay the electric bill", "2026-10-15", "09:00", "none"]),
+        ("take meds every day at 8am", ["event", "Take meds", "2026-10-01", "08:00", "daily"]),
+        ("trash night every thursday", ["event", "Trash night", "2026-10-01", "09:00", "weekly"]),
+        ("call mom", ["todo", "Call mom", None, None, None]),
+        ("milk", ["item", "Milk", None, None, None]),
+        ("oil change in 2 weeks", ["event", "Oil change", "2026-10-15", "09:00", "none"]),
+        ("lunch with Bob friday at noon", ["event", "Lunch with Bob", "2026-10-02", "12:00", "none"]),
+        ("call the bank at 7am", ["event", "Call the bank", "2026-10-02", "07:00", "none"]),
+    ]
+    for txt, want in cases:
+        g = P(txt); g = g[0] if g else None
+        check(f"'{txt}'", g == want, g)
+    check("a lone 'Tuesday' joins the piece before it", P("call Dan. Tuesday")[0][:3] == ["event", "Call Dan", "2026-10-06"], P("call Dan. Tuesday"))
+
+    # the real flow: 🧠 -> type -> Sort it -> fix one -> Add all
+    a.page.click('#hero [data-dump]')
+    check("🧠 opens Brain dump", a.js("QA_TYPE") == "dump" and a.js("!!document.querySelector('#qaForm [name=dump]')"))
+    a.page.fill("#qaForm [name=dump]", "call Dan Tuesday, buy toothpaste, fix the fence, vacation idea for December")
+    a.page.click("#qaForm > .btn:last-child")
+    check("first tap only sorts (nothing added yet)", a.js("DUMP.length") == 4 and a.js("S.todos.length + S.events.length + S.notes.length") == 0)
+    check("button now says Add all (4)", "Add all (4)" in a.page.inner_text("#qaForm > .btn:last-child"))
+    a.page.select_option('[data-dkind="2"]', "event")
+    check("changing a piece to Reminder shows date + time", a.js("!!document.querySelector('[data-dday=\"2\"]')"))
+    a.page.fill('[data-dtext="0"]', "Call Dan about the truck")
+    a.page.click('[data-ddel="3"]')
+    a.page.click("#qaForm > .btn:last-child")
+    check("Add all files each one", a.js("S.events.some(e => e.title === 'Call Dan about the truck' && e.day === '2026-10-06')")
+          and a.js("S.lists[0].items.some(i => i.text === 'Toothpaste')") and a.js("S.events.some(e => e.title === 'Fix the fence')")
+          and a.js("S.notes.length") == 0)
+    a.page.click('[data-undo]')
+    check("Undo takes the whole dump back", a.js("S.events.length") == 0 and a.js("S.lists[0].items.length") == 0)
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -558,7 +605,7 @@ def main():
         for t in (t_first_run, t_schedule, t_todos_lists_countdowns, t_bills_budget_work, t_packages_email,
                   t_trips_cruise, t_reminders_backup_update, t_notes_data, t_settings_layout_offline, t_v018_fixes,
                   t_v019_calendar_arrange, t_v020_nightly_reset,
-                  t_v021_brief_sync):
+                  t_v021_brief_sync, t_v022_brain_dump):
             try:
                 t(b, base)
             except Exception as e:

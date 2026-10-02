@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.21";
+const VERSION = "0.22";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -1821,7 +1821,7 @@ function heroHtml() {
   // Cruise Hub's top line is about the cruise only (Day Hub's chips stay in Day Hub).
   const keep = MODE !== "cruise" ? chips : chips.filter(c => /forgetting|Final payment|🚢|✈️|[Rr]ain|New version|Install|⚓/.test(c));
   return `<div class="hero-top"><div class="greet">${greet()}</div>
-      <button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button></div>
+      <span class="hero-btns">${MODE !== "cruise" ? `<button class="icon-btn" data-dump="1" aria-label="Brain dump">🧠</button>` : ""}<button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button></span></div>
     <div class="hero-main"><div><div class="hero-clock" id="clockNow"></div><div class="hero-date">${longDate(today())}</div></div>${wx}</div>
     <div class="verdict">${verdict}</div>
     <div class="chips">${keep.join("")}</div>`;
@@ -2275,8 +2275,152 @@ function toast(msg, undoable, extra) {
 const snap = () => { UNDO = JSON.stringify(S); };
 
 // ------------------------------------------------------------ quick add
+// ------------------------------------------------------------- brain dump
+// Scott 10/2 ("cont" -> Brain Dump, the free version): say or type everything
+// on your mind in one go - "need tires next month, call Dan Tuesday, buy
+// toothpaste, vacation idea for December" - and Day Hub splits it, sorts each
+// piece into a to-do, a reminder (with its day/time), a shopping item or an
+// idea, and SHOWS the result to approve. Nothing is added until "Add all".
+// Rules on the phone, no AI and no cost; an AI sorter can replace dumpParse later.
+const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+const SHOP_WORDS = /\b(milk|eggs?|bread|butter|cheese|coffee|tea|toothpaste|toothbrush|paper towels?|toilet paper|tp|soap|shampoo|conditioner|deodorant|detergent|dish soap|dog food|cat food|bananas?|apples?|chicken|beef|steak|rice|pasta|sugar|flour|batteries|trash bags|foil|cereal|juice|water|creamer|lettuce|tomatoes|onions|potatoes|bacon|sausage|yogurt|chips|razors?)\b/i;
+const DUMP_KINDS = { todo: "✅ To-do", event: "⏰ Reminder", item: "🛒 Shopping", note: "💡 Idea / note" };
+let DUMP = [], RECOG = null;
+
+function dumpSplit(text) {
+  const parts = String(text || "").replace(/\b(and then|oh and|also|plus)\b/gi, ",")
+    .split(/[\n,;]+|\.(?=\s|$)/).map(x => x.trim()).filter(x => /[a-z]/i.test(x));
+  // A piece that is only a when ("Tuesday", "at 3") belongs to the one before it.
+  const out = [];
+  parts.forEach(x => { const w = dumpWhen(x);
+    if (out.length && !w.rest.replace(/\b(on|at|by|for|this|next|the)\b/gi, "").trim() && (w.day || w.time)) out[out.length - 1] += " " + x;
+    else out.push(x); });
+  return out;
+}
+// Finds the day / time / repeat in a piece; returns them plus the text left over.
+function dumpWhen(text, now = new Date()) {
+  let r = " " + String(text) + " ", day = null, time = null, rep = null;
+  const t0 = ymd(now), cut = re => { const m = r.match(re); if (m) r = r.replace(m[0], " "); return m; };
+  const nextDow = (dow, skipToday) => { const d = new Date(now); let n = (dow - d.getDay() + 7) % 7; if (n === 0 && skipToday) n = 7; d.setDate(d.getDate() + n); return ymd(d); };
+  let m;
+  if ((m = cut(/\bevery\s*(day|morning|night|evening)\b|\b(daily|nightly)\b/i))) rep = "daily";
+  else if ((m = cut(/\bevery\s*weekday\b|\bweekdays\b/i))) rep = "weekdays";
+  else if ((m = cut(/\bevery\s*(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i))) { rep = "weekly"; day = nextDow(WEEKDAYS.indexOf(m[1].toLowerCase()), false); }
+  else if ((m = cut(/\b(every\s*week|weekly)\b/i))) rep = "weekly";
+  else if ((m = cut(/\b(every\s*month|monthly)\b/i))) rep = "monthly";
+  else if ((m = cut(/\b(every\s*year|yearly|annually)\b/i))) rep = "yearly";
+  if (!day) {
+    if ((m = cut(/\bday after tomorrow\b/i))) day = addDays(t0, 2);
+    else if ((m = cut(/\b(today|this morning|this afternoon)\b/i))) day = t0;
+    else if ((m = cut(/\btonight\b/i))) { day = t0; time = "19:00"; }
+    else if ((m = cut(/\btomorrow( morning| afternoon| night| evening)?\b/i))) { day = addDays(t0, 1); if (m[1]) time = { morning: "09:00", afternoon: "14:00", evening: "18:00", night: "19:00" }[m[1].trim().toLowerCase()]; }
+    else if ((m = cut(/\bin\s+(a|an|one|two|three|four|five|six|\d+)\s+(day|days|week|weeks|month|months)\b/i))) {
+      const n = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6 }[m[1].toLowerCase()] || Number(m[1]);
+      const u = m[2].toLowerCase(); const d = parseDay(t0);
+      if (u.startsWith("day")) d.setDate(d.getDate() + n); else if (u.startsWith("week")) d.setDate(d.getDate() + 7 * n); else d.setMonth(d.getMonth() + n);
+      day = ymd(d);
+    }
+    else if ((m = cut(/\bnext\s+week\b/i))) day = nextDow(1, true);
+    else if ((m = cut(/\bnext\s+month\b/i))) day = ymd(new Date(now.getFullYear(), now.getMonth() + 1, 1));
+    else if ((m = cut(/\b(this\s+)?weekend\b/i))) day = nextDow(6, false);
+    else if ((m = cut(/\b(next\s+|this\s+|on\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday|sun|mon|tues?|wed|thu|thurs|fri|sat)\b/i))) {
+      const k = m[2].toLowerCase().slice(0, 3), dow = WEEKDAYS.findIndex(w => w.startsWith(k));
+      day = nextDow(dow, true); if (m[1] && /next/i.test(m[1]) && daysUntil(day) < 7) day = addDays(day, 7);
+    }
+    else if ((m = cut(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b/i))) {
+      let d = new Date(now.getFullYear(), MONTHS.indexOf(m[1].slice(0, 3).toLowerCase()), Number(m[2]));
+      if (ymd(d) < t0) d = new Date(now.getFullYear() + 1, d.getMonth(), d.getDate()); day = ymd(d);
+    }
+    else if ((m = cut(/\b(\d{1,2})\/(\d{1,2})\b/))) {
+      if (Number(m[1]) <= 12) { let d = new Date(now.getFullYear(), m[1] - 1, Number(m[2])); if (ymd(d) < t0) d.setFullYear(d.getFullYear() + 1); day = ymd(d); }
+    }
+    else if ((m = cut(/\b(?:on\s+)?the\s+(\d{1,2})(?:st|nd|rd|th)\b/i))) {
+      let d = new Date(now.getFullYear(), now.getMonth(), Number(m[1])); if (ymd(d) < t0) d = new Date(now.getFullYear(), now.getMonth() + 1, Number(m[1])); day = ymd(d);
+    }
+  }
+  if ((m = cut(/\b(?:at|@|by)?\s*(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)(?=\W)/i))) {
+    let h = Number(m[1]) % 12; if (/p/i.test(m[3])) h += 12; time = `${pad(h)}:${m[2] || "00"}`;
+  } else if ((m = cut(/\b(?:at|@)\s*(\d{1,2})(?::(\d{2}))?\b/i))) {
+    let h = Number(m[1]); if (h >= 1 && h <= 7) h += 12; if (h < 24) time = `${pad(h)}:${m[2] || "00"}`;
+  } else if ((m = cut(/\b(?:at\s+)?noon\b/i))) time = "12:00";
+  // "morning / afternoon / evening" are times only next to a day or after "in the / this";
+  // "night" only after "in the / at" ("trash night" is a name, not 7 PM).
+  else if (!time && (m = cut(day ? /\b(?:in the\s+|this\s+)?(morning|afternoon|evening)\b|\b(?:in the|at)\s+(night)\b/i
+                                 : /\b(?:in the|this)\s+(morning|afternoon|evening)\b|\b(?:in the|at)\s+(night)\b/i)))
+    time = { morning: "09:00", afternoon: "14:00", evening: "18:00", night: "19:00" }[(m[1] || m[2]).toLowerCase()];
+  return { day, time, rep, rest: r.replace(/\s+/g, " ").trim() };
+}
+const dumpClean = s => {
+  let x = String(s).replace(/^(please\s+)?(remind me to|remind me|remember to|don'?t forget to|dont forget|i need to|i have to|need to|have to|gotta|got to|i should|i want to|i gotta)\s+/i, "")
+    .replace(/\s+\b(on|at|by|for|this|next|the|in)\s*$/i, "").replace(/^\b(to)\s+/i, "").replace(/\s+/g, " ").trim();
+  return x ? x[0].toUpperCase() + x.slice(1) : x;
+};
+// One piece -> { kind, title, day, time, rep }.
+function dumpClassify(piece, now = new Date()) {
+  const raw = piece.trim(), w = dumpWhen(raw, now), low = w.rest.toLowerCase();
+  if (/\b(idea|ideas|someday|maybe|what if|think about|look into)\b/i.test(raw)) return { kind: "note", title: dumpClean(raw) };
+  const shopVerb = /^(please\s+)?(i need to buy|need to buy|buy|get|grab|pick up|pickup|order|we need|need more|out of|restock)\s+/i;
+  if (!w.time && !w.rep && (shopVerb.test(w.rest) && (SHOP_WORDS.test(low) || !w.day)) || (!w.day && !w.time && SHOP_WORDS.test(low) && low.split(" ").length <= 3)) {
+    const item = w.rest.replace(shopVerb, "").replace(/^(some|more|a|an)\s+/i, "").trim();
+    return { kind: "item", title: dumpClean(item || w.rest) };
+  }
+  if (w.day || w.time || w.rep) {
+    let day = w.day, time = w.time;
+    if (!day) day = time && time <= hhmm(now) && !w.rep ? addDays(ymd(now), 1) : ymd(now);   // a repeat starts today
+    return { kind: "event", title: dumpClean(w.rest) || dumpClean(raw), day, time: time || "09:00", rep: w.rep || "none" };
+  }
+  return { kind: "todo", title: dumpClean(raw) };
+}
+const dumpParse = (text, now = new Date()) => dumpSplit(text).map(p => dumpClassify(p, now)).filter(x => x.title);
+function drawDump() {
+  const out = document.getElementById("dumpOut"); if (!out) return;
+  if (!DUMP.length) { out.innerHTML = ""; return; }
+  const opt = (v, cur) => `<option value="${v}" ${v === cur ? "selected" : ""}>${DUMP_KINDS[v]}</option>`;
+  out.innerHTML = `<div class="dump-h">Here's how I sorted it — change anything, then Add all</div>` + DUMP.map((x, i) => `<div class="dump-row">
+      <div class="dump-line"><select data-dkind="${i}">${Object.keys(DUMP_KINDS).map(k => opt(k, x.kind)).join("")}</select>
+        <button type="button" class="x" data-ddel="${i}" aria-label="Remove">✕</button></div>
+      <input data-dtext="${i}" value="${esc(x.title)}" autocomplete="off">
+      ${x.kind === "event" ? `<div class="two"><input type="date" data-dday="${i}" value="${x.day || today()}"><input type="time" data-dtime="${i}" value="${x.time || "09:00"}"></div>
+        ${x.rep && x.rep !== "none" ? `<div class="sub">🔁 ${REPEATS[x.rep] || x.rep}</div>` : ""}` : ""}</div>`).join("");
+  const b = document.querySelector("#qaForm > .btn:last-child"); if (b) b.textContent = `Add all (${DUMP.length})`;
+}
+function dumpSort() {
+  const ta = document.querySelector("#qaForm [name=dump]"); if (!ta) return;
+  DUMP = dumpParse(ta.value).map(x => x.kind === "event" ? x : { ...x, day: null, time: null });
+  if (!DUMP.length) { toast("Say or type something first"); return; }
+  drawDump();
+}
+function dumpAdd() {
+  const n = { todo: 0, event: 0, item: 0, note: 0 }, L = S.lists.find(l => /grocer|shop/i.test(l.name)) || S.lists[0];
+  DUMP.filter(x => (x.title || "").trim()).forEach(x => {
+    const title = x.title.trim(); n[x.kind]++;
+    if (x.kind === "todo") S.todos.push({ id: uid(), title, done: false, rep: "none", day: today() });
+    else if (x.kind === "event") S.events.push({ id: uid(), day: x.day || today(), time: x.time || "09:00", title, where: "", rep: x.rep || "none" });
+    else if (x.kind === "item") L.items.push({ id: uid(), text: title, done: false });
+    else S.notes.push({ id: uid(), text: title, pinned: false, updated: new Date().toISOString() });
+  });
+  DUMP = [];
+  const said = [[n.todo, "to-do"], [n.event, "reminder"], [n.item, "shopping item"], [n.note, "idea"]].filter(([k]) => k).map(([k, w]) => `${k} ${w}${k === 1 ? "" : "s"}`).join(", ");
+  return said;
+}
+function micToggle(btn) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { toast("Tap the 🎤 on your keyboard and talk"); return; }
+  if (RECOG) { RECOG.stop(); return; }
+  const ta = document.querySelector("#qaForm [name=dump]"), base = ta.value ? ta.value.replace(/\s*$/, ", ") : "";
+  RECOG = new SR(); RECOG.lang = navigator.language || "en-US"; RECOG.interimResults = true; RECOG.continuous = true;
+  let finals = "";
+  RECOG.onresult = e => { let interim = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) { const tx = e.results[i][0].transcript;
+      if (e.results[i].isFinal) finals += (finals ? ", " : "") + tx.trim(); else interim += tx; }
+    ta.value = base + finals + (interim ? (finals ? ", " : "") + interim : ""); };
+  RECOG.onend = () => { RECOG = null; btn.textContent = "🎤 Talk"; btn.classList.remove("on"); if (ta.value.trim()) dumpSort(); };
+  RECOG.onerror = e => { if (e.error === "not-allowed") toast("Allow the microphone for Day Hub, or use the 🎤 on your keyboard"); };
+  RECOG.start(); btn.textContent = "⏹ Stop"; btn.classList.add("on");
+}
+
 function qaTypes() {
-  const t = [["event", "📅 Event"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["package", "📦 Package"], ["trip", "🚢 Trip"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
+  const t = [["dump", "🧠 Brain dump"], ["event", "📅 Event"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["package", "📦 Package"], ["trip", "🚢 Trip"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
   if (S.pack === "trucker") t.splice(1, 0, ["loads", "🚚 Load"]);
   if (S.pack === "trades") t.splice(1, 0, ["jobs", "🔧 Job"]);
   return t;
@@ -2284,6 +2428,10 @@ function qaTypes() {
 function qaFields(type) {
   const d = VIEW || today();
   const F = {
+    dump: `<textarea name="dump" rows="4" placeholder="Say or type everything on your mind — e.g. need tires next month, call Dan Tuesday at 2, buy toothpaste, vacation idea for December"></textarea>
+      <div class="foot-actions dump-acts"><button type="button" class="btn sm ghost" data-mic="1">🎤 Talk</button><button type="button" class="btn sm" data-dumpsort="1">🧠 Sort it</button></div>
+      <div class="hint">Separate things with a comma or a pause. Nothing is added until you tap Add all.</div>
+      <div id="dumpOut"></div>`,
     event: `<input name="title" placeholder="What's happening?" required autocomplete="off">
       <div class="two"><input name="date" type="date" value="${d}" required><input name="time" type="time" required></div>
       <input name="where" placeholder="Where (optional)" autocomplete="off">${repSelect(true)}`,
@@ -2376,13 +2524,15 @@ function qaFields(type) {
       <label class="field" style="margin:0">A pay period started on (for every 2 weeks)<input name="pstart" type="date" value="${S.work.periodStart || weekStart(today())}"></label>
       <div class="hint">Not sure of your tax %? 15–25% covers most people. Check one real paycheck: take-home ÷ gross.</div>`,
   };
-  return (F[type] || F.todo) + `<button class="btn">${type === "forget" ? "Got it" : type === "pay" || (type === "trip" && TRIP_EDIT) ? "Save" : "Add"}</button>`;
+  return (F[type] || F.todo) + `<button class="btn">${type === "forget" ? "Got it" : type === "pay" || (type === "trip" && TRIP_EDIT) ? "Save" : type === "dump" ? (DUMP.length ? `Add all (${DUMP.length})` : "Sort it") : "Add"}</button>`;
 }
 let NOTE_EDIT = null, ERASE_ARMED = 0;
 let TRIP_EDIT = null, PORT_EDIT = null, PORT_DAY = null, PERK_EDIT = null;
 function openQA(type, keepEdit) {
   if (!keepEdit) TRIP_EDIT = null;
   QA_TYPE = type || QA_TYPE;
+  if (QA_TYPE !== "dump") DUMP = [];
+  if (RECOG) RECOG.stop();
   document.getElementById("qaTypes").innerHTML = qaTypes().map(([k, l]) => `<button class="${k === QA_TYPE ? "on" : ""}" data-qtype="${k}">${l}</button>`).join("");
   const f = document.getElementById("qaForm");
   f.innerHTML = qaFields(QA_TYPE);
@@ -2394,6 +2544,10 @@ const closeQA = () => document.getElementById("qa").classList.add("hidden");
 function submitQA(f) {
   const d = Object.fromEntries(new FormData(f));
   const ty = QA_TYPE;
+  if (ty === "dump") {
+    if (!DUMP.length) { dumpSort(); return; }                   // first tap sorts; nothing added yet
+    snap(); const said = dumpAdd(); save(); closeQA(); render(); buzz(); toast(`Added ${said} ✓`, true); return;
+  }
   if (ty === "event") { S.events.push({ id: uid(), day: d.date, time: d.time, title: d.title.trim(), where: (d.where || "").trim(), rep: d.rep || "none" }); VIEW = d.date; }
   else if (ty === "shift") { S.work.shifts.push({ id: uid(), day: d.date, start: d.start, end: d.end, brk: Number(d.brk || 0) }); VIEW = d.date; }
   else if (ty === "pay") { S.work.rate = Number(d.rate || 0); S.work.taxPct = Number(d.tax); S.work.otAfter = Number(d.ot);
@@ -2572,6 +2726,10 @@ document.addEventListener("click", e => {
     pick.filter(Boolean).forEach(x => { x.day = T1; }); save(); render(); toast(`Moved to tomorrow (${pick.length})`, true); return; }
   if (ds.rmdel) { S.remember = S.remember.filter(r => r.id !== ds.rmdel); save(); render(); return; }
   if (ds.syncall) { syncTap(); return; }
+  if (ds.dump) { DUMP = []; openQA("dump"); return; }
+  if (ds.dumpsort) { dumpSort(); return; }
+  if (ds.mic) { micToggle(t); return; }
+  if (ds.ddel !== undefined) { DUMP.splice(Number(ds.ddel), 1); drawDump(); if (!DUMP.length) { const b = document.querySelector("#qaForm > .btn:last-child"); if (b) b.textContent = "Sort it"; } return; }
   if (ds.brief) { if (ds.brief === "go") { S.briefDay = today(); saveLocal(); closeBrief(); render(); }
     else if (ds.brief === "speak") speakBrief(); else showBrief(); return; }
   if (ds.orderreset) { S.order = null; save(); drawCardList(); render(); toast("Standard order back"); return; }
@@ -2595,9 +2753,16 @@ document.addEventListener("click", e => {
   }
 });
 
+document.addEventListener("input", e => {
+  const t = e.target; if (t.dataset && t.dataset.dtext !== undefined && DUMP[Number(t.dataset.dtext)]) DUMP[Number(t.dataset.dtext)].title = t.value;
+});
 document.addEventListener("change", e => {
   const t = e.target, ds = t.dataset;
   if (t.id === "importFile" && t.files && t.files[0]) { importData(t.files[0]); t.value = ""; return; }
+  if (ds.dkind !== undefined) { const x = DUMP[Number(ds.dkind)]; x.kind = t.value;
+    if (x.kind === "event" && !x.day) { x.day = today(); x.time = "09:00"; x.rep = "none"; } drawDump(); return; }
+  if (ds.dday !== undefined) { DUMP[Number(ds.dday)].day = t.value; return; }
+  if (ds.dtime !== undefined) { DUMP[Number(ds.dtime)].time = t.value; return; }
   if (t.dataset.briefauto !== undefined) { S.briefAuto = t.checked; saveLocal(); toast(t.checked ? "Morning brief on" : "Morning brief off — ☀️ chip still opens it"); return; }
   if (ds.tick) { const x = S.todos.find(y => y.id === ds.tick); if (x) { x.done = t.checked; x.doneDay = t.checked ? today() : null; } }
   else if (ds.tickl) { const [k, id] = ds.tickl.split(":"); const x = S[k].find(y => y.id === id); if (x) x.done = t.checked; }

@@ -336,3 +336,14 @@ details.steps .fine { margin-top: 8px; }
 .brief-auto { display: flex; gap: 8px; align-items: center; justify-content: center; margin-top: 14px; font-size: 13px; opacity: .85; }
 .brief-auto input { width: auto; flex: none; margin: 0; }
 .brief-auto { text-align: left; }
+/* Brain dump (v0.22) */
+.hero-btns { display: flex; gap: 8px; }
+#qaForm textarea[name=dump] { width: 100%; min-height: 110px; font-size: 16px; }
+.dump-acts { margin: 8px 0 4px; }
+.btn.on { background: #e11d48; color: #fff; border-color: #e11d48; }
+.dump-h { font-size: 12px; font-weight: 700; color: var(--dim); margin: 14px 0 6px; text-transform: uppercase; letter-spacing: .06em; }
+.dump-row { border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; margin-bottom: 8px; }
+.dump-line { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.dump-line select { flex: 1; min-width: 0; }
+.dump-row > input { width: 100%; }
+.dump-row .two { margin-top: 6px; }

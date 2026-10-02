@@ -1,6 +1,11 @@
 {
- "version": "0.21",
+ "version": "0.22",
  "notes": {
+  "0.22": [
+   "🧠 Brain dump (top right, or the first tab on +): say or type everything on your mind — \"need tires next month, call Dan Tuesday at 2, buy toothpaste, vacation idea for December\"",
+   "Day Hub sorts it into to-dos, reminders (with the day and time), shopping and ideas — you check it, change anything, then Add all. Undo takes it all back",
+   "🎤 Talk: speak instead of typing"
+  ],
   "0.21": [
    "☀️ Morning brief: the first time you open Day Hub each morning, your whole day on one screen — weather and what to bring, your first appointment, top to-dos, bills, packages and last night's 📌 notes. 🔊 Read it to me reads it out loud",
    "🔄 Syncs every time you open it: your calendar (both ways), backup, email and weather update by themselves",
