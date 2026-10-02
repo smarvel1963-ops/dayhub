@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.10.1";
+const VERSION = "0.10.2";
 
 const STORE = "dayhub.v1";
 const WX = "https://api.open-meteo.com/v1/forecast";
@@ -482,7 +482,7 @@ function icsFor(ref) {
   const txt = v => String(v || "").replace(/[\\,;]/g, m => "\\" + m).replace(/\n/g, "\\n");
   let ev = null;
   if (k === "events") { const e = S.events.find(x => x.id === id); if (e) { const [ed, et] = plusMin(e.day, e.time, 60);
-    const rr = { daily: "FREQ=DAILY", weekdays: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", weekly: "FREQ=WEEKLY", monthly: "FREQ=MONTHLY" }[e.rep];
+    const rr = { daily: "FREQ=DAILY", weekdays: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", weekly: "FREQ=WEEKLY", monthly: "FREQ=MONTHLY", yearly: "FREQ=YEARLY" }[e.rep];
     ev = [`SUMMARY:${txt(e.title)}`, e.where ? `LOCATION:${txt(e.where)}` : "", `DTSTART:${D(e.day, e.time)}`,
           `DTEND:${D(ed, et)}${rr ? `\nRRULE:${rr}` : ""}`, `TRIGGER:-PT${lead}M`, e.title]; } }
   else if (k === "loads" || k === "jobs") { const x = S[k].find(y => y.id === id); if (x) { const [ed, et] = plusMin(x.day, x.time, 60);
@@ -516,7 +516,7 @@ function addToPhoneCalendar(ref) {
 // v0.6: events repeat daily / weekdays / weekly / monthly from their first
 // date; deleting ONE occurrence adds that day to `skip` (the series stays).
 // To-dos repeat daily / weekdays / weekly and simply come back unchecked.
-const REPEATS = { none: "Doesn't repeat", daily: "Every day", weekdays: "Weekdays (Mon–Fri)", weekly: "Every week", monthly: "Every month" };
+const REPEATS = { none: "Doesn't repeat", daily: "Every day", weekdays: "Weekdays (Mon–Fri)", weekly: "Every week", monthly: "Every month", yearly: "Every year" };   // yearly: Scott 10/1
 const isRep = x => x.rep && x.rep !== "none";
 function occursOn(x, day) {
   if (day < x.day || (x.skip || []).includes(day)) return false;
@@ -526,6 +526,7 @@ function occursOn(x, day) {
     case "weekdays": return d.getDay() >= 1 && d.getDay() <= 5;
     case "weekly": return d.getDay() === s0.getDay();
     case "monthly": return d.getDate() === s0.getDate();
+    case "yearly": return d.getMonth() === s0.getMonth() && d.getDate() === s0.getDate();
     default: return day === x.day;
   }
 }
@@ -537,7 +538,7 @@ const repLabel = x => {
   return `🔁 ${REPEATS[x.rep]}`;
 };
 function repSelect(withMonthly) {
-  return `<select name="rep">${Object.entries(REPEATS).filter(([k]) => withMonthly || k !== "monthly")
+  return `<select name="rep">${Object.entries(REPEATS).filter(([k]) => withMonthly || (k !== "monthly" && k !== "yearly"))
     .map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select>`;
 }
 
