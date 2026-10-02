@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.9";
+const VERSION = "0.10";
 
 const STORE = "dayhub.v1";
 const WX = "https://api.open-meteo.com/v1/forecast";
@@ -23,7 +23,8 @@ const GEO = "https://geocoding-api.open-meteo.com/v1/search";
 // (type "Web application", origin https://smarvel1963-ops.github.io).
 const GCAL_CLIENT_ID = "750311262064-354vjd8mkh07cpg1576p07qj2ifmb0d2.apps.googleusercontent.com";
 const GCAL_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
-const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";   // a hidden Day Hub folder in the user's own Drive
+const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
+const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";      // read-only; reading happens on the phone   // a hidden Day Hub folder in the user's own Drive
 
 // ------------------------------------------------------------ free / pro
 // Scott 2026-10-01: "no ads, just better everything when go pro". NO ADS, EVER.
@@ -34,13 +35,13 @@ const PRO_LIVE = false;
 let TIER = "free";
 const FEATURES = {
   schedule: "free", weather: "free", todos: "free", lists: "free", countdowns: "free",
-  bills: "free", work: "free", tomorrow: "free", packages: "free", route: "free", loads: "free", jobs: "free", nextup: "free", games: "free",
-  gcal: "pro", sync: "pro", reminders: "pro", budget: "pro",   // candidates - Scott decides at launch
+  bills: "free", work: "free", tomorrow: "free", packages: "free", inbox: "free", route: "free", loads: "free", jobs: "free", nextup: "free", games: "free",
+  gcal: "pro", sync: "pro", reminders: "pro", budget: "pro", mail: "pro",   // candidates - Scott decides at launch
 };
 const can = f => !PRO_LIVE || FEATURES[f] !== "pro" || TIER === "pro";
 
 // ---------------------------------------------------------------- packs
-const BASE = ["schedule", "tomorrow", "work", "budget", "weather", "todos", "packages", "bills", "countdowns", "lists"];
+const BASE = ["inbox", "schedule", "tomorrow", "work", "budget", "weather", "todos", "packages", "bills", "countdowns", "lists"];
 const PACKS = {
   general:  { label: "General",              cards: [] },
   trucker:  { label: "Trucker / Dispatcher", cards: ["route", "loads"] },
@@ -58,6 +59,7 @@ const blank = () => ({
   sync: { on: false, last: null, dirty: false },
   remind: { on: false, lead: 15, billDays: 1, billHour: "09:00", morning: 420, fired: {} },
   packages: [],
+  mail: { on: false, last: null, seen: {}, found: [] },
   money: { type: "hourly", salary: 0, spends: [] },
   work: { rate: 0, taxPct: 20, otAfter: 40, shifts: [], clockIn: null },
 });
@@ -82,6 +84,7 @@ function load() {
   s.remind = Object.assign(blank().remind, s.remind || {});
   s.money = Object.assign(blank().money, s.money || {});
   if (!Array.isArray(s.packages)) s.packages = [];
+  s.mail = Object.assign(blank().mail, s.mail || {});
   return s;
 }
 function saveLocal() {
@@ -593,6 +596,171 @@ function morningBrief() {
   return parts.join(" · ");
 }
 
+// ---------------------------------------------------------- email -> plans
+// v0.10 (Scott 10/1: "like to email for calendar and such"). Reads the last
+// 14 days of Gmail, READ-ONLY, on the phone, and SUGGESTS what it finds -
+// nothing is added until the user taps Add, and nothing leaves the phone.
+// 1) The structured data many senders embed (schema.org JSON-LD - airlines,
+//    hotels, restaurants, shippers; it is what Gmail's own cards read).
+// 2) Fallbacks: tracking numbers in shipping mail; a date + time in mail
+//    whose subject says appointment / reservation / booking / confirmed.
+let MTOKEN = null, MTOKEN_EXP = 0, MAIL_BUSY = false;
+const mReady = () => MTOKEN && Date.now() < MTOKEN_EXP;
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+// "October 3, 2026 at 2:30 PM" / "Thu, Oct 3 2:30pm" / "10/03/2026 2:30 PM" / "2026-10-03T14:30"
+function parseDateTime(text, now = new Date()) {
+  const t = String(text || "");
+  const fix = (y, m, d, h, mi, ap) => {
+    let H = Number(h || 0); const M = Number(mi || 0);
+    if (ap) { ap = ap.toLowerCase(); if (ap.startsWith("p") && H < 12) H += 12; if (ap.startsWith("a") && H === 12) H = 0; }
+    let Y = Number(y || now.getFullYear()); if (Y < 100) Y += 2000;
+    let dt = new Date(Y, m, Number(d), H, M);
+    if (!y && dt < new Date(now.getFullYear(), now.getMonth(), now.getDate())) dt = new Date(Y + 1, m, Number(d), H, M);
+    if (isNaN(dt) || dt.getDate() !== Number(d)) return null;
+    return { day: ymd(dt), time: h ? hhmm(dt) : null };
+  };
+  let m = t.match(/\b(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})/);
+  if (m) return fix(m[1], m[2] - 1, m[3], m[4], m[5]);
+  const TIME = String.raw`(?:,?\s*(?:at|@|from)?\s*(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?))?`;
+  m = t.match(new RegExp(String.raw`\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?` + TIME, "i"));
+  if (m) return fix(m[3], MONTHS.indexOf(m[1].slice(0, 3).toLowerCase()), m[2], m[4], m[5], m[6]);
+  m = t.match(new RegExp(String.raw`\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?` + TIME, "i"));
+  if (m && Number(m[1]) <= 12) return fix(m[3], m[1] - 1, m[2], m[4], m[5], m[6]);
+  return null;
+}
+
+const htmlToText = h => String(h || "").replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi, " ")
+  .replace(/<br\s*\/?>|<\/p>|<\/div>|<\/tr>/gi, "\n").replace(/<[^>]+>/g, " ")
+  .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"')
+  .replace(/[ \t]+/g, " ");
+
+function ldBlocks(html) {
+  const out = [], re = /<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi; let m;
+  while ((m = re.exec(html || ""))) {
+    try {
+      const j = JSON.parse(m[1].trim());
+      const walk = x => { if (Array.isArray(x)) x.forEach(walk); else if (x && typeof x === "object") { out.push(x); if (x["@graph"]) walk(x["@graph"]); } };
+      walk(j);
+    } catch (e) { /* a sender's broken JSON is not our problem */ }
+  }
+  return out;
+}
+
+const nm = x => (x && (typeof x === "string" ? x : x.name || x.iataCode)) || "";
+const dtOf = v => { if (!v) return null; const d = new Date(v); return isNaN(d) ? null : { day: ymd(d), time: /T\d/.test(String(v)) ? hhmm(d) : null }; };
+
+// One message -> zero or more suggestions. Pure: unit-tested without Gmail.
+function extractFromMessage(msg) {
+  const out = [], seenNum = new Set(), html = msg.html || "", text = msg.text || htmlToText(html), subj = msg.subject || "";
+  const push = x => out.push({ ...x, key: `${msg.id}:${x.type}:${x.num || x.day + (x.time || "") + x.title}`, src: subj.slice(0, 80) });
+  for (const o of ldBlocks(html)) {
+    const type = String(o["@type"] || "");
+    if (type === "ParcelDelivery") {
+      const num = cleanNum(o.trackingNumber); if (!num || seenNum.has(num)) continue; seenNum.add(num);
+      const eta = dtOf(o.expectedArrivalUntil || o.expectedArrivalFrom);
+      const item = [].concat(o.itemShipped || []).map(nm).filter(Boolean)[0];
+      push({ type: "package", title: item || nm(o.partOfOrder && o.partOfOrder.merchant) || subj, num,
+             carrier: detectCarrier(num) !== "other" ? detectCarrier(num) : ({ ups: "ups", usps: "usps", fedex: "fedex", amazon: "amazon", dhl: "dhl" }[nm(o.carrier || o.provider).toLowerCase().split(" ")[0]] || "other"),
+             day: eta && eta.day });
+    } else if (type === "FlightReservation") {
+      const f = o.reservationFor || {}, d = dtOf(f.departureTime); if (!d) continue;
+      push({ type: "event", title: `✈️ ${nm(f.airline)} ${f.flightNumber || ""} ${nm(f.departureAirport)} → ${nm(f.arrivalAirport)}`.replace(/\s+/g, " ").trim(),
+             day: d.day, time: d.time, where: nm(f.departureAirport) });
+    } else if (type === "LodgingReservation") {
+      const d = dtOf(o.checkinTime || o.checkinDate); if (!d) continue;
+      push({ type: "event", title: `🏨 Check in: ${nm(o.reservationFor) || "hotel"}`, day: d.day, time: d.time, where: nm(o.reservationFor) });
+    } else if (/Reservation$/.test(type)) {
+      const f = o.reservationFor || {}, d = dtOf(o.startTime || o.startDate || f.startDate || o.pickupTime); if (!d) continue;
+      push({ type: "event", title: nm(f) || subj, day: d.day, time: d.time, where: nm(f.location) });
+    }
+  }
+  if (!out.length && /ship|track|deliver|on its way|out for|order/i.test(subj + " " + (msg.from || ""))) {
+    const re = /\b(1Z[0-9A-Z]{16}|TBA\d{12}|9[2-5]\d{20,24}|[A-Z]{2}\d{9}US)\b/g; let m;
+    while ((m = re.exec(text)) && out.length < 3) { const num = cleanNum(m[1]); if (seenNum.has(num)) continue; seenNum.add(num);
+      push({ type: "package", title: subj.replace(/^(re|fwd?):\s*/i, ""), num, carrier: detectCarrier(num), day: null }); }
+  }
+  if (!out.length && /appointment|reservation|booking|booked|scheduled|confirm/i.test(subj)) {
+    const d = parseDateTime(subj + "\n" + text);
+    if (d && d.day >= today() && d.day <= addDays(today(), 180))
+      push({ type: "event", title: subj.replace(/^(re|fwd?):\s*/i, "").replace(/\b(your|confirmed?|confirmation|reminder)\b:?/gi, "").replace(/\s+/g, " ").trim() || "Appointment",
+             day: d.day, time: d.time });
+  }
+  return out;
+}
+
+function mailSignIn(prompt) {                                 // must run from a tap
+  return loadGis().then(() => new Promise(res => {
+    google.accounts.oauth2.initTokenClient({
+      client_id: GCAL_CLIENT_ID, scope: GMAIL_SCOPE, prompt,
+      callback: r => { if (r.error) { toast("Google sign-in was cancelled"); res(false); return; }
+        MTOKEN = r.access_token; MTOKEN_EXP = Date.now() + ((r.expires_in || 3600) - 60) * 1000; res(true); },
+      error_callback: () => { toast("Sign-in window closed"); res(false); },
+    }).requestAccessToken();
+  })).catch(() => { toast("Couldn't reach Google — check your connection"); return false; });
+}
+const b64 = s => { try { const bin = atob(String(s).replace(/-/g, "+").replace(/_/g, "/"));
+  return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0))); } catch (e) { return ""; } };
+function bodies(part, acc = { html: "", text: "" }) {
+  if (!part) return acc;
+  if (part.mimeType === "text/html" && part.body && part.body.data) acc.html += b64(part.body.data);
+  else if (part.mimeType === "text/plain" && part.body && part.body.data) acc.text += b64(part.body.data);
+  (part.parts || []).forEach(p => bodies(p, acc));
+  return acc;
+}
+async function gmail(path) {
+  const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/${path}`, { headers: { Authorization: `Bearer ${MTOKEN}` } });
+  if (r.status === 401) { MTOKEN = null; throw new Error("signed out"); }
+  if (!r.ok) throw new Error(`Gmail ${r.status}`);
+  return r.json();
+}
+async function scanMail() {                                   // from a tap, or on open while signed in
+  if (!can("mail")) { toast("Email scanning is part of Day Hub Pro"); return; }
+  if (MAIL_BUSY) return;
+  if (!mReady() && !(await mailSignIn(S.mail.on ? "" : "consent"))) return;
+  MAIL_BUSY = true; drawMailBox(); render();
+  try {
+    const q = encodeURIComponent("newer_than:14d -in:spam -in:trash (shipped OR tracking OR delivery OR delivered OR appointment OR reservation OR booking OR booked OR confirmation OR confirmed OR itinerary OR flight OR scheduled)");
+    const list = await gmail(`messages?q=${q}&maxResults=40`);
+    const ids = (list.messages || []).map(m => m.id).filter(id => !S.mail.seen[id]);
+    let added = 0;
+    for (let i = 0; i < ids.length; i += 5) {
+      const batch = await Promise.all(ids.slice(i, i + 5).map(id => gmail(`messages/${id}?format=full`).catch(() => null)));
+      for (const m of batch.filter(Boolean)) {
+        const h = Object.fromEntries((m.payload.headers || []).map(x => [x.name.toLowerCase(), x.value]));
+        const b = bodies(m.payload);
+        for (const sug of extractFromMessage({ id: m.id, subject: h.subject, from: h.from, html: b.html, text: b.text || htmlToText(b.html) })) {
+          const dupe = S.mail.found.some(f => f.key === sug.key) ||
+            (sug.type === "package" && S.packages.some(p => cleanNum(p.num) === sug.num)) ||
+            (sug.type === "event" && S.events.some(e => e.day === sug.day && e.title === sug.title));
+          if (!dupe) { S.mail.found.push(sug); added++; }
+        }
+        S.mail.seen[m.id] = Date.now();
+      }
+    }
+    const old = Date.now() - 30 * 86400000;                    // forget message ids after 30 days
+    for (const [k, v] of Object.entries(S.mail.seen)) if (v < old) delete S.mail.seen[k];
+    S.mail.on = true; S.mail.last = new Date().toISOString(); save();
+    toast(added ? `Found ${added} in your email` : "Nothing new in your email");
+  } catch (e) { toast("Couldn't read your email — try again"); }
+  MAIL_BUSY = false; drawMailBox(); render();
+}
+function addFound(key) {
+  const f = S.mail.found.find(x => x.key === key); if (!f) return;
+  if (f.type === "package") S.packages.push({ id: uid(), name: f.title.slice(0, 60), num: f.num, carrier: f.carrier, eta: f.day || null, delivered: false });
+  else S.events.push({ id: uid(), day: f.day, time: f.time || "09:00", title: f.title.slice(0, 80), where: f.where || "", rep: "none", allDayGuess: !f.time });
+  S.mail.found = S.mail.found.filter(x => x.key !== key); save(); render(); buzz();
+  toast(f.type === "package" ? "Added to Packages ✓" : `Added to ${dayName(f.day)} ✓`);
+}
+function drawMailBox() {
+  const g = document.getElementById("mailBox"); if (!g) return;
+  g.innerHTML = `<h3>Email → calendar</h3>` + (S.mail.on
+    ? `<div class="leg"><span>📬 Gmail connected${S.mail.last ? ` · checked ${fmtTime(S.mail.last)}` : ""}</span></div>
+       <div class="foot-actions"><button class="btn sm" data-mail="scan">${MAIL_BUSY ? "Checking…" : "Check email now"}</button><button class="btn sm ghost" data-mail="off">Disconnect</button></div>`
+    : `<button class="btn sm" data-mail="scan">Connect Gmail (read-only)</button>`) +
+    `<p class="fine" style="margin-top:8px">Day Hub reads your last 2 weeks of email on this phone to find appointments, flights, hotel and dinner reservations and package tracking. Nothing is sent anywhere, and nothing is added until you tap Add.</p>`;
+}
+
 // ------------------------------------------------------------- the day
 // A bill repeats monthly on its day (clamped to the month's length). `paid`
 // = the last month paid ("YYYY-MM"). Unpaid and past due = LATE, shown red.
@@ -941,6 +1109,18 @@ const CARDS = {
         `<div class="total"><span>Every month</span><b>${money(S.bills.reduce((s, b) => s + Number(b.amount || 0), 0))}</b></div>`;
     } },
 
+  inbox: { icon: "📬", title: "From your email",
+    meta: () => S.mail.found.length ? `${S.mail.found.length} to review` : "",
+    body: () => {
+      const f = S.mail.found.slice().sort((a, b) => (a.day || "9999").localeCompare(b.day || "9999"));
+      const top = S.mail.on && !mReady() ? `<button class="sync" data-mail="scan">📬 Tap to check your email${S.mail.last ? ` · last ${fmtTime(S.mail.last)}` : ""}</button>` : "";
+      if (!f.length) return top + `<div class="empty">${S.mail.on ? "Nothing waiting. New appointments, flights and deliveries show up here." : "Connect Gmail in ⚙ and Day Hub will find appointments, flights, reservations and packages in your email."}</div>`;
+      return top + f.map(x => `<div class="row"><div class="grow">${x.type === "package" ? "📦" : "📅"} ${esc(x.title)}
+          <span class="sub">${x.type === "package" ? `${(CARRIERS[x.carrier] || CARRIERS.other)[0]} · …${esc(x.num.slice(-6))}${x.day ? ` · arrives ${prettyDate(x.day)}` : ""}`
+            : `${dayName(x.day)} ${prettyDate(x.day)}${x.time ? ` · ${hm(x.time)}` : " · time not found"}`} · from "${esc(x.src)}"</span></div>
+        <button class="btn sm" data-addfound="${esc(x.key)}">Add</button><button class="x" data-dropfound="${esc(x.key)}" aria-label="Dismiss">✕</button></div>`).join("");
+    } },
+
   packages: { icon: "📦", title: "Packages", add: ["package", "Add a package"],
     meta: () => { const n = S.packages.filter(p => !p.delivered).length; return n ? `${n} on the way` : ""; },
     body: () => {
@@ -1039,8 +1219,9 @@ function render() {
   if (!VIEW || (VIEW < addDays(t, -60))) VIEW = t;
   paintHero();
   const hr = new Date().getHours();
-  let order = cardOrder().filter(k => !S.hidden.includes(k) && !(k === "tomorrow" && hr < 15));
+  let order = cardOrder().filter(k => !S.hidden.includes(k) && !(k === "tomorrow" && hr < 15) && !(k === "inbox" && !S.mail.on && !S.mail.found.length));
   if (hr >= 17 && order.includes("tomorrow")) order = ["tomorrow", ...order.filter(k => k !== "tomorrow")];
+  if (S.mail.found.length && order.includes("inbox")) order = ["inbox", ...order.filter(k => k !== "inbox")];   // waiting on you = on top
   const cards = order.map(k => {
     const c = CARDS[k]; const col = S.collapsed.includes(k);
     const tag = PACKS[S.pack].cards.includes(k) ? ` <span class="tag">${PACKS[S.pack].label}</span>` : "";
@@ -1229,6 +1410,11 @@ document.addEventListener("click", e => {
     snap();
     if (en - st >= 60000) S.work.shifts.push({ id: uid(), day: ymd(st), start: hhmm(st), end: hhmm(en), brk: 0 });
     S.work.clockIn = null; save(); render(); buzz(); toast(`Clocked out · ${fmtH((en - st) / 3600000)}`, true); return; }
+  if (ds.addfound) { addFound(ds.addfound); return; }
+  if (ds.dropfound) { snap(); S.mail.found = S.mail.found.filter(x => x.key !== ds.dropfound); save(); render(); toast("Dismissed", true); return; }
+  if (ds.mail === "scan") { scanMail(); return; }
+  if (ds.mail === "off") { try { if (MTOKEN && window.google) google.accounts.oauth2.revoke(MTOKEN, () => {}); } catch (e) { /* gone */ }
+    MTOKEN = null; S.mail = { on: false, last: null, seen: {}, found: [] }; save(); drawMailBox(); render(); toast("Gmail disconnected"); return; }
   if (ds.pkgdone) { const pk = S.packages.find(x => x.id === ds.pkgdone);
     if (pk) { snap(); pk.delivered = true; pk.deliveredDay = today(); save(); render(); buzz(); toast(`${pk.name} delivered ✓`, true); } return; }
   if (ds.paid) { const b = S.bills.find(x => x.id === ds.paid); const due = b && nextDue(b);
@@ -1284,6 +1470,9 @@ function drawSettings() {
   let ib = document.getElementById("installBox");
   if (!ib) { ib = document.createElement("div"); ib.id = "installBox"; document.getElementById("cardList").before(ib); }
   drawInstallBox();
+  let mb = document.getElementById("mailBox");
+  if (!mb) { mb = document.createElement("div"); mb.id = "mailBox"; document.getElementById("cardList").before(mb); }
+  drawMailBox();
   let rb = document.getElementById("remindBox");
   if (!rb) { rb = document.createElement("div"); rb.id = "remindBox"; document.getElementById("cardList").before(rb); }
   drawRemindBox();
@@ -1334,6 +1523,7 @@ setInterval(() => { const a = document.activeElement;
   if (!a || !/INPUT|SELECT|TEXTAREA/.test(a.tagName)) render(); }, 60000);
 setInterval(loadWeather, 30 * 60000);
 setInterval(checkReminders, 30000);
+setInterval(() => { if (S.mail.on && mReady()) scanMail(); }, 20 * 60000);
 checkReminders();
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { VIEW = today(); render(); checkReminders(); } });
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
