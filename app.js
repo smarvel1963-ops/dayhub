@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.18";
+const VERSION = "0.19";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -31,7 +31,8 @@ const GEO = "https://geocoding-api.open-meteo.com/v1/search";
 // The OAuth client is created once by the app owner in Google Cloud Console
 // (type "Web application", origin https://smarvel1963-ops.github.io).
 const GCAL_CLIENT_ID = "750311262064-354vjd8mkh07cpg1576p07qj2ifmb0d2.apps.googleusercontent.com";
-const GCAL_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+// v0.19: read AND write events (was calendar.readonly) - Day Hub items go to the phone calendar.
+const GCAL_SCOPE = "https://www.googleapis.com/auth/calendar.events";
 const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
 const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";      // read-only; reading happens on the phone   // a hidden Day Hub folder in the user's own Drive
 
@@ -135,6 +136,7 @@ function saveLocal() {
 function save() {
   S.updatedAt = new Date().toISOString();
   if (S.sync && S.sync.on) { S.sync.dirty = true; scheduleBackup(); }
+  scheduleGcalPush();
   saveLocal();
 }
 
@@ -265,12 +267,13 @@ async function gcalConnect() {
   if (!GCAL_CLIENT_ID) { toast("Google Calendar link is being set up — coming soon"); return; }
   try { await loadGis(); } catch (e) { toast("Couldn't reach Google — check your connection"); return; }
   const client = google.accounts.oauth2.initTokenClient({
-    client_id: GCAL_CLIENT_ID, scope: GCAL_SCOPE, prompt: S.gcal.connected ? "" : "consent",
+    client_id: GCAL_CLIENT_ID, scope: GCAL_SCOPE, prompt: S.gcal.connected && S.gcal.scope === GCAL_SCOPE && !S.gcal.needsWrite ? "" : "consent",
     callback: async r => {
       if (r.error) { toast("Google sign-in was cancelled"); return; }
       GTOKEN = r.access_token; GTOKEN_EXP = Date.now() + ((r.expires_in || 3600) - 60) * 1000;
-      S.gcal.connected = true; save();
-      await gcalFetch();
+      if (!google.accounts.oauth2.hasGrantedAllScopes(r, GCAL_SCOPE)) { toast("Day Hub needs the calendar box ticked — tap Connect again and tick it"); GTOKEN = null; return; }
+      S.gcal.connected = true; S.gcal.scope = GCAL_SCOPE; S.gcal.needsWrite = false; save();
+      await gcalFetch(); await gcalPush();
     },
   });
   client.requestAccessToken();
@@ -286,15 +289,103 @@ async function gcalFetch() {
     const r = await fetch(u, { headers: { Authorization: `Bearer ${GTOKEN}` } });
     if (r.status === 401) { GTOKEN = null; render(); return; }
     const j = await r.json();
-    S.gcal.events = (j.items || []).filter(e => e.status !== "cancelled").map(e => {
+    // Day Hub's own copies are already on the schedule - don't show them twice.
+    S.gcal.events = (j.items || []).filter(e => e.status !== "cancelled" && !((e.extendedProperties || {}).private || {}).dayhubApp).map(e => {
       const allDay = !e.start.dateTime;
       const s = allDay ? parseDay(e.start.date) : new Date(e.start.dateTime);
       return { id: e.id, title: e.summary || "(busy)", day: ymd(s), time: allDay ? null : hhmm(s),
                end: e.end && e.end.dateTime ? hhmm(new Date(e.end.dateTime)) : null, where: e.location || "" };
     });
-    S.gcal.fetched = new Date().toISOString(); save(); render();
+    S.gcal.fetched = new Date().toISOString(); saveLocal(); render();
     toast("Google Calendar synced ✓");
   } catch (e) { toast("Google Calendar didn't answer — try again"); }
+}
+
+// ------------------------------------ Day Hub -> Google Calendar (two-way)
+// Scott 10/2: "it needs to link to phone calendar as well" (Samsung). A web app
+// cannot write the phone's calendar, but the phone shows Google Calendar - so
+// Day Hub's events, bills and shifts are written THERE, alarms included, and
+// ring even with Day Hub closed. STATELESS: each Google copy carries its Day
+// Hub key + a content hash (private extended properties), so a new phone or a
+// restored backup finds its own copies instead of making duplicates.
+// Google's token lasts ~1 h and is never stored; changes made later wait for
+// one tap on "Sync Google Calendar" (same as the Drive backup).
+let gPushTimer = null, gPushing = false;
+const GTZ = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Chicago"; } catch (e) { return "America/Chicago"; } })();
+function scheduleGcalPush() {
+  if (!S.gcal || !S.gcal.connected) return;
+  S.gcal.dirty = true;
+  if (!gReady()) return;
+  clearTimeout(gPushTimer); gPushTimer = setTimeout(gcalPush, 3000);
+}
+const hashStr = s => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+function rruleFor(x) {
+  const md = Number(x.day.slice(8)), feb29 = x.day.slice(5) === "02-29";
+  return { daily: "FREQ=DAILY", weekdays: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", weekly: "FREQ=WEEKLY",
+    monthly: md > 28 ? `FREQ=MONTHLY;${mdRule(md)}` : "FREQ=MONTHLY", yearly: feb29 ? `FREQ=YEARLY;BYMONTH=2;${mdRule(29)}` : "FREQ=YEARLY" }[x.rep] || null;
+}
+// What Google should hold, keyed by Day Hub item. One-time items older than 30
+// days are left alone (not sent, and their Google copy is never deleted).
+function gcalWanted() {
+  const out = {}, old = addDays(today(), -30), lead = Number(S.remind.lead) || 15;
+  const timed = (day, t, mins) => { const e = new Date(atMs(day, t) + mins * 60000);
+    return [{ dateTime: `${day}T${t}:00`, timeZone: GTZ }, { dateTime: `${ymd(e)}T${hhmm(e)}:00`, timeZone: GTZ }]; };
+  const allDay = day => [{ date: day }, { date: addDays(day, 1) }];
+  const put = (key, summary, location, [start, end], rule, skip, mins) => {
+    const recurrence = rule ? [`RRULE:${rule}`, ...(skip || []).map(d => start.date
+      ? `EXDATE;VALUE=DATE:${d.replace(/-/g, "")}` : `EXDATE;TZID=${GTZ}:${d.replace(/-/g, "")}T${start.dateTime.slice(11).replace(/:/g, "")}`)] : undefined;
+    out[key] = { summary, location: location || "", start, end, ...(recurrence ? { recurrence } : {}),
+      reminders: { useDefault: false, overrides: [{ method: "popup", minutes: mins }] } };
+  };
+  S.events.forEach(e => { const rule = rruleFor(e); if (!rule && e.day < old) return;
+    put(`ev:${e.id}`, e.title, e.where, e.time ? timed(e.day, e.time, 60) : allDay(e.day), rule, e.skip, e.time ? lead : 900); });
+  S.work.shifts.forEach(x => { if (x.day < old) return;
+    put(`sh:${x.id}`, "💼 Work shift", "", timed(x.day, x.start, Math.round(shiftHours({ ...x, brk: 0 }) * 60) || 60), null, null, lead); });
+  S.bills.forEach(b => { const due = nextDue(b); if (!due) return;
+    put(`bill:${b.id}`, `💳 ${b.name} due ${money(b.amount)}`, "", allDay(due), `FREQ=MONTHLY;${mdRule(b.day)}`, null, 900); });
+  return out;
+}
+// Is this Day Hub item still there at all? (Aged-out is not deleted.)
+function gcalItemExists(key) {
+  const [k, id] = key.split(":");
+  return k === "ev" ? S.events.some(e => e.id === id) : k === "sh" ? S.work.shifts.some(x => x.id === id)
+       : k === "bill" ? S.bills.some(b => b.id === id) : false;
+}
+async function gcalPush() {
+  if (!S.gcal.connected || !gReady() || gPushing) return;
+  gPushing = true;
+  const api = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
+  const call = async (method, url, body) => {
+    const r = await fetch(url, { method, headers: { Authorization: `Bearer ${GTOKEN}`, "Content-Type": "application/json" },
+                                 body: body ? JSON.stringify(body) : undefined });
+    if (r.status === 401 || r.status === 403) { const err = new Error("auth"); err.status = r.status; throw err; }
+    if (!r.ok && !(method === "DELETE" && (r.status === 404 || r.status === 410))) throw new Error(`${method} ${r.status}`);
+    return r.status === 204 || method === "DELETE" ? null : r.json();
+  };
+  try {
+    const have = {}; let page = "";
+    do {
+      const j = await call("GET", `${api}?privateExtendedProperty=${encodeURIComponent("dayhubApp=1")}&maxResults=2500&showDeleted=false${page ? "&pageToken=" + encodeURIComponent(page) : ""}`);
+      (j.items || []).forEach(e => { const p = (e.extendedProperties || {}).private || {}; if (p.dayhubKey) have[p.dayhubKey] = { id: e.id, h: p.dayhubHash }; });
+      page = j.nextPageToken || "";
+    } while (page);
+    const want = gcalWanted(); let n = 0;
+    for (const [key, body] of Object.entries(want)) {
+      const h = hashStr(JSON.stringify(body));
+      const full = { ...body, extendedProperties: { private: { dayhubApp: "1", dayhubKey: key, dayhubHash: h } } };
+      if (!have[key]) { await call("POST", api, full); n++; }
+      else if (have[key].h !== h) { await call("PUT", `${api}/${encodeURIComponent(have[key].id)}`, full); n++; }
+    }
+    for (const [key, g] of Object.entries(have))
+      if (!want[key] && !gcalItemExists(key)) { await call("DELETE", `${api}/${encodeURIComponent(g.id)}`); n++; }
+    S.gcal.dirty = false; S.gcal.needsWrite = false; S.gcal.pushed = new Date().toISOString(); saveLocal();
+    if (n) toast(`📅 ${n} change${n === 1 ? "" : "s"} sent to your phone calendar`);
+  } catch (e) {
+    // 403 = the old read-only permission: the next Connect asks for "edit events".
+    if (e.status === 403) { S.gcal.needsWrite = true; saveLocal(); toast("One more tap: Sync Google Calendar, then Allow — so Day Hub can add events"); }
+    else if (!e.status) toast("Couldn't reach Google Calendar — your changes will go next sync");
+    if (e.status) GTOKEN = null;
+  } finally { gPushing = false; render(); }
 }
 
 function gcalDisconnect() {
@@ -1520,7 +1611,7 @@ function heroHtml() {
   if (pkToday) chips.push(`<span class="chip">📦 ${pkToday} arriving today</span>`);
   const cd = liveCountdowns()[0];
   if (cd) chips.push(`<span class="chip">⏳ ${esc(cd.title)} ${daysUntil(cd.date) === 0 ? "today!" : inDays(daysUntil(cd.date))}</span>`);
-  if (S.gcal.connected && !gReady()) chips.push(`<button class="chip" data-gsync="1">🔄 Sync Google Calendar</button>`);
+  if (S.gcal.connected && !gReady()) chips.push(`<button class="chip" data-gsync="1">🔄 Sync Google Calendar${S.gcal.dirty ? " · changes waiting" : ""}</button>`);
   if (UPDATE) chips.unshift(`<button class="chip good" data-update="1">✨ New version ready — tap to update</button>`);
   if (INSTALL_EVT && !standalone()) chips.push(`<button class="chip" data-install="1">📲 Install ${APP_NAME}</button>`);
   if (S.sync.on && S.sync.dirty && !dReady()) chips.push(`<button class="chip" data-sync="now">☁️ Back up changes</button>`);
@@ -1942,8 +2033,10 @@ function render() {
   paintHero();
   const hr = new Date().getHours();
   let order = cardOrder().filter(k => !S.hidden.includes(k) && !(k === "tomorrow" && hr < 15) && !(k === "inbox" && !S.mail.on && !S.mail.found.length));
-  if (hr >= 17 && order.includes("tomorrow")) order = ["tomorrow", ...order.filter(k => k !== "tomorrow")];
-  if (S.mail.found.length && order.includes("inbox")) order = ["inbox", ...order.filter(k => k !== "inbox")];   // waiting on you = on top
+  // Smart jumps only until the user arranges the screen (Scott 10/2: "order the
+  // sections how anyone would like") - after that their order always wins.
+  if (!S.order && hr >= 17 && order.includes("tomorrow")) order = ["tomorrow", ...order.filter(k => k !== "tomorrow")];
+  if (!S.order && S.mail.found.length && order.includes("inbox")) order = ["inbox", ...order.filter(k => k !== "inbox")];   // waiting on you = on top
   const cards = order.map(k => {
     const c = CARDS[k]; const col = S.collapsed.includes(k);
     const tag = PACKS[S.pack].cards.includes(k) ? ` <span class="tag">${PACKS[S.pack].label}</span>` : "";
@@ -1953,7 +2046,8 @@ function render() {
       <h3 data-collapse="${k}"><span class="ci">${c.icon}</span>${c.title}${tag}<span class="meta">${c.meta ? c.meta() : ""}</span><span class="chev">⌄</span></h3>
       <div class="body">${c.body()}${c.add ? `<button class="add-link" data-qa="${c.add[0]}">＋ ${c.add[1]}</button>` : ""}</div></section>`;
   }).join("");
-  document.getElementById("cards").innerHTML = whatsNewHtml() + (!S.city && !S.name ? welcomeHtml() : "") + cards;
+  document.getElementById("cards").innerHTML = whatsNewHtml() + (!S.city && !S.name ? welcomeHtml() : "") + cards +
+    `<button class="add-link arrange-link" data-arrange="1">↕ Arrange my screen</button>`;
   tick();
 }
 
@@ -2263,9 +2357,11 @@ document.addEventListener("click", e => {
     save(); render(); toast("Cleared", true); return; }
   if (ds.dellist) { snap(); S.lists = S.lists.filter(l => l.id !== ds.dellist); S.listSel = (S.lists[0] || {}).id; save(); render(); toast("List deleted", true); return; }
   if (ds.listsel) { S.listSel = ds.listsel; save(); render(); return; }
-  if (ds.move) { moveCard(ds.move, Number(ds.dir)); return; }
+  if (ds.move) { moveCard(ds.move, ds.dir === "top" ? "top" : Number(ds.dir)); return; }
+  if (ds.orderreset) { S.order = null; save(); drawCardList(); render(); toast("Standard order back"); return; }
+  if (ds.arrange) { openSettings(); setTimeout(() => { const h = document.getElementById("arrangeHead"); if (h) h.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50); return; }
   if (ds.gconnect) { gcalConnect(); return; }
-  if (ds.gsync) { gReady() ? gcalFetch() : gcalConnect(); return; }
+  if (ds.gsync) { gReady() ? gcalFetch().then(gcalPush) : gcalConnect(); return; }
   if (ds.gdisc) { gcalDisconnect(); return; }
   if (ds.ics) { addToPhoneCalendar(ds.ics); return; }
   if (ds.remind) {
@@ -2326,25 +2422,52 @@ function drawSettings() {
   drawSyncBox();
   let g = document.getElementById("gcalBox");
   if (!g) { g = document.createElement("div"); g.id = "gcalBox"; document.getElementById("cardList").before(g); }
-  g.innerHTML = `<h3>Your calendar</h3>` + (S.gcal.connected
-    ? `<div class="leg"><span>🗓️ Google Calendar connected${S.gcal.fetched ? ` · synced ${fmtTime(S.gcal.fetched)}` : ""}</span></div>
-       <div class="foot-actions"><button class="btn sm" data-gsync="1">Sync now</button><button class="btn sm ghost" data-gdisc="1">Disconnect</button></div>`
-    : `<button class="btn sm" data-gconnect="1">Connect Google Calendar</button>
-       <p class="fine" style="margin-top:8px">Read-only: Day Hub shows your events on the schedule and never changes them.</p>`) +
-    `<h3>Cards — ▲▼ to move, switch to show or hide</h3>`;
+  const ok = S.gcal.connected && S.gcal.scope === GCAL_SCOPE && !S.gcal.needsWrite;
+  g.innerHTML = `<h3>Your phone calendar</h3>` + (ok
+    ? `<div class="leg"><span>✅ Connected — Day Hub events, bills and shifts go to your phone calendar${S.gcal.pushed ? ` · last sent ${fmtTime(S.gcal.pushed)}` : ""}</span></div>
+       <div class="foot-actions"><button class="btn sm" data-gsync="1">Sync now</button><button class="btn sm ghost" data-gdisc="1">Disconnect</button></div>
+       <details class="steps"><summary>Not showing on your phone? Check these</summary>${phoneCalSteps()}</details>`
+    : `<p class="fine">Puts everything you add in Day Hub on your phone's own calendar, with alarms that ring even when Day Hub is closed. Your phone's events show here too.</p>
+       <ol class="steps">
+         <li>Tap <b>${S.gcal.connected ? "Reconnect" : "Connect"}</b> below.</li>
+         <li>Pick your Google account.</li>
+         <li>If you see <i>"Google hasn't verified this app"</i>, tap <b>Continue</b>.</li>
+         <li>Tick the <b>calendar</b> box, then tap <b>Allow</b>.</li>
+       </ol>
+       <button class="btn sm" data-gconnect="1">🗓️ ${S.gcal.connected ? "Reconnect" : "Connect"} Google Calendar</button>
+       <details class="steps"><summary>Then, on your phone (one time)</summary>${phoneCalSteps()}</details>`) +
+    `<h3 id="arrangeHead">Arrange your screen</h3>
+     <p class="fine" style="margin-top:0">▲▼ moves a card one spot · ⤒ puts it at the top · the switch shows or hides it.</p>`;
   document.querySelector("#sheet .sheet-body > h3").style.display = "none";
   document.getElementById("ver").textContent = `Version ${VERSION}.`;
 }
+// Setup steps for the PHONE side (Scott 10/2: settings make setup as easy as
+// possible). Shows this phone's steps first; the other kind is one tap away.
+function phoneCalSteps() {
+  const samsung = `<b>Samsung / Android</b><ol>
+    <li>Open your phone's <b>Settings</b> → <b>Accounts and backup</b> → <b>Manage accounts</b>.</li>
+    <li>Tap your Google account → <b>Sync account</b> → turn <b>Calendar</b> on.</li>
+    <li>Open the <b>Calendar</b> app → ☰ menu → <b>Manage calendars</b> → make sure your Google calendar is ticked.</li></ol>`;
+  const iphone = `<b>iPhone</b><ol>
+    <li>Open <b>Settings</b> → <b>Calendar</b> → <b>Accounts</b> → <b>Add Account</b> → <b>Google</b>.</li>
+    <li>Sign in, then turn <b>Calendars</b> on → <b>Save</b>.</li></ol>`;
+  return `${isIOS() ? iphone + samsung : samsung + iphone}
+    <p class="fine">Test it: add any event in Day Hub — within a minute it's in your phone's calendar.
+    Google lets Day Hub stay signed in for about an hour; after that, changes wait for one tap on <b>🔄 Sync Google Calendar</b>.</p>`;
+}
 function drawCardList() {
   document.getElementById("cardList").innerHTML = cardOrder().map(k => `<li><span>${CARDS[k].icon} ${CARDS[k].title}</span>
+    <button class="x" data-move="${k}" data-dir="top" aria-label="Move to top">⤒</button>
     <button class="x" data-move="${k}" data-dir="-1" aria-label="Move up">▲</button>
     <button class="x" data-move="${k}" data-dir="1" aria-label="Move down">▼</button>
-    <input type="checkbox" data-show="${k}" ${S.hidden.includes(k) ? "" : "checked"} aria-label="Show ${CARDS[k].title}"></li>`).join("");
+    <input type="checkbox" data-show="${k}" ${S.hidden.includes(k) ? "" : "checked"} aria-label="Show ${CARDS[k].title}"></li>`).join("") +
+    (S.order ? `<li class="reset-order"><button class="btn sm ghost" data-orderreset="1">Back to the standard order</button></li>` : "");
 }
 function moveCard(k, dir) {
-  const o = cardOrder(); const i = o.indexOf(k), j = i + dir;
-  if (j < 0 || j >= o.length) return;
-  [o[i], o[j]] = [o[j], o[i]]; S.order = o; save(); drawCardList(); render();
+  const o = cardOrder(); const i = o.indexOf(k);
+  if (dir === "top") { o.splice(i, 1); o.unshift(k); }
+  else { const j = i + Number(dir); if (j < 0 || j >= o.length) return; [o[i], o[j]] = [o[j], o[i]]; }
+  S.order = o; save(); drawCardList(); render();
 }
 function closeSettings() {
   const city = document.getElementById("setCity").value.trim();

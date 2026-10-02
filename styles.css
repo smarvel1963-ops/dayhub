@@ -303,3 +303,12 @@ a.btn { text-decoration: none; display: inline-block; }
 /* v0.17 - notes */
 textarea { background: rgba(255,255,255,.06); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; font: inherit; font-size: 16px; width: 100%; resize: vertical; }
 .note-text { cursor: pointer; white-space: normal; }
+/* Setup steps in settings (Scott 10/2: "setup steps made easy as possible") */
+ol.steps, .steps ol { margin: 8px 0 10px; padding-left: 22px; line-height: 1.55; font-size: 14px; }
+.steps li { margin: 3px 0; }
+details.steps { margin-top: 10px; font-size: 14px; }
+details.steps summary { cursor: pointer; color: var(--accent); font-weight: 600; padding: 4px 0; }
+details.steps .fine { margin-top: 8px; }
+.arrange-link { display: block; margin: 6px auto 90px; }
+.card-list li.reset-order { justify-content: center; }
+.card-list li.reset-order span { display: none; }

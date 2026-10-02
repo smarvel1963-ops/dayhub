@@ -393,12 +393,63 @@ def t_v018_fixes(b, base):
         a.close()
 
 
+def t_v019_calendar_arrange(b, base):
+    print("\n[v0.19 phone calendar sync + arrange]")
+    a = App(b, base); setup(a)
+    # Fake Google Calendar: an in-memory store behind the real REST shape.
+    a.js("""() => { window.__g = {}; let n = 0; const real = window.fetch;
+      window.fetch = async (u, o = {}) => { u = String(u);
+        if (!u.startsWith('https://www.googleapis.com/calendar/v3/calendars/primary/events')) return real(u, o);
+        const m = o.method || 'GET', id = decodeURIComponent((u.split('/events/')[1] || '').split('?')[0]);
+        const J = (x, st = 200) => new Response(x == null ? null : JSON.stringify(x), { status: st });
+        if (m === 'GET') return J({ items: Object.values(window.__g) });
+        if (m === 'POST') { const e = { ...JSON.parse(o.body), id: 'g' + (++n) }; window.__g[e.id] = e; return J(e); }
+        if (m === 'PUT') { window.__g[id] = { ...JSON.parse(o.body), id }; return J(window.__g[id]); }
+        if (m === 'DELETE') { delete window.__g[id]; return J(null, 204); } }; }""")
+    a.js("GTOKEN = 'test'; GTOKEN_EXP = Date.now() + 3600000; S.gcal.connected = true; S.gcal.scope = GCAL_SCOPE; saveLocal()")
+    a.qa("event", {"title": "Dentist", "date": "2026-10-05", "time": "14:30", "where": "Main St", "rep": "monthly"})
+    a.qa("bill", {"title": "Rent", "amount": "900", "day": "30"})
+    a.js("gcalPush()"); a.page.wait_for_timeout(300)
+    g = a.js("Object.values(window.__g)")
+    den = next((e for e in g if e["summary"] == "Dentist"), None)
+    check("event sent to Google with alarm + timezone", den and den["start"]["dateTime"] == "2026-10-05T14:30:00" and den["start"]["timeZone"] == "America/Chicago"
+          and den["reminders"]["overrides"][0]["minutes"] == 15 and den["recurrence"] == ["RRULE:FREQ=MONTHLY"], den)
+    check("bill sent as an all-day monthly item", any(e["summary"].startswith("💳 Rent") and e["start"].get("date") for e in g))
+    a.js("gcalPush()"); a.page.wait_for_timeout(300)
+    check("syncing again makes no duplicates", a.js("Object.keys(window.__g).length") == 2)
+    a.js("S.events[0].title = 'Dentist (moved)'; save(); gcalPush()"); a.page.wait_for_timeout(300)
+    check("edit in Day Hub updates the phone calendar", a.js("Object.values(window.__g).some(e => e.summary === 'Dentist (moved)')") and a.js("Object.keys(window.__g).length") == 2)
+    a.js("S.events = []; save(); gcalPush()"); a.page.wait_for_timeout(300)
+    check("delete in Day Hub removes it from the phone calendar", a.js("Object.keys(window.__g).length") == 1)
+    a.js("S.gcal.events = []; gcalFetch()"); a.page.wait_for_timeout(300)
+    check("Day Hub's own copies are not shown twice", a.js("S.gcal.events.length") == 0)
+    a.js("S.gcal.connected = false; S.gcal.scope = null"); a.page.click("#settingsBtn")
+    txt = a.page.inner_text("#gcalBox")
+    check("settings shows numbered setup steps", "Tap Connect below" in txt and "Allow" in txt, txt[:200])
+    check("settings has Samsung phone steps", "Samsung" in a.js("document.getElementById('gcalBox').innerHTML") and "Sync account" in a.js("document.getElementById('gcalBox').innerHTML"))
+    a.js("closeSettings()")
+    a.close()
+
+    a = App(b, base, at="2026-10-01T18:00:00"); setup(a)
+    first = a.js("[...document.querySelectorAll('#cards [data-card]')].map(c => c.dataset.card)")
+    check("before arranging: Tomorrow jumps up in the evening", first[0] == "tomorrow", first[:3])
+    a.page.click("[data-arrange]"); a.page.wait_for_timeout(200)
+    check("↕ Arrange opens settings at the card list", a.js("!document.getElementById('sheet').classList.contains('hidden')") and "Arrange your screen" in a.page.inner_text("#sheet"))
+    a.page.click('[data-move="weather"][data-dir="top"]')
+    now = a.js("[...document.querySelectorAll('#cards [data-card]')].map(c => c.dataset.card)")
+    check("⤒ puts a card at the top - and it stays there in the evening", now[0] == "weather", now[:3])
+    a.page.click("[data-orderreset]")
+    check("Back to the standard order", a.js("S.order") is None)
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
         b = p.chromium.launch()
         for t in (t_first_run, t_schedule, t_todos_lists_countdowns, t_bills_budget_work, t_packages_email,
-                  t_trips_cruise, t_reminders_backup_update, t_notes_data, t_settings_layout_offline, t_v018_fixes):
+                  t_trips_cruise, t_reminders_backup_update, t_notes_data, t_settings_layout_offline, t_v018_fixes,
+                  t_v019_calendar_arrange):
             try:
                 t(b, base)
             except Exception as e:
