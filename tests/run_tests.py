@@ -825,6 +825,23 @@ def t_v029_pulse(b, base):
     a.close()
 
 
+def t_v030_brief_countdowns(b, base):
+    print("\n[v0.30 every countdown in the morning brief]")
+    a = App(b, base); setup(a)
+    a.qa("countdown", {"title": "Cruise", "date": "2026-12-20"})
+    a.qa("countdown", {"title": "Christmas", "date": "2026-12-25"})
+    a.qa("countdown", {"title": "Retirement", "date": "2029-06-01"})
+    a.qa("countdown", {"title": "Concert", "date": "2026-10-01"})
+    a.js("closeQA(); S.trips.push({id:'t1', name:'Vegas', start:'2026-11-05', end:'2026-11-08'}); save()")
+    said = " ".join(a.js("briefLines()"))
+    check("spoken: every countdown, far ones too", all(k in said for k in ["80 days until Cruise", "85 days until Christmas", "until Retirement", "35 days until Vegas"]), said)
+    check("spoken: today's the day", "Today's the day: Concert" in said)
+    a.js("showBrief()")
+    br = a.page.inner_text("#brief")
+    check("brief screen lists them all in date order", br.index("Concert") < br.index("Vegas") < br.index("Cruise") < br.index("Christmas") < br.index("Retirement"), br[:600])
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -835,7 +852,8 @@ def main():
                   t_v021_brief_sync, t_v022_brain_dump,
                   t_v024_weather_intel, t_v025_people_leave,
                   t_v026_upkeep, t_v027_routines,
-                  t_v028_payday, t_v029_pulse):
+                  t_v028_payday, t_v029_pulse,
+                  t_v030_brief_countdowns):
             try:
                 t(b, base)
             except Exception as e:

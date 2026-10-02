@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.29";
+const VERSION = "0.30";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -550,9 +550,17 @@ function briefLines() {
   upcomingBills().filter(b => daysUntil(b.due) <= 2).forEach(b => s.push(`${b.name} (${money(b.amount)}) is ${daysUntil(b.due) < 0 ? "late" : "due " + inDays(daysUntil(b.due))}.`));
   const pk = items.filter(i => i.kind === "pkg").length;
   if (pk) s.push(`${pk} package${pk === 1 ? " is" : "s are"} arriving today.`);
-  const cd = liveCountdowns().find(c => daysUntil(c.date) > 0 && daysUntil(c.date) <= 60);
-  if (cd) s.push(`${daysUntil(cd.date)} day${daysUntil(cd.date) === 1 ? "" : "s"} until ${cd.title}.`);
+  // Every countdown (Scott 10/2: "on any count downs it should show in morning breifing") - and trips count down too.
+  const cds = briefCountdowns(), todayCd = cds.filter(c => c.n === 0), ahead = cds.filter(c => c.n > 0);
+  todayCd.forEach(c => s.push(`Today's the day: ${c.title}! 🎉`));
+  if (ahead.length) s.push(`Counting down: ${ahead.map(c => `${c.n} day${c.n === 1 ? "" : "s"} until ${c.title}`).join(", ")}.`);
   return s;
+}
+function briefCountdowns() {
+  const out = liveCountdowns().map(c => ({ title: c.title, day: c.date, n: daysUntil(c.date), icon: "⏳" }));
+  S.trips.filter(tr => tr.start && daysUntil(tr.start) >= 0 && !out.some(o => o.day === tr.start && o.title === tr.name))
+    .forEach(tr => out.push({ title: tr.name, day: tr.start, n: daysUntil(tr.start), icon: isCruise(tr) ? "🚢" : "✈️" }));
+  return out.sort((a, b) => a.day.localeCompare(b.day));
 }
 const briefOpen = () => { const el = document.getElementById("brief"); return !!el && !el.classList.contains("hidden"); };
 function showBrief() {
@@ -573,6 +581,8 @@ function showBrief() {
        <span>H ${Math.round(w.day.hi)}° · L ${Math.round(w.day.lo)}°${w.day.rainFrom ? `<br>Rain from ${esc(fmtTime(w.day.rainFrom))}` : w.day.rain >= 20 ? `<br>Rain ${w.day.rain}%` : "<br>No rain"}</span></div>
        ${tips.length ? `<div class="sub">${tips.join(" · ")}</div>` : ""}` : "")}
     ${sec("Today", plans.slice(0, 6).map(i => `<div class="row"><span class="time">${i.t ? hm(i.t) : "All day"}</span><span class="grow">${i.icon} ${esc(i.title)}</span></div>`).join(""))}
+    ${sec("Countdowns", briefCountdowns().map(c => `<div class="row"><span class="cd-n">${c.n === 0 ? "🎉" : c.n}</span><span class="grow">${c.icon} ${esc(c.title)}
+        <span class="sub">${c.n === 0 ? "today!" : `${c.n === 1 ? "day" : "days"} to go · ${prettyDate(c.day)}`}</span></span></div>`).join(""))}
     ${sec("Top to-dos", todos.map(x => `<div class="row"><span class="grow">✅ ${esc(x.title)}</span></div>`).join(""))}
     ${sec("Heads up", [...wxAlerts(t).map(a => `${a.icon} ${esc(a.text)}`),
         ...upcomingPeople(14).filter(({ p, day }) => daysUntil(day) === 0 || giftDue(p, day)).map(({ p, day }) => `${PKIND[p.kind] || "⭐"} ${esc(personLabel(p, day))} — ${daysUntil(day) === 0 ? "today!" : inDays(daysUntil(day)) + " · 🎁 gift?"}`),
