@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.35";
+const VERSION = "0.36";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -74,6 +74,7 @@ const blank = () => ({
   routines: [], rdone: {},
   top3: { day: null, items: [], ai: false },
   alarms: [],
+  returns: [],
   payday: { freq: null, next: null, amount: null, d1: 1, d2: 15 }, goals: [],
   leave: { items: LEAVE_DEFAULT.map(text => ({ id: uid(), text })), day: null, done: [] },
   packages: [],
@@ -128,6 +129,7 @@ function normalize(raw) {
   s.routines = (Array.isArray(s.routines) ? s.routines : []).filter(r => obj(r) && r.name && Array.isArray(r.steps));
   s.routines.forEach(r => { r.steps = r.steps.filter(x => obj(x) && x.text); if (!Array.isArray(r.days)) r.days = []; if (r.time && !isT(r.time)) r.time = null; });
   if (!obj(s.rdone)) s.rdone = {};
+  s.returns = (Array.isArray(s.returns) ? s.returns : []).filter(r => obj(r) && r.what && isDay(r.by));
   s.alarms = (Array.isArray(s.alarms) ? s.alarms : []).filter(a => obj(a) && isT(a.time)).map(a => ({ ...a, days: Array.isArray(a.days) ? a.days : [], on: a.on !== false }));
   s.top3 = Object.assign({ day: null, items: [], ai: false }, obj(s.top3) ? s.top3 : {});
   if (!Array.isArray(s.top3.items)) s.top3.items = [];
@@ -559,6 +561,7 @@ function briefLines() {
   // Every countdown (Scott 10/2: "on any count downs it should show in morning breifing") - and trips count down too.
   const cds = briefCountdowns(), todayCd = cds.filter(c => c.n === 0), ahead = cds.filter(c => c.n > 0);
   todayCd.forEach(c => s.push(`Today's the day: ${c.title}! 🎉`));
+  openReturns().filter(r => daysUntil(r.by) >= 0 && daysUntil(r.by) <= 3).forEach(r => s.push(`Return ${r.what} — ${retWhen(r)}.`));
   { const es = errandStops(); if (es.length >= 2) s.push(`Errand run: ${es.map(st => (st.brand || st.name).toLowerCase()).join(", then ")}.`); }
   if (S.top3.day === t && S.top3.items.length) s.push(`Your top ${S.top3.items.length}: ${S.top3.items.map(x => x.title).join("; ")}.`);
   if (ahead.length) s.push(`Counting down: ${ahead.map(c => `${c.n} day${c.n === 1 ? "" : "s"} until ${c.title}`).join(", ")}.`);
@@ -809,6 +812,8 @@ function reminderList() {
       add(`pay:${nx}`, atMs(nx, "23:59"), atMs(nx, "08:00"), "💵 Payday", `${c.length} bill${c.length === 1 ? "" : "s"} (${money(c.reduce((x, o) => x + o.amt, 0))}) before the next check${S.goals.length ? " — put a little toward your goals?" : ""}`); } }
   S.routines.filter(r => r.time && rToday(r)).forEach(r => {
     if (rLeft(r)) add(`rt:${r.id}:${today()}`, atMs(today(), r.time) + 3600000, atMs(today(), r.time), `🔁 ${r.name.replace(/^\S+\s/, "")} routine`, `${r.steps.length} steps — tap to start`); });
+  openReturns().forEach(r => [3, 1].forEach(n => { const d = addDays(r.by, -n);
+    if (inWin(d)) add(`ret:${r.id}:${n}`, atMs(d, "23:59"), atMs(d, R.billHour), `↩️ Return ${r.what} — ${n} day${n === 1 ? "" : "s"} left`, `Last day ${prettyDate(r.by)}${r.store ? ` · ${r.store}` : ""}${r.amount ? ` · ${money(r.amount)} back` : ""}`); }));
   S.upkeep.forEach(x => { const d = upkeepNext(x);
     if (x.auto && inWin(addDays(d, -1))) add(`up:${x.id}:${d}`, atMs(d, "08:00"), atMs(addDays(d, -1), "19:00"), `${x.name} tomorrow`, "Put it out tonight.");
     else if (!x.auto && inWin(d)) add(`up:${x.id}:${d}`, atMs(d, "23:59"), atMs(d, R.billHour), `${x.name} due ${d === today() ? "today" : prettyDate(d)}`, "Tap ✓ Done in Day Hub when it's handled.");
@@ -1696,6 +1701,7 @@ function dayItems(day) {
       tick: `${k}:${x.id}`, done: x.done, del: `${k}:${x.id}`, cal: `${k}:${x.id}` })); });
   S.work.shifts.filter(x => x.day === day).forEach(x => it.push({ t: x.start, end: x.end, title: "Work shift", sub: fmtH(shiftHours(x)), kind: "work", icon: "💼", cal: `shift:${x.id}` }));
   upcomingBills().filter(b => b.due === day).forEach(b => it.push({ t: null, title: `${b.name} due`, sub: money(b.amount), kind: "bill", icon: "💳", cal: `bill:${b.id}` }));
+  openReturns().filter(r => r.by === day).forEach(r => it.push({ t: null, title: `Return ${r.what} — last day`, sub: r.store || "", kind: "return", icon: "↩️" }));
   alarmsOn(day).forEach(a => it.push({ t: a.time, title: `Alarm${a.label ? ` — ${a.label}` : ""}`, kind: "alarm", icon: "⏰" }));
   if (payNext(day) === day) it.push({ t: null, title: "Payday", sub: (a => a.amt ? `${a.est ? "≈ " : ""}${money(a.amt)}` : "")(payAmount()), kind: "pay", icon: "💵" });
   S.upkeep.filter(x => upkeepNext(x) === day || (day === today() && !x.auto && upkeepNext(x) < day)).forEach(x =>
@@ -2156,6 +2162,7 @@ function pulseItems() {
   const rn = routineNow(); if (rn) add(5, "🔁", `${rn.name.replace(/^\S+\s/, "")} routine — ${rLeft(rn)} step${rLeft(rn) === 1 ? "" : "s"} left`, "routines");
   upcomingPeople(7).filter(({ p, day }) => giftDue(p, day) && daysUntil(day) > 0).forEach(({ p, day }) => add(5, "🎁", `Gift for ${personLabel(p, day)} — ${inDays(daysUntil(day))}`, "people"));
   S.remember.filter(r => r.day === t).forEach(r => add(3, "📌", r.text, null));
+  openReturns().filter(r => daysUntil(r.by) <= 2).forEach(r => add(daysUntil(r.by) < 0 ? 4 : 8, "↩️", `Return ${r.what} — ${retWhen(r)}${r.amount ? ` (${money(r.amount)})` : ""}`, "packages"));
   { const nx = payNext(); if (nx && daysUntil(nx) <= 3) { const pa = payAmount(), c = dueBetween(nx, payAfter(nx)), tot = c.reduce((x, o) => x + o.amt, 0);
       if (pa.amt && pa.amt < tot) add(10, "💵", `Next check comes up ${money(tot - pa.amt)} short of the bills it covers`, "payday"); } }
   return out.sort((a, b) => b.pts - a.pts);
@@ -2370,6 +2377,8 @@ function errandStops() {
   const match = txt => ERRAND_STOPS.find(st => st.re.test(txt));
   S.todos.filter(x => todoShown(x) && !todoDone(x)).forEach(x => { const st = match(x.title); if (st) put(st, { src: "todo", id: x.id, title: x.title }); });
   dayItems(t).filter(i => isPlan(i) && i.kind === "event").forEach(i => { const st = match(i.title); if (st) put(st, { src: "plan", title: i.title + (i.t ? ` (${hm(i.t)})` : "") }); });
+  openReturns().filter(r => daysUntil(r.by) <= 7).forEach(r => { const st = ERRAND_STOPS.find(x => x.key === (RETURN_HOW[r.how] || RETURN_HOW.ship)[2]);
+    put(st, { src: "return", id: r.id, title: `Return ${r.what}${r.store ? ` (${r.store})` : ""} — by ${prettyDate(r.by)}` }); });
   const L = S.lists.find(l => /grocer|shop/i.test(l.name)) || S.lists[0], toGet = L ? L.items.filter(i => !i.done) : [];
   if (toGet.length) put(ERRAND_STOPS.find(st => st.key === "store"), { src: "list", list: L.id, title: `${L.name} list — ${toGet.length} item${toGet.length === 1 ? "" : "s"}`, items: toGet });
   return ERRAND_STOPS.map(st => byKey[st.key]).filter(Boolean);          // ERRAND_STOPS order = the route order
@@ -2387,9 +2396,19 @@ function errandsCard() {
     stops.map((st, n) => `<div class="errand"><div class="row"><span class="t3n">${n + 1}</span><span class="grow"><b>${st.icon} ${esc(st.brand ? (st.brand.length <= 3 ? st.brand.toUpperCase() : st.brand.replace(/\b\w/g, c => c.toUpperCase())) : st.name)}</b></span></div>
       ${st.items.map(it => it.src === "todo" ? `<label class="row leave"><input type="checkbox" class="tick" data-tick="${it.id}"><span class="grow">${esc(it.title)}</span></label>`
         : it.src === "list" ? `<div class="row"><span class="grow">${esc(it.title)}<span class="sub">${it.items.slice(0, 8).map(i => esc(i.text)).join(", ")}${it.items.length > 8 ? "…" : ""}</span></span></div>`
+        : it.src === "return" ? `<label class="row leave"><input type="checkbox" class="tick" data-retchk="${it.id}"><span class="grow">↩️ ${esc(it.title)}</span></label>`
         : `<div class="row"><span class="grow">📅 ${esc(it.title)}</span></div>`).join("")}</div>`).join("") +
     (url ? `<div class="foot-actions"><a class="btn sm" href="${url}" target="_blank" rel="noopener">🗺️ Route in Maps</a></div>` : "");
 }
+
+// ---------------------------------------------------------------- returns
+// Scott 10/2 (list #8 Delivery Center, "cont"): returns with their RETURN-BY
+// date, so the money isn't lost. Days left in the Packages card, reminders 3
+// days and 1 day before, a chip at the top when it's close, and the trip to
+// the post office / store rides along in the Errand run.
+const RETURN_HOW = { ship: ["📮", "Ship it back", "post"], store: ["🏬", "Take it to the store", "store"], dropoff: ["📦", "Drop-off point (UPS / Whole Foods / Kohl's…)", "post"] };
+const openReturns = () => S.returns.filter(r => !r.done).sort((a, b) => a.by.localeCompare(b.by));
+const retWhen = r => { const n = daysUntil(r.by); return n < 0 ? `${-n} day${n === -1 ? "" : "s"} PAST the return window` : n === 0 ? "last day TODAY" : `${n} day${n === 1 ? "" : "s"} left`; };
 
 function heroHtml() {
   const now = new Date(), h = now.getHours();
@@ -2413,6 +2432,7 @@ function heroHtml() {
       chips.unshift(`<span class="chip good">💵 Payday! ${c.length} bill${c.length === 1 ? "" : "s"} before the next check — ${money(c.reduce((x, o) => x + o.amt, 0))}</span>`); } }
   { const es = errandStops(); if (MODE !== "cruise" && es.length >= 2 && h < 18 && !S.hidden.includes("errands"))
       chips.push(`<button class="chip" data-errands="1">🛍️ Errand run: ${es.length} stops</button>`); }
+  openReturns().filter(r => daysUntil(r.by) <= 2).slice(0, 2).forEach(r => chips.push(`<span class="chip warn">↩️ Return ${esc(r.what)}: ${retWhen(r)}</span>`));
   upkeepDue(null, 1).filter(({ x, day }) => x.auto ? (daysUntil(day) === 0 || (daysUntil(day) === 1 && h >= 15)) : daysUntil(day) <= 0)
     .slice(0, 2).forEach(({ x, day }) => chips.push(`<span class="chip ${daysUntil(day) < 0 ? "warn" : ""}">${esc(x.name)} ${x.auto && daysUntil(day) === 1 ? "tomorrow — out tonight" : upkeepWhen(x, day)}</span>`));
   upcomingPeople(3).forEach(({ p, day }) => { const n = daysUntil(day);
@@ -2773,19 +2793,26 @@ const CARDS = {
     } },
 
   packages: { icon: "📦", title: "Packages", add: ["package", "Add a package"],
-    meta: () => { const n = S.packages.filter(p => !p.delivered).length; return n ? `${n} on the way` : ""; },
+    meta: () => { const n = S.packages.filter(p => !p.delivered).length, r = openReturns().length;
+      return [n ? `${n} on the way` : "", r ? `${r} to return` : ""].filter(Boolean).join(" · "); },
     body: () => {
       const recent = addDays(today(), -3);
       const list = S.packages.filter(p => !p.delivered || (p.deliveredDay || "") >= recent)
         .sort((a, b) => (a.delivered - b.delivered) || (a.eta || "9999").localeCompare(b.eta || "9999"));
-      if (!list.length) return `<div class="empty">Add a tracking number — Day Hub knows UPS, USPS, FedEx, Amazon and DHL and puts the arrival day on your schedule.</div>`;
+      const rets = openReturns(), retHtml = (rets.length ? `<div class="rs-h">↩️ Returns</div>` + rets.map(r => { const n = daysUntil(r.by);
+          return `<div class="row ${n < 0 ? "late" : ""}"><div class="grow"><b>${esc(r.what)}</b>${r.store ? ` <span class="sub" style="display:inline">· ${esc(r.store)}</span>` : ""}
+            <span class="sub">${(RETURN_HOW[r.how] || RETURN_HOW.ship)[0]} by ${prettyDate(r.by)} — ${retWhen(r)}${r.amount ? ` · ${money(r.amount)} back` : ""}</span></div>
+            ${n <= 3 ? `<span class="pill ${n <= 1 ? "soon" : ""}">${n < 0 ? "late" : inDays(n)}</span>` : ""}
+            <button class="btn sm ghost" data-retdone="${r.id}">✓ Returned</button><button class="x" data-del="returns:${r.id}" aria-label="Remove">✕</button></div>`; }).join("") : "")
+        + `<div class="foot-actions"><button class="add-link" data-qa="return">↩️ Add a return</button></div>`;
+      if (!list.length) return (rets.length ? "" : `<div class="empty">Add a tracking number — Day Hub knows UPS, USPS, FedEx, Amazon and DHL and puts the arrival day on your schedule.</div>`) + retHtml;
       return list.map(p => { const n = p.eta ? daysUntil(p.eta) : null;
         return `<div class="row ${p.delivered ? "done" : ""}"><div class="grow">${esc(p.name)}<span class="sub">${(CARRIERS[p.carrier] || CARRIERS.other)[0]} · …${esc(cleanNum(p.num).slice(-6))}${p.delivered ? " · delivered" : p.eta ? ` · arrives ${prettyDate(p.eta)}` : " · no date yet"}</span></div>
           ${!p.delivered && n !== null && n <= 1 ? `<span class="pill ${n <= 0 ? "soon" : ""}">${n < 0 ? "late?" : inDays(n)}</span>` : ""}
           <a class="btn sm ghost" href="${trackUrl(p)}" target="_blank" rel="noopener">Track</a>
           ${p.delivered ? "" : `<button class="btn sm ghost" data-pkgdone="${p.id}" aria-label="Delivered">✓</button>`}
           <button class="x" data-del="packages:${p.id}" aria-label="Remove">✕</button></div>`; }).join("") +
-        `<div class="fine" style="margin-top:6px">Track opens the carrier's page. Live status updates are planned for Day Hub Pro.</div>`;
+        `<div class="fine" style="margin-top:6px">Track opens the carrier's page. Live status updates are planned for Day Hub Pro.</div>` + retHtml;
     } },
 
   people: { icon: "🎂", title: "People & dates", add: ["person", "Add a birthday or date"],
@@ -3151,7 +3178,7 @@ function micToggle(btn) {
 }
 
 function qaTypes() {
-  const t = [["dump", "🧠 Brain dump"], ["event", "📅 Event"], ["person", "🎂 Birthday / date"], ["upkeep", "🏠 Home / car"], ["routine", "🔁 Routine"], ["alarm", "⏰ Alarm"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["package", "📦 Package"], ["trip", "🚢 Trip"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
+  const t = [["dump", "🧠 Brain dump"], ["event", "📅 Event"], ["person", "🎂 Birthday / date"], ["upkeep", "🏠 Home / car"], ["routine", "🔁 Routine"], ["alarm", "⏰ Alarm"], ["return", "↩️ Return"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["package", "📦 Package"], ["trip", "🚢 Trip"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
   if (S.pack === "trucker") t.splice(1, 0, ["loads", "🚚 Load"]);
   if (S.pack === "trades") t.splice(1, 0, ["jobs", "🔧 Job"]);
   return t;
@@ -3239,6 +3266,12 @@ function qaFields(type) {
       <label class="field">Gift reminder<select name="lead">${o(0, "Off", p.lead)}${o(7, "1 week before", p.lead)}${o(14, "2 weeks before", p.lead)}${o(21, "3 weeks before", p.lead)}${o(28, "4 weeks before", p.lead)}</select></label>
       <input name="ideas" placeholder="Gift ideas, sizes, favorites (optional)" value="${esc(p.ideas || "")}" autocomplete="off">
       ${PERSON_EDIT ? `<button type="button" class="btn sm ghost" data-pdel="${PERSON_EDIT}">Delete this date</button>` : ""}`; })(),
+    return: `<input name="what" placeholder="What are you returning? (e.g. Boots — too small)" required autocomplete="off">
+      <input name="store" placeholder="Store / site (Amazon, Target…)" autocomplete="off">
+      <div class="two"><label class="field">Return by<input name="by" type="date" value="${addDays(today(), 30)}" required></label>
+        <label class="field">Money back (optional)<input name="amount" type="number" min="0" step="0.01" placeholder="$"></label></div>
+      <label class="field">How<select name="how">${Object.entries(RETURN_HOW).map(([k, v]) => `<option value="${k}">${v[0]} ${v[1]}</option>`).join("")}</select></label>
+      <div class="hint">Most stores give 30 days from delivery — check the receipt or order page. Day Hub reminds you 3 days and 1 day before.</div>`,
     alarm: (() => { const a = S.alarms.find(x => x.id === ALARM_EDIT) || { time: "06:00", days: [1, 2, 3, 4, 5], label: "" };
       return `<label class="field">Alarm time<input name="time" type="time" value="${a.time}" required></label>
         <div class="field">Which days?<div class="dow">${DOW.map((n, i) => `<label><input type="checkbox" name="d${i}" ${a.days.includes(i) ? "checked" : ""}>${n}</label>`).join("")}</div></div>
@@ -3332,6 +3365,8 @@ function submitQA(f) {
     const paid = day < now.getDate() ? today().slice(0, 7) : prevMonthKey();
     S.bills.push({ id: uid(), name: d.title.trim(), amount: Number(d.amount), day, paid });
   }
+  else if (ty === "return") S.returns.push({ id: uid(), what: d.what.trim(), store: (d.store || "").trim(), by: d.by, how: d.how || "ship",
+    amount: Number(d.amount) > 0 ? Number(d.amount) : null, done: false });
   else if (ty === "alarm") {
     const days = DOW.map((_, i) => d["d" + i] ? i : -1).filter(i => i >= 0);
     const rec = { time: d.time, days, label: (d.label || "").trim(), on: true, once: days.length ? null : addDays(today(), 1) };
@@ -3542,6 +3577,8 @@ document.addEventListener("click", e => {
   if (ds.fadd) { snap(); const keys = ds.fadd === "__all" ? (S.gcal.dates || []).map(b => b.key) : [ds.fadd];
     const n = addFoundDates(keys); save(); render(); buzz(); toast(`🎂 Added ${n} date${n === 1 ? "" : "s"} — ✏️ to add gift ideas`, true); return; }
   if (ds.fno) { S.gcal.datesNo = [...new Set([...(S.gcal.datesNo || []), ...(S.gcal.dates || []).map(b => b.key)])]; S.gcal.dates = []; saveLocal(); render(); return; }
+  if (ds.retdone) { const r = S.returns.find(x => x.id === ds.retdone); if (r) { snap(); r.done = true; r.doneDay = today(); save(); render(); buzz();
+    toast(`↩️ Returned ✓${r.amount ? ` — watch for ${money(r.amount)} back` : ""}`, true); } return; }
   if (ds.errands) { if (S.collapsed.includes("errands")) { S.collapsed = S.collapsed.filter(k => k !== "errands"); save(); render(); }
     const el = document.querySelector('[data-card="errands"]'); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   if (ds.aledit) { ALARM_EDIT = ds.aledit; openQA("alarm", true); return; }
@@ -3623,6 +3660,7 @@ document.addEventListener("change", e => {
   if (ds.dday !== undefined) { DUMP[Number(ds.dday)].day = t.value; return; }
   if (ds.dtime !== undefined) { DUMP[Number(ds.dtime)].time = t.value; return; }
   if (t.dataset.briefauto !== undefined) { S.briefAuto = t.checked; saveLocal(); toast(t.checked ? "Morning brief on" : "Morning brief off — ☀️ chip still opens it"); return; }
+  if (ds.retchk) { const r = S.returns.find(x => x.id === ds.retchk); if (r) { r.done = t.checked; r.doneDay = today(); save(); render(); buzz(); } return; }
   if (ds.alon) { const a = S.alarms.find(x => x.id === ds.alon); if (a) { a.on = t.checked; save(); render(); } return; }
   if (ds.t3chk) { const x = S.top3.items.find(y => y.id === ds.t3chk); if (x) { x.done = t.checked; saveLocal(); render(); buzz();
     if (S.top3.items.every(y => y.done)) toast("🎯 All three done!"); } return; }

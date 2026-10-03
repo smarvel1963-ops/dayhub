@@ -1015,6 +1015,25 @@ def t_v035_errands(b, base):
     a.close()
 
 
+def t_v036_returns(b, base):
+    print("\n[v0.36 returns]")
+    a = App(b, base); setup(a)                     # Thu 2026-10-01
+    a.qa("return", {"what": "Boots — too small", "store": "Amazon", "by": "2026-10-03", "amount": "89.99", "how": "dropoff"})
+    a.qa("return", {"what": "Lamp", "store": "Target", "by": "2026-10-30", "how": "store"})
+    a.js("closeQA()")
+    card = a.card("packages")
+    check("returns in the Packages card with days left + money", "Boots — too small" in card and "2 days left" in card and "$89.99 back" in card and "Lamp" in card, card[:400])
+    check("chip at the top when close", "Return Boots — too small: 2 days left" in a.page.inner_text("#hero"))
+    check("on the schedule on the last day", a.js("dayItems('2026-10-03').some(i => i.kind === 'return')"))
+    check("reminder 1 day before", any(r["key"].startswith("ret:") and "1 day left" in r["title"] for r in a.js("reminderList()")))
+    check("in the Life pulse", any("Return Boots" in i for i in a.js("pulseItems().map(x => x.text)")))
+    check("rides in the Errand run (post stop)", a.js("errandStops().some(s => s.key === 'post' && s.items.some(i => i.src === 'return'))"))
+    check("30-day-away return not in today's run", not a.js("errandStops().some(s => s.items.some(i => /Lamp/.test(i.title)))"))
+    a.page.click('[data-card="packages"] [data-retdone] >> nth=0')
+    check("✓ Returned clears it", a.js("openReturns().length") == 1 and "Return Boots" not in a.page.inner_text("#hero"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1029,7 +1048,7 @@ def main():
                   t_v030_brief_countdowns, t_v031_ai_helper,
                   t_v032_ask_top3, t_v033_alarms,
                   t_v033_calendar_dates, t_v034_backup_nudge,
-                  t_v035_errands):
+                  t_v035_errands, t_v036_returns):
             try:
                 t(b, base)
             except Exception as e:
