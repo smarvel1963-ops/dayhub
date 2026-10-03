@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.30";
+const VERSION = "0.31";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -2724,6 +2724,36 @@ function toast(msg, undoable, extra) {
 const snap = () => { UNDO = JSON.stringify(S); };
 
 // ------------------------------------------------------------ quick add
+// ------------------------------------------------------------- AI helper
+// Scott 10/2 ("go with A"): Claude through a tiny relay in Scott's own Google
+// account (relay/Code.gs, a Google Apps Script web app). The relay holds the
+// API key + a passphrase; this phone only knows the passphrase, typed once in
+// ⚙ and kept on THIS phone (never in the backup, never in the code). The relay
+// runs only three fixed jobs - dump / ask / top3 - on the cheapest model with a
+// daily cap. If it is off or down, everything falls back to the free on-phone way.
+const AI_URL = "https://script.google.com/macros/s/AKfycbyVbxOCPR7v8UNTVufOWKOKBpI19-NcWEXMVzjP86iKraxenseHpWL95W9sB_Rr6DXo/exec";
+const AI_KEY = "dayhub.aipass";
+const aiPass = () => { try { return localStorage.getItem(AI_KEY) || ""; } catch (e) { return ""; } };
+const aiOn = () => !!aiPass();
+async function aiCall(task, input, pass = aiPass()) {
+  const t = today(), r = await fetch(AI_URL, { method: "POST", body: JSON.stringify({ pass, task, input,
+    today: t, weekday: parseDay(t).toLocaleDateString("en-US", { weekday: "long" }) }) });
+  const j = await r.json();
+  if (j.error) throw new Error(j.error);
+  return j;
+}
+const aiJSON = text => { const m = String(text || "").match(/\{[\s\S]*\}/); return m ? JSON.parse(m[0]) : null; };
+function drawAiBox(msg) {
+  const g = document.getElementById("aiBox"); if (!g) return;
+  g.innerHTML = `<h3>🤖 AI helper</h3>` + (aiOn()
+    ? `<div class="leg"><span>✅ On — Brain dump sorts with AI${msg ? ` · ${esc(msg)}` : ""}</span></div>
+       <div class="foot-actions"><button class="btn sm" data-ai="test">Test it</button><button class="btn sm ghost" data-ai="off">Turn off</button></div>`
+    : `<p class="fine" style="margin-top:0">Smarter sorting for 🧠 Brain dump (more coming). Uses your own Claude helper — set up once:</p>
+       <ol class="steps"><li>Type the passphrase you saved as <b>PASS</b> in your Day Hub AI relay.</li><li>Tap <b>Turn on</b>.</li></ol>
+       <form class="inline-add" data-aipass="1"><input name="pass" type="password" placeholder="Passphrase" autocomplete="off" required><button class="btn sm">Turn on</button></form>
+       ${msg ? `<p class="fine" style="margin-top:6px">⚠️ ${esc(msg)}</p>` : ""}`);
+}
+
 // ------------------------------------------------------------- brain dump
 // Scott 10/2 ("cont" -> Brain Dump, the free version): say or type everything
 // on your mind in one go - "need tires next month, call Dan Tuesday, buy
@@ -2833,9 +2863,24 @@ function drawDump() {
         ${x.rep && x.rep !== "none" ? `<div class="sub">🔁 ${REPEATS[x.rep] || x.rep}</div>` : ""}` : ""}</div>`).join("");
   const b = document.querySelector("#qaForm > .btn:last-child"); if (b) b.textContent = `Add all (${DUMP.length})`;
 }
-function dumpSort() {
+async function dumpSort() {
   const ta = document.querySelector("#qaForm [name=dump]"); if (!ta) return;
-  DUMP = dumpParse(ta.value).map(x => x.kind === "event" ? x : { ...x, day: null, time: null });
+  if (!ta.value.trim()) { toast("Say or type something first"); return; }
+  let items = null;
+  if (aiOn()) {
+    const b = document.querySelector("[data-dumpsort]"); if (b) { b.disabled = true; b.textContent = "🤖 Sorting…"; }
+    try {
+      const j = aiJSON((await aiCall("dump", ta.value)).text), K = ["todo", "event", "item", "note"];
+      items = (j && Array.isArray(j.items) ? j.items : []).filter(x => x && K.includes(x.kind) && String(x.title || "").trim()).map(x => ({
+        kind: x.kind, title: String(x.title).trim().slice(0, 120),
+        day: x.kind === "event" ? (/^\d{4}-\d{2}-\d{2}$/.test(x.day || "") ? x.day : today()) : null,
+        time: x.kind === "event" ? (/^\d{1,2}:\d{2}$/.test(x.time || "") ? x.time.padStart(5, "0") : "09:00") : null,
+        rep: x.kind === "event" && REPEATS[x.rep] ? x.rep : "none" }));
+      if (!items.length) items = null;
+    } catch (e) { toast("AI helper didn't answer — used the quick sorter"); }
+    if (b) { b.disabled = false; b.textContent = "🧠 Sort it"; }
+  }
+  DUMP = items || dumpParse(ta.value).map(x => x.kind === "event" ? x : { ...x, day: null, time: null });
   if (!DUMP.length) { toast("Say or type something first"); return; }
   drawDump();
 }
@@ -3129,6 +3174,11 @@ document.addEventListener("submit", e => {
   if (f.dataset.tadd) { const [tid, k] = f.dataset.tadd.split(":"); const tr = S.trips.find(x => x.id === tid);
     if (tr) tr.lists[k].push({ id: uid(), text: data.text.trim(), done: false });
     save(); render(); const again = document.querySelector(`form[data-tadd="${f.dataset.tadd}"] input`); if (again) again.focus(); return; }
+  if (f.dataset.aipass) { const pw = (data.pass || "").trim(); if (!pw) return;
+    drawAiBox("checking…");
+    aiCall("ping", "", pw).then(() => { try { localStorage.setItem(AI_KEY, pw); } catch (e) { /* private mode */ } drawAiBox("connected ✓"); toast("🤖 AI helper on"); })
+      .catch(e => { drawAiBox(/passphrase/.test(e.message) ? "That passphrase doesn't match the relay's PASS" : "Couldn't reach the relay: " + e.message); });
+    return; }
   if (f.dataset.paysetup) { S.payday = { ...S.payday, freq: data.freq, next: data.next, amount: Number(data.amount) > 0 ? Number(data.amount) : null };
     if (data.freq === "semimonthly") { S.payday.d1 = Number(data.next.slice(8)); S.payday.d2 = Math.min(31, Math.max(1, Number(data.d2) || 15)); }
     save(); render(); buzz(); toast("💵 Payday set ✓"); return; }
@@ -3234,6 +3284,8 @@ document.addEventListener("click", e => {
     pick.filter(Boolean).forEach(x => { x.day = T1; }); save(); render(); toast(`Moved to tomorrow (${pick.length})`, true); return; }
   if (ds.rmdel) { S.remember = S.remember.filter(r => r.id !== ds.rmdel); save(); render(); return; }
   if (ds.syncall) { syncTap(); return; }
+  if (ds.ai === "off") { try { localStorage.removeItem(AI_KEY); } catch (e) { /* ok */ } drawAiBox(); toast("AI helper off — the quick sorter takes over"); return; }
+  if (ds.ai === "test") { drawAiBox("testing…"); aiCall("ping", "").then(j => drawAiBox(`working · ${j.left} left today`)).catch(e => drawAiBox("problem: " + e.message)); return; }
   if (ds.pulse) { showPulse(); return; }
   if (ds.pulseclose) { document.getElementById("pulseSheet").classList.add("hidden"); return; }
   if (ds.pulsego) { document.getElementById("pulseSheet").classList.add("hidden"); const k = ds.pulsego;
@@ -3347,6 +3399,9 @@ function drawSettings() {
   let sb = document.getElementById("syncBox");
   if (!sb) { sb = document.createElement("div"); sb.id = "syncBox"; document.getElementById("cardList").before(sb); }
   drawSyncBox();
+  let ab = document.getElementById("aiBox");
+  if (!ab) { ab = document.createElement("div"); ab.id = "aiBox"; document.getElementById("cardList").before(ab); }
+  drawAiBox();
   let g = document.getElementById("gcalBox");
   if (!g) { g = document.createElement("div"); g.id = "gcalBox"; document.getElementById("cardList").before(g); }
   const ok = S.gcal.connected && S.gcal.scope === GCAL_SCOPE && !S.gcal.needsWrite;

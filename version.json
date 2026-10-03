@@ -1,6 +1,10 @@
 {
- "version": "0.30",
+ "version": "0.31",
  "notes": {
+  "0.31": [
+   "🤖 AI helper (⚙ → AI helper): turn it on with your passphrase and 🧠 Brain dump understands messy talk — \"uh tires sometime next month and ring Dan Tuesday after lunch\" — not just keywords",
+   "If the AI is ever off or busy, the quick on-phone sorter takes over by itself"
+  ],
   "0.30": [
    "⏳ Every countdown now shows in your Morning brief — near or far, plus your trips — and it reads them out: \"Counting down: 80 days until Cruise, 85 days until Christmas…\"",
    "🎉 On the day itself: \"Today's the day!\""

@@ -75,6 +75,22 @@ def route(ctx):
             if u.path.endswith("/00000"):
                 return r.fulfill(status=404, body="{}")
             return r.fulfill(json={"places": [{"place name": "Conway", "state abbreviation": "AR", "latitude": "35.09", "longitude": "-92.44"}]})
+        if u.netloc == "script.google.com" and "/macros/s/" in u.path:
+            body = json.loads(r.request.post_data or "{}")
+            if body.get("pass") != "tiger lamp river":
+                return r.fulfill(json={"error": "wrong passphrase"})
+            if body.get("task") == "ping":
+                return r.fulfill(json={"ok": True, "left": 199})
+            if getattr(ctx, "_ai_down", False):
+                return r.fulfill(json={"error": "Claude said 529"})
+            if body.get("task") == "dump":
+                return r.fulfill(json={"text": json.dumps({"items": [
+                    {"kind": "event", "title": "Get new tires", "day": "2026-11-01", "time": "09:00", "rep": "none"},
+                    {"kind": "event", "title": "Call Dan", "day": "2026-10-06", "time": "14:00", "rep": "none"},
+                    {"kind": "item", "title": "Toothpaste"},
+                    {"kind": "note", "title": "December vacation idea"},
+                    {"kind": "bogus", "title": "dropped"}]})})
+            return r.fulfill(json={"error": "unknown task"})
         if u.netloc == "accounts.google.com" and u.path == "/o/oauth2/v2/auth":
             back = q["redirect_uri"][0]
             if getattr(ctx, "_oauth", None) == "ok":
@@ -842,6 +858,36 @@ def t_v030_brief_countdowns(b, base):
     a.close()
 
 
+def t_v031_ai_helper(b, base):
+    print("\n[v0.31 AI helper (relay)]")
+    a = App(b, base); setup(a)
+    a.page.click("#settingsBtn")
+    check("settings: AI helper with easy steps", "AI helper" in a.page.inner_text("#aiBox") and "Turn on" in a.page.inner_text("#aiBox"))
+    a.page.fill("#aiBox [name=pass]", "wrong words"); a.page.click("#aiBox form button"); a.page.wait_for_timeout(400)
+    check("wrong passphrase is refused, not saved", "doesn't match" in a.page.inner_text("#aiBox") and not a.js("aiOn()"))
+    a.page.fill("#aiBox [name=pass]", "tiger lamp river"); a.page.click("#aiBox form button"); a.page.wait_for_timeout(400)
+    check("right passphrase turns it on", a.js("aiOn()") and "On" in a.page.inner_text("#aiBox"))
+    check("passphrase is not in the backup data", "tiger" not in a.js("JSON.stringify(S)"))
+    a.js("closeSettings()")
+    a.page.click('#hero [data-dump]')
+    a.page.fill("#qaForm [name=dump]", "uh so tires sometime next month and ring Dan tuesday after lunch, toothpaste, maybe a december trip")
+    a.page.click("[data-dumpsort]"); a.page.wait_for_timeout(500)
+    got = a.js("DUMP.map(x => [x.kind, x.title, x.day, x.time])")
+    check("AI sorts the messy dump (bad items dropped)", got == [["event", "Get new tires", "2026-11-01", "09:00"], ["event", "Call Dan", "2026-10-06", "14:00"],
+          ["item", "Toothpaste", None, None], ["note", "December vacation idea", None, None]], got)
+    a.page.click("#qaForm > .btn:last-child")
+    check("Add all files the AI's sort", a.js("S.events.some(e => e.title === 'Call Dan' && e.time === '14:00')") and a.js("S.notes.length") == 1)
+    a.ctx._ai_down = True
+    a.page.click('#hero [data-dump]')
+    a.page.fill("#qaForm [name=dump]", "call mom tomorrow at 3pm, buy milk")
+    a.page.click("[data-dumpsort]"); a.page.wait_for_timeout(500)
+    check("AI down: falls back to the quick sorter", a.js("DUMP.length") == 2 and a.js("DUMP[0].title") == "Call mom" and a.js("DUMP[1].kind") == "item")
+    a.js("closeQA()")
+    a.page.click("#settingsBtn"); a.page.click('[data-ai="off"]')
+    check("Turn off forgets the passphrase", not a.js("aiOn()"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -853,7 +899,7 @@ def main():
                   t_v024_weather_intel, t_v025_people_leave,
                   t_v026_upkeep, t_v027_routines,
                   t_v028_payday, t_v029_pulse,
-                  t_v030_brief_countdowns):
+                  t_v030_brief_countdowns, t_v031_ai_helper):
             try:
                 t(b, base)
             except Exception as e:
