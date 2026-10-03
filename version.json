@@ -1,6 +1,9 @@
 {
- "version": "0.33",
+ "version": "0.34",
  "notes": {
+  "0.34": [
+   "☁️ If your Day Hub isn't backed up yet, a button at the top says so — one tap and every change saves to Google's servers by itself"
+  ],
   "0.33": [
    "⏰ My alarms (⚙, or the Nightly reset): add your alarms once — they show on your schedule and in the Nightly reset, with a warning if tomorrow's first thing is before (or right after) your alarm",
    "🛏️ The Nightly reset now lists everything for tomorrow — your calendar, alarm, bills, birthdays",

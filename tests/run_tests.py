@@ -979,6 +979,19 @@ def t_v033_calendar_dates(b, base):
     a.close()
 
 
+def t_v034_backup_nudge(b, base):
+    print("\n[v0.34 backup nudge]")
+    a = App(b, base); setup(a)
+    check("nothing saved yet: no nudge", "Not backed up" not in a.page.inner_text("#hero"))
+    a.qa("todo", {"title": "Call insurance"}); a.js("closeQA()")
+    check("has data + backup off: nudge at the top", "Not backed up — tap to turn on" in a.page.inner_text("#hero"))
+    a.page.click("#settingsBtn")
+    check("⚙ backup box: easy steps", "Not backed up yet" in a.page.inner_text("#syncBox") and "Allow" in a.page.inner_text("#syncBox"))
+    a.js("closeSettings(); S.sync.on = true; save(); render()")
+    check("backup on: nudge gone", "Not backed up" not in a.page.inner_text("#hero"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -992,7 +1005,7 @@ def main():
                   t_v028_payday, t_v029_pulse,
                   t_v030_brief_countdowns, t_v031_ai_helper,
                   t_v032_ask_top3, t_v033_alarms,
-                  t_v033_calendar_dates):
+                  t_v033_calendar_dates, t_v034_backup_nudge):
             try:
                 t(b, base)
             except Exception as e:

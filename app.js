@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.33";
+const VERSION = "0.34";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -744,8 +744,11 @@ function drawSyncBox() {
     ? `<div class="leg"><span>☁️ On — ${S.sync.last ? `last backup ${when(S.sync.last)}` : "not backed up yet"}${S.sync.dirty ? " · <b style='color:var(--orange)'>new changes</b>" : ""}</span></div>
        <div class="foot-actions"><button class="btn sm" data-sync="now">Back up now</button>
        <button class="btn sm ghost" data-sync="restore">Restore</button><button class="btn sm ghost" data-sync="off">Turn off</button></div>`
-    : `<button class="btn sm" data-sync="on">Back up to my Google Drive</button>
-       <p class="fine" style="margin-top:8px">Keeps everything safe and brings it back on a new phone. Saved in a hidden Day Hub folder in your own Drive — only Day Hub can see it.</p>`);
+    : `<p class="fine" style="margin-top:0"><b>⚠️ Not backed up yet</b> — everything is only on this phone. Turn it on once (Scott 10/2: "all we do needs to back up on server"):</p>
+       <ol class="steps"><li>Tap <b>Back up to my Google Drive</b>.</li><li>Pick your Google account → <b>Continue</b> → <b>Allow</b>.</li>
+         <li>Done — every change saves to Google's servers by itself from then on.</li></ol>
+       <button class="btn sm" data-sync="on">☁️ Back up to my Google Drive</button>
+       <p class="fine" style="margin-top:8px">Brings everything back on a new or reset phone. Saved in a hidden Day Hub folder in your own Drive — only Day Hub can see it.</p>`);
 }
 
 // ------------------------------------------------------------- reminders
@@ -2391,6 +2394,7 @@ function heroHtml() {
   if (pkToday) chips.push(`<span class="chip">📦 ${pkToday} arriving today</span>`);
   const cd = liveCountdowns()[0];
   if (cd) chips.push(`<span class="chip">⏳ ${esc(cd.title)} ${daysUntil(cd.date) === 0 ? "today!" : inDays(daysUntil(cd.date))}</span>`);
+  if (MODE !== "cruise" && !S.sync.on && hasData(S) && can("sync")) chips.unshift(`<button class="chip warn" data-sync="on">☁️ Not backed up — tap to turn on</button>`);
   if (needTap().length) chips.push(`<button class="chip" data-syncall="1">🔄 Tap to sync${S.gcal.dirty || S.sync.dirty ? " · changes waiting" : ""}</button>`);
   if (MODE !== "cruise" && h >= 4 && h < 12 && (S.name || hasData(S))) chips.push(`<button class="chip" data-brief="open">☀️ Morning brief</button>`);
   if (UPDATE) chips.unshift(`<button class="chip good" data-update="1">✨ New version ready — tap to update</button>`);
