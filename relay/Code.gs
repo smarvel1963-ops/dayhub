@@ -52,9 +52,9 @@ const MAX_PHONES = 3;               // phones one purchase can unlock at once
 const PHONE_DAYS = 60;              // a phone not seen this long frees its spot
 const WHOP_API = "https://api.whop.com/api/v1";
 const WHOP_COMPANY = "biz_loYMoMQKy5XhM0";   // Marvel Corp (not a secret)
-const WHOP_VERSION = "2026-09-15";
+const WHOP_VERSION = "2026-09-29";   // match the key (10/3: 09-15 returned members without user.email)
 // Still paid up: "canceling" runs to the end of the period, "past_due" is Whop retrying the card.
-const OK_STATUS = ["active", "trialing", "past_due", "canceling"];
+const OK_STATUS = ["active", "trialing", "past_due", "canceling", "completed"];   // completed = paid once (one-time / 100% code)
 
 const TASKS = {
   dump: { max: 1200, system:
@@ -160,21 +160,26 @@ function verifyBuyer(P, buyer, device) {
       const want = b.toLowerCase();
       const found = whopGet(whop, "/members", { account_id: co, query: b, first: 50 });
       if (found.error) return found;
-      const users = (found.data || []).map(function (x) { return x.user; })
-        .filter(function (u) { return u && String(u.email || "").toLowerCase() === want; });
+      const hits = (found.data || []).map(function (x) { return x.user; }).filter(function (u) { return u && u.id; });
+      let users = hits.filter(function (u) { return String(u.email || "").toLowerCase() === want; });
+      // 10/3 measured: Whop's /members returns user WITHOUT email for a company key
+      // (user = id, username, name, profile_picture) even with member:email:read, but its
+      // search DOES match by email. A full address cannot match a name/username by
+      // accident, so exactly ONE search hit = that buyer. Several hits = refuse.
+      if (!users.length && hits.length === 1 && hits[0].email === undefined) users = hits;
       if (!users.length) return { valid: false, status: "no Whop purchase with that email" };
       mems = [];
       for (let k = 0; k < users.length; k++) {
         const list = whopGet(whop, "/memberships", { account_id: co, user_ids: users[k].id, product_ids: pid, first: 50 });
         if (list.error) return list;
-        mems = mems.concat((list.data || []).filter(function (m) { return m.user && m.user.id === users[k].id; }));
+        mems = mems.concat((list.data || []).filter(function (m) { return memUser(m) === users[k].id; }));
       }
     }
-    const mine = mems.filter(function (m) { return m && m.product && m.product.id === pid; });
+    const mine = mems.filter(function (m) { return memProd(m) === pid; });
     const good = mine.filter(function (m) { return OK_STATUS.indexOf(m.status) >= 0; });
     const m = good[0] || mine[0];
     res = good.length
-      ? { valid: true, status: String(m.status), until: m.renewal_period_end || null, who: keyHash((m.user && m.user.id) || m.id) }
+      ? { valid: true, status: String(m.status), until: m.current_period_end || m.renewal_period_end || null, who: keyHash(memUser(m) || m.id) }
       : { valid: false, status: m ? String(m.status) : (isMem ? "not a Day Hub Pro membership" : "no Day Hub Pro purchase with that email") };
     if (res.valid) cache.put(ck, JSON.stringify(res), 6 * 3600);
   }
@@ -221,6 +226,11 @@ function whopGet(whop, path, params) {
   if (code !== 200) return { error: "Whop said " + code };
   return JSON.parse(r.getContentText() || "{}");
 }
+
+// 10/3 measured: the live API returns memberships FLAT (user_id, product_id,
+// current_period_end) where the docs show nested user/product objects. Read both.
+function memUser(m) { return (m && (m.user_id || (m.user && m.user.id))) || ""; }
+function memProd(m) { return (m && (m.product_id || (m.product && m.product.id))) || ""; }
 
 // Short, one-way id (email, user id, phone id) - the value itself is never written to Properties.
 function keyHash(key) {
