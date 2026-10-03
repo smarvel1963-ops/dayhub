@@ -1,6 +1,10 @@
 {
- "version": "0.31",
+ "version": "0.32",
  "notes": {
+  "0.32": [
+   "💡 Ask Day Hub (top right): ask in plain words — \"When's my next oil change?\", \"What haven't I finished?\", \"What bills are due before payday?\" — and get a straight answer from your own planner (🎤 to talk)",
+   "🎯 Top 3 today: the three things that matter most, picked for you each morning — tick them off, ▲ to reorder, ✕ to drop, ↻ to pick again. Your Morning brief reads them out"
+  ],
   "0.31": [
    "🤖 AI helper (⚙ → AI helper): turn it on with your passphrase and 🧠 Brain dump understands messy talk — \"uh tires sometime next month and ring Dan Tuesday after lunch\" — not just keywords",
    "If the AI is ever off or busy, the quick on-phone sorter takes over by itself"

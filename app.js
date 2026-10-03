@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.31";
+const VERSION = "0.32";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -51,7 +51,7 @@ const FEATURES = {
 const can = f => !PRO_LIVE || FEATURES[f] !== "pro" || TIER === "pro";
 
 // ---------------------------------------------------------------- packs
-const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "schedule", "leave", "routines", "reset", "tomorrow", "work", "payday", "budget", "weather", "todos", "notes", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
+const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "top3", "schedule", "leave", "routines", "reset", "tomorrow", "work", "payday", "budget", "weather", "todos", "notes", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
 const PACKS = {
   general:  { label: "General",              cards: [] },
   trucker:  { label: "Trucker / Dispatcher", cards: ["route", "loads"] },
@@ -72,6 +72,7 @@ const blank = () => ({
   people: [],
   upkeep: [],
   routines: [], rdone: {},
+  top3: { day: null, items: [], ai: false },
   payday: { freq: null, next: null, amount: null, d1: 1, d2: 15 }, goals: [],
   leave: { items: LEAVE_DEFAULT.map(text => ({ id: uid(), text })), day: null, done: [] },
   packages: [],
@@ -126,6 +127,8 @@ function normalize(raw) {
   s.routines = (Array.isArray(s.routines) ? s.routines : []).filter(r => obj(r) && r.name && Array.isArray(r.steps));
   s.routines.forEach(r => { r.steps = r.steps.filter(x => obj(x) && x.text); if (!Array.isArray(r.days)) r.days = []; if (r.time && !isT(r.time)) r.time = null; });
   if (!obj(s.rdone)) s.rdone = {};
+  s.top3 = Object.assign({ day: null, items: [], ai: false }, obj(s.top3) ? s.top3 : {});
+  if (!Array.isArray(s.top3.items)) s.top3.items = [];
   s.leave = Object.assign({ items: null, day: null, done: [] }, obj(s.leave) ? s.leave : {});
   if (!Array.isArray(s.leave.items)) s.leave.items = LEAVE_DEFAULT.map(text => ({ id: uid(), text }));
   if (!Array.isArray(s.leave.done)) s.leave.done = [];
@@ -456,6 +459,7 @@ async function syncOnOpen(force) {
   if (S.gcal.connected && gReady()) { await gcalFetch(true); await gcalPush(); }
   if (S.sync.on && dReady()) await syncDrive();
   if (S.mail.on && mReady() && can("mail")) scanMail();
+  if (MODE !== "cruise" && S.top3.day !== today() && new Date().getHours() >= 4 && (S.name || hasData(S)) && !S.hidden.includes("top3")) top3Pick();
   render();
 }
 // ZERO-TAP renew (Scott 10/2: "still need calendar to auto sync on open").
@@ -553,6 +557,7 @@ function briefLines() {
   // Every countdown (Scott 10/2: "on any count downs it should show in morning breifing") - and trips count down too.
   const cds = briefCountdowns(), todayCd = cds.filter(c => c.n === 0), ahead = cds.filter(c => c.n > 0);
   todayCd.forEach(c => s.push(`Today's the day: ${c.title}! 🎉`));
+  if (S.top3.day === t && S.top3.items.length) s.push(`Your top ${S.top3.items.length}: ${S.top3.items.map(x => x.title).join("; ")}.`);
   if (ahead.length) s.push(`Counting down: ${ahead.map(c => `${c.n} day${c.n === 1 ? "" : "s"} until ${c.title}`).join(", ")}.`);
   return s;
 }
@@ -2167,6 +2172,94 @@ function showPulse() {
   el.classList.remove("hidden");
 }
 
+// ------------------------------------------------- ask day hub + top 3
+// Scott 10/2 (list #17 + #18, on the AI relay): ask in plain words instead of
+// digging ("When's my next oil change?", "What didn't I finish?") and a daily
+// Top 3 - the three things that matter most today, which you can tick, move
+// or drop. The question goes to Claude with a SUMMARY of your own planner
+// (next two weeks, open to-dos, bills, upkeep, dates, payday...), nothing else.
+// Without the AI helper, Top 3 is picked on the phone from the Life pulse.
+function aiContext() {
+  const t = today(), d = n => addDays(t, n), out = { today: t, now: hm(nowT()), name: S.name || null };
+  out.schedule = []; for (let i = -1; i <= 14; i++) { const day = d(i);
+    dayItems(day).filter(x => !["sun", "rain"].includes(x.kind)).forEach(x => out.schedule.push({ day, time: x.t ? hm(x.t) : null, what: x.title, note: x.sub || undefined, kind: x.kind })); }
+  out.openTodos = S.todos.filter(x => todoShown(x) && !todoDone(x)).map(x => x.title);
+  out.doneToday = S.todos.filter(x => x.doneDay === t).map(x => x.title);
+  out.bills = upcomingBills().map(b => ({ name: b.name, amount: money(b.amount), due: b.due }));
+  out.homeAndCar = S.upkeep.map(x => ({ what: x.name.replace(/^\S+\s/, ""), area: x.area, next: upkeepNext(x), last: x.last || null }));
+  out.peopleDates = S.people.map(p => ({ what: personLabel(p, personNext(p)), date: personNext(p), giftIdeas: p.ideas || undefined, giftBought: !!p.got[personNext(p).slice(0, 4)] }));
+  out.countdowns = briefCountdowns().map(c => ({ what: c.title, date: c.day, daysLeft: c.n }));
+  { const nx = payNext(); if (nx) out.payday = { next: nx, takeHome: (a => a.amt ? money(a.amt) : null)(payAmount()), billsBeforeIt: dueBetween(t, nx).map(o => `${o.name} ${money(o.amt)} ${o.day}`) }; }
+  out.goals = S.goals.map(g => ({ goal: g.name, saved: money(g.saved), target: money(g.target) }));
+  out.lists = S.lists.map(l => ({ list: l.name, toGet: l.items.filter(i => !i.done).map(i => i.text) })).filter(l => l.toGet.length);
+  out.packages = S.packages.filter(x => !x.delivered).map(x => ({ what: x.name, eta: x.eta || null }));
+  out.routines = S.routines.map(r => ({ name: r.name, steps: r.steps.map(x => x.text), days: r.days.map(n => DOW[n]), time: r.time ? hm(r.time) : null }));
+  out.notes = S.notes.slice(-25).map(n => String(n.text).slice(0, 140));
+  out.workThisPeriod = (p => p.hrs ? { hours: fmtH(p.hrs), takeHome: money(p.net) } : null)(periodPay(periodStart(t)));
+  out.weatherToday = WXDATA && WXDATA.here && WXDATA.here.day ? { hi: Math.round(WXDATA.here.day.hi), lo: Math.round(WXDATA.here.day.lo), rainFrom: WXDATA.here.day.rainFrom ? fmtTime(WXDATA.here.day.rainFrom) : null } : null;
+  out.alerts = pulseItems().map(x => x.text);
+  let j = JSON.stringify(out);
+  if (j.length > 14000) { out.notes = out.notes.slice(-5); out.schedule = out.schedule.filter(x => x.day <= d(7)); j = JSON.stringify(out); }
+  return j.slice(0, 15000);
+}
+let ASK_BUSY = false, ASK_LOG = [];
+function showAsk() {
+  let el = document.getElementById("askSheet");
+  if (!el) { el = document.createElement("div"); el.id = "askSheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); document.body.appendChild(el); }
+  const ex = ["What's happening tomorrow?", "When is my next oil change?", "What haven't I finished this week?", "What bills are due before payday?"];
+  el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
+    <div class="sheet-head"><h2>💡 Ask Day Hub</h2><button class="icon-btn" data-askclose="1" aria-label="Close">✕</button></div>
+    ${aiOn() ? `<form class="ask-form" data-ask="1"><input name="q" placeholder="Ask anything about your day…" autocomplete="off" required>
+        <button type="button" class="btn sm ghost" data-askmic="1" aria-label="Talk">🎤</button><button class="btn sm">Ask</button></form>
+      <div class="chips up-chips">${ex.map(q => `<button class="chip" data-askq="${esc(q)}">${esc(q)}</button>`).join("")}</div>
+      <div id="askOut">${ASK_LOG.map(a => `<div class="ask-q">${esc(a.q)}</div><div class="ask-a">${esc(a.a)}</div>`).join("")}</div>`
+    : `<p class="fine" style="margin-top:4px">Ask in plain words — "When's my next oil change?" — and Day Hub answers from your own planner.</p>
+       <ol class="steps"><li>Tap ⚙ (top right).</li><li>Find <b>🤖 AI helper</b>, type your passphrase, tap <b>Turn on</b>.</li></ol>
+       <button class="btn sm" data-askclose="1" data-open="sheet">Open ⚙</button>`}
+  </div>`;
+  el.classList.remove("hidden");
+  setTimeout(() => { const i = el.querySelector("input[name=q]"); if (i) i.focus(); }, 60);
+}
+async function askDayHub(q) {
+  q = String(q || "").trim(); if (!q || ASK_BUSY) return;
+  ASK_BUSY = true; ASK_LOG.unshift({ q, a: "…thinking" }); showAsk();
+  try { ASK_LOG[0].a = String((await aiCall("ask", `QUESTION: ${q}\n\nMY PLANNER (JSON):\n${aiContext()}`)).text || "").trim() || "I couldn't find that in your planner."; }
+  catch (e) { ASK_LOG[0].a = `⚠️ ${/passphrase/.test(e.message) ? "The AI helper's passphrase changed — set it again in ⚙" : "Couldn't reach the AI helper right now. Try again in a minute."}`; }
+  ASK_LOG = ASK_LOG.slice(0, 6); ASK_BUSY = false; showAsk();
+}
+// Top 3: AI pick once a day (when on), else a quick pick from the Life pulse + today's plan.
+function top3Quick() {
+  const out = pulseItems().slice(0, 3).map(x => ({ title: x.text, why: "needs you today" }));
+  const nx = dayItems(today()).filter(i => isPlan(i) && i.t && i.t >= nowT()).slice(0, 3 - out.length);
+  nx.forEach(i => out.push({ title: `${i.title} at ${hm(i.t)}`, why: "on today's schedule" }));
+  return out.slice(0, 3);
+}
+let TOP3_BUSY = false;
+async function top3Pick(force) {
+  if (TOP3_BUSY || (!force && S.top3.day === today())) return;
+  TOP3_BUSY = true;
+  let items = null, ai = false;
+  if (aiOn()) {
+    try { const j = aiJSON((await aiCall("top3", aiContext())).text);
+      items = (j && Array.isArray(j.top) ? j.top : []).filter(x => x && String(x.title || "").trim()).slice(0, 3)
+        .map(x => ({ title: String(x.title).trim().slice(0, 100), why: String(x.why || "").trim().slice(0, 60) }));
+      ai = !!items.length; if (!ai) items = null;
+    } catch (e) { /* quick pick below */ }
+  }
+  S.top3 = { day: today(), ai, items: (items || top3Quick()).map(x => ({ id: uid(), ...x, done: false })) };
+  TOP3_BUSY = false; saveLocal(); render();
+}
+function top3Card() {
+  const T = S.top3.day === today() ? S.top3.items : [];
+  if (!T.length) return `<div class="empty">${TOP3_BUSY ? "🎯 Picking…" : "The three things that matter most today."}</div>
+    <button class="btn sm" data-top3="pick">🎯 Pick my top 3</button>`;
+  return T.map((x, i) => `<div class="row top3 ${x.done ? "done" : ""}"><input type="checkbox" class="tick" data-t3chk="${x.id}" ${x.done ? "checked" : ""}>
+      <span class="t3n">${i + 1}</span><span class="grow">${esc(x.title)}${x.why ? `<span class="sub">${esc(x.why)}</span>` : ""}</span>
+      ${i ? `<button class="x" data-t3up="${x.id}" aria-label="Move up">▲</button>` : ""}<button class="x" data-t3del="${x.id}" aria-label="Remove">✕</button></div>`).join("") +
+    (T.every(x => x.done) ? `<div class="today-line">🎯 All three done — great day!</div>` : "") +
+    `<div class="foot-actions"><button class="add-link" data-top3="pick">↻ Pick again</button><span class="fine" style="margin:0">${S.top3.ai ? "picked by your AI helper" : "quick pick — turn on 🤖 AI helper in ⚙ for smarter picks"}</span></div>`;
+}
+
 function heroHtml() {
   const now = new Date(), h = now.getHours();
   const w = WXDATA && WXDATA.here;
@@ -2232,7 +2325,7 @@ function heroHtml() {
   // Cruise Hub's top line is about the cruise only (Day Hub's chips stay in Day Hub).
   const keep = MODE !== "cruise" ? chips : chips.filter(c => /forgetting|Final payment|🚢|✈️|[Rr]ain|New version|Install|⚓/.test(c));
   return `<div class="hero-top"><div class="greet">${greet()}</div>
-      <span class="hero-btns">${MODE !== "cruise" ? `<button class="icon-btn" data-leave="1" aria-label="Don't forget">🚪</button><button class="icon-btn" data-dump="1" aria-label="Brain dump">🧠</button>` : ""}<button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button></span></div>
+      <span class="hero-btns">${MODE !== "cruise" ? `<button class="icon-btn" data-ask="open" aria-label="Ask Day Hub">💡</button><button class="icon-btn" data-leave="1" aria-label="Don't forget">🚪</button><button class="icon-btn" data-dump="1" aria-label="Brain dump">🧠</button>` : ""}<button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button></span></div>
     <div class="hero-main"><div><div class="hero-clock" id="clockNow"></div><div class="hero-date">${longDate(today())}</div></div>${wx}</div>
     <div class="verdict-row">${MODE !== "cruise" && (S.name || hasData(S)) ? pulseRing() : ""}<div class="verdict">${verdict}</div></div>
     <div class="chips">${keep.join("")}</div>`;
@@ -2577,6 +2670,8 @@ const CARDS = {
 
   payday: { icon: "💵", title: "Payday",
     meta: () => { const nx = payNext(); return nx ? (daysUntil(nx) === 0 ? "today!" : inDays(daysUntil(nx))) : ""; }, body: () => paydayCard() },
+  top3: { icon: "🎯", title: "Top 3 today",
+    meta: () => { const T = S.top3.day === today() ? S.top3.items : []; return T.length ? `${T.filter(x => x.done).length}/${T.length}` : ""; }, body: () => top3Card() },
   routines: { icon: "🔁", title: "Routines", add: ["routine", "Make your own routine"],
     meta: () => { const r = routineNow(); return r ? `${esc(r.name.replace(/^\S+\s/, ""))} now` : ""; }, body: () => routinesCard() },
   home: { icon: "🏠", title: "Home", add: ["upkeep", "Add something"],
@@ -2746,7 +2841,7 @@ const aiJSON = text => { const m = String(text || "").match(/\{[\s\S]*\}/); retu
 function drawAiBox(msg) {
   const g = document.getElementById("aiBox"); if (!g) return;
   g.innerHTML = `<h3>🤖 AI helper</h3>` + (aiOn()
-    ? `<div class="leg"><span>✅ On — Brain dump sorts with AI${msg ? ` · ${esc(msg)}` : ""}</span></div>
+    ? `<div class="leg"><span>✅ On — Brain dump, 💡 Ask and 🎯 Top 3 use AI${msg ? ` · ${esc(msg)}` : ""}</span></div>
        <div class="foot-actions"><button class="btn sm" data-ai="test">Test it</button><button class="btn sm ghost" data-ai="off">Turn off</button></div>`
     : `<p class="fine" style="margin-top:0">Smarter sorting for 🧠 Brain dump (more coming). Uses your own Claude helper — set up once:</p>
        <ol class="steps"><li>Type the passphrase you saved as <b>PASS</b> in your Day Hub AI relay.</li><li>Tap <b>Turn on</b>.</li></ol>
@@ -3174,6 +3269,7 @@ document.addEventListener("submit", e => {
   if (f.dataset.tadd) { const [tid, k] = f.dataset.tadd.split(":"); const tr = S.trips.find(x => x.id === tid);
     if (tr) tr.lists[k].push({ id: uid(), text: data.text.trim(), done: false });
     save(); render(); const again = document.querySelector(`form[data-tadd="${f.dataset.tadd}"] input`); if (again) again.focus(); return; }
+  if (f.dataset.ask) { askDayHub(data.q); return; }
   if (f.dataset.aipass) { const pw = (data.pass || "").trim(); if (!pw) return;
     drawAiBox("checking…");
     aiCall("ping", "", pw).then(() => { try { localStorage.setItem(AI_KEY, pw); } catch (e) { /* private mode */ } drawAiBox("connected ✓"); toast("🤖 AI helper on"); })
@@ -3200,7 +3296,7 @@ document.addEventListener("click", e => {
   const ne = e.target.closest && e.target.closest("[data-noteedit]");
   if (ne) { NOTE_EDIT = ne.dataset.noteedit; openQA("note"); return; }
   if (e.target.classList && e.target.classList.contains("sheet")) {         // tap on the dim backdrop
-    if (e.target.id === "sheet") closeSettings(); else if (e.target.id === "pulseSheet") e.target.classList.add("hidden"); else closeQA(); return;
+    if (e.target.id === "sheet") closeSettings(); else if (e.target.id === "pulseSheet" || e.target.id === "askSheet") e.target.classList.add("hidden"); else closeQA(); return;
   }
   const t = e.target.closest("button, h3[data-collapse]");
   if (!t) return;
@@ -3286,6 +3382,15 @@ document.addEventListener("click", e => {
   if (ds.syncall) { syncTap(); return; }
   if (ds.ai === "off") { try { localStorage.removeItem(AI_KEY); } catch (e) { /* ok */ } drawAiBox(); toast("AI helper off — the quick sorter takes over"); return; }
   if (ds.ai === "test") { drawAiBox("testing…"); aiCall("ping", "").then(j => drawAiBox(`working · ${j.left} left today`)).catch(e => drawAiBox("problem: " + e.message)); return; }
+  if (ds.ask === "open") { showAsk(); return; }
+  if (ds.askclose) { document.getElementById("askSheet").classList.add("hidden"); if (ds.open === "sheet") openSettings(); return; }
+  if (ds.askq) { askDayHub(ds.askq); return; }
+  if (ds.askmic) { const SR = window.SpeechRecognition || window.webkitSpeechRecognition; const i = document.querySelector("#askSheet input[name=q]");
+    if (!SR || !i) { toast("Tap the 🎤 on your keyboard and talk"); return; }
+    const r = new SR(); r.lang = navigator.language || "en-US"; r.onresult = e => { i.value = e.results[0][0].transcript; askDayHub(i.value); }; r.start(); t.textContent = "…"; return; }
+  if (ds.top3 === "pick") { top3Pick(true); render(); return; }
+  if (ds.t3up) { const T = S.top3.items, i = T.findIndex(x => x.id === ds.t3up); if (i > 0) [T[i - 1], T[i]] = [T[i], T[i - 1]]; saveLocal(); render(); return; }
+  if (ds.t3del) { S.top3.items = S.top3.items.filter(x => x.id !== ds.t3del); saveLocal(); render(); return; }
   if (ds.pulse) { showPulse(); return; }
   if (ds.pulseclose) { document.getElementById("pulseSheet").classList.add("hidden"); return; }
   if (ds.pulsego) { document.getElementById("pulseSheet").classList.add("hidden"); const k = ds.pulsego;
@@ -3354,6 +3459,8 @@ document.addEventListener("change", e => {
   if (ds.dday !== undefined) { DUMP[Number(ds.dday)].day = t.value; return; }
   if (ds.dtime !== undefined) { DUMP[Number(ds.dtime)].time = t.value; return; }
   if (t.dataset.briefauto !== undefined) { S.briefAuto = t.checked; saveLocal(); toast(t.checked ? "Morning brief on" : "Morning brief off — ☀️ chip still opens it"); return; }
+  if (ds.t3chk) { const x = S.top3.items.find(y => y.id === ds.t3chk); if (x) { x.done = t.checked; saveLocal(); render(); buzz();
+    if (S.top3.items.every(y => y.done)) toast("🎯 All three done!"); } return; }
   if (ds.rstep) { const [rid, sid] = ds.rstep.split(":"), r = S.routines.find(x => x.id === rid); if (!r) return;
     const cur = rDone(r), ids = t.checked ? [...new Set([...cur, sid])] : cur.filter(x => x !== sid);
     S.rdone[rid] = { day: today(), ids }; save(); render(); buzz();

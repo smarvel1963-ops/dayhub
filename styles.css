@@ -378,3 +378,10 @@ details.steps .fine { margin-top: 8px; }
 .pulse-row .sub { margin-right: 6px; }
 /* Brief countdowns (v0.30) */
 .brief-sec .cd-n { font-size: 22px; font-weight: 800; min-width: 48px; text-align: center; }
+/* Ask Day Hub + Top 3 (v0.32) */
+.ask-form { display: flex; gap: 6px; margin: 8px 0; }
+.ask-form input { flex: 1; min-width: 0; }
+.ask-q { font-weight: 700; margin-top: 12px; }
+.ask-a { background: rgba(94,234,212,.08); border: 1px solid rgba(94,234,212,.25); border-radius: 12px; padding: 10px 12px; margin-top: 6px; line-height: 1.45; white-space: pre-wrap; }
+.top3 .t3n { font-weight: 800; color: var(--accent); min-width: 16px; }
+.top3 .sub { display: block; }

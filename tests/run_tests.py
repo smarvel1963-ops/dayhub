@@ -90,6 +90,12 @@ def route(ctx):
                     {"kind": "item", "title": "Toothpaste"},
                     {"kind": "note", "title": "December vacation idea"},
                     {"kind": "bogus", "title": "dropped"}]})})
+            if body.get("task") == "ask":
+                ctx._ask_input = body.get("input", "")
+                return r.fulfill(json={"text": "Your next oil change is due Fri, Jan 1."})
+            if body.get("task") == "top3":
+                return r.fulfill(json={"text": json.dumps({"top": [{"title": "Pay the phone bill", "why": "due today"},
+                    {"title": "Dentist at 3:00 PM", "why": "appointment"}, {"title": "Call Mom", "why": "promised"}]})})
             return r.fulfill(json={"error": "unknown task"})
         if u.netloc == "accounts.google.com" and u.path == "/o/oauth2/v2/auth":
             back = q["redirect_uri"][0]
@@ -888,6 +894,37 @@ def t_v031_ai_helper(b, base):
     a.close()
 
 
+def t_v032_ask_top3(b, base):
+    print("\n[v0.32 ask day hub + top 3]")
+    a = App(b, base); setup(a)
+    a.qa("todo", {"title": "Call insurance"})
+    a.qa("bill", {"title": "Phone", "amount": "85", "day": "1"})
+    a.js("closeQA()")
+    check("Top 3 without AI: quick pick from the pulse", a.js("S.top3.day === today() && S.top3.items.length >= 2 && !S.top3.ai") or (a.js("top3Pick(true)") or True) and a.js("S.top3.items.length >= 2"))
+    check("quick pick says how to get smarter picks", "turn on 🤖 AI helper" in a.card("top3"))
+    a.page.click('#hero [data-ask="open"]')
+    check("💡 without AI: easy steps to turn it on", "AI helper" in a.page.inner_text("#askSheet") and "passphrase" in a.page.inner_text("#askSheet"))
+    a.page.click('#askSheet [data-askclose]')
+    a.js("localStorage.setItem('dayhub.aipass', 'test-only-passphrase-x7')")
+    a.qa("upkeep", {"area": "auto", "name": "🛢️ Oil change", "every": "3", "unit": "months", "last": "2026-10-01"}); a.js("closeQA()")
+    a.page.click('#hero [data-ask="open"]')
+    a.page.fill("#askSheet input[name=q]", "When is my next oil change?"); a.page.click("#askSheet form button:last-child"); a.page.wait_for_timeout(500)
+    check("💡 asks + shows the answer", "next oil change is due" in a.page.inner_text("#askSheet"))
+    ctx = getattr(a.ctx, "_ask_input", "")
+    check("question sent with a summary of your planner", "When is my next oil change?" in ctx and "Oil change" in ctx and "Call insurance" in ctx and "Phone" in ctx, ctx[:200])
+    a.page.click('#askSheet [data-askclose]')
+    a.page.click('[data-card="top3"] [data-top3="pick"]'); a.page.wait_for_timeout(500)
+    card = a.card("top3")
+    check("AI Top 3 picked", "Pay the phone bill" in card and "Dentist at 3:00 PM" in card and "picked by your AI helper" in card, card[:300])
+    a.page.click('[data-t3up] >> nth=1')
+    check("▲ reorders", a.js("S.top3.items[1].title") == "Call Mom")
+    for i in a.js("S.top3.items.map(x => x.id)"):
+        a.page.click(f'[data-t3chk="{i}"]')
+    check("tick all three: done", "All three done" in a.card("top3"))
+    check("brief reads your top 3", any("Your top 3" in l for l in a.js("briefLines()")))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -899,7 +936,8 @@ def main():
                   t_v024_weather_intel, t_v025_people_leave,
                   t_v026_upkeep, t_v027_routines,
                   t_v028_payday, t_v029_pulse,
-                  t_v030_brief_countdowns, t_v031_ai_helper):
+                  t_v030_brief_countdowns, t_v031_ai_helper,
+                  t_v032_ask_top3):
             try:
                 t(b, base)
             except Exception as e:
