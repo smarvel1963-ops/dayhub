@@ -16,7 +16,7 @@
  */
 "use strict";
 const SWITCHES = Object.freeze({
-  PRO_GATE: false,    // Free vs Pro. OFF = everything free, no Pro section anywhere.
+  PRO_GATE: true,     // ON 2026-10-03 (Scott "go": Whop product live). OFF = everything free, no Pro section anywhere.
   AI_PUBLIC: false,   // AI helper for Pro (Whop key) holders. OFF = only the owner passphrase works.
   GMAIL: false,       // Gmail -> plans. Waits on Google's restricted-scope verification.
   STORE: false,       // "Get it on Google Play" link. Waits on the Play listing going live.

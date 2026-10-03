@@ -1021,7 +1021,7 @@ def t_v034_backup_nudge(b, base):
     a = App(b, base); setup(a)
     check("nothing saved yet: no nudge", "Not backed up" not in a.page.inner_text("#hero"))
     a.qa("todo", {"title": "Call insurance"}); a.js("closeQA()")
-    check("has data + backup off: nudge at the top", "Not backed up — tap to turn on" in a.page.inner_text("#hero"))
+    check("free phone (PRO_GATE on): no backup nudge, backup is a Pro feature", "Not backed up — tap to turn on" not in a.page.inner_text("#hero"))
     a.page.click("#settingsBtn")
     check("⚙ backup box: easy steps", "Not backed up yet" in a.page.inner_text("#syncBox") and "Allow" in a.page.inner_text("#syncBox"))
     a.js("closeSettings(); S.sync.on = true; save(); render()")
@@ -1140,11 +1140,11 @@ def t_v039_short_home(b, base):
 def t_v040_switches(b, base):
     print("\n[v0.40 switchboard: everything OFF by default, owner switches, Pro key, legal pages, manifest]")
     a = App(b, base); setup(a)
-    check("switchboard: all four switches OFF", a.js("Object.values(SWITCHES).every(v => v === false) && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE'"))
+    check("switchboard: PRO_GATE on (10/3 go-live), the other three OFF", a.js("SWITCHES.PRO_GATE === true && !SWITCHES.AI_PUBLIC && !SWITCHES.GMAIL && !SWITCHES.STORE && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE'"))
     check("plan: approved price, contact, Whop checkout", a.js("PLAN.MONTHLY") == "$4.99/month" and a.js("PLAN.YEARLY") == "$29.99/year" and a.js("PLAN.CONTACT_EMAIL") == "smarvel1963@gmail.com" and a.js("PLAN.WHOP_CHECKOUT_URL") == "https://whop.com/commander-marvel-por-picks/day-hub-pro")
-    check("PRO_GATE off: every feature unlocked", a.js("['ai','gcal','mail','sync','reminders','budget'].every(can)"))
+    check("PRO_GATE on, free phone: Pro features locked, free ones open", a.js("!['ai','gcal','mail','sync'].some(can) && ['reminders','budget'].every(can)"))
     a.page.click("#settingsBtn")
-    check("PRO_GATE off: no Pro section in settings", a.js("document.getElementById('proBox').hidden && !document.getElementById('proBox').innerHTML"))
+    check("PRO_GATE on: Pro section in settings with the price + Whop button", a.js("!document.getElementById('proBox').hidden") and "$4.99" in a.page.inner_text("#proBox"))
     check("GMAIL off: no Gmail connect for a phone that never connected", a.js("document.getElementById('mailBox').hidden") and "Connect Gmail" not in a.page.inner_text("#sheet"))
     check("Google Calendar connect still offered", "Connect Google Calendar" in a.page.inner_text("#gcalBox"))
     check("AI box unchanged (passphrase setup)", a.js("!!document.querySelector('form[data-aipass]')") and "Included with" not in a.page.inner_text("#aiBox"))
@@ -1233,7 +1233,7 @@ def t_v040_switches(b, base):
     ctx.close()
     # cruise page loads the switchboard too
     a = App(b, base, path="/cruise/")
-    check("Cruise Hub loads the switchboard", a.js("typeof switchOn") == "function" and a.js("can('gcal')"))
+    check("Cruise Hub loads the switchboard", a.js("typeof switchOn") == "function" and a.js("can('reminders')"))
     a.close()
 
 
