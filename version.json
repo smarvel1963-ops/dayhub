@@ -1,6 +1,10 @@
 {
- "version": "0.38",
+ "version": "0.39",
  "notes": {
+  "0.39": [
+   "📏 Shorter home screen: empty cards shrink to one line (＋ Add a bill, ＋ Plan a trip…) — tap ⓘ to see what the card does",
+   "🔝 Top alerts show the 3 that matter most; tap + more to see the rest"
+  ],
   "0.38": [
    "🧹 Tidier under the hood: Day Hub's code is split into two smaller files so it loads and updates cleanly — nothing you use changed, and all your data stays put"
   ],

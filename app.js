@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.38";
+const VERSION = "0.39";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -2525,8 +2525,15 @@ function heroHtml() {
       <span class="hero-btns">${MODE !== "cruise" ? `<button class="icon-btn" data-ask="open" aria-label="Ask Day Hub">💡</button><button class="icon-btn" data-leave="1" aria-label="Don't forget">🚪</button><button class="icon-btn" data-dump="1" aria-label="Brain dump">🧠</button>` : ""}<button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button></span></div>
     <div class="hero-main"><div><div class="hero-clock" id="clockNow"></div><div class="hero-date">${longDate(today())}</div></div>${wx}</div>
     <div class="verdict-row">${MODE !== "cruise" && (S.name || hasData(S)) ? pulseRing() : ""}<div class="verdict">${verdict}</div></div>
-    <div class="chips">${keep.join("")}</div>`;
+    <div class="chips">${chipsShown(keep).join("")}</div>`;
 }
+// v0.39 (Scott 10/3 "do 1 2"): at most 3 chips up top, in the order above (= priority);
+// the rest fold into "+N more", which opens them in place. Open for this visit only.
+let CHIPS_ALL = false;
+const CHIPS_MAX = 3;
+const chipsShown = keep => keep.length <= CHIPS_MAX ? keep
+  : CHIPS_ALL ? [...keep, `<button class="chip more" data-chipsmore="0">− Show less</button>`]
+  : [...keep.slice(0, CHIPS_MAX), `<button class="chip more" data-chipsmore="1">+${keep.length - CHIPS_MAX} more</button>`];
 function paintHero() {
   const hero = document.getElementById("hero");
   const h = new Date().getHours();

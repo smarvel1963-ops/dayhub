@@ -151,6 +151,18 @@ def setup(app, city="72032", name="Scott", pack="general"):
     app.page.wait_for_function("WXDATA && WXDATA.here")
 
 
+def hero(app):
+    """The whole top line: v0.39 shows 3 chips + '+N more' - open it first, like a person would."""
+    m = app.page.query_selector('#hero [data-chipsmore="1"]')
+    if m: m.click()
+    return app.page.inner_text("#hero")
+
+
+def open_mini(app, key):
+    """v0.39: an empty card is one line on home - tap its i to see the full card."""
+    app.page.click(f'[data-card="{key}"] .mini-info')
+
+
 # ================================================================== tests
 def t_first_run(b, base):
     print("\n[first run + weather]")
@@ -173,7 +185,7 @@ def t_schedule(b, base):
     a = App(b, base); setup(a)
     a.qa("event", {"title": "Dentist", "date": "2026-10-01", "time": "14:30", "where": "Main St"})
     check("event lands on the timeline", "Dentist" in a.card("schedule") and "2:30 PM" in a.card("schedule"))
-    check("hero 'next up' chip", "2:30 PM · Dentist" in a.page.inner_text("#hero"))
+    check("hero 'next up' chip", "2:30 PM · Dentist" in hero(a))
     check("timeline has a NOW line", a.js("!!document.querySelector('.now-line')"))
     a.qa("event", {"title": "Gym", "date": "2026-10-01", "time": "18:00", "rep": "weekly"})
     check("weekly repeat: next week yes, tomorrow no", a.js("(() => { const g = S.events.find(e => e.title==='Gym'); return occursOn(g,'2026-10-08') && !occursOn(g,'2026-10-02'); })()"))
@@ -225,7 +237,7 @@ def t_bills_budget_work(b, base):
     print("\n[bills + work hours + budget]")
     a = App(b, base); setup(a)
     a.qa("bill", {"title": "Phone", "amount": "85", "day": "3"})
-    check("bill due in 2 days: pill + hero chip", "in 2 days" in a.card("bills") and "Phone in 2 days" in a.page.inner_text("#hero"))
+    check("bill due in 2 days: pill + hero chip", "in 2 days" in a.card("bills") and "Phone in 2 days" in hero(a))
     a.page.click('[data-paid]')
     check("Paid rolls the bill to next month", a.js("upcomingBills()[0].due") == "2026-11-03")
     a.page.click('[data-undo]')
@@ -242,7 +254,7 @@ def t_bills_budget_work(b, base):
     a.qa("spend", {"amt": "2000", "what": "Rent", "date": "2026-10-01"})
     bud = a.js("budget()")
     check("salary budget: $2,000/mo, over by bills + spending", round(bud["income"]) == 2000 and bud["status"] == "over", bud)
-    check("over budget shows a hero warning", "over budget" in a.page.inner_text("#hero"))
+    check("over budget shows a hero warning", "over budget" in hero(a))
     a.close()
 
 
@@ -251,7 +263,7 @@ def t_packages_email(b, base):
     a = App(b, base); setup(a)
     a.qa("package", {"name": "Boots", "num": "1Z999AA10123456784", "carrier": "auto", "eta": "2026-10-01"})
     check("UPS recognised + Track link", "ups.com/track" in a.js("trackUrl(S.packages[0])"))
-    check("'arriving today' chip", "1 arriving today" in a.page.inner_text("#hero"))
+    check("'arriving today' chip", "1 arriving today" in hero(a))
     a.page.click('[data-pkgdone]')
     check("Delivered ✓", a.js("S.packages[0].delivered"))
     res = a.js("""extractFromMessage({id:'m1', subject:'Appointment Confirmation: Dr. Lee', text:'Your appointment is on Thursday, October 9, 2026 at 2:30 PM.'})""")
@@ -342,6 +354,8 @@ def t_settings_layout_offline(b, base):
 def t_notes_data(b, base):
     print("\n[notes + your data]")
     a = App(b, base); setup(a)
+    a.page.click('[data-card="notes"] .mini-add')
+    check("empty Notes: the one-line row opens the card on the note box", a.js("document.activeElement && document.activeElement.closest('form[data-noteadd]') !== null"))
     a.page.fill('form[data-noteadd] [name=text]', "Gate code 4412"); a.page.click('form[data-noteadd] button')
     check("note saved", "Gate code 4412" in a.card("notes"))
     a.page.click('[data-noteedit]'); a.page.fill('#qaForm textarea', "Gate code 9981"); a.page.click('#qaForm button.btn')
@@ -548,7 +562,7 @@ def t_v021_brief_sync(b, base):
     check("Start my day closes it", not a.js("briefOpen()"))
     a.page.reload(); a.page.wait_for_timeout(400)
     check("only once per morning", not a.js("briefOpen()"))
-    a.page.click('#hero [data-brief="open"]')
+    hero(a); a.page.click('#hero [data-brief="open"]')
     check("☀️ chip opens it any time in the morning", a.js("briefOpen()"))
     a.page.click("[data-briefauto]")
     a.page.click('[data-brief="go"]')
@@ -578,7 +592,7 @@ def t_v021_brief_sync(b, base):
     # sign-in ran out + Google says "needs you": one chip, and no redirect loop
     a.js("localStorage.setItem('dayhub.gtok', JSON.stringify({g:['tok', Date.now() - 1000]})); localStorage.removeItem('dayhub.autoauth')")
     a.page.reload(); a.page.wait_for_timeout(800)
-    check("Google needs you: one '🔄 Tap to sync' chip", a.page.inner_text("#hero").count("Tap to sync") == 1)
+    check("Google needs you: one '🔄 Tap to sync' chip", hero(a).count("Tap to sync") == 1)
     hits = getattr(a.ctx, "_oauth_hits", 0)
     a.page.reload(); a.page.wait_for_timeout(500)
     check("...and it does not keep bouncing to Google", getattr(a.ctx, "_oauth_hits", 0) == hits and "state=" not in a.page.url)
@@ -712,6 +726,7 @@ def t_v025_people_leave(b, base):
 def t_v026_upkeep(b, base):
     print("\n[v0.26 home & car upkeep]")
     a = App(b, base); setup(a)                     # Thu 2026-10-01 08:00
+    open_mini(a, "home"); open_mini(a, "auto")
     check("empty Home card offers common ones", "HVAC filter" in a.card("home") and "Trash day" in a.card("home"))
     check("empty Car card offers common ones", "Oil change" in a.card("auto") and "Registration renewal" in a.card("auto"))
     # trash day: tap the chip, set next pickup = Fri Oct 2
@@ -749,6 +764,7 @@ def t_v026_upkeep(b, base):
 def t_v027_routines(b, base):
     print("\n[v0.27 routines]")
     a = App(b, base, at="2026-10-01T06:30:00"); setup(a)          # Thursday
+    open_mini(a, "routines")
     check("empty card offers the 5 routines", all(x in a.card("routines") for x in ["Morning", "Workday shutdown", "Evening", "Weekend reset", "Vacation prep"]))
     a.page.click('[data-card="routines"] [data-radd="0"]')
     check("one tap adds Morning with its steps", a.js("S.routines.length") == 1 and "Make the bed" in a.card("routines"))
@@ -785,6 +801,7 @@ def t_v027_routines(b, base):
 def t_v028_payday(b, base):
     print("\n[v0.28 payday]")
     a = App(b, base); setup(a)                     # Thu 2026-10-01 08:00
+    open_mini(a, "payday")
     check("not set up: 3 easy steps", "How often do you get paid?" in a.card("payday") and "Your next payday" in a.card("payday"))
     a.qa("bill", {"title": "Phone", "amount": "85", "day": "3"})
     a.qa("bill", {"title": "Rent", "amount": "900", "day": "12"})
@@ -1062,6 +1079,44 @@ def t_v037_future_me(b, base):
     a.close()
 
 
+def t_v039_short_home(b, base):
+    print("\n[v0.39 shorter home: empty cards one line, 3 chips + more]")
+    a = App(b, base); setup(a)                     # Thu 2026-10-01 08:00
+    minis = a.js("[...document.querySelectorAll('.card.mini')].map(c => c.dataset.card)")
+    check("empty cards are one-line rows", all(k in minis for k in ["trips", "payday", "budget", "notes", "future", "packages", "bills", "countdowns", "lists"]), minis)
+    check("cards with content stay full (schedule, weather, don't forget)", not any(k in minis for k in ["schedule", "weather", "leave"]), minis)
+    check("no explainer text on home", "Add your monthly bills" not in a.page.inner_text("#cards") and "Got a cruise or trip coming" not in a.page.inner_text("#cards"))
+    check("one-line rows are short", a.js("Math.max(...[...document.querySelectorAll('.card.mini')].map(c => c.offsetHeight))") <= 60)
+    check("row says what it adds", "＋ Add a bill" in a.card("bills") and "＋ Plan a trip" in a.card("trips"))
+    a.page.click('[data-card="bills"] .mini-add')
+    check("tapping the row opens the same add form as the card's button", a.js("QA_TYPE") == "bill" and not a.js("document.getElementById('qa').classList.contains('hidden')"))
+    a.qa("bill", {"title": "Phone", "amount": "80", "day": "3"})
+    check("once it has something the card draws in full", a.js("!document.querySelector('[data-card=\"bills\"]').classList.contains('mini')") and "Phone" in a.card("bills"))
+    open_mini(a, "trips")
+    check("i opens the full card, explainer included", "Got a cruise or trip coming" in a.card("trips") and a.js("!document.querySelector('[data-card=\"trips\"]').classList.contains('mini')"))
+    check("opening is for this visit only - nothing saved", "MINI" not in a.js("localStorage.getItem('dayhub.v1')") and a.js("!JSON.parse(localStorage.getItem('dayhub.v1')).collapsed.includes('trips')"))
+    a.page.click('[data-card="home"] .mini-add')
+    check("upkeep row opens the card with its tap-to-start choices", "HVAC filter" in a.card("home"))
+    a.page.reload(); a.page.wait_for_function("document.querySelector('#hero .greet')")
+    check("after reopening, an empty card is one line again", a.js("document.querySelector('[data-card=\"trips\"]').classList.contains('mini')"))
+    # chips: 3 + more
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("event", {"title": "Dentist", "date": "2026-10-01", "time": "14:30"})
+    a.qa("todo", {"title": "Call Mom"})
+    n_all = a.js("(() => { CHIPS_ALL = true; paintHero(); const n = document.querySelectorAll('#hero .chips .chip:not(.more)').length; CHIPS_ALL = false; paintHero(); return n; })()")
+    shown = a.js("document.querySelectorAll('#hero .chips .chip:not(.more)').length")
+    more = a.page.query_selector('#hero [data-chipsmore="1"]')
+    check("at most 3 chips up top", n_all > 3 and shown == 3, f"all={n_all} shown={shown}")
+    check("the rest fold into '+N more'", more is not None and more.inner_text().strip() == f"+{n_all - 3} more")
+    first3 = a.js("[...document.querySelectorAll('#hero .chips .chip')].slice(0, 3).map(c => c.textContent)")
+    more.click()
+    after = a.js("[...document.querySelectorAll('#hero .chips .chip:not(.more)')].map(c => c.textContent)")
+    check("'+N more' opens them all in place, same order", len(after) == n_all and after[:3] == first3)
+    a.page.click('#hero [data-chipsmore="0"]')
+    check("Show less folds them back", a.js("document.querySelectorAll('#hero .chips .chip:not(.more)').length") == 3)
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1077,7 +1132,7 @@ def main():
                   t_v032_ask_top3, t_v033_alarms,
                   t_v033_calendar_dates, t_v034_backup_nudge,
                   t_v035_errands, t_v036_returns,
-                  t_v037_future_me):
+                  t_v037_future_me, t_v039_short_home):
             try:
                 t(b, base)
             except Exception as e:

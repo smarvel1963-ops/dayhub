@@ -59,6 +59,15 @@ button { font-family: inherit; }
 .card h3 .chev { color: var(--dim); transition: transform .2s; font-size: 18px; }
 .card.collapsed h3 .chev { transform: rotate(-90deg); }
 .card .body { margin-top: 12px; }
+/* v0.39: an empty card is one line on home ("＋ Add a bill"); ⓘ opens the full card. */
+.card.mini { display: flex; align-items: center; gap: 4px; padding: 6px 8px 6px 12px; }
+.card.mini + .card.mini { margin-top: -6px; }
+.mini-add { flex: 1; display: flex; align-items: center; gap: 9px; min-height: 40px; background: none; border: none;
+  color: var(--accent); font: inherit; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; padding: 0; }
+.mini-add .ci { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; font-size: 15px;
+  background: rgba(255,255,255,.07); }
+.mini-info { background: none; border: none; color: var(--dim); font-size: 16px; width: 40px; height: 40px; cursor: pointer; }
+.chip.more { font-weight: 700; }
 .card.collapsed .body { display: none; }
 .add-link { background: none; border: none; color: var(--accent); font-size: 14px; font-weight: 600;
   padding: 10px 0 0; cursor: pointer; }

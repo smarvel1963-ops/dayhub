@@ -454,6 +454,40 @@ function welcomeHtml() {
       <button class="btn">Let's go</button></form></section>`;
 }
 
+// v0.39 (Scott 10/3 "do 1 2"): a card with nothing in it is ONE line on home -
+// "＋ Add a bill" - not a box of explainer text. The row does what the card's own
+// add button does ("open" = show the full card, for cards whose add IS the card:
+// a form or tap-to-start chips); ⓘ shows the full card, explainer included.
+// MINI_OPEN lives for this visit only (never saved). A card with content, or one
+// opened, draws exactly as before.
+const MINI = {
+  trips:      [() => !curTrip(), 'data-qa="trip"', "Plan a trip"],
+  top3:       [() => !TOP3_BUSY && !(S.top3.day === today() && S.top3.items.length), 'data-top3="pick"', "Pick my top 3"],
+  payday:     [() => !S.payday.freq, "open", "Set up payday"],
+  budget:     [() => !budget().income, 'data-qa="pay"', "Set income"],
+  todos:      [() => !S.todos.some(todoShown), 'data-qa="todo"', "Add a to-do"],
+  notes:      [() => !S.notes.length, "open", "Jot down a note"],
+  future:     [() => !S.future.length, 'data-qa="future"', "Note to future me"],
+  packages:   [() => !openReturns().length && !S.packages.some(p => !p.delivered || (p.deliveredDay || "") >= addDays(today(), -3)), 'data-qa="package"', "Add a package"],
+  bills:      [() => !upcomingBills().length, 'data-qa="bill"', "Add a bill"],
+  people:     [() => !S.people.length && !(S.gcal.dates || []).length, 'data-qa="person"', "Add a birthday or date"],
+  countdowns: [() => !liveCountdowns().length, 'data-qa="countdown"', "Add a countdown"],
+  lists:      [() => !S.lists.some(l => l.items.length), "open", "Add to a list"],
+  routines:   [() => !S.routines.length, "open", "Add a routine"],
+  home:       [() => !S.upkeep.some(x => x.area === "home"), "open", "Add home upkeep"],
+  auto:       [() => !S.upkeep.some(x => x.area === "auto"), "open", "Add car upkeep"],
+  loads:      [() => !S.loads.some(x => x.day === today()), 'data-qa="loads"', "Add a load"],
+  jobs:       [() => !S.jobs.some(x => x.day === today()), 'data-qa="jobs"', "Add a job"],
+};
+const MINI_OPEN = new Set();
+const isMini = k => MINI[k] && !MINI_OPEN.has(k) && MINI[k][0]();
+function miniHtml(k) {
+  const c = CARDS[k], [, act, label] = MINI[k];
+  return `<section class="card mini" data-card="${k}"><button class="mini-add" ${act === "open" ? `data-miniopen="${k}"` : act}>
+    <span class="ci">${c.icon}</span><span class="grow">＋ ${label}</span></button>
+    <button class="mini-info" data-miniopen="${k}" aria-label="About ${esc(c.title)}">ⓘ</button></section>`;
+}
+
 function render() {
   const t = today();
   if (!VIEW || (VIEW < addDays(t, -60))) VIEW = t;
@@ -470,10 +504,11 @@ function render() {
   if (!S.order && hr >= 18 && order.includes("reset")) order = ["reset", ...order.filter(k => k !== "reset")];
   if (!S.order && S.mail.found.length && order.includes("inbox")) order = ["inbox", ...order.filter(k => k !== "inbox")];   // waiting on you = on top
   const cards = order.map(k => {
-    const c = CARDS[k]; const col = S.collapsed.includes(k);
+    const c = CARDS[k]; const col = S.collapsed.includes(k) && !MINI_OPEN.has(k);
     const tag = PACKS[S.pack].cards.includes(k) ? ` <span class="tag">${PACKS[S.pack].label}</span>` : "";
     if (!can(k)) return `<section class="card" data-card="${k}"><h3><span class="ci">${c.icon}</span>${c.title} <span class="tag">PRO</span></h3>
       <div class="body"><div class="empty">Part of Day Hub Pro. No ads, ever — Pro just does more.</div></div></section>`;
+    if (isMini(k)) return miniHtml(k);
     return `<section class="card ${col ? "collapsed" : ""}" data-card="${k}">
       <h3 data-collapse="${k}"><span class="ci">${c.icon}</span>${c.title}${tag}<span class="meta">${c.meta ? c.meta() : ""}</span><span class="chev">⌄</span></h3>
       <div class="body">${c.body()}${c.add ? `<button class="add-link" data-qa="${c.add[0]}">＋ ${c.add[1]}</button>` : ""}</div></section>`;
@@ -1036,9 +1071,14 @@ document.addEventListener("click", e => {
   if (ds.qa) { openQA(ds.qa); return; }
   if (ds.qtype) { openQA(ds.qtype); return; }
   if (ds.undo) { if (UNDO) { S = JSON.parse(UNDO); UNDO = null; save(); render(); toast("Restored ✓"); } return; }
+  if (ds.chipsmore) { CHIPS_ALL = ds.chipsmore === "1"; paintHero(); return; }
   if (ds.collapse) { const k = ds.collapse;
+    MINI_OPEN.delete(k);
     S.collapsed = S.collapsed.includes(k) ? S.collapsed.filter(x => x !== k) : [...S.collapsed, k]; save(); render(); return; }
   if (ds.plan === "tomorrow") { VIEW = addDays(today(), 1); openQA("event"); return; }
+  if (ds.miniopen) { const k = ds.miniopen; MINI_OPEN.add(k); render();
+    const el = document.querySelector(`[data-card="${k}"]`);
+    if (el) { const i = el.querySelector("input:not([type=checkbox]), select"); if (i && t.classList.contains("mini-add")) i.focus(); } return; }
   if (ds.goto) { VIEW = addDays(today(), Number(ds.day)); render();
     const c = document.querySelector(`[data-card="${ds.goto}"]`); if (c) c.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   if (ds.day !== undefined) { const n = Number(ds.day); VIEW = n === 0 ? today() : addDays(VIEW, n); render(); return; }
