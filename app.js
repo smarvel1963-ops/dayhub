@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.34";
+const VERSION = "0.35";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -51,7 +51,7 @@ const FEATURES = {
 const can = f => !PRO_LIVE || FEATURES[f] !== "pro" || TIER === "pro";
 
 // ---------------------------------------------------------------- packs
-const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "top3", "schedule", "leave", "routines", "reset", "tomorrow", "work", "payday", "budget", "weather", "todos", "notes", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
+const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "top3", "schedule", "errands", "leave", "routines", "reset", "tomorrow", "work", "payday", "budget", "weather", "todos", "notes", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
 const PACKS = {
   general:  { label: "General",              cards: [] },
   trucker:  { label: "Trucker / Dispatcher", cards: ["route", "loads"] },
@@ -559,6 +559,7 @@ function briefLines() {
   // Every countdown (Scott 10/2: "on any count downs it should show in morning breifing") - and trips count down too.
   const cds = briefCountdowns(), todayCd = cds.filter(c => c.n === 0), ahead = cds.filter(c => c.n > 0);
   todayCd.forEach(c => s.push(`Today's the day: ${c.title}! 🎉`));
+  { const es = errandStops(); if (es.length >= 2) s.push(`Errand run: ${es.map(st => (st.brand || st.name).toLowerCase()).join(", then ")}.`); }
   if (S.top3.day === t && S.top3.items.length) s.push(`Your top ${S.top3.items.length}: ${S.top3.items.map(x => x.title).join("; ")}.`);
   if (ahead.length) s.push(`Counting down: ${ahead.map(c => `${c.n} day${c.n === 1 ? "" : "s"} until ${c.title}`).join(", ")}.`);
   return s;
@@ -2342,6 +2343,54 @@ function addFoundDates(keys) {
   return pick.length;
 }
 
+// ---------------------------------------------------------------- errands
+// Scott 10/2 (list #6, "next"): instead of six separate to-dos, one ERRAND
+// RUN. Open to-dos, today's plans and the grocery list are read for stops
+// (bank, pharmacy, post office, DMV, cleaners, hardware, pets, pick-ups, gas,
+// the store); grouped by stop, put in a sensible order (places that close
+// early first, gas before the drive home, groceries LAST so cold food goes
+// straight home) with a Route in Maps button. Ticking a stop ticks its to-dos.
+const ERRAND_STOPS = [
+  { key: "bank", icon: "🏦", name: "Bank", q: "bank", re: /\b(bank|deposit|atm|cash (a|the) check|credit union)\b/i },
+  { key: "pharmacy", icon: "💊", name: "Pharmacy", q: "pharmacy", re: /\b(pharmacy|prescriptions?|rx|cvs|walgreens|refill)\b/i },
+  { key: "post", icon: "📮", name: "Post office / shipping", q: "post office", re: /\b(post office|usps|ups store|fedex|mail (a|the|it)|ship (a|the|it)|stamps|return (a |the |my )?(package|order|amazon))\b/i },
+  { key: "dmv", icon: "🪪", name: "DMV / tag office", q: "DMV", re: /\b(dmv|revenue office|tag office|license plate|renew (my )?(license|tags?))\b/i },
+  { key: "cleaners", icon: "👔", name: "Dry cleaners", q: "dry cleaners", re: /\b(dry clean(ing|ers)?|cleaners)\b/i },
+  { key: "pickup", icon: "📦", name: "Pick up / drop off", q: null, re: /\b(pick up|pickup|drop off|drop-off)\b/i },
+  { key: "hardware", icon: "🔨", name: "Hardware store", q: "hardware store", re: /\b(hardware|home depot|lowe'?s|ace hardware|menards)\b/i },
+  { key: "pet", icon: "🐾", name: "Pet store", q: "pet store", re: /\b(pet store|petsmart|petco|dog food|cat food)\b/i },
+  { key: "gas", icon: "⛽", name: "Gas", q: "gas station", re: /\b(get gas|gas up|fill up|fill the tank|fuel)\b/i },
+  { key: "store", icon: "🛒", name: "Store", q: "grocery store", re: /\b(walmart|target|costco|sam'?s club|kroger|aldi|dollar general|grocer(y|ies)|the store|supermarket|buy|groceries)\b/i },
+];
+const BRANDS = /\b(walmart|target|costco|sam'?s club|kroger|aldi|dollar general|cvs|walgreens|home depot|lowe'?s|ace hardware|menards|petsmart|petco|ups store|fedex)\b/i;
+function errandStops() {
+  const t = today(), byKey = {};
+  const put = (stop, item) => { (byKey[stop.key] = byKey[stop.key] || { ...stop, items: [] }).items.push(item);
+    const b = item.title.match(BRANDS); if (b && !byKey[stop.key].brand) byKey[stop.key].brand = b[0]; };
+  const match = txt => ERRAND_STOPS.find(st => st.re.test(txt));
+  S.todos.filter(x => todoShown(x) && !todoDone(x)).forEach(x => { const st = match(x.title); if (st) put(st, { src: "todo", id: x.id, title: x.title }); });
+  dayItems(t).filter(i => isPlan(i) && i.kind === "event").forEach(i => { const st = match(i.title); if (st) put(st, { src: "plan", title: i.title + (i.t ? ` (${hm(i.t)})` : "") }); });
+  const L = S.lists.find(l => /grocer|shop/i.test(l.name)) || S.lists[0], toGet = L ? L.items.filter(i => !i.done) : [];
+  if (toGet.length) put(ERRAND_STOPS.find(st => st.key === "store"), { src: "list", list: L.id, title: `${L.name} list — ${toGet.length} item${toGet.length === 1 ? "" : "s"}`, items: toGet });
+  return ERRAND_STOPS.map(st => byKey[st.key]).filter(Boolean);          // ERRAND_STOPS order = the route order
+}
+function errandMapUrl(stops) {
+  const q = stops.map(st => st.brand || st.q || st.items[0].title).filter(Boolean);
+  if (!q.length) return null;
+  const dest = q[q.length - 1], way = q.slice(0, -1);
+  return `https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${encodeURIComponent(dest)}${way.length ? `&waypoints=${encodeURIComponent(way.join("|"))}` : ""}`;
+}
+function errandsCard() {
+  const stops = errandStops(); if (!stops.length) return "";
+  const w = WXDATA && WXDATA.here && WXDATA.here.day, url = errandMapUrl(stops);
+  return `<div class="today-line">🛍️ <b>${stops.length} stop${stops.length === 1 ? "" : "s"}</b> in a good order${w && (w.rainFrom || w.rain >= 50) ? ` · ☔ ${w.rainFrom ? "rain from " + fmtTime(w.rainFrom) + " — go early" : "rain likely"}` : ""}</div>` +
+    stops.map((st, n) => `<div class="errand"><div class="row"><span class="t3n">${n + 1}</span><span class="grow"><b>${st.icon} ${esc(st.brand ? (st.brand.length <= 3 ? st.brand.toUpperCase() : st.brand.replace(/\b\w/g, c => c.toUpperCase())) : st.name)}</b></span></div>
+      ${st.items.map(it => it.src === "todo" ? `<label class="row leave"><input type="checkbox" class="tick" data-tick="${it.id}"><span class="grow">${esc(it.title)}</span></label>`
+        : it.src === "list" ? `<div class="row"><span class="grow">${esc(it.title)}<span class="sub">${it.items.slice(0, 8).map(i => esc(i.text)).join(", ")}${it.items.length > 8 ? "…" : ""}</span></span></div>`
+        : `<div class="row"><span class="grow">📅 ${esc(it.title)}</span></div>`).join("")}</div>`).join("") +
+    (url ? `<div class="foot-actions"><a class="btn sm" href="${url}" target="_blank" rel="noopener">🗺️ Route in Maps</a></div>` : "");
+}
+
 function heroHtml() {
   const now = new Date(), h = now.getHours();
   const w = WXDATA && WXDATA.here;
@@ -2362,6 +2411,8 @@ function heroHtml() {
   { const rn = routineNow(); if (rn) chips.unshift(`<button class="chip good" data-ropen="${rn.id}">🔁 ${esc(rn.name.replace(/^\S+\s/, ""))}: ${rDone(rn).length}/${rn.steps.length}</button>`); }
   { const nx = payNext(); if (nx === today()) { const c = dueBetween(nx, payAfter(nx));
       chips.unshift(`<span class="chip good">💵 Payday! ${c.length} bill${c.length === 1 ? "" : "s"} before the next check — ${money(c.reduce((x, o) => x + o.amt, 0))}</span>`); } }
+  { const es = errandStops(); if (MODE !== "cruise" && es.length >= 2 && h < 18 && !S.hidden.includes("errands"))
+      chips.push(`<button class="chip" data-errands="1">🛍️ Errand run: ${es.length} stops</button>`); }
   upkeepDue(null, 1).filter(({ x, day }) => x.auto ? (daysUntil(day) === 0 || (daysUntil(day) === 1 && h >= 15)) : daysUntil(day) <= 0)
     .slice(0, 2).forEach(({ x, day }) => chips.push(`<span class="chip ${daysUntil(day) < 0 ? "warn" : ""}">${esc(x.name)} ${x.auto && daysUntil(day) === 1 ? "tomorrow — out tonight" : upkeepWhen(x, day)}</span>`));
   upcomingPeople(3).forEach(({ p, day }) => { const n = daysUntil(day);
@@ -2759,6 +2810,8 @@ const CARDS = {
 
   payday: { icon: "💵", title: "Payday",
     meta: () => { const nx = payNext(); return nx ? (daysUntil(nx) === 0 ? "today!" : inDays(daysUntil(nx))) : ""; }, body: () => paydayCard() },
+  errands: { icon: "🛍️", title: "Errand run",
+    meta: () => { const n = errandStops().length; return n ? `${n} stop${n === 1 ? "" : "s"}` : ""; }, body: () => errandsCard() },
   top3: { icon: "🎯", title: "Top 3 today",
     meta: () => { const T = S.top3.day === today() ? S.top3.items : []; return T.length ? `${T.filter(x => x.done).length}/${T.length}` : ""; }, body: () => top3Card() },
   routines: { icon: "🔁", title: "Routines", add: ["routine", "Make your own routine"],
@@ -2866,7 +2919,7 @@ function render() {
   LAST_DAY = t;
   paintHero();
   const hr = new Date().getHours();
-  let order = cardOrder().filter(k => !S.hidden.includes(k) && !(k === "tomorrow" && hr < 15) && !(k === "reset" && hr < 18) && !(k === "inbox" && !S.mail.on && !S.mail.found.length));
+  let order = cardOrder().filter(k => !S.hidden.includes(k) && !(k === "tomorrow" && hr < 15) && !(k === "reset" && hr < 18) && !(k === "errands" && !errandStops().length) && !(k === "inbox" && !S.mail.on && !S.mail.found.length));
   // Smart jumps only until the user arranges the screen (Scott 10/2: "order the
   // sections how anyone would like") - after that their order always wins.
   if (!S.order && hr >= 17 && order.includes("tomorrow")) order = ["tomorrow", ...order.filter(k => k !== "tomorrow")];
@@ -3489,6 +3542,8 @@ document.addEventListener("click", e => {
   if (ds.fadd) { snap(); const keys = ds.fadd === "__all" ? (S.gcal.dates || []).map(b => b.key) : [ds.fadd];
     const n = addFoundDates(keys); save(); render(); buzz(); toast(`🎂 Added ${n} date${n === 1 ? "" : "s"} — ✏️ to add gift ideas`, true); return; }
   if (ds.fno) { S.gcal.datesNo = [...new Set([...(S.gcal.datesNo || []), ...(S.gcal.dates || []).map(b => b.key)])]; S.gcal.dates = []; saveLocal(); render(); return; }
+  if (ds.errands) { if (S.collapsed.includes("errands")) { S.collapsed = S.collapsed.filter(k => k !== "errands"); save(); render(); }
+    const el = document.querySelector('[data-card="errands"]'); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   if (ds.aledit) { ALARM_EDIT = ds.aledit; openQA("alarm", true); return; }
   if (ds.aldel) { snap(); S.alarms = S.alarms.filter(a => a.id !== ds.aldel); ALARM_EDIT = null; closeQA(); save(); render(); drawAlarmBox(); toast("Alarm removed", true); return; }
   if (ds.ask === "open") { showAsk(); return; }

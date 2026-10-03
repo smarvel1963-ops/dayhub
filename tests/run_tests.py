@@ -992,6 +992,29 @@ def t_v034_backup_nudge(b, base):
     a.close()
 
 
+def t_v035_errands(b, base):
+    print("\n[v0.35 errand run]")
+    a = App(b, base); setup(a)
+    check("no errands: card hidden", not a.page.query_selector('[data-card="errands"]'))
+    a.qa("todo", {"title": "Pick up prescription at CVS"})
+    a.qa("todo", {"title": "Deposit check"})
+    a.qa("todo", {"title": "Return the Amazon package"})
+    a.qa("todo", {"title": "Call insurance"})
+    a.qa("item", {"list": "grocery", "text": "Milk"}); a.qa("item", {"list": "grocery", "text": "Eggs"})
+    a.js("closeQA()")
+    stops = a.js("errandStops().map(s => s.key)")
+    check("grouped into stops in route order (store last)", stops == ["bank", "pharmacy", "post", "store"], stops)
+    card = a.card("errands")
+    check("card: 4 stops, brand names, grocery items", "4 stops" in card and "CVS" in card and "Milk" in card and "Call insurance" not in card, card[:400])
+    url = a.js("errandMapUrl(errandStops())")
+    check("Route in Maps link with stops in order", "maps/dir" in url and "destination=grocery%20store" in url and "waypoints=bank%7ccvs%7cpost%20office" in url.lower(), url)
+    check("chip at the top", "Errand run: 4 stops" in a.page.inner_text("#hero"))
+    check("brief reads the run", any("Errand run:" in l for l in a.js("briefLines()")))
+    a.page.click('[data-card="errands"] [data-tick] >> nth=0')
+    check("ticking a stop ticks its to-do", a.js("S.todos.find(x => x.title === 'Deposit check').done") and a.js("errandStops().length") == 3)
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1005,7 +1028,8 @@ def main():
                   t_v028_payday, t_v029_pulse,
                   t_v030_brief_countdowns, t_v031_ai_helper,
                   t_v032_ask_top3, t_v033_alarms,
-                  t_v033_calendar_dates, t_v034_backup_nudge):
+                  t_v033_calendar_dates, t_v034_backup_nudge,
+                  t_v035_errands):
             try:
                 t(b, base)
             except Exception as e:

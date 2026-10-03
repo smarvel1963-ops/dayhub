@@ -1,6 +1,10 @@
 {
- "version": "0.34",
+ "version": "0.35",
  "notes": {
+  "0.35": [
+   "🛍️ Errand run: Day Hub spots errands in your to-dos, plans and grocery list (bank, pharmacy, post office/returns, DMV, cleaners, pick-ups, hardware, pets, gas, the store) and turns them into ONE run in a smart order — groceries last so the cold stuff goes straight home",
+   "🗺️ Route in Maps opens the whole run in Google Maps; tick a stop and its to-dos tick too"
+  ],
   "0.34": [
    "☁️ If your Day Hub isn't backed up yet, a button at the top says so — one tap and every change saves to Google's servers by itself"
   ],
