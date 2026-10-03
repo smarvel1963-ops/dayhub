@@ -39,7 +39,7 @@
     <tr><td>If you turn on backup</td><td>A copy of your Day Hub data</td><td>A hidden app folder in <b>your own</b> Google Drive. Only Day Hub on your devices can read it. We cannot.</td></tr>
     <tr><td>If you connect Gmail (where offered)</td><td>Day Hub reads emails on your phone (read-only) to find bookings, appointments and package tracking</td><td>Google, directly from your phone. Email content is processed on your phone and is not sent to us or anyone else. Nothing is added until you tap Add.</td></tr>
     <tr><td>If you use the AI helper (Brain dump, Ask, Top 3)</td><td>The text you send, and for Ask and Top 3, the planner items they need</td><td>Our relay (a Google Apps Script run by Marvel Corp), which passes it to Anthropic's Claude to get the answer. The relay does not save your text. It keeps only a count of requests per day.</td></tr>
-    <tr><td>If you buy Day Hub Pro</td><td>Your Whop license key, to check that it's active</td><td>Our relay, which checks the key with Whop. Payment is handled entirely by Whop. We never see your card details.</td></tr>
+    <tr><td>If you buy Day Hub Pro</td><td>The email you bought with (or your Whop membership id), and a random id your phone makes for itself, to check the purchase is active and limit it to 3 phones</td><td>Our relay, which looks the purchase up with Whop. The relay keeps only a scrambled (one-way) form of your Whop account id with your phones' random ids and the day each was last seen, never your email. Payment is handled entirely by Whop. We never see your card details.</td></tr>
     <tr><td>If you turn on reminders</td><td>Nothing. Reminders come from your phone itself.</td><td>No one</td></tr>
   </table>
 

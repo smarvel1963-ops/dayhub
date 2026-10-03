@@ -2,7 +2,7 @@
 Save path: C:\MarvelApps\dayhub\docs\PLAY_STORE.md · written for v0.40 (2026-10-03). Readiness only, since **no Play account exists yet.**
 
 **Channel #2 (Scott 10/3):** after Whop has about 20-30 paying customers. A FREE listing; Pro is unlocked by the
-same Whop key the web app uses. Whop stays the only place Pro is sold.
+same Whop purchase (the buyer's email) the web app uses. Whop stays the only place Pro is sold.
 
 Day Hub is already an installable web app. Google Play takes it as a **Trusted Web Activity (TWA)**: a small
 Android wrapper that opens the live site full-screen. Updates keep coming from GitHub Pages, so there is no
@@ -41,7 +41,7 @@ re-upload for each version.
    - Payments: Pro is bought on Whop's website, **not inside the app**. Google's payments policy restricts
      in-app links to outside purchase pages for digital features. **Re-check the current Play payments /
      external-link policy at submission time.** It has changed several times. The safe default: the Play
-     listing is free, the app shows no Buy button there, and a key bought on Whop still unlocks Pro.
+     listing is free, the app shows no Buy button there, and a Whop purchase (the buyer's email) still unlocks Pro.
      **Decision for Scott at that point.**
 5. After the 14-day closed test → **Production** → submit for review.
 6. Put the listing URL in `features.js` → `PLAN.PLAY_STORE_URL`, flip `STORE` (see LAUNCH_SWITCHES.md).

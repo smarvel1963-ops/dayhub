@@ -1,6 +1,9 @@
 {
- "version": "0.40",
+ "version": "0.41",
  "notes": {
+  "0.41": [
+   "🔧 Behind the scenes: Day Hub Pro will unlock with the email you buy it with. Nothing changes on your screen yet, and everything stays free."
+  ],
   "0.40": [
    "🔧 Behind the scenes: getting Day Hub ready for Day Hub Pro and the app stores. Nothing changes on your screen yet, and everything stays free.",
    "🔒 Privacy and Terms pages are now linked at the bottom of ⚙ Settings"

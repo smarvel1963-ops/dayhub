@@ -23,20 +23,22 @@ const SWITCHES = Object.freeze({
 });
 
 // Scott approved 10/3: $4.99/mo or $29.99/yr, contact smarvel1963@gmail.com.
-// Sold on WHOP only (never Stripe-direct). The Whop link stays empty until the
-// product exists - the Pro section then says "coming soon" instead of a dead button.
+// Sold on WHOP only (never Stripe-direct). Product "Day Hub Pro" prod_xD6LAe50BRN9C
+// in Marvel Corp (biz_loYMoMQKy5XhM0); the buyer unlocks with the EMAIL they
+// bought with (Whop has no license-key app for this business) - v0.41.
 const PLAN = Object.freeze({
   NAME: "Day Hub Pro",
   MONTHLY: "$4.99/month",
   YEARLY: "$29.99/year",
-  WHOP_CHECKOUT_URL: "",
+  WHOP_CHECKOUT_URL: "https://whop.com/commander-marvel-por-picks/day-hub-pro",
   PLAY_STORE_URL: "",
   CONTACT_EMAIL: "smarvel1963@gmail.com",
   // What Pro unlocks. Everything else (all the cards, reminders, budget, lists,
   // trips...) is free forever and works with no account.
   PRO_FEATURES: ["ai", "gcal", "mail", "sync"],
-  RECHECK_DAYS: 7,    // the key is re-checked with Whop once a week
+  RECHECK_DAYS: 7,    // the purchase is re-checked with Whop once a week
   GRACE_DAYS: 14,     // ...and stays good this long past that if the phone can't reach the check
+  MAX_PHONES: 3,      // must match MAX_PHONES in relay/Code.gs (the relay enforces it)
 });
 
 const OWNER_KEY = "dayhub.owner";

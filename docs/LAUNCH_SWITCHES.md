@@ -1,5 +1,5 @@
 # Day Hub launch switches
-Save path: C:\MarvelApps\dayhub\docs\LAUNCH_SWITCHES.md · written for v0.40 (2026-10-03)
+Save path: C:\MarvelApps\dayhub\docs\LAUNCH_SWITCHES.md · written for v0.40, unlock reworked to email in v0.41 (2026-10-03)
 
 Scott 10/3: *"make it a workable and saleable project and then have things to turn on once approved."*
 Every new piece is built and tested, and sits behind a switch in **`features.js`** that is **OFF**.
@@ -7,10 +7,10 @@ While a switch is off, Day Hub works the way v0.39 did. The one visible differen
 don't see "Connect Gmail" (see GMAIL below).
 
 ## Where Day Hub Pro is sold (Scott 10/3), in this order
-1. **WHOP FIRST.** Whop sells the Pro *key*. There is nothing to download: buyers open the web app, install it to
-   their home screen and paste the key. This is steps 3-4 below.
+1. **WHOP FIRST.** Whop sells Pro. There is nothing to download: buyers open the web app, install it to their
+   home screen, and unlock with the email they bought with. This is steps 3-4 below.
 2. **GOOGLE PLAY SECOND, after about 20-30 paying customers.** A **free** listing, with Pro unlocked by the **same
-   Whop key**. Re-check Google Play's billing / external-link policy **at submission time**, because it changes
+   Whop purchase** (the buyer's email). Re-check Google Play's billing / external-link policy **at submission time**, because it changes
    (`docs/PLAY_STORE.md`, step 5 below).
 3. **APPLE LAST. Parked** (needs a Mac or cloud build + $99/yr). iPhone buyers use the web app from Safari, which works today.
 
@@ -18,8 +18,8 @@ don't see "Connect Gmail" (see GMAIL below).
 |---|---|---|
 | — | Privacy + Terms pages | Nothing. They are live with v0.40 (step 1). |
 | `GMAIL` | "Connect Gmail" for everyone | Google's verification of the Gmail scope (step 2) |
-| `PRO_GATE` | Free vs Pro: the ⭐ Day Hub Pro section, and locks Pro features for non-Pro phones | The Whop product + its checkout link (step 3), relay v4 pasted (step 4) |
-| `AI_PUBLIC` | The AI helper for Pro (Whop-key) phones | Relay v4 pasted with `AI_PUBLIC=true` (step 4), and Scott's OK on the AI cost |
+| `PRO_GATE` | Free vs Pro: the ⭐ Day Hub Pro section, and locks Pro features for non-Pro phones | Whop product (DONE 10/3, step 3) + the Whop API key and relay v4 pasted (step 4) |
+| `AI_PUBLIC` | The AI helper for Pro phones | Relay v4 pasted with `AI_PUBLIC=true` (step 4), and Scott's OK on the AI cost |
 | `STORE` | "▶ Get it on Google Play" in ⚙ → On your home screen | The Play listing being live (step 5) |
 
 ## How to flip a switch
@@ -71,25 +71,26 @@ Click by click:
 **Verify:** on a phone that never used Day Hub, ⚙ shows **Email → calendar / Connect Gmail**, and the Google
 screen no longer says "hasn't verified this app".
 
-## Step 3: Whop product (Scott creates / approves). Channel #1
-1. whop.com → your company dashboard → **Products** → **Create product**.
-2. Name **Day Hub Pro**. Short description: *Your whole day on one screen. Pro adds the AI helper, two-way
-   Google Calendar sync and backup to your own Google Drive. No ads, ever.* Pricing: **$4.99 / month** and
-   **$29.99 / year** (two plans). Approved 10/3.
-3. Add the **Software licensing** experience (Whop's "license key" app) to the product. **This matters:** Whop
-   only gives buyers a license key when the product has it, and the key is what the buyer pastes into Day Hub.
-4. Paste the **delivery text** below where Whop shows it to the buyer after purchase (the product's
-   welcome / post-purchase message, and the licensing experience's instructions if it has a box for them).
-5. Copy the product's checkout link and the product id (`prod_...`).
-6. Tell Claude both. Claude puts the link in `features.js` → `PLAN.WHOP_CHECKOUT_URL`, so the **Get Day Hub
-   Pro** button in ⚙ → ⭐ Day Hub Pro opens Whop checkout. The id goes in the relay's Script Properties as
-   `WHOP_PRODUCT_ID` (step 4).
+## Step 3: Whop product. DONE 10/3 (channel #1)
+Scott created it 10/3: **Day Hub Pro**, `prod_xD6LAe50BRN9C`, in **Marvel Corp** (`biz_loYMoMQKy5XhM0`), hidden,
+$4.99/month + $29.99/year. Checkout: https://whop.com/commander-marvel-por-picks/day-hub-pro. This is already in
+`features.js` (`PLAN.WHOP_CHECKOUT_URL`), so **Get Day Hub Pro** in ⚙ → ⭐ Day Hub Pro opens it.
+
+**No license key.** Whop's app store for Marvel Corp has no software-licensing app (searched 10/3). So (v0.41) the
+buyer unlocks with the **email they bought with** on Whop, or, as a fallback, their Whop **membership id**
+(`mem_...`, shown on their Whop purchase page). One purchase works on **3 phones** (see step 4 for the limits).
+
+What's left on Whop:
+1. **Paste the delivery text** below where Whop shows it after purchase (the product's welcome / post-purchase
+   message).
+2. When ready to sell: switch the product from **hidden** to visible (after PRO_GATE is on, step 4).
+3. **Verify:** buy it yourself with a 100% promo code. On a phone **without** the relay passphrase (your
+   phone counts as Pro anyway): owner switch PRO_GATE on → ⚙ → ⭐ Day Hub Pro → type the email you bought with →
+   **Unlock** → "Day Hub Pro is on · you@…".
 
 **Delivery text (paste as-is into Whop):**
 
 > **Thanks for getting Day Hub Pro! ⭐**
->
-> **Your license key** is shown on this page (and in your Whop account under this purchase). Copy it, because you'll paste it in step 3.
 >
 > **1. Open Day Hub on your phone:** https://smarvel1963-ops.github.io/dayhub/
 >
@@ -97,40 +98,66 @@ screen no longer says "hasn't verified this app".
 > - **Android (Chrome):** tap the **⋮** menu → **Install app** (or **Add to Home screen**).
 > - **iPhone (Safari):** tap **Share** (the square with the arrow) → **Add to Home Screen** → **Add**.
 >
-> **3. Unlock Pro:** open Day Hub from the new icon → tap **⚙** (top right) → **⭐ Day Hub Pro** → paste your
-> license key → **Unlock**. It says *"Day Hub Pro is on"*.
+> **3. Unlock Pro:** open Day Hub from the new icon → tap **⚙** (top right) → **⭐ Day Hub Pro** → enter the
+> **email you bought with** on Whop → **Unlock**. It says *"Day Hub Pro is on"*.
+> (Bought with a different sign-in? Your Whop membership id, which starts with **mem_** and is on your Whop purchase page, works too.)
 >
-> Your plans stay on your phone. Turn on **backup** in ⚙ to keep a copy in your own Google Drive.
-> Questions: smarvel1963@gmail.com · Privacy: https://smarvel1963-ops.github.io/dayhub/privacy.html
-6. **Verify:** buy it yourself with a 100% promo code and copy the license key from the Whop purchase. On a
-   phone **without** the relay passphrase (your phone counts as Pro anyway): owner switch PRO_GATE on → ⚙ →
-   ⭐ Day Hub Pro → paste → **Unlock** → "Day Hub Pro is on · key ••1234".
+> Works on up to 3 phones. Your plans stay on your phone. Turn on **backup** in ⚙ to keep a copy in your
+> own Google Drive. Questions: smarvel1963@gmail.com · Privacy: https://smarvel1963-ops.github.io/dayhub/privacy.html
 
-## Step 4: Relay v4 (Scott pastes; about 5 minutes)
-The relay source is `relay/Code.gs`. v4 keeps your passphrase working **exactly** as now. The new parts do
-nothing until the Script Properties below exist.
+## Step 4: Whop API key + relay v4 (Scott; about 10 minutes)
+**4a. Make the Whop API key** (whop.com → the **Marvel Corp** business dashboard → **Developer** → **API keys** →
+**Create**). Tick exactly these scopes, because they are what the docs list for the two lookups the relay makes:
+- `member:basic:read`
+- `member:email:read`
+- `member:phone:read` (Whop's docs list it as required for *List members*, the email search, even though Day Hub never reads phones)
+
+Copy the key. Paste it only into Script Properties (4b). Claude never types keys into web pages.
+
+**4b. Paste the relay.** The source is `relay/Code.gs`. v4 keeps your passphrase working **exactly** as now.
+The new parts do nothing until the Script Properties below exist.
 1. Open https://script.google.com/ → project **Day Hub AI relay**.
 2. Click **Code.gs**, select all, and delete. Paste the whole of `C:\MarvelApps\dayhub\relay\Code.gs`. Then **💾 Save**.
 3. ⚙ **Project Settings** → **Script Properties** → **Add script property**:
-   - `WHOP_API_KEY` = a Whop company API key (whop.com → dashboard → **Developer** → API keys; the **Admin**
-     role is simplest, and it needs at least member read). Paste it yourself. Claude never types keys into web pages.
-   - `WHOP_PRODUCT_ID` = the `prod_...` from step 3 (optional, but it stops keys from your other Whop products unlocking Day Hub)
+   - `WHOP_API_KEY` = the key from 4a
+   - `WHOP_PRODUCT_ID` = `prod_xD6LAe50BRN9C`
+   - (`WHOP_COMPANY_ID` is not needed. Marvel Corp `biz_loYMoMQKy5XhM0` is built in.)
    - `AI_PUBLIC` = `true` **only when you approve AI for paying customers** (leave it out until then)
 4. **Deploy → Manage deployments → ✏️ (edit) → Version: New version → Deploy.** Do NOT click "New
    deployment", because that would change the URL that every phone uses.
 5. **Verify:** on your phone ⚙ → 🤖 AI helper → **Test it** → "working · N left today" (the passphrase path
-   still works). Then the step 3 test (Unlock with a real key) proves `verify`.
+   still works). Then the step 3 test (Unlock with your email) proves the Whop lookup.
 
-Caps: 200 AI requests a day shared by everyone (unchanged) + **30 a day per Pro key**. Change `DAILY_CAP` /
-`KEY_CAP` at the top of Code.gs. Cost check before `AI_PUBLIC`: Haiku 4.5 at these caps is pennies per user
-per month, but 200/day is the hard ceiling for everyone together, so raise it when there are paying users.
+**How the check works** (Whop API docs, read 10/3): *List memberships* has **no email filter**, so the relay
+calls `GET /members?query=<email>` ("search members by name, username, or email"), keeps only an **exact** email
+match, then `GET /memberships?user_ids=…&product_ids=prod_xD6LAe50BRN9C` and requires status active, trialing,
+past_due or canceling. The `mem_` fallback is `GET /memberships/{mem_id}`. Product and status are re-checked in the
+relay, so a filter Whop ignores can't unlock anything. **This has not been run against the live Whop API yet.**
+The first real Unlock (step 3) is the test. If it says "Whop refused the relay's key", the scopes are wrong.
 
-**Then flip `PRO_GATE` + `AI_PUBLIC`** (owner switch first, then `features.js`).
-**Verify:** on a fresh phone, ⚙ shows ⭐ Day Hub Pro with the price and the **Get Day Hub Pro** button.
-Google Calendar connect says "part of Day Hub Pro". After Unlock, everything works.
+**Limits, honestly:**
+- **3 phones per purchase.** Each phone makes a random id. The relay keeps, per buyer, a scrambled (one-way) form of
+  their Whop user id with up to 3 phone ids and the day each was last seen (Script Properties, never the email). A 4th
+  phone is refused with "already on 3 phones". **Remove from this phone** frees a spot, and a phone unseen for 60
+  days frees its spot by itself.
+- It stops casual sharing, not a determined person: someone who knows a buyer's email can use one of the 3 spots,
+  and clearing a phone's browser data makes a new phone id (spot freed after 60 days). Raising security means a
+  sign-in (a Whop login or an emailed code), which is a later step if sharing shows up in the numbers.
+- Anyone can ask the relay "is this email a Day Hub Pro buyer?" (it answers yes or no, nothing else). Fine at this size.
+- A good answer is cached 6 hours, so a refund or cancel takes up to 6 hours, plus the phone's weekly re-check,
+  to lock. Grace when the check can't be reached: 14 days.
+
+Caps: 200 AI requests a day shared by everyone (unchanged) + **30 a day per Pro buyer**. Change `DAILY_CAP` /
+`BUYER_CAP` / `MAX_PHONES` at the top of Code.gs (and `PLAN.MAX_PHONES` in features.js to match the text).
+Cost check before `AI_PUBLIC`: Haiku 4.5 at these caps is pennies per user per month, but 200/day is the
+hard ceiling for everyone together, so raise it when there are paying users.
+
+**Then flip `PRO_GATE` + `AI_PUBLIC`** (owner switch first, then `features.js`), and un-hide the Whop product.
+**Verify:** on a fresh phone, ⚙ shows ⭐ Day Hub Pro with the price and the **Get Day Hub Pro** button (it opens
+Whop). Google Calendar connect says "part of Day Hub Pro". After Unlock, everything works.
 
 ## Step 5: Google Play (no account yet). Channel #2, after about 20-30 paying on Whop
-A **free** listing; Pro is unlocked by the **same Whop key** (nothing sold inside the Play app).
+A **free** listing; Pro is unlocked by the **same Whop purchase** (nothing sold inside the Play app).
 **Re-check Google Play's payments / external-link policy at submission time** (`docs/PLAY_STORE.md`, step 4).
 In short: a $25 Google Play developer account → PWABuilder makes the Android
 package from the live site → `assetlinks.json` goes in the `smarvel1963-ops.github.io` repo → closed test

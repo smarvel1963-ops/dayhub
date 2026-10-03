@@ -13,27 +13,45 @@
  * - Cheapest model (Claude Haiku 4.5), short answers, and a hard daily cap.
  * - Nothing is stored except a per-day request counter.
  *
- * v4 (Day Hub v0.40, Scott 10/3 "make it saleable ... things to turn on once
- * approved"). The PASS path is UNCHANGED. Added, all dormant until Scott sets
- * the Script Properties below:
- *   task "verify"  - checks a Day Hub Pro (Whop) license key with Whop's API.
- *   license keys   - a phone with an active key may use the AI tasks instead of
- *                    the PASS, ONLY while AI_PUBLIC is set, with its own daily
- *                    cap (KEY_CAP) on top of the shared DAILY_CAP.
+ * v4 (Day Hub v0.41, Scott 10/3). The PASS path is UNCHANGED. Added, all
+ * dormant until Scott sets the Script Properties below:
+ *   task "verify"  - is this buyer's Day Hub Pro (Whop) membership paid up?
+ *                    The buyer types the EMAIL they bought with (or their
+ *                    Whop membership id, mem_..., as a fallback). Whop's app
+ *                    store has no license-key app for Marvel Corp, so the
+ *                    email IS the account.
+ *   buyer AI       - a Pro phone may use the AI tasks instead of the PASS,
+ *                    ONLY while AI_PUBLIC is set, with its own daily cap
+ *                    (BUYER_CAP) on top of the shared DAILY_CAP.
+ *   phone limit    - one purchase unlocks at most MAX_PHONES phones (each
+ *                    phone sends a random id it made itself). A phone not
+ *                    seen for PHONE_DAYS drops off the list by itself.
  * New Script Properties (any capitals):
- *     WHOP_API_KEY    = a Whop company API key (Admin role is simplest)
- *     WHOP_PRODUCT_ID = prod_... of Day Hub Pro (optional; when set, keys for
- *                       any OTHER Whop product are refused)
- *     AI_PUBLIC       = true   (leave it out = license keys get no AI)
- * Whop: GET https://api.whop.com/api/v1/memberships/{id} - "{id}" may be the
- * membership id OR the license key (docs.whop.com, Retrieve membership, read
- * 10/3/2026). Api-Version-Date pinned: without it Whop answers with the
- * 2025-01-01 API whose field names differ.
+ *     WHOP_API_KEY    = Whop company API key with member:basic:read,
+ *                       member:email:read, member:phone:read
+ *     WHOP_PRODUCT_ID = prod_xD6LAe50BRN9C (Day Hub Pro) - required
+ *     WHOP_COMPANY_ID = optional; defaults to Marvel Corp below
+ *     AI_PUBLIC       = true   (leave it out = buyers get no AI)
+ * Whop API, read on docs.whop.com 10/3/2026 (base /api/v1, Api-Version-Date
+ * pinned - without it Whop answers with the 2025-01-01 API):
+ *   GET /members?account_id=&query=<email>   "Search members by name,
+ *       username, or email" (list memberships has NO email filter) - then an
+ *       EXACT email match is required, a fuzzy search hit never counts.
+ *   GET /memberships?account_id=&user_ids=&product_ids=   their memberships
+ *   GET /memberships/{mem_id}                the mem_ fallback
+ *   Array params are form/explode: user_ids=a&user_ids=b (no brackets).
+ *   Product + status are ALSO checked here, so a filter Whop ignores can't
+ *   unlock anything.
+ * What is stored: per buyer a one-way hash of their Whop user id -> the random
+ * phone ids + last-seen day. Never the email.
  */
 const MODEL = "claude-haiku-4-5";
 const DAILY_CAP = 200;              // requests per day, all tasks together
-const KEY_CAP = 30;                 // per Whop license key per day (inside DAILY_CAP)
+const BUYER_CAP = 30;               // per Pro buyer per day (inside DAILY_CAP)
+const MAX_PHONES = 3;               // phones one purchase can unlock at once
+const PHONE_DAYS = 60;              // a phone not seen this long frees its spot
 const WHOP_API = "https://api.whop.com/api/v1";
+const WHOP_COMPANY = "biz_loYMoMQKy5XhM0";   // Marvel Corp (not a secret)
 const WHOP_VERSION = "2026-09-15";
 // Still paid up: "canceling" runs to the end of the period, "past_due" is Whop retrying the card.
 const OK_STATUS = ["active", "trialing", "past_due", "canceling"];
@@ -64,21 +82,22 @@ function doPost(e) {
     // Forgiving match (Scott 10/2: phone keyboards capitalise the first letter and add
     // spaces): case, extra spaces and leading/trailing spaces don't count.
     const norm = v => String(v || "").trim().replace(/\s+/g, " ").toLowerCase();
-    if (req.task === "verify") return out(verifyLicense(P, req.license));
-    let keyCounter = null;                                       // set = this request is on a license key
-    if (req.license && !req.pass) {
+    if (req.task === "verify") return out(verifyBuyer(P, req.buyer, req.device));
+    if (req.task === "release") return out(releasePhone(P, req.buyer, req.device));
+    let keyCounter = null;                                       // set = this request is on a Pro buyer
+    if (req.buyer && !req.pass) {
       if (!/^(1|true|yes|on)$/i.test(String(prop(P, "AI_PUBLIC") || "").trim())) return out({ error: "the AI helper for Pro isn't switched on yet" });
-      const v = verifyLicense(P, req.license);
+      const v = verifyBuyer(P, req.buyer, req.device);
       if (v.error) return out({ error: v.error });
-      if (!v.valid) return out({ error: "license key not active" });
-      keyCounter = dayKey() + "_K_" + keyHash(req.license);
+      if (!v.valid) return out({ error: "Day Hub Pro isn't active for this phone" });
+      keyCounter = dayKey() + "_K_" + v.who;
     } else {
       const pass = prop(P, "PASS");
       if (!pass) return out({ error: "relay has no PASS set — check the property is named exactly PASS" });
       if (!req.pass || norm(req.pass) !== norm(pass)) return out({ error: "wrong passphrase" });
     }
     if (req.task === "ping") { let left = DAILY_CAP - Number(P.getProperty(dayKey()) || 0);
-      if (keyCounter) left = Math.min(left, KEY_CAP - Number(P.getProperty(keyCounter) || 0));
+      if (keyCounter) left = Math.min(left, BUYER_CAP - Number(P.getProperty(keyCounter) || 0));
       return out({ ok: true, model: MODEL, left: left }); }
     const t = TASKS[req.task];
     if (!t) return out({ error: "unknown task" });
@@ -89,7 +108,7 @@ function doPost(e) {
     const n = Number(P.getProperty(dayKey()) || 0);
     if (n >= DAILY_CAP) { lock.releaseLock(); return out({ error: "daily limit reached — try again tomorrow" }); }
     const kn = keyCounter ? Number(P.getProperty(keyCounter) || 0) : 0;
-    if (keyCounter && kn >= KEY_CAP) { lock.releaseLock(); return out({ error: "your daily AI limit is used up — try again tomorrow" }); }
+    if (keyCounter && kn >= BUYER_CAP) { lock.releaseLock(); return out({ error: "your daily AI limit is used up — try again tomorrow" }); }
     if (n === 0) clearOldCounters(P);                           // first request of the day
     P.setProperty(dayKey(), String(n + 1));
     if (keyCounter) P.setProperty(keyCounter, String(kn + 1));
@@ -115,34 +134,95 @@ function doPost(e) {
   }
 }
 
-// Is this Whop license key paid up? {valid, status, until} - or {error} when the
-// relay itself can't check (no Whop key, Whop down). The phone treats {error} as
-// "couldn't check" and keeps its grace period, so a relay problem never locks
-// out a paying customer. Good answers are cached 6 hours to spare Whop's API.
-function verifyLicense(P, license) {
-  const key = String(license || "").trim();
-  if (!/^[A-Za-z0-9_-]{6,100}$/.test(key)) return { valid: false, status: "not a license key" };
-  const whop = prop(P, "WHOP_API_KEY");
-  if (!whop) return { error: "relay has no WHOP_API_KEY yet" };
-  const cache = CacheService.getScriptCache(), ck = "L_" + keyHash(key), hit = cache.get(ck);
-  if (hit) return JSON.parse(hit);
-  const r = UrlFetchApp.fetch(WHOP_API + "/memberships/" + encodeURIComponent(key), {
+// Is this buyer's Day Hub Pro paid up, and may THIS phone use it?
+// -> {valid, status, until, who} or {error} when the relay itself can't check
+// (no Whop key, Whop down). The phone treats {error} as "couldn't check" and
+// keeps its grace period, so a relay problem never locks out a paying customer.
+function verifyBuyer(P, buyer, device) {
+  const b = String(buyer || "").trim(), dev = String(device || "").trim();
+  if (!/^[A-Za-z0-9_-]{8,64}$/.test(dev)) return { valid: false, status: "no phone id" };
+  const isMem = /^mem_[A-Za-z0-9]{4,40}$/.test(b), isMail = /^[^@\s]{1,64}@[^@\s]{1,190}\.[^@\s]{2,}$/.test(b);
+  if (!isMem && !isMail) return { valid: false, status: "enter the email you bought with" };
+  const whop = prop(P, "WHOP_API_KEY"), pid = prop(P, "WHOP_PRODUCT_ID");
+  if (!whop || !pid) return { error: "relay has no WHOP_API_KEY / WHOP_PRODUCT_ID yet" };
+  const co = prop(P, "WHOP_COMPANY_ID") || WHOP_COMPANY;
+
+  // Whop answer cached 6 h (spares Whop's API); the phone list is checked every time.
+  const cache = CacheService.getScriptCache(), ck = "B_" + keyHash(b.toLowerCase()), hit = cache.get(ck);
+  let res = hit ? JSON.parse(hit) : null;
+  if (!res) {
+    let mems;
+    if (isMem) {
+      const m = whopGet(whop, "/memberships/" + encodeURIComponent(b), {});
+      if (m.error) return m;
+      mems = m.notFound ? [] : [m];
+    } else {
+      const want = b.toLowerCase();
+      const found = whopGet(whop, "/members", { account_id: co, query: b, first: 50 });
+      if (found.error) return found;
+      const users = (found.data || []).map(function (x) { return x.user; })
+        .filter(function (u) { return u && String(u.email || "").toLowerCase() === want; });
+      if (!users.length) return { valid: false, status: "no Whop purchase with that email" };
+      mems = [];
+      for (let k = 0; k < users.length; k++) {
+        const list = whopGet(whop, "/memberships", { account_id: co, user_ids: users[k].id, product_ids: pid, first: 50 });
+        if (list.error) return list;
+        mems = mems.concat((list.data || []).filter(function (m) { return m.user && m.user.id === users[k].id; }));
+      }
+    }
+    const mine = mems.filter(function (m) { return m && m.product && m.product.id === pid; });
+    const good = mine.filter(function (m) { return OK_STATUS.indexOf(m.status) >= 0; });
+    const m = good[0] || mine[0];
+    res = good.length
+      ? { valid: true, status: String(m.status), until: m.renewal_period_end || null, who: keyHash((m.user && m.user.id) || m.id) }
+      : { valid: false, status: m ? String(m.status) : (isMem ? "not a Day Hub Pro membership" : "no Day Hub Pro purchase with that email") };
+    if (res.valid) cache.put(ck, JSON.stringify(res), 6 * 3600);
+  }
+  if (!res.valid) return res;
+
+  // Phone limit: at most MAX_PHONES per buyer; a phone unseen for PHONE_DAYS frees its spot.
+  const lock = LockService.getScriptLock(); lock.waitLock(5000);
+  try {
+    const pk = "D_" + res.who, today = Utilities.formatDate(new Date(), "America/Chicago", "yyyy-MM-dd");
+    const cutoff = Utilities.formatDate(new Date(Date.now() - PHONE_DAYS * 86400000), "America/Chicago", "yyyy-MM-dd");
+    const devs = JSON.parse(P.getProperty(pk) || "{}"), dh = keyHash(dev);
+    for (const d in devs) if (devs[d] < cutoff) delete devs[d];
+    if (!devs[dh] && Object.keys(devs).length >= MAX_PHONES)
+      return { valid: false, status: "already on " + MAX_PHONES + " phones — remove it from one (⚙ → Day Hub Pro → Remove from this phone), or wait " + PHONE_DAYS + " days" };
+    devs[dh] = today; P.setProperty(pk, JSON.stringify(devs));
+  } finally { lock.releaseLock(); }
+  return { valid: true, status: res.status, until: res.until, who: res.who };
+}
+
+// "Remove from this phone": frees the phone's spot. Needs the same email/mem id
+// AND the phone id, so nobody can knock someone else's phones off by email alone.
+function releasePhone(P, buyer, device) {
+  const v = verifyBuyer(P, buyer, device);
+  if (!v.valid) return { ok: true };
+  const lock = LockService.getScriptLock(); lock.waitLock(5000);
+  try {
+    const pk = "D_" + v.who, devs = JSON.parse(P.getProperty(pk) || "{}");
+    delete devs[keyHash(String(device))]; P.setProperty(pk, JSON.stringify(devs));
+  } finally { lock.releaseLock(); }
+  return { ok: true };
+}
+
+// GET a Whop endpoint. Array params go form/explode style (a=1&a=2).
+function whopGet(whop, path, params) {
+  const q = [];
+  for (const k in params) [].concat(params[k]).forEach(function (v) { q.push(encodeURIComponent(k) + "=" + encodeURIComponent(v)); });
+  const r = UrlFetchApp.fetch(WHOP_API + path + (q.length ? "?" + q.join("&") : ""), {
     method: "get", muteHttpExceptions: true,
     headers: { "Authorization": "Bearer " + whop, "Api-Version-Date": WHOP_VERSION },
   });
   const code = r.getResponseCode();
-  if (code === 404) return { valid: false, status: "not found" };
+  if (code === 404) return { notFound: true };
+  if (code === 401 || code === 403) return { error: "Whop refused the relay's key (" + code + ") — check its scopes" };
   if (code !== 200) return { error: "Whop said " + code };
-  const m = JSON.parse(r.getContentText() || "{}");
-  const pid = prop(P, "WHOP_PRODUCT_ID");
-  const res = (pid && !(m.product && m.product.id === pid))
-    ? { valid: false, status: "a different product" }
-    : { valid: OK_STATUS.indexOf(m.status) >= 0, status: String(m.status || ""), until: m.renewal_period_end || null };
-  if (res.valid) cache.put(ck, JSON.stringify(res), 6 * 3600);
-  return res;
+  return JSON.parse(r.getContentText() || "{}");
 }
 
-// Short, one-way id for a key - the key itself is never written to Properties.
+// Short, one-way id (email, user id, phone id) - the value itself is never written to Properties.
 function keyHash(key) {
   return Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(key))).slice(0, 16);
 }

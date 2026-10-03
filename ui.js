@@ -552,12 +552,13 @@ const AI_URL = "https://script.google.com/macros/s/AKfycbyVbxOCPR7v8UNTVufOWKOKB
 const AI_KEY = "dayhub.aipass";
 const aiPass = () => { try { return localStorage.getItem(AI_KEY) || ""; } catch (e) { return ""; } };
 // v0.40: the owner's passphrase works exactly as before; with AI_PUBLIC on, a
-// Pro phone sends its Whop key instead and the relay gives each key its own cap.
-const aiByKey = () => !aiPass() && switchOn("AI_PUBLIC") && isPro() && !!proState().key;
+// Pro phone sends its Whop email (+ phone id) instead and the relay gives each
+// buyer their own cap.
+const aiByKey = () => !aiPass() && switchOn("AI_PUBLIC") && isPro() && !!proState().buyer;
 const aiOn = () => !!aiPass() || aiByKey();
 async function aiCall(task, input, pass = aiPass()) {
   const t = today(), body = { task, input, today: t, weekday: parseDay(t).toLocaleDateString("en-US", { weekday: "long" }) };
-  if (pass) body.pass = pass; else body.license = proState().key;
+  if (pass) body.pass = pass; else { body.buyer = proState().buyer; body.device = deviceId(); }
   const r = await fetch(AI_URL, { method: "POST", body: JSON.stringify(body) });
   const j = await r.json();
   if (j.error) throw new Error(j.error);
@@ -1041,7 +1042,7 @@ document.addEventListener("submit", e => {
     if (tr) tr.lists[k].push({ id: uid(), text: data.text.trim(), done: false });
     save(); render(); const again = document.querySelector(`form[data-tadd="${f.dataset.tadd}"] input`); if (again) again.focus(); return; }
   if (f.dataset.ask) { askDayHub(data.q); return; }
-  if (f.dataset.proform) { const k = (data.key || "").trim(); if (k) unlockPro(k); return; }
+  if (f.dataset.proform) { const k = (data.key || "").trim(); if (k) unlockPro(/@/.test(k) ? k.toLowerCase() : k); return; }
   if (f.dataset.aipass) { const pw = (data.pass || "").trim(); if (!pw) return;
     drawAiBox("checking…");
     aiCall("ping", "", pw).then(() => { try { localStorage.setItem(AI_KEY, pw); } catch (e) { /* private mode */ } drawAiBox("connected ✓"); toast("🤖 AI helper on"); })
@@ -1080,8 +1081,10 @@ document.addEventListener("click", e => {
   if (ds.qa) { openQA(ds.qa); return; }
   if (ds.qtype) { openQA(ds.qtype); return; }
   if (ds.undo) { if (UNDO) { S = JSON.parse(UNDO); UNDO = null; save(); render(); toast("Restored ✓"); } return; }
-  if (ds.pro === "check") { const p = proState(); if (p.key) unlockPro(p.key); return; }
-  if (ds.pro === "remove") { setProState({}); PRO_MSG = ""; drawProBox(); drawAiBox(); render(); toast("Key removed from this phone"); return; }
+  if (ds.pro === "check") { const p = proState(); if (p.buyer) unlockPro(p.buyer); return; }
+  if (ds.pro === "remove") { const p = proState();
+    if (p.buyer) fetch(AI_URL, { method: "POST", body: JSON.stringify({ task: "release", buyer: p.buyer, device: deviceId() }) }).catch(() => {});
+    setProState({}); PRO_MSG = ""; drawProBox(); drawAiBox(); render(); toast("Day Hub Pro removed from this phone"); return; }
   if (ds.chipsmore) { CHIPS_ALL = ds.chipsmore === "1"; paintHero(); return; }
   if (ds.collapse) { const k = ds.collapse;
     MINI_OPEN.delete(k);
@@ -1342,25 +1345,30 @@ let PRO_MSG = "";
 function drawProBox() {
   const g = document.getElementById("proBox"); if (!g) return;
   g.hidden = !switchOn("PRO_GATE"); if (g.hidden) { g.innerHTML = ""; return; }
-  const p = proState(), tail = p.key ? "••" + esc(String(p.key).slice(-4)) : "";
+  const p = proState(), who = p.buyer ? esc(p.buyer) : "";
   const what = `<ul class="pro-list"><li>🤖 AI helper — Brain dump, Ask Day Hub, Top 3</li><li>🗓️ Two-way Google Calendar sync</li>
     ${switchOn("GMAIL") ? "<li>📬 Plans found in your email</li>" : ""}<li>☁️ Backup to your own Google Drive</li></ul>
     <p class="fine" style="margin-top:4px">Everything else — every card, reminders, budget, lists, trips — is free forever. No ads, ever.</p>`;
   g.innerHTML = `<h3>⭐ ${PLAN.NAME}</h3>` + (ownerPhone()
     ? `<div class="leg"><span>✅ Pro — this is the owner's phone</span></div>`
     : isPro()
-    ? `<div class="leg"><span>✅ ${PLAN.NAME} is on · key ${tail} · checked ${prettyDate(ymd(new Date(p.checked)))}</span></div>
-       <div class="foot-actions"><button class="btn sm ghost" data-pro="check">Check now</button><button class="btn sm ghost" data-pro="remove">Remove key</button></div>`
+    ? `<div class="leg"><span>✅ ${PLAN.NAME} is on · ${who} · checked ${prettyDate(ymd(new Date(p.checked)))}</span></div>
+       <div class="foot-actions"><button class="btn sm ghost" data-pro="check">Check now</button><button class="btn sm ghost" data-pro="remove">Remove from this phone</button></div>
+       <p class="fine" style="margin-top:6px">One purchase works on up to ${PLAN.MAX_PHONES} phones. Removing it here frees this phone's spot.</p>`
     : what + `<p class="fine"><b>${PLAN.MONTHLY}</b> or <b>${PLAN.YEARLY}</b>.</p>` +
       (PLAN.WHOP_CHECKOUT_URL ? `<a class="btn sm" href="${esc(PLAN.WHOP_CHECKOUT_URL)}" target="_blank" rel="noopener">Get ${PLAN.NAME}</a>`
         : `<p class="fine">Coming soon.</p>`) +
-      `<ol class="steps"><li>Buy ${PLAN.NAME} on Whop.</li><li>Copy your <b>license key</b> from your Whop purchase.</li><li>Paste it here and tap <b>Unlock</b>.</li></ol>
-       <form class="inline-add" data-proform="1"><input name="key" placeholder="Whop license key" autocomplete="off" required><button class="btn sm">Unlock</button></form>`) +
+      `<ol class="steps"><li>Buy ${PLAN.NAME} on Whop.</li><li>Enter the <b>email you used on Whop</b> below and tap <b>Unlock</b>.</li></ol>
+       <form class="inline-add" data-proform="1"><input name="key" type="text" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="Email you used on Whop" value="${who}" autocomplete="email" required><button class="btn sm">Unlock</button></form>
+       <p class="fine" style="margin-top:6px">Bought with a different sign-in? Your Whop membership id (starts with <b>mem_</b>, on your Whop purchase page) works too. Works on up to ${PLAN.MAX_PHONES} phones.</p>`) +
     (PRO_MSG ? `<p class="fine" style="margin-top:6px">${esc(PRO_MSG)}</p>` : "");
 }
-function unlockPro(key) {
+function unlockPro(buyer) {
   PRO_MSG = "Checking…"; drawProBox();
-  verifyPro(key).then(ok => { PRO_MSG = ok ? "" : "That key isn't active — check it's the license key from your Whop purchase."; drawProBox(); drawAiBox(); render();
+  verifyPro(buyer).then(ok => { const st = proState().status || "";
+      PRO_MSG = ok ? "" : /phones/.test(st) ? `It's already on ${PLAN.MAX_PHONES} phones — tap Remove from this phone on one of them, then try again.`
+        : "No active Day Hub Pro found for that — use the email you bought with on Whop (or your mem_ membership id).";
+      drawProBox(); drawAiBox(); render();
       if (ok) toast(`⭐ ${PLAN.NAME} unlocked`); })
     .catch(e => { PRO_MSG = "Couldn't reach the check — try again in a minute. (" + e.message + ")"; drawProBox(); });
 }

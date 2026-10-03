@@ -78,14 +78,23 @@ def route(ctx):
         if u.netloc == "script.google.com" and "/macros/s/" in u.path:
             body = json.loads(r.request.post_data or "{}")
             ctx._relay = getattr(ctx, "_relay", []) + [body]
-            if body.get("task") == "verify":                  # v0.40 Whop license check
+            buyers = ("buyer@example.com", "mem_GOOD1234")      # v0.41: Whop buyer = email (or mem_ id)
+            devs = ctx.__dict__.setdefault("_devices", set())     # the relay's phone list (max 3)
+            if body.get("task") == "verify":
                 if getattr(ctx, "_verify_down", False):
                     return r.fulfill(status=502, body="<html>Bad gateway</html>")
-                good = body.get("license") == "WHOP-GOOD-1234"
-                return r.fulfill(json={"valid": good, "status": "active" if good else "expired", "until": 1793000000 if good else None})
-            if body.get("license") and not body.get("pass"):  # v0.40 AI on a Pro key
-                if body["license"] != "WHOP-GOOD-1234":
-                    return r.fulfill(json={"error": "license key not active"})
+                if body.get("buyer") not in buyers:
+                    return r.fulfill(json={"valid": False, "status": "no Day Hub Pro purchase with that email"})
+                if body.get("device") not in devs and len(devs) >= 3:
+                    return r.fulfill(json={"valid": False, "status": "already on 3 phones — remove it from one"})
+                devs.add(body.get("device"))
+                return r.fulfill(json={"valid": True, "status": "active", "until": "2026-11-01T00:00:00Z", "who": "h1"})
+            if body.get("task") == "release":
+                devs.discard(body.get("device"))
+                return r.fulfill(json={"ok": True})
+            if body.get("buyer") and not body.get("pass"):    # v0.40 AI on a Pro purchase
+                if body["buyer"] not in buyers or body.get("device") not in devs:
+                    return r.fulfill(json={"error": "Day Hub Pro isn't active for this phone"})
                 if body.get("task") == "ping":
                     return r.fulfill(json={"ok": True, "left": 30})
             elif body.get("pass") != "test-only-passphrase-x7":
@@ -1132,7 +1141,7 @@ def t_v040_switches(b, base):
     print("\n[v0.40 switchboard: everything OFF by default, owner switches, Pro key, legal pages, manifest]")
     a = App(b, base); setup(a)
     check("switchboard: all four switches OFF", a.js("Object.values(SWITCHES).every(v => v === false) && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE'"))
-    check("plan: approved price + contact", a.js("PLAN.MONTHLY") == "$4.99/month" and a.js("PLAN.YEARLY") == "$29.99/year" and a.js("PLAN.CONTACT_EMAIL") == "smarvel1963@gmail.com" and a.js("PLAN.WHOP_CHECKOUT_URL") == "")
+    check("plan: approved price, contact, Whop checkout", a.js("PLAN.MONTHLY") == "$4.99/month" and a.js("PLAN.YEARLY") == "$29.99/year" and a.js("PLAN.CONTACT_EMAIL") == "smarvel1963@gmail.com" and a.js("PLAN.WHOP_CHECKOUT_URL") == "https://whop.com/commander-marvel-por-picks/day-hub-pro")
     check("PRO_GATE off: every feature unlocked", a.js("['ai','gcal','mail','sync','reminders','budget'].every(can)"))
     a.page.click("#settingsBtn")
     check("PRO_GATE off: no Pro section in settings", a.js("document.getElementById('proBox').hidden && !document.getElementById('proBox').innerHTML"))
@@ -1150,13 +1159,16 @@ def t_v040_switches(b, base):
     check("...stored on the phone only, not in the planner data", a.js("JSON.parse(localStorage.getItem('dayhub.owner')).GMAIL === true && !('GMAIL' in S)"))
     a.page.check('[data-owner="PRO_GATE"]')
     pro = a.page.inner_text("#proBox")
-    check("owner PRO_GATE on: Pro section with price + coming soon (no Whop link yet)", "Day Hub Pro" in pro and "$4.99/month" in pro and "$29.99/year" in pro and "Coming soon" in pro, pro[:200])
+    check("owner PRO_GATE on: Pro section with price + 'Enter the email you used on Whop'", "Day Hub Pro" in pro and "$4.99/month" in pro and "$29.99/year" in pro and "email you used on Whop" in pro and "license" not in pro.lower(), pro[:300])
+    check("Get Day Hub Pro opens the Whop checkout", a.js("document.querySelector('#proBox a.btn').href") == "https://whop.com/commander-marvel-por-picks/day-hub-pro")
     check("PRO_GATE on, no key: Pro features locked, local ones free", a.js("!can('gcal') && !can('sync') && !can('ai') && can('reminders') && can('budget')"))
-    a.page.fill('form[data-proform] [name=key]', "WHOP-BAD-0000"); a.page.click('form[data-proform] button'); a.page.wait_for_timeout(300)
-    check("bad key: stays free, says why", not a.js("isPro()") and "isn't active" in a.page.inner_text("#proBox"))
-    a.page.fill('form[data-proform] [name=key]', "WHOP-GOOD-1234"); a.page.click('form[data-proform] button'); a.page.wait_for_timeout(300)
-    check("good key: Pro unlocked", a.js("isPro() && can('gcal') && can('sync')") and "is on" in a.page.inner_text("#proBox") and "••1234" in a.page.inner_text("#proBox"))
-    check("verify call sends only the key (no passphrase)", any(x.get("task") == "verify" and x.get("license") == "WHOP-GOOD-1234" and "pass" not in x for x in a.ctx._relay))
+    a.page.fill('form[data-proform] [name=key]', "stranger@example.com"); a.page.click('form[data-proform] button'); a.page.wait_for_timeout(300)
+    check("email with no purchase: stays free, says why", not a.js("isPro()") and "No active Day Hub Pro" in a.page.inner_text("#proBox"))
+    a.page.fill('form[data-proform] [name=key]', "Buyer@Example.com"); a.page.click('form[data-proform] button'); a.page.wait_for_timeout(300)
+    check("the buyer's email (any capitals): Pro unlocked", a.js("isPro() && can('gcal') && can('sync')") and "is on" in a.page.inner_text("#proBox") and "buyer@example.com" in a.page.inner_text("#proBox"))
+    dev = a.js("deviceId()")
+    check("verify sends the email + this phone's random id, no passphrase", any(x.get("task") == "verify" and x.get("buyer") == "buyer@example.com" and x.get("device") == dev and "pass" not in x for x in a.ctx._relay))
+    check("the phone id stays the same", a.js("deviceId()") == dev and len(dev) >= 8)
     a.page.reload(); a.page.wait_for_function("document.querySelector('#hero .greet')")
     check("Pro remembered after reopening", a.js("isPro()"))
     # weekly recheck + grace
@@ -1177,9 +1189,19 @@ def t_v040_switches(b, base):
     a.page.check('[data-owner="AI_PUBLIC"]')
     check("AI_PUBLIC on + Pro key: AI on, 'included with Pro'", a.js("aiOn() && aiByKey()") and "Included with Day Hub Pro" in a.page.inner_text("#aiBox"))
     a.js("aiCall('ping', '').then(j => window.__left = j.left)"); a.page.wait_for_timeout(300)
-    check("AI calls send the key, not a passphrase", a.js("window.__left") == 30 and a.ctx._relay[-1].get("license") == "WHOP-GOOD-1234" and "pass" not in a.ctx._relay[-1])
-    a.page.click('[data-pro="remove"]')
-    check("Remove key: back to free", not a.js("isPro()") and not a.js("aiOn()"))
+    check("AI calls send the buyer + phone id, not a passphrase", a.js("window.__left") == 30 and a.ctx._relay[-1].get("buyer") == "buyer@example.com" and a.ctx._relay[-1].get("device") == dev and "pass" not in a.ctx._relay[-1])
+    a.page.click('[data-pro="remove"]'); a.page.wait_for_timeout(300)
+    check("Remove from this phone: back to free + spot freed at the relay", not a.js("isPro()") and not a.js("aiOn()") and dev not in a.ctx._devices and any(x.get("task") == "release" and x.get("device") == dev for x in a.ctx._relay))
+    # phone limit: 3 phones per purchase
+    a.ctx._devices.update({"phoneA123", "phoneB123", "phoneC123"})
+    a.page.fill('form[data-proform] [name=key]', "buyer@example.com"); a.page.click('form[data-proform] button'); a.page.wait_for_timeout(300)
+    check("a 4th phone is refused and told how to fix it", not a.js("isPro()") and "already on 3 phones" in a.page.inner_text("#proBox"))
+    a.ctx._devices.discard("phoneC123")
+    a.page.click('form[data-proform] button'); a.page.wait_for_timeout(300)
+    check("...once a spot is free it unlocks (email kept in the box)", a.js("isPro()"))
+    a.page.click('[data-pro="remove"]'); a.page.wait_for_timeout(200)
+    a.page.fill('form[data-proform] [name=key]', "mem_GOOD1234"); a.page.click('form[data-proform] button'); a.page.wait_for_timeout(300)
+    check("fallback: Whop membership id (mem_...) unlocks too", a.js("isPro()") and a.js("proState().buyer") == "mem_GOOD1234")
     a.close()
     # the owner's phone (holds the relay passphrase) is never locked out
     a = App(b, base); setup(a)

@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.40";
+const VERSION = "0.41";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -48,33 +48,43 @@ const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";      // re
 // Calendar sync, Gmail, Drive backup). Every local feature stays free forever.
 const can = f => !switchOn("PRO_GATE") || !PLAN.PRO_FEATURES.includes(f) || isPro();
 
-// ---------------------------------------------------------- pro (Whop key)
-// v0.40 (Scott 10/3, sold on Whop only). The Whop license key IS the account:
-// the AI relay checks it with Whop (the Whop API key lives in the relay's Script
-// Properties, never here). Stored on this phone only ("dayhub.pro"); re-checked
-// every RECHECK_DAYS; if the phone can't reach the check it stays Pro for
-// GRACE_DAYS more, so a dead signal never locks anyone out.
+// ------------------------------------------------------- pro (Whop purchase)
+// v0.40/v0.41 (Scott 10/3, sold on Whop only). The EMAIL the buyer used on Whop
+// is the account (or their Whop membership id, mem_..., as a fallback): the AI
+// relay checks it with Whop (the Whop API key lives in the relay's Script
+// Properties, never here) and allows PLAN.MAX_PHONES phones per purchase, told
+// apart by a random id this phone makes for itself ("dayhub.device"). Stored on
+// this phone only ("dayhub.pro"); re-checked every RECHECK_DAYS; if the phone
+// can't reach the check it stays Pro for GRACE_DAYS more, so a dead signal never
+// locks anyone out.
 const PRO_KEY = "dayhub.pro", DAY_MS = 86400000;
 const proState = () => { try { return JSON.parse(localStorage.getItem(PRO_KEY) || "{}") || {}; } catch (e) { return {}; } };
 const setProState = p => { try { localStorage.setItem(PRO_KEY, JSON.stringify(p)); } catch (e) { /* private mode */ } };
+function deviceId() {
+  let d = ""; try { d = localStorage.getItem("dayhub.device") || ""; } catch (e) { /* private mode */ }
+  if (!/^[A-Za-z0-9_-]{8,64}$/.test(d)) { d = "d" + uid() + uid() + uid();
+    try { localStorage.setItem("dayhub.device", d); } catch (e) { /* private mode */ } }
+  return d;
+}
 // Never lock the owner out of his own app: the phone holding the relay
 // passphrase (or with the OWNER owner-switch) counts as Pro.
 const ownerPhone = () => !!aiPass() || !!ownerSwitches().OWNER;
 function isPro() {
   if (ownerPhone()) return true;
   const p = proState();
-  return !!(p.key && p.ok && Date.now() < (p.checked || 0) + (PLAN.RECHECK_DAYS + PLAN.GRACE_DAYS) * DAY_MS);
+  return !!(p.buyer && p.ok && Date.now() < (p.checked || 0) + (PLAN.RECHECK_DAYS + PLAN.GRACE_DAYS) * DAY_MS);
 }
-async function verifyPro(key) {                     // throws when the check can't be reached
-  const j = await (await fetch(AI_URL, { method: "POST", body: JSON.stringify({ task: "verify", license: key }) })).json();
+async function verifyPro(buyer) {                   // throws when the check can't be reached
+  const j = await (await fetch(AI_URL, { method: "POST", body: JSON.stringify({ task: "verify", buyer, device: deviceId() }) })).json();
   if (typeof j.valid !== "boolean") throw new Error(j.error || "no answer");
-  setProState({ key, ok: j.valid, checked: Date.now(), status: j.status || "", until: j.until || null, why: j.valid ? "" : (j.error || j.status || "") });
+  // A "no" never wipes a known buyer: the email stays so Check now can retry.
+  setProState({ buyer, ok: j.valid, checked: Date.now(), status: j.status || "", until: j.until || null });
   return j.valid;
 }
 function recheckPro() {
   const p = proState();
-  if (!switchOn("PRO_GATE") || !p.key || Date.now() - (p.checked || 0) < PLAN.RECHECK_DAYS * DAY_MS) return;
-  verifyPro(p.key).then(() => render()).catch(() => { /* offline: grace period covers it */ });
+  if (!switchOn("PRO_GATE") || !p.buyer || Date.now() - (p.checked || 0) < PLAN.RECHECK_DAYS * DAY_MS) return;
+  verifyPro(p.buyer).then(() => render()).catch(() => { /* offline: grace period covers it */ });
 }
 // Gmail waits on Google's verification (GMAIL switch). A phone that already
 // connected it keeps it - turning the switch off never breaks a working phone.
