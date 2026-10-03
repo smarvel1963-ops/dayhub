@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.36";
+const VERSION = "0.37";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -51,7 +51,7 @@ const FEATURES = {
 const can = f => !PRO_LIVE || FEATURES[f] !== "pro" || TIER === "pro";
 
 // ---------------------------------------------------------------- packs
-const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "top3", "schedule", "errands", "leave", "routines", "reset", "tomorrow", "work", "payday", "budget", "weather", "todos", "notes", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
+const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "top3", "schedule", "errands", "leave", "routines", "reset", "tomorrow", "work", "payday", "budget", "weather", "todos", "notes", "future", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
 const PACKS = {
   general:  { label: "General",              cards: [] },
   trucker:  { label: "Trucker / Dispatcher", cards: ["route", "loads"] },
@@ -75,6 +75,7 @@ const blank = () => ({
   top3: { day: null, items: [], ai: false },
   alarms: [],
   returns: [],
+  future: [], futureShow: [],
   payday: { freq: null, next: null, amount: null, d1: 1, d2: 15 }, goals: [],
   leave: { items: LEAVE_DEFAULT.map(text => ({ id: uid(), text })), day: null, done: [] },
   packages: [],
@@ -129,6 +130,8 @@ function normalize(raw) {
   s.routines = (Array.isArray(s.routines) ? s.routines : []).filter(r => obj(r) && r.name && Array.isArray(r.steps));
   s.routines.forEach(r => { r.steps = r.steps.filter(x => obj(x) && x.text); if (!Array.isArray(r.days)) r.days = []; if (r.time && !isT(r.time)) r.time = null; });
   if (!obj(s.rdone)) s.rdone = {};
+  s.future = (Array.isArray(s.future) ? s.future : []).filter(f => obj(f) && f.text).map(f => ({ ...f, words: Array.isArray(f.words) ? f.words : [] }));
+  if (!Array.isArray(s.futureShow)) s.futureShow = [];
   s.returns = (Array.isArray(s.returns) ? s.returns : []).filter(r => obj(r) && r.what && isDay(r.by));
   s.alarms = (Array.isArray(s.alarms) ? s.alarms : []).filter(a => obj(a) && isT(a.time)).map(a => ({ ...a, days: Array.isArray(a.days) ? a.days : [], on: a.on !== false }));
   s.top3 = Object.assign({ day: null, items: [], ai: false }, obj(s.top3) ? s.top3 : {});
@@ -548,6 +551,7 @@ function briefLines() {
   const f = plans.find(i => i.t && i.t >= nowT());
   if (f) s.push(`Your first one is at ${hm(f.t)}: ${f.title}.`);
   S.remember.filter(r => r.day === t).forEach(r => s.push(`You asked to remember: ${r.text}.`));
+  S.future.filter(f => f.day === t).forEach(f => s.push(`Future you said: ${f.text}`));
   { const nx = payNext(); if (nx) { const n = daysUntil(nx);
       if (n === 0) { const c = dueBetween(nx, payAfter(nx)); s.push(`Payday today — ${c.length} bill${c.length === 1 ? "" : "s"} (${money(c.reduce((x, o) => x + o.amt, 0))}) before the next check.`); }
       else if (n <= 3) { const b = dueBetween(today(), nx); s.push(`Payday ${inDays(n)}${b.length ? ` — ${money(b.reduce((x, o) => x + o.amt, 0))} in bills due before then` : ""}.`); } } }
@@ -2216,6 +2220,7 @@ function aiContext() {
   out.workThisPeriod = (p => p.hrs ? { hours: fmtH(p.hrs), takeHome: money(p.net) } : null)(periodPay(periodStart(t)));
   out.weatherToday = WXDATA && WXDATA.here && WXDATA.here.day ? { hi: Math.round(WXDATA.here.day.hi), lo: Math.round(WXDATA.here.day.lo), rainFrom: WXDATA.here.day.rainFrom ? fmtTime(WXDATA.here.day.rainFrom) : null } : null;
   out.alerts = pulseItems().map(x => x.text);
+  out.futureMe = S.future.map(f => ({ saved: f.created.slice(0, 10), note: f.text }));
   let j = JSON.stringify(out);
   if (j.length > 14000) { out.notes = out.notes.slice(-5); out.schedule = out.schedule.filter(x => x.day <= d(7)); j = JSON.stringify(out); }
   return j.slice(0, 15000);
@@ -2409,6 +2414,40 @@ function errandsCard() {
 const RETURN_HOW = { ship: ["📮", "Ship it back", "post"], store: ["🏬", "Take it to the store", "store"], dropoff: ["📦", "Drop-off point (UPS / Whole Foods / Kohl's…)", "post"] };
 const openReturns = () => S.returns.filter(r => !r.done).sort((a, b) => a.by.localeCompare(b.by));
 const retWhen = r => { const n = daysUntil(r.by); return n < 0 ? `${-n} day${n === -1 ? "" : "s"} PAST the return window` : n === 0 ? "last day TODAY" : `${n} day${n === 1 ? "" : "s"} left`; };
+
+// ------------------------------------------------------------- future me
+// Scott 10/2 (the "one unusual feature": Future Me). Not a reminder - the
+// REASON. "Next time we travel, don't book a 6 AM flight." "Didn't buy the
+// Ford - transmission reviews." Each note carries a few words; when you later
+// add anything that mentions them (a trip, an event, a to-do, a list item...)
+// the note comes back at the top of the screen. Or pick a day for it to come
+// back. Ask Day Hub can answer "why didn't I...?" from them.
+const STOP = new Set("about after again also because been before being both come could didnt does doesnt dont down each even ever every from going gonna have here into just keep know like made make maybe more most much must need never next only other over really remember said same should since some still such sure take than that their them then there these they thing this those time told very want was were what when where which while will with would your youre note future".split(" "));
+const futureWords = text => [...new Set(String(text).toLowerCase().replace(/[^a-z0-9\s'-]/g, " ").split(/\s+/)
+  .map(w => w.replace(/'s$|'/g, "")).filter(w => w.length >= 4 && !STOP.has(w) && !/^\d+$/.test(w)))].slice(0, 5);
+function futureMatch(text) {
+  const t = " " + String(text || "").toLowerCase() + " ";
+  return S.future.filter(f => f.words.some(w => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i").test(t)));
+}
+// Called after anything is added: bring back what future-you asked to hear.
+function futureCheck(text) {
+  const hits = futureMatch(text).filter(f => !S.futureShow.includes(f.id));
+  if (hits.length) { S.futureShow.push(...hits.map(f => f.id)); hits.forEach(f => { f.seen = (f.seen || 0) + 1; f.lastSeen = today(); }); saveLocal(); }
+  return hits.length;
+}
+function futureDue() {                                      // date-triggered notes, once on their day
+  let changed = false;
+  S.future.filter(f => f.day && f.day <= today() && !f.dayShown).forEach(f => { f.dayShown = true; if (!S.futureShow.includes(f.id)) S.futureShow.push(f.id); changed = true; });
+  if (changed) saveLocal();
+}
+function futureBanner() {
+  const list = S.futureShow.map(id => S.future.find(f => f.id === id)).filter(Boolean);
+  if (!list.length) return "";
+  return `<section class="card future-banner"><h3><span class="ci">🔮</span>Future you said…</h3><div class="body">
+    ${list.map(f => `<div class="today-line">“${esc(f.text)}”<span class="sub">— you, ${prettyDate(f.created.slice(0, 10))}${f.created.slice(0, 4) !== today().slice(0, 4) ? " " + f.created.slice(0, 4) : ""}</span></div>`).join("")}
+    <div class="foot-actions"><button class="btn sm" data-futok="1">Got it</button></div></div></section>`;
+}
+let FUTURE_EDIT = null;
 
 function heroHtml() {
   const now = new Date(), h = now.getHours();
@@ -2837,6 +2876,12 @@ const CARDS = {
 
   payday: { icon: "💵", title: "Payday",
     meta: () => { const nx = payNext(); return nx ? (daysUntil(nx) === 0 ? "today!" : inDays(daysUntil(nx))) : ""; }, body: () => paydayCard() },
+  future: { icon: "🔮", title: "Future me", add: ["future", "Note to future me"],
+    meta: () => S.future.length ? `${S.future.length} saved` : "",
+    body: () => S.future.length ? [...S.future].reverse().map(f => `<div class="row"><span class="grow">“${esc(f.text)}”
+        <span class="sub">${prettyDate(f.created.slice(0, 10))} · comes back ${f.day ? `on ${prettyDate(f.day)}` : ""}${f.day && f.words.length ? " or " : ""}${f.words.length ? `with: ${esc(f.words.join(", "))}` : ""}${f.seen ? ` · came back ${f.seen}×` : ""}</span></span>
+        <button class="x" data-futedit="${f.id}" aria-label="Edit">✏️</button></div>`).join("")
+      : `<div class="empty">Save the WHY behind a decision — "Next time we travel, don't book a 6 AM flight" — and Day Hub brings it back the next time it matters.</div>` },
   errands: { icon: "🛍️", title: "Errand run",
     meta: () => { const n = errandStops().length; return n ? `${n} stop${n === 1 ? "" : "s"}` : ""; }, body: () => errandsCard() },
   top3: { icon: "🎯", title: "Top 3 today",
@@ -2961,7 +3006,8 @@ function render() {
       <h3 data-collapse="${k}"><span class="ci">${c.icon}</span>${c.title}${tag}<span class="meta">${c.meta ? c.meta() : ""}</span><span class="chev">⌄</span></h3>
       <div class="body">${c.body()}${c.add ? `<button class="add-link" data-qa="${c.add[0]}">＋ ${c.add[1]}</button>` : ""}</div></section>`;
   }).join("");
-  document.getElementById("cards").innerHTML = whatsNewHtml() + (!S.city && !S.name ? welcomeHtml() : "") + cards +
+  futureDue();
+  document.getElementById("cards").innerHTML = futureBanner() + whatsNewHtml() + (!S.city && !S.name ? welcomeHtml() : "") + cards +
     `<button class="add-link arrange-link" data-arrange="1">↕ Arrange my screen</button>`;
   tick();
 }
@@ -3027,7 +3073,7 @@ function drawAiBox(msg) {
 // Rules on the phone, no AI and no cost; an AI sorter can replace dumpParse later.
 const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const SHOP_WORDS = /\b(milk|eggs?|bread|butter|cheese|coffee|tea|toothpaste|toothbrush|paper towels?|toilet paper|tp|soap|shampoo|conditioner|deodorant|detergent|dish soap|dog food|cat food|bananas?|apples?|chicken|beef|steak|rice|pasta|sugar|flour|batteries|trash bags|foil|cereal|juice|water|creamer|lettuce|tomatoes|onions|potatoes|bacon|sausage|yogurt|chips|razors?)\b/i;
-const DUMP_KINDS = { todo: "✅ To-do", event: "⏰ Reminder", item: "🛒 Shopping", note: "💡 Idea / note" };
+const DUMP_KINDS = { todo: "✅ To-do", event: "⏰ Reminder", item: "🛒 Shopping", note: "💡 Idea / note", future: "🔮 Future me" };
 let DUMP = [], RECOG = null;
 
 function dumpSplit(text) {
@@ -3101,6 +3147,8 @@ const dumpClean = s => {
 // One piece -> { kind, title, day, time, rep }.
 function dumpClassify(piece, now = new Date()) {
   const raw = piece.trim(), w = dumpWhen(raw, now), low = w.rest.toLowerCase();
+  if (/\b(future me|note to self|remind future|next time\b.*\b(don'?t|do not|never|remember)|never again)\b/i.test(raw))
+    return { kind: "future", title: raw.replace(/^(remind\s+)?(future me|note to self)[:,\s-]*/i, "").replace(/^\w/, c => c.toUpperCase()) };
   if (/\b(idea|ideas|someday|maybe|what if|think about|look into)\b/i.test(raw)) return { kind: "note", title: dumpClean(raw) };
   const shopVerb = /^(please\s+)?(i need to buy|need to buy|buy|get|grab|pick up|pickup|order|we need|need more|out of|restock)\s+/i;
   if (!w.time && !w.rep && (shopVerb.test(w.rest) && (SHOP_WORDS.test(low) || !w.day)) || (!w.day && !w.time && SHOP_WORDS.test(low) && low.split(" ").length <= 3)) {
@@ -3149,16 +3197,17 @@ async function dumpSort() {
   drawDump();
 }
 function dumpAdd() {
-  const n = { todo: 0, event: 0, item: 0, note: 0 }, L = S.lists.find(l => /grocer|shop/i.test(l.name)) || S.lists[0];
+  const n = { todo: 0, event: 0, item: 0, note: 0, future: 0 }, L = S.lists.find(l => /grocer|shop/i.test(l.name)) || S.lists[0];
   DUMP.filter(x => (x.title || "").trim()).forEach(x => {
     const title = x.title.trim(); n[x.kind]++;
     if (x.kind === "todo") S.todos.push({ id: uid(), title, done: false, rep: "none", day: today() });
     else if (x.kind === "event") S.events.push({ id: uid(), day: x.day || today(), time: x.time || "09:00", title, where: "", rep: x.rep || "none" });
     else if (x.kind === "item") L.items.push({ id: uid(), text: title, done: false });
+    else if (x.kind === "future") S.future.push({ id: uid(), created: new Date().toISOString(), seen: 0, text: title, words: futureWords(title), day: null });
     else S.notes.push({ id: uid(), text: title, pinned: false, updated: new Date().toISOString() });
   });
   DUMP = [];
-  const said = [[n.todo, "to-do"], [n.event, "reminder"], [n.item, "shopping item"], [n.note, "idea"]].filter(([k]) => k).map(([k, w]) => `${k} ${w}${k === 1 ? "" : "s"}`).join(", ");
+  const said = [[n.todo, "to-do"], [n.event, "reminder"], [n.item, "shopping item"], [n.note, "idea"], [n.future, "future-me note"]].filter(([k]) => k).map(([k, w]) => `${k} ${w}${k === 1 ? "" : "s"}`).join(", ");
   return said;
 }
 function micToggle(btn) {
@@ -3178,7 +3227,7 @@ function micToggle(btn) {
 }
 
 function qaTypes() {
-  const t = [["dump", "🧠 Brain dump"], ["event", "📅 Event"], ["person", "🎂 Birthday / date"], ["upkeep", "🏠 Home / car"], ["routine", "🔁 Routine"], ["alarm", "⏰ Alarm"], ["return", "↩️ Return"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["package", "📦 Package"], ["trip", "🚢 Trip"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
+  const t = [["dump", "🧠 Brain dump"], ["event", "📅 Event"], ["person", "🎂 Birthday / date"], ["upkeep", "🏠 Home / car"], ["routine", "🔁 Routine"], ["alarm", "⏰ Alarm"], ["return", "↩️ Return"], ["future", "🔮 Future me"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["package", "📦 Package"], ["trip", "🚢 Trip"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
   if (S.pack === "trucker") t.splice(1, 0, ["loads", "🚚 Load"]);
   if (S.pack === "trades") t.splice(1, 0, ["jobs", "🔧 Job"]);
   return t;
@@ -3266,6 +3315,11 @@ function qaFields(type) {
       <label class="field">Gift reminder<select name="lead">${o(0, "Off", p.lead)}${o(7, "1 week before", p.lead)}${o(14, "2 weeks before", p.lead)}${o(21, "3 weeks before", p.lead)}${o(28, "4 weeks before", p.lead)}</select></label>
       <input name="ideas" placeholder="Gift ideas, sizes, favorites (optional)" value="${esc(p.ideas || "")}" autocomplete="off">
       ${PERSON_EDIT ? `<button type="button" class="btn sm ghost" data-pdel="${PERSON_EDIT}">Delete this date</button>` : ""}`; })(),
+    future: (() => { const f = S.future.find(x => x.id === FUTURE_EDIT) || { text: "", words: [], day: "" };
+      return `<textarea name="text" rows="3" required placeholder="What should future you remember — and why? e.g. Next time we travel, don't book a 6 AM flight. We were wrecked all day.">${esc(f.text)}</textarea>
+        <label class="field">Bring it back when I add something about… (words, comma between)<input name="words" value="${esc(f.words.join(", "))}" placeholder="leave blank — Day Hub picks the words" autocomplete="off"></label>
+        <label class="field">…or on this day (optional)<input name="day" type="date" value="${f.day || ""}"></label>
+        ${FUTURE_EDIT ? `<button type="button" class="btn sm ghost" data-futdel="${FUTURE_EDIT}">Delete this note</button>` : ""}`; })(),
     return: `<input name="what" placeholder="What are you returning? (e.g. Boots — too small)" required autocomplete="off">
       <input name="store" placeholder="Store / site (Amazon, Target…)" autocomplete="off">
       <div class="two"><label class="field">Return by<input name="by" type="date" value="${addDays(today(), 30)}" required></label>
@@ -3326,7 +3380,7 @@ function qaFields(type) {
 let NOTE_EDIT = null, ERASE_ARMED = 0;
 let TRIP_EDIT = null, PORT_EDIT = null, PORT_DAY = null, PERK_EDIT = null;
 function openQA(type, keepEdit) {
-  if (!keepEdit) { TRIP_EDIT = null; PERSON_EDIT = null; UPKEEP_EDIT = null; UPKEEP_PRESET = null; ROUTINE_EDIT = null; ALARM_EDIT = null; }
+  if (!keepEdit) { TRIP_EDIT = null; PERSON_EDIT = null; UPKEEP_EDIT = null; UPKEEP_PRESET = null; ROUTINE_EDIT = null; ALARM_EDIT = null; FUTURE_EDIT = null; }
   // Opened from ⚙ (✏️ an alarm, ＋ Add an alarm): close Settings first - it sat on top and hid the form.
   if (!document.getElementById("sheet").classList.contains("hidden")) closeSettings();
   QA_TYPE = type || QA_TYPE;
@@ -3345,7 +3399,8 @@ function submitQA(f) {
   const ty = QA_TYPE;
   if (ty === "dump") {
     if (!DUMP.length) { dumpSort(); return; }                   // first tap sorts; nothing added yet
-    snap(); const said = dumpAdd(); save(); closeQA(); render(); buzz(); toast(`Added ${said} ✓`, true); return;
+    const dumpText = DUMP.map(x => x.title).join(" "); snap(); const said = dumpAdd(); const hit = futureCheck(dumpText);
+    save(); closeQA(); render(); buzz(); toast(`Added ${said} ✓${hit ? " — 🔮 see the note at the top" : ""}`, true); return;
   }
   if (ty === "event") { S.events.push({ id: uid(), day: d.date, time: d.time, title: d.title.trim(), where: (d.where || "").trim(), rep: d.rep || "none" }); VIEW = d.date; }
   else if (ty === "shift") { S.work.shifts.push({ id: uid(), day: d.date, start: d.start, end: d.end, brk: Number(d.brk || 0) }); VIEW = d.date; }
@@ -3364,6 +3419,14 @@ function submitQA(f) {
     // Added after this month's due day = treat this month as handled; before it = due this month.
     const paid = day < now.getDate() ? today().slice(0, 7) : prevMonthKey();
     S.bills.push({ id: uid(), name: d.title.trim(), amount: Number(d.amount), day, paid });
+  }
+  else if (ty === "future") {
+    const words = (d.words || "").split(",").map(w => w.trim().toLowerCase()).filter(w => w.length >= 3);
+    const rec = { text: d.text.trim(), words: words.length ? words : futureWords(d.text), day: d.day || null };
+    const old = S.future.find(x => x.id === FUTURE_EDIT);
+    if (old) Object.assign(old, rec, { dayShown: rec.day !== old.day ? false : old.dayShown }); else S.future.push({ id: uid(), created: new Date().toISOString(), seen: 0, ...rec });
+    FUTURE_EDIT = null;
+    save(); closeQA(); render(); buzz(); toast(`🔮 Saved — comes back with: ${rec.words.join(", ") || "its date"}`); return;
   }
   else if (ty === "return") S.returns.push({ id: uid(), what: d.what.trim(), store: (d.store || "").trim(), by: d.by, how: d.how || "ship",
     amount: Number(d.amount) > 0 ? Number(d.amount) : null, done: false });
@@ -3439,7 +3502,8 @@ function submitQA(f) {
     f.querySelector("[name=text]").value = ""; f.querySelector("[name=text]").focus();
     return;
   }
-  save(); closeQA(); render(); buzz(); toast("Added ✓");
+  const hit = futureCheck(Object.values(d).filter(v => typeof v === "string").join(" "));
+  save(); closeQA(); render(); buzz(); toast(hit ? "Added ✓ — 🔮 future you left a note (top of the screen)" : "Added ✓");
 }
 
 // ------------------------------------------------------------- events
@@ -3577,6 +3641,9 @@ document.addEventListener("click", e => {
   if (ds.fadd) { snap(); const keys = ds.fadd === "__all" ? (S.gcal.dates || []).map(b => b.key) : [ds.fadd];
     const n = addFoundDates(keys); save(); render(); buzz(); toast(`🎂 Added ${n} date${n === 1 ? "" : "s"} — ✏️ to add gift ideas`, true); return; }
   if (ds.fno) { S.gcal.datesNo = [...new Set([...(S.gcal.datesNo || []), ...(S.gcal.dates || []).map(b => b.key)])]; S.gcal.dates = []; saveLocal(); render(); return; }
+  if (ds.futok) { S.futureShow = []; saveLocal(); render(); return; }
+  if (ds.futedit) { FUTURE_EDIT = ds.futedit; openQA("future", true); return; }
+  if (ds.futdel) { snap(); S.future = S.future.filter(f => f.id !== ds.futdel); S.futureShow = S.futureShow.filter(id => id !== ds.futdel); FUTURE_EDIT = null; closeQA(); save(); render(); toast("Note deleted", true); return; }
   if (ds.retdone) { const r = S.returns.find(x => x.id === ds.retdone); if (r) { snap(); r.done = true; r.doneDay = today(); save(); render(); buzz();
     toast(`↩️ Returned ✓${r.amount ? ` — watch for ${money(r.amount)} back` : ""}`, true); } return; }
   if (ds.errands) { if (S.collapsed.includes("errands")) { S.collapsed = S.collapsed.filter(k => k !== "errands"); save(); render(); }

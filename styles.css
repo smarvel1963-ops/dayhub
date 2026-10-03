@@ -387,3 +387,7 @@ details.steps .fine { margin-top: 8px; }
 .top3 .sub { display: block; }
 /* Dates found in Google Calendar (v0.33) */
 .found-box { border: 1px dashed var(--accent); border-radius: 12px; padding: 8px 10px; margin-bottom: 10px; }
+/* Future me (v0.37) */
+.future-banner { border: 1px solid #a855f7; background: linear-gradient(160deg, rgba(168,85,247,.18), rgba(30,20,60,.4)); }
+.future-banner .today-line { font-size: 16px; line-height: 1.45; }
+.future-banner .sub { display: block; margin-top: 2px; }

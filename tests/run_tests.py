@@ -1034,6 +1034,34 @@ def t_v036_returns(b, base):
     a.close()
 
 
+def t_v037_future_me(b, base):
+    print("\n[v0.37 future me]")
+    a = App(b, base); setup(a)
+    a.qa("future", {"text": "Next time we travel, don't book a 6 AM flight. We were wrecked all day."})
+    words = a.js("S.future[0].words")
+    check("words picked for you", "travel" in words and "flight" in words and "book" in words, words)
+    check("card lists it", "6 AM flight" in a.card("future"))
+    a.qa("event", {"title": "Book flight to Vegas", "date": "2026-10-10", "time": "10:00"})
+    check("adding a flight brings the note back at the top", "Future you said" in a.page.inner_text("#cards") and "6 AM flight" in a.page.inner_text("#cards"))
+    a.page.click("[data-futok]")
+    check("Got it clears the banner", "Future you said" not in a.page.inner_text("#cards") and a.js("S.future[0].seen") == 1)
+    a.qa("event", {"title": "Dentist", "date": "2026-10-10", "time": "11:00"})
+    check("unrelated add: no note", "Future you said" not in a.page.inner_text("#cards"))
+    # brain dump route
+    a.page.click('#hero [data-dump]')
+    a.page.fill("#qaForm [name=dump]", "note to self never buy the extended warranty at Best Buy, buy milk")
+    a.page.click("#qaForm > .btn:last-child")
+    check("brain dump: 'note to self' -> Future me", a.js("DUMP[0].kind") == "future" and a.js("DUMP[1].kind") == "item", a.js("DUMP.map(x => x.kind)"))
+    a.page.click("#qaForm > .btn:last-child")
+    check("…saved with its words", a.js("S.future.some(f => /extended warranty/i.test(f.text) && f.words.includes('warranty'))"))
+    # date trigger
+    a.qa("future", {"text": "Check if the roof guy actually fixed the leak", "words": "roof", "day": "2026-10-03"})
+    a.page.clock.fast_forward("48:00:00"); a.js("render()")
+    check("comes back on its day", "roof guy" in a.page.inner_text("#cards") and any("roof guy" in l for l in a.js("briefLines()")))
+    check("Ask Day Hub gets the notes", "6 AM flight" in a.js("aiContext()"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1048,7 +1076,8 @@ def main():
                   t_v030_brief_countdowns, t_v031_ai_helper,
                   t_v032_ask_top3, t_v033_alarms,
                   t_v033_calendar_dates, t_v034_backup_nudge,
-                  t_v035_errands, t_v036_returns):
+                  t_v035_errands, t_v036_returns,
+                  t_v037_future_me):
             try:
                 t(b, base)
             except Exception as e:

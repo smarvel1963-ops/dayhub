@@ -1,6 +1,10 @@
 {
- "version": "0.36",
+ "version": "0.37",
  "notes": {
+  "0.37": [
+   "🔮 Future me: save the WHY behind a decision — \"Next time we travel, don't book a 6 AM flight\" — and Day Hub brings it back at the top of the screen the next time you add something about it (or on a day you pick)",
+   "🧠 Brain dump files \"note to self…\" / \"future me…\" here by itself, and 💡 Ask Day Hub can answer \"why didn't I…?\" from your notes"
+  ],
   "0.36": [
    "↩️ Returns (Packages card → Add a return, or + → Return): what, store, return-by date and money back — days left at a glance, reminders 3 days and 1 day before, a warning at the top when it's close",
    "Returns due this week ride along in your 🛍️ Errand run, and ✓ Returned reminds you to watch for the refund"
