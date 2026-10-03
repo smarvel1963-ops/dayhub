@@ -17,7 +17,7 @@
 "use strict";
 const SWITCHES = Object.freeze({
   PRO_GATE: true,     // ON 2026-10-03 (Scott "go": Whop product live). OFF = everything free, no Pro section anywhere.
-  AI_PUBLIC: false,   // AI helper for Pro (Whop key) holders. OFF = only the owner passphrase works.
+  AI_PUBLIC: true,    // ON 2026-10-03 (Scott: "turn it on"). Relay also needs Script Property AI_PUBLIC=true. OFF = only the owner passphrase works.
   GMAIL: false,       // Gmail -> plans. Waits on Google's restricted-scope verification.
   STORE: false,       // "Get it on Google Play" link. Waits on the Play listing going live.
 });
