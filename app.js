@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.43";
+const VERSION = "0.44";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -792,7 +792,7 @@ function drawSyncBox() {
     ? `<div class="leg"><span>☁️ On — ${S.sync.last ? `last backup ${when(S.sync.last)}` : "not backed up yet"}${S.sync.dirty ? " · <b style='color:var(--orange)'>new changes</b>" : ""}</span></div>
        <div class="foot-actions"><button class="btn sm" data-sync="now">Back up now</button>
        <button class="btn sm ghost" data-sync="restore">Restore</button><button class="btn sm ghost" data-sync="off">Turn off</button></div>`
-    : `<p class="fine" style="margin-top:0"><b>⚠️ Not backed up yet</b> — everything is only on this phone. Turn it on once (Scott 10/2: "all we do needs to back up on server"):</p>
+    : `<p class="fine" style="margin-top:0"><b>⚠️ Not backed up yet</b> — everything is only on this phone. Turn it on once:</p>
        <ol class="steps"><li>Tap <b>Back up to my Google Drive</b>.</li><li>Pick your Google account → <b>Continue</b> → <b>Allow</b>.</li>
          <li>Done — every change saves to Google's servers by itself from then on.</li></ol>
        <button class="btn sm" data-sync="on">☁️ Back up to my Google Drive</button>

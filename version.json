@@ -1,6 +1,9 @@
 {
- "version": "0.43",
+ "version": "0.44",
  "notes": {
+  "0.44": [
+   "Small fix: tidier wording in the backup box"
+  ],
   "0.43": [
    "🤖 The AI helper is now part of Day Hub Pro: Brain dump, Ask Day Hub and Top 3 work with the email you bought with."
   ],
