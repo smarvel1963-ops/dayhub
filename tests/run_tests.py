@@ -77,7 +77,18 @@ def route(ctx):
             return r.fulfill(json={"places": [{"place name": "Conway", "state abbreviation": "AR", "latitude": "35.09", "longitude": "-92.44"}]})
         if u.netloc == "script.google.com" and "/macros/s/" in u.path:
             body = json.loads(r.request.post_data or "{}")
-            if body.get("pass") != "test-only-passphrase-x7":
+            ctx._relay = getattr(ctx, "_relay", []) + [body]
+            if body.get("task") == "verify":                  # v0.40 Whop license check
+                if getattr(ctx, "_verify_down", False):
+                    return r.fulfill(status=502, body="<html>Bad gateway</html>")
+                good = body.get("license") == "WHOP-GOOD-1234"
+                return r.fulfill(json={"valid": good, "status": "active" if good else "expired", "until": 1793000000 if good else None})
+            if body.get("license") and not body.get("pass"):  # v0.40 AI on a Pro key
+                if body["license"] != "WHOP-GOOD-1234":
+                    return r.fulfill(json={"error": "license key not active"})
+                if body.get("task") == "ping":
+                    return r.fulfill(json={"ok": True, "left": 30})
+            elif body.get("pass") != "test-only-passphrase-x7":
                 return r.fulfill(json={"error": "wrong passphrase"})
             if body.get("task") == "ping":
                 return r.fulfill(json={"ok": True, "left": 199})
@@ -822,7 +833,7 @@ def t_v028_payday(b, base):
     a.page.fill('[data-card="payday"] form[data-goaladd] [name=amt]', "150"); a.page.click('[data-card="payday"] form[data-goaladd] button')
     check("savings goal: $150 of $600 · 25%", "$150.00 of $600.00 · 25%" in a.card("payday"))
     # payday day itself
-    a.page.clock.fast_forward("192:00:00") if False else a.page.clock.fast_forward(8 * 86400000)
+    a.page.clock.fast_forward(8 * 86400000) if False else a.page.clock.fast_forward(8 * 86400000)
     a.js("render()")
     check("payday: chip at the top", "Payday!" in a.page.inner_text("#hero") and "$1,250.00" in a.page.inner_text("#hero"), a.page.inner_text("#hero")[:200])
     check("payday on the schedule", a.js("dayItems(today()).some(i => i.kind === 'pay')"))
@@ -1117,6 +1128,93 @@ def t_v039_short_home(b, base):
     a.close()
 
 
+def t_v040_switches(b, base):
+    print("\n[v0.40 switchboard: everything OFF by default, owner switches, Pro key, legal pages, manifest]")
+    a = App(b, base); setup(a)
+    check("switchboard: all four switches OFF", a.js("Object.values(SWITCHES).every(v => v === false) && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE'"))
+    check("plan: approved price + contact", a.js("PLAN.MONTHLY") == "$4.99/month" and a.js("PLAN.YEARLY") == "$29.99/year" and a.js("PLAN.CONTACT_EMAIL") == "smarvel1963@gmail.com" and a.js("PLAN.WHOP_CHECKOUT_URL") == "")
+    check("PRO_GATE off: every feature unlocked", a.js("['ai','gcal','mail','sync','reminders','budget'].every(can)"))
+    a.page.click("#settingsBtn")
+    check("PRO_GATE off: no Pro section in settings", a.js("document.getElementById('proBox').hidden && !document.getElementById('proBox').innerHTML"))
+    check("GMAIL off: no Gmail connect for a phone that never connected", a.js("document.getElementById('mailBox').hidden") and "Connect Gmail" not in a.page.inner_text("#sheet"))
+    check("Google Calendar connect still offered", "Connect Google Calendar" in a.page.inner_text("#gcalBox"))
+    check("AI box unchanged (passphrase setup)", a.js("!!document.querySelector('form[data-aipass]')") and "Included with" not in a.page.inner_text("#aiBox"))
+    check("settings links Privacy, Terms, Contact", a.js("[...document.querySelectorAll('#legalLinks a')].map(x => x.textContent).join()") == "Privacy,Terms,Contact")
+    check("owner switches hidden until asked", a.js("document.getElementById('ownerBox').hidden"))
+    for _ in range(6): a.page.click("#ver")
+    check("6 taps on the version: still hidden", a.js("document.getElementById('ownerBox').hidden"))
+    a.page.click("#ver")
+    check("7th tap opens Owner switches", not a.js("document.getElementById('ownerBox').hidden") and "Owner switches" in a.page.inner_text("#ownerBox"))
+    a.page.check('[data-owner="GMAIL"]')
+    check("owner GMAIL on: Gmail connect shows on THIS phone", not a.js("document.getElementById('mailBox').hidden") and "Connect Gmail" in a.page.inner_text("#mailBox"))
+    check("...stored on the phone only, not in the planner data", a.js("JSON.parse(localStorage.getItem('dayhub.owner')).GMAIL === true && !('GMAIL' in S)"))
+    a.page.check('[data-owner="PRO_GATE"]')
+    pro = a.page.inner_text("#proBox")
+    check("owner PRO_GATE on: Pro section with price + coming soon (no Whop link yet)", "Day Hub Pro" in pro and "$4.99/month" in pro and "$29.99/year" in pro and "Coming soon" in pro, pro[:200])
+    check("PRO_GATE on, no key: Pro features locked, local ones free", a.js("!can('gcal') && !can('sync') && !can('ai') && can('reminders') && can('budget')"))
+    a.page.fill('form[data-proform] [name=key]', "WHOP-BAD-0000"); a.page.click('form[data-proform] button'); a.page.wait_for_timeout(300)
+    check("bad key: stays free, says why", not a.js("isPro()") and "isn't active" in a.page.inner_text("#proBox"))
+    a.page.fill('form[data-proform] [name=key]', "WHOP-GOOD-1234"); a.page.click('form[data-proform] button'); a.page.wait_for_timeout(300)
+    check("good key: Pro unlocked", a.js("isPro() && can('gcal') && can('sync')") and "is on" in a.page.inner_text("#proBox") and "••1234" in a.page.inner_text("#proBox"))
+    check("verify call sends only the key (no passphrase)", any(x.get("task") == "verify" and x.get("license") == "WHOP-GOOD-1234" and "pass" not in x for x in a.ctx._relay))
+    a.page.reload(); a.page.wait_for_function("document.querySelector('#hero .greet')")
+    check("Pro remembered after reopening", a.js("isPro()"))
+    # weekly recheck + grace
+    a.ctx._verify_down = True; n0 = len(a.ctx._relay)
+    a.page.clock.fast_forward(8 * 86400000); a.js("recheckPro()"); a.page.wait_for_timeout(300)
+    check("after 8 days it re-checks with Whop", len(a.ctx._relay) > n0)
+    check("check unreachable: still Pro (grace)", a.js("isPro()"))
+    a.page.clock.fast_forward(14 * 86400000); a.js("recheckPro()"); a.page.wait_for_timeout(300)
+    check("unreachable past the 14-day grace: back to free", not a.js("isPro()"))
+    a.ctx._verify_down = False
+    a.js("recheckPro()"); a.page.wait_for_timeout(300)
+    check("check reachable again: Pro back", a.js("isPro()"))
+    # AI on the key, only when AI_PUBLIC is on
+    check("AI_PUBLIC off: a Pro key alone doesn't turn the AI on", not a.js("aiOn()"))
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.page.click("#settingsBtn")
+    for _ in range(7): a.page.click("#ver")
+    a.page.check('[data-owner="AI_PUBLIC"]')
+    check("AI_PUBLIC on + Pro key: AI on, 'included with Pro'", a.js("aiOn() && aiByKey()") and "Included with Day Hub Pro" in a.page.inner_text("#aiBox"))
+    a.js("aiCall('ping', '').then(j => window.__left = j.left)"); a.page.wait_for_timeout(300)
+    check("AI calls send the key, not a passphrase", a.js("window.__left") == 30 and a.ctx._relay[-1].get("license") == "WHOP-GOOD-1234" and "pass" not in a.ctx._relay[-1])
+    a.page.click('[data-pro="remove"]')
+    check("Remove key: back to free", not a.js("isPro()") and not a.js("aiOn()"))
+    a.close()
+    # the owner's phone (holds the relay passphrase) is never locked out
+    a = App(b, base); setup(a)
+    a.js("localStorage.setItem('dayhub.aipass', 'test-only-passphrase-x7'); localStorage.setItem('dayhub.owner', JSON.stringify({PRO_GATE: true}))")
+    check("owner's phone with PRO_GATE on: still Pro, passphrase AI unchanged", a.js("isPro() && can('gcal') && aiOn() && !aiByKey()"))
+    a.close()
+    # a phone that already connected Gmail keeps it with GMAIL off
+    a = boot_with(b, base, json.dumps({"name": "Scott", "city": "72032", "mail": {"on": True, "last": None, "seen": {}, "found": []}}))
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.page.click("#settingsBtn")
+    check("GMAIL off never breaks a phone that already connected it", a.js("gmailAllowed()") and not a.js("document.getElementById('mailBox').hidden"))
+    a.close()
+    # STORE: Play link only when switched on AND a URL exists
+    a = App(b, base); setup(a)
+    a.page.click("#settingsBtn")
+    check("STORE off: no Google Play link", "Google Play" not in a.page.inner_text("#installBox"))
+    a.close()
+    # legal pages + manifest (plain pages: no app to wait for)
+    ctx = b.new_context(); route(ctx); pg = ctx.new_page()
+    pg.goto(base + "/privacy.html"); t = pg.inner_text("body")
+    check("privacy page: Marvel Corp, contact, Google Limited Use, 13+, Whop", all(x in t for x in ("Marvel Corp", "smarvel1963@gmail.com", "Limited Use", "13", "Whop", "Open-Meteo", "Anthropic")))
+    pg.goto(base + "/terms.html"); t = pg.inner_text("body")
+    check("terms page: price matches the plan, Whop billing, contact", "$4.99 a month" in t and "$29.99 a year" in t and "Whop" in t and "smarvel1963@gmail.com" in t)
+    for mp, ident in (("/manifest.json", "/dayhub/index.html"), ("/cruise/manifest.json", "/dayhub/cruise/")):
+        m = pg.request.get(base + mp).json()
+        check(f"{mp}: id kept, scope, categories, screenshots", m.get("id") == ident and m.get("scope") == "./" and bool(m.get("categories")) and len(m.get("screenshots", [])) >= 4)
+        bad = [x["src"] for x in m["screenshots"] if pg.request.get(base + mp.rsplit("/", 1)[0] + "/" + x["src"]).status != 200]
+        check(f"{mp}: every screenshot file exists", not bad, bad)
+    ctx.close()
+    # cruise page loads the switchboard too
+    a = App(b, base, path="/cruise/")
+    check("Cruise Hub loads the switchboard", a.js("typeof switchOn") == "function" and a.js("can('gcal')"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1132,7 +1230,7 @@ def main():
                   t_v032_ask_top3, t_v033_alarms,
                   t_v033_calendar_dates, t_v034_backup_nudge,
                   t_v035_errands, t_v036_returns,
-                  t_v037_future_me, t_v039_short_home):
+                  t_v037_future_me, t_v039_short_home, t_v040_switches):
             try:
                 t(b, base)
             except Exception as e:

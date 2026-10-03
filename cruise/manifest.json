@@ -1,12 +1,20 @@
 {
+  "id": "/dayhub/cruise/",
   "name": "Cruise Hub",
   "short_name": "Cruise Hub",
-  "description": "Cruise Hub by Marvel Corp - connect the email you booked with and your cruise fills itself in. Countdown, final payment reminders, port days with all-aboard alarms, onboard spending, ready-made lists. Works with Day Hub. No ads, ever.",
+  "description": "Cruise Hub by Marvel Corp - countdown to your cruise, final payment reminders, port days with all-aboard alarms, onboard spending and ready-made packing lists. Works with Day Hub. No ads, ever.",
+  "lang": "en-US",
+  "dir": "ltr",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#06102a",
   "theme_color": "#06102a",
+  "categories": [
+    "travel",
+    "lifestyle",
+    "productivity"
+  ],
   "icons": [
     {
       "src": "icon-192.png",
@@ -25,6 +33,43 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "../screenshots/phone-1-home.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Your whole day on one screen"
+    },
+    {
+      "src": "../screenshots/phone-2-schedule.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Schedule with a NOW line"
+    },
+    {
+      "src": "../screenshots/phone-3-weather.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Weather that tells you when the rain starts"
+    },
+    {
+      "src": "../screenshots/phone-4-brain-dump.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Brain dump: type it all, Day Hub sorts it"
+    },
+    {
+      "src": "../screenshots/wide-1-home.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Day Hub on a tablet or computer"
     }
   ]
 }

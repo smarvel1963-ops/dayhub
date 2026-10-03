@@ -1,6 +1,10 @@
 {
- "version": "0.39",
+ "version": "0.40",
  "notes": {
+  "0.40": [
+   "🔧 Behind the scenes: getting Day Hub ready for Day Hub Pro and the app stores. Nothing changes on your screen yet, and everything stays free.",
+   "🔒 Privacy and Terms pages are now linked at the bottom of ⚙ Settings"
+  ],
   "0.39": [
    "📏 Shorter home screen: empty cards shrink to one line (＋ Add a bill, ＋ Plan a trip…) — tap ⓘ to see what the card does",
    "🔝 Top alerts show the 3 that matter most; tap + more to see the rest"

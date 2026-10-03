@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.39";
+const VERSION = "0.40";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -43,16 +43,42 @@ const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";      // re
 // ------------------------------------------------------------ free / pro
 // Scott 2026-10-01: "no ads, just better everything when go pro". NO ADS, EVER.
 // Every feature carries a switch now so pricing is a settings change later,
-// never a redesign. PRO_LIVE = false keeps everything unlocked while we build;
-// at launch it goes true and TIER comes from the payment check.
-const PRO_LIVE = false;
-let TIER = "free";
-const FEATURES = {
-  schedule: "free", weather: "free", todos: "free", lists: "free", countdowns: "free",
-  bills: "free", work: "free", tomorrow: "free", packages: "free", inbox: "free", trips: "free", notes: "free", route: "free", loads: "free", jobs: "free", nextup: "free", games: "free",
-  gcal: "pro", sync: "pro", reminders: "pro", budget: "pro", mail: "pro",   // candidates - Scott decides at launch
-};
-const can = f => !PRO_LIVE || FEATURES[f] !== "pro" || TIER === "pro";
+// never a redesign. v0.40: the switch is PRO_GATE in features.js (default OFF =
+// everything unlocked) and what Pro covers is PLAN.PRO_FEATURES (AI, Google
+// Calendar sync, Gmail, Drive backup). Every local feature stays free forever.
+const can = f => !switchOn("PRO_GATE") || !PLAN.PRO_FEATURES.includes(f) || isPro();
+
+// ---------------------------------------------------------- pro (Whop key)
+// v0.40 (Scott 10/3, sold on Whop only). The Whop license key IS the account:
+// the AI relay checks it with Whop (the Whop API key lives in the relay's Script
+// Properties, never here). Stored on this phone only ("dayhub.pro"); re-checked
+// every RECHECK_DAYS; if the phone can't reach the check it stays Pro for
+// GRACE_DAYS more, so a dead signal never locks anyone out.
+const PRO_KEY = "dayhub.pro", DAY_MS = 86400000;
+const proState = () => { try { return JSON.parse(localStorage.getItem(PRO_KEY) || "{}") || {}; } catch (e) { return {}; } };
+const setProState = p => { try { localStorage.setItem(PRO_KEY, JSON.stringify(p)); } catch (e) { /* private mode */ } };
+// Never lock the owner out of his own app: the phone holding the relay
+// passphrase (or with the OWNER owner-switch) counts as Pro.
+const ownerPhone = () => !!aiPass() || !!ownerSwitches().OWNER;
+function isPro() {
+  if (ownerPhone()) return true;
+  const p = proState();
+  return !!(p.key && p.ok && Date.now() < (p.checked || 0) + (PLAN.RECHECK_DAYS + PLAN.GRACE_DAYS) * DAY_MS);
+}
+async function verifyPro(key) {                     // throws when the check can't be reached
+  const j = await (await fetch(AI_URL, { method: "POST", body: JSON.stringify({ task: "verify", license: key }) })).json();
+  if (typeof j.valid !== "boolean") throw new Error(j.error || "no answer");
+  setProState({ key, ok: j.valid, checked: Date.now(), status: j.status || "", until: j.until || null, why: j.valid ? "" : (j.error || j.status || "") });
+  return j.valid;
+}
+function recheckPro() {
+  const p = proState();
+  if (!switchOn("PRO_GATE") || !p.key || Date.now() - (p.checked || 0) < PLAN.RECHECK_DAYS * DAY_MS) return;
+  verifyPro(p.key).then(() => render()).catch(() => { /* offline: grace period covers it */ });
+}
+// Gmail waits on Google's verification (GMAIL switch). A phone that already
+// connected it keeps it - turning the switch off never breaks a working phone.
+const gmailAllowed = () => switchOn("GMAIL") || S.mail.on || !!S.mail.found.length;
 
 // ---------------------------------------------------------------- packs
 const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "top3", "schedule", "errands", "leave", "routines", "reset", "tomorrow", "work", "payday", "budget", "weather", "todos", "notes", "future", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
@@ -1006,7 +1032,9 @@ function drawInstallBox() {
     ? `<div class="leg"><span>✅ ${APP_NAME} is installed</span></div>`
     : INSTALL_EVT ? `<button class="btn sm" data-install="1">📲 Install ${APP_NAME}</button>`
     : isIOS() ? `<p class="fine" style="margin-top:0">Tap <b>Share</b> (the square with the arrow) → <b>Add to Home Screen</b>. Open Day Hub from that icon — iPhone only sends reminders to installed apps.</p>`
-    : `<p class="fine" style="margin-top:0">In your browser menu <b>⋮</b> choose <b>Install app</b> or <b>Add to Home screen</b>.</p>`);
+    : `<p class="fine" style="margin-top:0">In your browser menu <b>⋮</b> choose <b>Install app</b> or <b>Add to Home screen</b>.</p>`) +
+    (switchOn("STORE") && PLAN.PLAY_STORE_URL && !standalone() && !isIOS()
+      ? `<a class="btn sm ghost" style="margin-top:8px" href="${esc(PLAN.PLAY_STORE_URL)}" target="_blank" rel="noopener">▶ Get it on Google Play</a>` : "");
 }
 
 // --------------------------------------------------------------- packages
@@ -1255,6 +1283,7 @@ async function gmail(path) {
   return r.json();
 }
 async function scanMail() {                                   // from a tap, or on open while signed in
+  if (!gmailAllowed()) return;
   if (!can("mail")) { toast("Email scanning is part of Day Hub Pro"); return; }
   if (MAIL_BUSY) return;
   if (!mReady() && !(await mailSignIn(S.mail.on ? "" : "consent"))) return;
@@ -1321,6 +1350,7 @@ function addFound(key) {
 }
 function drawMailBox() {
   const g = document.getElementById("mailBox"); if (!g) return;
+  g.hidden = !gmailAllowed(); if (g.hidden) { g.innerHTML = ""; return; }
   g.innerHTML = `<h3>Email → calendar</h3>` + (S.mail.on
     ? `<div class="leg"><span>📬 Gmail connected${S.mail.last ? ` · checked ${fmtTime(S.mail.last)}` : ""}</span></div>
        <div class="foot-actions"><button class="btn sm" data-mail="scan">${MAIL_BUSY ? "Checking…" : "Check email now"}</button><button class="btn sm ghost" data-mail="off">Disconnect</button></div>`

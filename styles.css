@@ -400,3 +400,6 @@ details.steps .fine { margin-top: 8px; }
 .future-banner { border: 1px solid #a855f7; background: linear-gradient(160deg, rgba(168,85,247,.18), rgba(30,20,60,.4)); }
 .future-banner .today-line { font-size: 16px; line-height: 1.45; }
 .future-banner .sub { display: block; margin-top: 2px; }
+/* v0.40: Day Hub Pro box + legal links in the settings fine print */
+.pro-list { margin: 6px 0 0; padding-left: 20px; font-size: 14px; line-height: 1.7; }
+#legalLinks a { color: var(--accent); }

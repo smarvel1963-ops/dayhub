@@ -194,7 +194,7 @@ const CARDS = {
     body: () => {
       const tr = curTrip();
       if (!tr) return `<div class="empty">Got a cruise or trip coming? Day Hub counts down, reminds you about the final payment, tracks onboard spending and hands you ready-made packing and document lists.</div>
-        <div class="today-line" style="margin-top:8px">✨ <b>Zero effort:</b> connect the email you booked with (⚙ → Connect Gmail) and the ship, dates, booking number, cabin and ports fill in by themselves.</div>
+        ${gmailAllowed() ? `<div class="today-line" style="margin-top:8px">✨ <b>Zero effort:</b> connect the email you booked with (⚙ → Connect Gmail) and the ship, dates, booking number, cabin and ports fill in by themselves.</div>` : ""}
         <button class="btn sm" data-qa="trip" style="margin-top:10px">🚢 Plan a trip</button>`;
       const all = upcomingTrips();
       const pick = all.length > 1 ? `<div class="tabs">${all.map(t => `<button class="tab ${t.id === tr.id ? "on" : ""}" data-tripsel="${t.id}">${esc(t.name)}</button>`).join("")}</div>` : "";
@@ -551,10 +551,14 @@ const snap = () => { UNDO = JSON.stringify(S); };
 const AI_URL = "https://script.google.com/macros/s/AKfycbyVbxOCPR7v8UNTVufOWKOKBpI19-NcWEXMVzjP86iKraxenseHpWL95W9sB_Rr6DXo/exec";
 const AI_KEY = "dayhub.aipass";
 const aiPass = () => { try { return localStorage.getItem(AI_KEY) || ""; } catch (e) { return ""; } };
-const aiOn = () => !!aiPass();
+// v0.40: the owner's passphrase works exactly as before; with AI_PUBLIC on, a
+// Pro phone sends its Whop key instead and the relay gives each key its own cap.
+const aiByKey = () => !aiPass() && switchOn("AI_PUBLIC") && isPro() && !!proState().key;
+const aiOn = () => !!aiPass() || aiByKey();
 async function aiCall(task, input, pass = aiPass()) {
-  const t = today(), r = await fetch(AI_URL, { method: "POST", body: JSON.stringify({ pass, task, input,
-    today: t, weekday: parseDay(t).toLocaleDateString("en-US", { weekday: "long" }) }) });
+  const t = today(), body = { task, input, today: t, weekday: parseDay(t).toLocaleDateString("en-US", { weekday: "long" }) };
+  if (pass) body.pass = pass; else body.license = proState().key;
+  const r = await fetch(AI_URL, { method: "POST", body: JSON.stringify(body) });
   const j = await r.json();
   if (j.error) throw new Error(j.error);
   return j;
@@ -562,10 +566,14 @@ async function aiCall(task, input, pass = aiPass()) {
 const aiJSON = text => { const m = String(text || "").match(/\{[\s\S]*\}/); return m ? JSON.parse(m[0]) : null; };
 function drawAiBox(msg) {
   const g = document.getElementById("aiBox"); if (!g) return;
-  g.innerHTML = `<h3>🤖 AI helper</h3>` + (aiOn()
+  g.innerHTML = `<h3>🤖 AI helper</h3>` + (aiByKey()
+    ? `<div class="leg"><span>✅ Included with ${PLAN.NAME} — Brain dump, 💡 Ask and 🎯 Top 3 use AI${msg ? ` · ${esc(msg)}` : ""}</span></div>
+       <div class="foot-actions"><button class="btn sm" data-ai="test">Test it</button></div>`
+    : aiOn()
     ? `<div class="leg"><span>✅ On — Brain dump, 💡 Ask and 🎯 Top 3 use AI${msg ? ` · ${esc(msg)}` : ""}</span></div>
        <div class="foot-actions"><button class="btn sm" data-ai="test">Test it</button><button class="btn sm ghost" data-ai="off">Turn off</button></div>`
-    : `<p class="fine" style="margin-top:0">Smarter sorting for 🧠 Brain dump (more coming). Uses your own Claude helper — set up once:</p>
+    : (switchOn("PRO_GATE") && switchOn("AI_PUBLIC") ? `<p class="fine" style="margin-top:0"><b>Included with ${PLAN.NAME}</b> — unlock it in ${PLAN.NAME} above. Have your own relay passphrase? Use it here instead.</p>` : "") +
+      `<p class="fine" style="margin-top:0">Smarter sorting for 🧠 Brain dump (more coming). Uses your own Claude helper — set up once:</p>
        <ol class="steps"><li>Type the passphrase you saved as <b>PASS</b> in your Day Hub AI relay.</li><li>Tap <b>Turn on</b>.</li></ol>
        <form class="inline-add" data-aipass="1"><input name="pass" type="password" placeholder="Passphrase" autocomplete="off" required><button class="btn sm">Turn on</button></form>
        ${msg ? `<p class="fine" style="margin-top:6px">⚠️ ${esc(msg)}</p>` : ""}`);
@@ -1033,6 +1041,7 @@ document.addEventListener("submit", e => {
     if (tr) tr.lists[k].push({ id: uid(), text: data.text.trim(), done: false });
     save(); render(); const again = document.querySelector(`form[data-tadd="${f.dataset.tadd}"] input`); if (again) again.focus(); return; }
   if (f.dataset.ask) { askDayHub(data.q); return; }
+  if (f.dataset.proform) { const k = (data.key || "").trim(); if (k) unlockPro(k); return; }
   if (f.dataset.aipass) { const pw = (data.pass || "").trim(); if (!pw) return;
     drawAiBox("checking…");
     aiCall("ping", "", pw).then(() => { try { localStorage.setItem(AI_KEY, pw); } catch (e) { /* private mode */ } drawAiBox("connected ✓"); toast("🤖 AI helper on"); })
@@ -1071,6 +1080,8 @@ document.addEventListener("click", e => {
   if (ds.qa) { openQA(ds.qa); return; }
   if (ds.qtype) { openQA(ds.qtype); return; }
   if (ds.undo) { if (UNDO) { S = JSON.parse(UNDO); UNDO = null; save(); render(); toast("Restored ✓"); } return; }
+  if (ds.pro === "check") { const p = proState(); if (p.key) unlockPro(p.key); return; }
+  if (ds.pro === "remove") { setProState({}); PRO_MSG = ""; drawProBox(); drawAiBox(); render(); toast("Key removed from this phone"); return; }
   if (ds.chipsmore) { CHIPS_ALL = ds.chipsmore === "1"; paintHero(); return; }
   if (ds.collapse) { const k = ds.collapse;
     MINI_OPEN.delete(k);
@@ -1234,6 +1245,7 @@ document.addEventListener("input", e => {
 document.addEventListener("change", e => {
   const t = e.target, ds = t.dataset;
   if (t.id === "importFile" && t.files && t.files[0]) { importData(t.files[0]); t.value = ""; return; }
+  if (ds.owner) { setOwnerSwitch(ds.owner, t.checked); drawSettings(); render(); toast(`${ds.owner} ${t.checked ? "on" : "off"} — this phone only`); return; }
   if (ds.dkind !== undefined) { const x = DUMP[Number(ds.dkind)]; x.kind = t.value;
     if (x.kind === "event" && !x.day) { x.day = today(); x.time = "09:00"; x.rep = "none"; } drawDump(); return; }
   if (ds.dday !== undefined) { DUMP[Number(ds.dday)].day = t.value; return; }
@@ -1279,6 +1291,12 @@ function drawSettings() {
   let ib = document.getElementById("installBox");
   if (!ib) { ib = document.createElement("div"); ib.id = "installBox"; document.getElementById("cardList").before(ib); }
   drawInstallBox();
+  let pb = document.getElementById("proBox");
+  if (!pb) { pb = document.createElement("div"); pb.id = "proBox"; ib.before(pb); }
+  drawProBox();
+  let ob = document.getElementById("ownerBox");
+  if (!ob) { ob = document.createElement("div"); ob.id = "ownerBox"; db.after(ob); }
+  drawOwnerBox();
   let mb = document.getElementById("mailBox");
   if (!mb) { mb = document.createElement("div"); mb.id = "mailBox"; document.getElementById("cardList").before(mb); }
   drawMailBox();
@@ -1314,7 +1332,53 @@ function drawSettings() {
      <p class="fine" style="margin-top:0">▲▼ moves a card one spot · ⤒ puts it at the top · the switch shows or hides it.</p>`;
   document.querySelector("#sheet .sheet-body > h3").style.display = "none";
   document.getElementById("ver").textContent = `Version ${VERSION}.`;
+  let lg = document.getElementById("legalLinks");
+  if (!lg) { lg = document.createElement("span"); lg.id = "legalLinks"; document.getElementById("ver").after(lg); }
+  lg.innerHTML = ` <a href="${new URL("privacy.html", BASE_URL).href}" target="_blank" rel="noopener">Privacy</a> · <a href="${new URL("terms.html", BASE_URL).href}" target="_blank" rel="noopener">Terms</a> · <a href="mailto:${PLAN.CONTACT_EMAIL}">Contact</a>`;
 }
+
+// v0.40 - Day Hub Pro (shown only while PRO_GATE is on; everything is free while it's off).
+let PRO_MSG = "";
+function drawProBox() {
+  const g = document.getElementById("proBox"); if (!g) return;
+  g.hidden = !switchOn("PRO_GATE"); if (g.hidden) { g.innerHTML = ""; return; }
+  const p = proState(), tail = p.key ? "••" + esc(String(p.key).slice(-4)) : "";
+  const what = `<ul class="pro-list"><li>🤖 AI helper — Brain dump, Ask Day Hub, Top 3</li><li>🗓️ Two-way Google Calendar sync</li>
+    ${switchOn("GMAIL") ? "<li>📬 Plans found in your email</li>" : ""}<li>☁️ Backup to your own Google Drive</li></ul>
+    <p class="fine" style="margin-top:4px">Everything else — every card, reminders, budget, lists, trips — is free forever. No ads, ever.</p>`;
+  g.innerHTML = `<h3>⭐ ${PLAN.NAME}</h3>` + (ownerPhone()
+    ? `<div class="leg"><span>✅ Pro — this is the owner's phone</span></div>`
+    : isPro()
+    ? `<div class="leg"><span>✅ ${PLAN.NAME} is on · key ${tail} · checked ${prettyDate(ymd(new Date(p.checked)))}</span></div>
+       <div class="foot-actions"><button class="btn sm ghost" data-pro="check">Check now</button><button class="btn sm ghost" data-pro="remove">Remove key</button></div>`
+    : what + `<p class="fine"><b>${PLAN.MONTHLY}</b> or <b>${PLAN.YEARLY}</b>.</p>` +
+      (PLAN.WHOP_CHECKOUT_URL ? `<a class="btn sm" href="${esc(PLAN.WHOP_CHECKOUT_URL)}" target="_blank" rel="noopener">Get ${PLAN.NAME}</a>`
+        : `<p class="fine">Coming soon.</p>`) +
+      `<ol class="steps"><li>Buy ${PLAN.NAME} on Whop.</li><li>Copy your <b>license key</b> from your Whop purchase.</li><li>Paste it here and tap <b>Unlock</b>.</li></ol>
+       <form class="inline-add" data-proform="1"><input name="key" placeholder="Whop license key" autocomplete="off" required><button class="btn sm">Unlock</button></form>`) +
+    (PRO_MSG ? `<p class="fine" style="margin-top:6px">${esc(PRO_MSG)}</p>` : "");
+}
+function unlockPro(key) {
+  PRO_MSG = "Checking…"; drawProBox();
+  verifyPro(key).then(ok => { PRO_MSG = ok ? "" : "That key isn't active — check it's the license key from your Whop purchase."; drawProBox(); drawAiBox(); render();
+      if (ok) toast(`⭐ ${PLAN.NAME} unlocked`); })
+    .catch(e => { PRO_MSG = "Couldn't reach the check — try again in a minute. (" + e.message + ")"; drawProBox(); });
+}
+
+// v0.40 - Owner switches: tap the version line 7 times. Flips a switch on THIS
+// phone only, to try a feature before it goes on for everyone (features.js).
+let OWNER_OPEN = false, VER_TAPS = [];
+const OWNER_ROWS = [["PRO_GATE", "Pro gate — free vs Pro"], ["AI_PUBLIC", "AI for Whop-key holders"], ["GMAIL", "Gmail → plans"],
+  ["STORE", "Google Play link"], ["OWNER", "Count this phone as Pro"]];
+function drawOwnerBox() {
+  const g = document.getElementById("ownerBox"); if (!g) return;
+  g.hidden = !OWNER_OPEN; if (g.hidden) { g.innerHTML = ""; return; }
+  const o = ownerSwitches();
+  g.innerHTML = `<h3>🔧 Owner switches</h3><p class="fine" style="margin-top:0">This phone only. Turning one on for everyone is a change in features.js.</p>
+    <ul class="card-list">${OWNER_ROWS.map(([k, l]) => `<li><span>${l}${SWITCHES[k] ? " <span class=\"tag\">on for everyone</span>" : ""}</span>
+      <input type="checkbox" data-owner="${k}" ${SWITCHES[k] || o[k] ? "checked" : ""} ${SWITCHES[k] ? "disabled" : ""} aria-label="${l}"></li>`).join("")}</ul>`;
+}
+
 // Setup steps for the PHONE side (Scott 10/2: settings make setup as easy as
 // possible). Shows this phone's steps first; the other kind is one tap away.
 function phoneCalSteps() {
@@ -1374,6 +1438,12 @@ catch (e) {
   document.getElementById("bootReset").onclick = () => { S = blank(); saveLocal(); location.reload(); };
 }
 loadWeather();
+recheckPro();
+document.getElementById("ver").addEventListener("click", () => {
+  const now = Date.now(); VER_TAPS = VER_TAPS.filter(x => now - x < 4000).concat(now);
+  if (VER_TAPS.length >= 7) { VER_TAPS = []; OWNER_OPEN = !OWNER_OPEN; drawOwnerBox();
+    if (OWNER_OPEN) document.getElementById("ownerBox").scrollIntoView({ behavior: "smooth", block: "center" }); }
+});
 setInterval(tick, 10000);
 // Once a minute: move the NOW line and the chips - unless someone is typing.
 setInterval(() => { const a = document.activeElement;
@@ -1385,5 +1455,5 @@ setInterval(checkUpdate, 30 * 60000);
 setInterval(() => { if (S.mail.on && mReady()) scanMail(); }, 20 * 60000);
 checkReminders();
 if (!RENEWING) { syncOnOpen(true); maybeBrief(); }
-document.addEventListener("visibilitychange", () => { if (!document.hidden) { if (autoRenew()) return; VIEW = today(); render(); checkReminders(); syncOnOpen(); maybeBrief(); } });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { if (autoRenew()) return; recheckPro(); VIEW = today(); render(); checkReminders(); syncOnOpen(); maybeBrief(); } });
 if ("serviceWorker" in navigator) navigator.serviceWorker.register(new URL("sw.js", BASE_URL)).catch(() => {});
