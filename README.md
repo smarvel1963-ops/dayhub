@@ -24,6 +24,11 @@ screen but could customize by profession"). Tracked on Marvel Desktop -> MOBILE 
 - On a PHONE: needs hosting (free: GitHub Pages / Netlify) - GitHub account first.
 - Google Calendar sync (needs Google sign-in), sports games feed, accounts / payments.
 
+## Files
+`app.js` (state + feature logic) then `ui.js` (cards, sheets, events, start) - two classic scripts, one shared
+scope, loaded in that order by `index.html` and `cruise/index.html`. Each stays under 3,000 lines. A new script
+file must also go in the `SHELL` list in `sw.js`.
+
 ## Releasing an update (since v0.11)
 0. **Run the tests first:** `python tests/run_tests.py` - drives the real app in a headless browser (frozen clock,
    fake weather, empty phone each time) and checks every feature at phone + tablet size. Must end "0 failed".

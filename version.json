@@ -1,6 +1,9 @@
 {
- "version": "0.37",
+ "version": "0.38",
  "notes": {
+  "0.38": [
+   "🧹 Tidier under the hood: Day Hub's code is split into two smaller files so it loads and updates cleanly — nothing you use changed, and all your data stays put"
+  ],
   "0.37": [
    "🔮 Future me: save the WHY behind a decision — \"Next time we travel, don't book a 6 AM flight\" — and Day Hub brings it back at the top of the screen the next time you add something about it (or on a day you pick)",
    "🧠 Brain dump files \"note to self…\" / \"future me…\" here by itself, and 💡 Ask Day Hub can answer \"why didn't I…?\" from your notes"
