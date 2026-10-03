@@ -39,12 +39,16 @@ function doPost(e) {
   try {
     const req = JSON.parse((e && e.postData && e.postData.contents) || "{}");
     const P = PropertiesService.getScriptProperties();
-    const pass = P.getProperty("PASS");
-    if (!pass || req.pass !== pass) return out({ error: "wrong passphrase" });
+    // Forgiving match (Scott 10/2: phone keyboards capitalise the first letter and add
+    // spaces): case, extra spaces and leading/trailing spaces don't count.
+    const norm = v => String(v || "").trim().replace(/\s+/g, " ").toLowerCase();
+    const pass = prop(P, "PASS");
+    if (!pass) return out({ error: "relay has no PASS set — check the property is named exactly PASS" });
+    if (!req.pass || norm(req.pass) !== norm(pass)) return out({ error: "wrong passphrase" });
     if (req.task === "ping") return out({ ok: true, model: MODEL, left: DAILY_CAP - Number(P.getProperty(dayKey()) || 0) });
     const t = TASKS[req.task];
     if (!t) return out({ error: "unknown task" });
-    const key = P.getProperty("ANTHROPIC_KEY");
+    const key = prop(P, "ANTHROPIC_KEY");
     if (!key) return out({ error: "relay has no API key yet" });
 
     const lock = LockService.getScriptLock(); lock.waitLock(5000);
@@ -70,6 +74,13 @@ function doPost(e) {
   } catch (err) {
     return out({ error: String(err && err.message || err) });
   }
+}
+
+// Property names in any capitals ("Pass", "anthropic_key" - Scott's first save, 10/2).
+function prop(P, name) {
+  const all = P.getProperties();
+  for (const k in all) if (k.trim().toUpperCase() === name) return all[k];
+  return null;
 }
 
 function doGet() { return out({ ok: true, app: "dayhub-ai-relay" }); }

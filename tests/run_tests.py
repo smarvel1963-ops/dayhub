@@ -77,7 +77,7 @@ def route(ctx):
             return r.fulfill(json={"places": [{"place name": "Conway", "state abbreviation": "AR", "latitude": "35.09", "longitude": "-92.44"}]})
         if u.netloc == "script.google.com" and "/macros/s/" in u.path:
             body = json.loads(r.request.post_data or "{}")
-            if body.get("pass") != "tiger lamp river":
+            if body.get("pass") != "test-only-passphrase-x7":
                 return r.fulfill(json={"error": "wrong passphrase"})
             if body.get("task") == "ping":
                 return r.fulfill(json={"ok": True, "left": 199})
@@ -865,7 +865,7 @@ def t_v031_ai_helper(b, base):
     check("settings: AI helper with easy steps", "AI helper" in a.page.inner_text("#aiBox") and "Turn on" in a.page.inner_text("#aiBox"))
     a.page.fill("#aiBox [name=pass]", "wrong words"); a.page.click("#aiBox form button"); a.page.wait_for_timeout(400)
     check("wrong passphrase is refused, not saved", "doesn't match" in a.page.inner_text("#aiBox") and not a.js("aiOn()"))
-    a.page.fill("#aiBox [name=pass]", "tiger lamp river"); a.page.click("#aiBox form button"); a.page.wait_for_timeout(400)
+    a.page.fill("#aiBox [name=pass]", "test-only-passphrase-x7"); a.page.click("#aiBox form button"); a.page.wait_for_timeout(400)
     check("right passphrase turns it on", a.js("aiOn()") and "On" in a.page.inner_text("#aiBox"))
     check("passphrase is not in the backup data", "tiger" not in a.js("JSON.stringify(S)"))
     a.js("closeSettings()")
