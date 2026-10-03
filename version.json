@@ -1,6 +1,11 @@
 {
- "version": "0.32",
+ "version": "0.33",
  "notes": {
+  "0.33": [
+   "⏰ My alarms (⚙, or the Nightly reset): add your alarms once — they show on your schedule and in the Nightly reset, with a warning if tomorrow's first thing is before (or right after) your alarm",
+   "🛏️ The Nightly reset now lists everything for tomorrow — your calendar, alarm, bills, birthdays",
+   "🎂 Birthdays and anniversaries already in your Google Calendar are found for you — Add all in People & dates (or pick)"
+  ],
   "0.32": [
    "💡 Ask Day Hub (top right): ask in plain words — \"When's my next oil change?\", \"What haven't I finished?\", \"What bills are due before payday?\" — and get a straight answer from your own planner (🎤 to talk)",
    "🎯 Top 3 today: the three things that matter most, picked for you each morning — tick them off, ▲ to reorder, ✕ to drop, ↻ to pick again. Your Morning brief reads them out"

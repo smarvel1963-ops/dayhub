@@ -12,7 +12,7 @@
  * sign-in; the token lives in memory only (about an hour), events are cached here.
  */
 "use strict";
-const VERSION = "0.32";
+const VERSION = "0.33";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -73,6 +73,7 @@ const blank = () => ({
   upkeep: [],
   routines: [], rdone: {},
   top3: { day: null, items: [], ai: false },
+  alarms: [],
   payday: { freq: null, next: null, amount: null, d1: 1, d2: 15 }, goals: [],
   leave: { items: LEAVE_DEFAULT.map(text => ({ id: uid(), text })), day: null, done: [] },
   packages: [],
@@ -127,6 +128,7 @@ function normalize(raw) {
   s.routines = (Array.isArray(s.routines) ? s.routines : []).filter(r => obj(r) && r.name && Array.isArray(r.steps));
   s.routines.forEach(r => { r.steps = r.steps.filter(x => obj(x) && x.text); if (!Array.isArray(r.days)) r.days = []; if (r.time && !isT(r.time)) r.time = null; });
   if (!obj(s.rdone)) s.rdone = {};
+  s.alarms = (Array.isArray(s.alarms) ? s.alarms : []).filter(a => obj(a) && isT(a.time)).map(a => ({ ...a, days: Array.isArray(a.days) ? a.days : [], on: a.on !== false }));
   s.top3 = Object.assign({ day: null, items: [], ai: false }, obj(s.top3) ? s.top3 : {});
   if (!Array.isArray(s.top3.items)) s.top3.items = [];
   s.leave = Object.assign({ items: null, day: null, done: [] }, obj(s.leave) ? s.leave : {});
@@ -301,7 +303,7 @@ async function gcalConnect() {
       GTOKEN = r.access_token; GTOKEN_EXP = Date.now() + ((r.expires_in || 3600) - 60) * 1000; saveTokens();
       if (!google.accounts.oauth2.hasGrantedAllScopes(r, GCAL_SCOPE)) { toast("Day Hub needs the calendar box ticked — tap Connect again and tick it"); GTOKEN = null; return; }
       S.gcal.connected = true; S.gcal.scope = GCAL_SCOPE; S.gcal.needsWrite = false; setAutoState({ at: 0, off: false }); save();
-      await gcalFetch(); await gcalPush();
+      await gcalFetch(); await gcalPush(); gcalDates(true);
     },
   });
   client.requestAccessToken();
@@ -456,7 +458,7 @@ async function syncOnOpen(force) {
   LAST_SYNC = Date.now();
   if (Date.now() - WX_AT > 15 * 60000) loadWeather();
   checkUpdate();
-  if (S.gcal.connected && gReady()) { await gcalFetch(true); await gcalPush(); }
+  if (S.gcal.connected && gReady()) { await gcalFetch(true); await gcalPush(); gcalDates(); }
   if (S.sync.on && dReady()) await syncDrive();
   if (S.mail.on && mReady() && can("mail")) scanMail();
   if (MODE !== "cruise" && S.top3.day !== today() && new Date().getHours() >= 4 && (S.name || hasData(S)) && !S.hidden.includes("top3")) top3Pick();
@@ -1690,6 +1692,7 @@ function dayItems(day) {
       tick: `${k}:${x.id}`, done: x.done, del: `${k}:${x.id}`, cal: `${k}:${x.id}` })); });
   S.work.shifts.filter(x => x.day === day).forEach(x => it.push({ t: x.start, end: x.end, title: "Work shift", sub: fmtH(shiftHours(x)), kind: "work", icon: "💼", cal: `shift:${x.id}` }));
   upcomingBills().filter(b => b.due === day).forEach(b => it.push({ t: null, title: `${b.name} due`, sub: money(b.amount), kind: "bill", icon: "💳", cal: `bill:${b.id}` }));
+  alarmsOn(day).forEach(a => it.push({ t: a.time, title: `Alarm${a.label ? ` — ${a.label}` : ""}`, kind: "alarm", icon: "⏰" }));
   if (payNext(day) === day) it.push({ t: null, title: "Payday", sub: (a => a.amt ? `${a.est ? "≈ " : ""}${money(a.amt)}` : "")(payAmount()), kind: "pay", icon: "💵" });
   S.upkeep.filter(x => upkeepNext(x) === day || (day === today() && !x.auto && upkeepNext(x) < day)).forEach(x =>
     it.push({ t: null, title: x.auto ? x.name : `${x.name} due`, sub: x.auto ? "" : upkeepWhen(x, upkeepNext(x)), kind: "upkeep", icon: x.area === "auto" ? "🚗" : "🏠" }));
@@ -1851,7 +1854,8 @@ function resetData() {
 function tomorrowLine() {
   const T1 = addDays(today(), 1), w = WXDATA && WXDATA.here && WXDATA.here.days[1];
   const items = dayItems(T1), plans = items.filter(isPlan), f = plans.find(i => i.t);
-  return [w ? `${wmo(w.code)[0]} ${Math.round(w.hi)}°/${Math.round(w.lo)}°${w.rain >= 40 ? ` · rain ${w.rain}%` : ""}` : "",
+  const al = alarmsOn(T1)[0];
+  return [al ? `⏰ ${hm(al.time)}` : "", w ? `${wmo(w.code)[0]} ${Math.round(w.hi)}°/${Math.round(w.lo)}°${w.rain >= 40 ? ` · rain ${w.rain}%` : ""}` : "",
     f ? `first up ${hm(f.t)} ${f.title}` : plans.length ? `${plans.length} planned` : "nothing planned",
     ...items.filter(i => i.kind === "bill").map(b => `💳 ${b.title} due`)].filter(Boolean).join(" · ");
 }
@@ -1860,6 +1864,7 @@ function resetHtml() {
   const mem = S.remember.filter(r => r.day === T1);
   if (S.resetDay === t) return `<div class="today-line">✓ Day closed${S.resetAt ? ` at ${esc(fmtTime(S.resetAt))}` : ""} — ${done.length} thing${done.length === 1 ? "" : "s"} done. Sleep well 😴</div>
     ${mem.length ? `<div class="today-line">📌 For the morning: ${mem.map(r => esc(r.text)).join(" · ")}</div>` : ""}
+    ${alarmNote(T1) ? `<div class="today-line">${esc(alarmNote(T1))}</div>` : ""}
     <div class="foot-actions"><button class="btn sm ghost" data-reset="reopen">Open it again</button></div>`;
   const moveable = open.filter(o => o.k !== "todos");
   const rows = open.map(o => `<div class="row"><span class="grow">${esc(o.title)}${o.rep ? ` <span class="sub">repeats — back tomorrow</span>` : ""}</span>
@@ -1874,6 +1879,8 @@ function resetHtml() {
       + (open.some(o => o.k === "todos" && !o.rep) ? `<p class="fine" style="margin-top:6px">Open to-dos stay on your list for tomorrow. ✕ drops one.</p>` : "")
       : `<div class="today-line">Nothing left over 🎉</div>`}
     <div class="rs-h">Tomorrow</div><div class="today-line">${esc(tomorrowLine())}</div>
+    ${dayItems(T1).filter(i => !["sun", "rain"].includes(i.kind)).slice(0, 10).map(i => `<div class="row"><span class="time">${i.t ? hm(i.t) : "All day"}</span><span class="grow">${i.icon} ${esc(i.title)}${i.kind === "g" ? ` <span class="gbadge">Google</span>` : ""}</span></div>`).join("")}
+    ${(n => n ? `<div class="today-line">${esc(n)} <button class="add-link" data-qa="alarm" style="display:inline;margin:0">${alarmsOn(T1).length ? "change" : "＋ add alarm"}</button></div>` : `<div class="today-line"><button class="add-link" data-qa="alarm" style="margin:0">⏰ ＋ Add your alarm</button></div>`)(alarmNote(T1))}
     <form data-remember class="rs-mem"><input name="text" placeholder="Anything to remember tomorrow?" autocomplete="off" maxlength="200"><button class="btn sm">Add</button></form>
     ${mem.map(r => `<div class="row"><span class="grow">📌 ${esc(r.text)}</span><button class="x" data-rmdel="${r.id}" aria-label="Remove">✕</button></div>`).join("")}
     <div class="foot-actions" style="margin-top:10px"><button class="btn sm" data-reset="close">✓ Close my day</button></div>`;
@@ -2260,6 +2267,78 @@ function top3Card() {
     `<div class="foot-actions"><button class="add-link" data-top3="pick">↻ Pick again</button><span class="fine" style="margin:0">${S.top3.ai ? "picked by your AI helper" : "quick pick — turn on 🤖 AI helper in ⚙ for smarter picks"}</span></div>`;
 }
 
+// ---------------------------------------------------------------- alarms
+// Scott 10/2 ("add to schedule the alarms phone as set ... and be on nightly
+// planner"). No web app may read the phone's Clock alarms, so Day Hub keeps
+// its own copy: enter each alarm once (time + days). Tomorrow's alarm shows on
+// the schedule, the Tomorrow card and the Nightly reset - with a warning when
+// the first thing tomorrow is before the alarm or right on top of it.
+const alarmsOn = day => { const dow = parseDay(day).getDay();
+  return S.alarms.filter(a => a.on && (a.days.length ? a.days.includes(dow) : a.once === day)).sort((a, b) => a.time.localeCompare(b.time)); };
+let ALARM_EDIT = null;
+function alarmNote(day) {
+  const al = alarmsOn(day)[0], f = dayItems(day).filter(isPlan).find(i => i.t);
+  if (!al) return f && toMin(f.t) <= 9 * 60 ? `⏰ No alarm set — first up ${hm(f.t)}` : "";
+  const gap = f ? toMin(f.t) - toMin(al.time) : null;
+  return `⏰ Alarm ${hm(al.time)}${al.label ? ` (${al.label})` : ""}` + (gap === null ? "" : gap < 0 ? ` — ⚠️ ${f.title} at ${hm(f.t)} is BEFORE your alarm`
+    : gap < 45 ? ` — ⚠️ only ${gap} min before ${f.title} at ${hm(f.t)}` : "");
+}
+const alarmDays = a => !a.days.length ? (a.once ? prettyDate(a.once) : "once") : a.days.length === 7 ? "every day"
+  : [1, 2, 3, 4, 5].every(d => a.days.includes(d)) && a.days.length === 5 ? "weekdays"
+  : a.days.length === 2 && a.days.includes(0) && a.days.includes(6) ? "weekends" : a.days.map(n => DOW[n]).join(" ");
+function drawAlarmBox() {
+  const g = document.getElementById("alarmBox"); if (!g) return;
+  g.innerHTML = `<h3>⏰ My alarms</h3>
+    <p class="fine" style="margin-top:0">Day Hub can't see your phone's Clock app, so add your alarms here once — they show on your schedule and in the Nightly reset.</p>
+    ${S.alarms.map(a => `<div class="row"><input type="checkbox" class="tick" data-alon="${a.id}" ${a.on ? "checked" : ""} aria-label="On">
+      <span class="grow"><b>${hm(a.time)}</b> <span class="sub">${esc(alarmDays(a))}${a.label ? ` · ${esc(a.label)}` : ""}</span></span>
+      <button class="x" data-aledit="${a.id}" aria-label="Edit">✏️</button></div>`).join("")}
+    <button class="btn sm" data-qa="alarm">＋ Add an alarm</button>`;
+}
+
+// ------------------------------------------- dates found in your calendar
+// Scott 10/2 ("have bday date also look at calendar for data"): once a day,
+// with Google Calendar connected, look a year ahead for birthdays and
+// anniversaries (Google's own birthday entries, and events named "...birthday",
+// "bday", "anniversary") and OFFER them in People & dates. Nothing is added
+// until Add / Add all; "Not these" hides them for good.
+function bdayFromEvent(e) {
+  const title = String(e.summary || "").trim(), day = (e.start && (e.start.date || e.start.dateTime) || "").slice(0, 10);
+  if (!title || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  const isBday = e.eventType === "birthday" || /\b(birthday|bday|b-day|born)\b/i.test(title), isAnn = /\banniversary\b/i.test(title);
+  if (!isBday && !isAnn) return null;
+  let name = title.replace(/[’']s\b/g, "").replace(/\b(happy|birthday|bday|b-day|anniversary|wedding|day)\b/gi, "").replace(/[🎂🎉🎁💍!]/gu, "").replace(/\s+/g, " ").trim();
+  if (!name || /^(our|my|the|your|his|her|their)$/i.test(name)) name = title;      // "Our anniversary" stays whole
+  return { key: `${name.toLowerCase()}|${day.slice(5)}`, name, md: day.slice(5), kind: isAnn && !isBday ? "anniversary" : "birthday", from: title };
+}
+async function gcalDates(force) {
+  if (!S.gcal.connected || !gReady() || (!force && S.gcal.datesDay === today())) return;
+  const from = parseDay(today()), to = new Date(from); to.setDate(to.getDate() + 366);
+  const found = {};
+  try {
+    let page = "";
+    do {
+      const u = "https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=2500" +
+        `&timeMin=${encodeURIComponent(from.toISOString())}&timeMax=${encodeURIComponent(to.toISOString())}${page ? "&pageToken=" + encodeURIComponent(page) : ""}`;
+      const r = await fetch(u, { headers: { Authorization: `Bearer ${GTOKEN}` } });
+      if (!r.ok) return;
+      const j = await r.json();
+      (j.items || []).filter(e => e.status !== "cancelled" && !((e.extendedProperties || {}).private || {}).dayhubApp)
+        .forEach(e => { const b = bdayFromEvent(e); if (b && !found[b.key]) found[b.key] = b; });
+      page = j.nextPageToken || "";
+    } while (page);
+  } catch (e) { return; }
+  const have = new Set(S.people.map(p => `${p.name.toLowerCase()}|${p.md}`)), no = new Set(S.gcal.datesNo || []);
+  S.gcal.dates = Object.values(found).filter(b => !have.has(b.key) && !no.has(b.key)).sort((a, b) => a.md.localeCompare(b.md));
+  S.gcal.datesDay = today(); saveLocal(); render();
+}
+function addFoundDates(keys) {
+  const pick = (S.gcal.dates || []).filter(b => keys.includes(b.key));
+  pick.forEach(b => S.people.push({ id: uid(), name: b.name, kind: b.kind, md: b.md, year: null, lead: b.kind === "birthday" ? 14 : 7, ideas: "", got: {} }));
+  S.gcal.dates = (S.gcal.dates || []).filter(b => !keys.includes(b.key));
+  return pick.length;
+}
+
 function heroHtml() {
   const now = new Date(), h = now.getHours();
   const w = WXDATA && WXDATA.here;
@@ -2392,7 +2471,8 @@ const CARDS = {
       const first = plans.find(i => i.t);
       if (first) {
         const alarm = new Date(atMs(T1, first.t) - 60 * 60000);
-        L.push(`<div class="today-line">⏰ First up <b>${hm(first.t)}</b> — ${esc(first.title)}<br><span class="sub">Alarm idea: ${alarm.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} (an hour before)</span></div>`);
+        const an = alarmNote(T1);
+        L.push(`<div class="today-line">⏰ First up <b>${hm(first.t)}</b> — ${esc(first.title)}<br><span class="sub">${an && alarmsOn(T1).length ? esc(an) : `Alarm idea: ${alarm.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} (an hour before)`}</span></div>`);
       }
       if (plans.length) L.push(plans.slice(0, 5).map(i => `<div class="row"><span class="time">${i.t ? hm(i.t) : "All day"}</span><span class="grow">${i.icon} ${esc(i.title)}</span></div>`).join(""));
       else L.push(`<div class="today-line">📅 Nothing planned yet — a clear day.</div>`);
@@ -2656,7 +2736,12 @@ const CARDS = {
   people: { icon: "🎂", title: "People & dates", add: ["person", "Add a birthday or date"],
     meta: () => { const u = upcomingPeople(14); return u.length ? `${u.length} coming up` : ""; },
     body: () => {
-      if (!S.people.length) return `<div class="empty">Birthdays, anniversaries, important dates — Day Hub reminds you in time to get a gift.</div>`;
+      const found = (S.gcal.dates || []);
+      const foundBox = found.length ? `<div class="found-box"><b>📅 Found ${found.length} date${found.length === 1 ? "" : "s"} in your Google Calendar</b>
+          ${found.slice(0, 30).map(b => `<div class="row"><span class="grow">${PKIND[b.kind]} ${esc(b.name)} <span class="sub">${prettyDate(personNext(b))}</span></span>
+            <button class="btn sm ghost" data-fadd="${esc(b.key)}">＋ Add</button></div>`).join("")}
+          <div class="foot-actions"><button class="btn sm" data-fadd="__all">Add all ${found.length}</button><button class="add-link" data-fno="1">Not these</button></div></div>` : "";
+      if (!S.people.length) return foundBox + `<div class="empty">Birthdays, anniversaries, important dates — Day Hub reminds you in time to get a gift.${S.gcal.connected ? "" : " Connect Google Calendar in ⚙ and Day Hub finds the ones already in your calendar."}</div>`;
       const row = ({ p, day }) => { const n = daysUntil(day);
         return `<div class="row pp ${n === 0 ? "today" : ""}"><span class="grow"><b>${PKIND[p.kind] || "⭐"} ${esc(personLabel(p, day))}</b>
             <span class="sub">${n === 0 ? "🎉 TODAY — call, text or card?" : `${inDays(n)} · ${prettyDate(day)}`}</span>
@@ -2664,7 +2749,7 @@ const CARDS = {
           ${giftDue(p, day) ? `<button class="btn sm ghost" data-pgot="${p.id}">✓ Got it</button>` : ""}
           <button class="x" data-pedit="${p.id}" aria-label="Edit">✏️</button></div>`; };
       const soon = upcomingPeople(60), later = S.people.map(p => ({ p, day: personNext(p) })).filter(x => daysUntil(x.day) > 60).sort((a, b) => a.day.localeCompare(b.day));
-      return (soon.length ? soon.map(row).join("") : `<div class="empty">Nothing in the next 60 days.</div>`) +
+      return foundBox + (soon.length ? soon.map(row).join("") : `<div class="empty">Nothing in the next 60 days.</div>`) +
         (later.length ? `<details class="steps"><summary>All dates (${S.people.length})</summary>${later.map(row).join("")}</details>` : "");
     } },
 
@@ -3009,7 +3094,7 @@ function micToggle(btn) {
 }
 
 function qaTypes() {
-  const t = [["dump", "🧠 Brain dump"], ["event", "📅 Event"], ["person", "🎂 Birthday / date"], ["upkeep", "🏠 Home / car"], ["routine", "🔁 Routine"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["package", "📦 Package"], ["trip", "🚢 Trip"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
+  const t = [["dump", "🧠 Brain dump"], ["event", "📅 Event"], ["person", "🎂 Birthday / date"], ["upkeep", "🏠 Home / car"], ["routine", "🔁 Routine"], ["alarm", "⏰ Alarm"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["package", "📦 Package"], ["trip", "🚢 Trip"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
   if (S.pack === "trucker") t.splice(1, 0, ["loads", "🚚 Load"]);
   if (S.pack === "trades") t.splice(1, 0, ["jobs", "🔧 Job"]);
   return t;
@@ -3097,6 +3182,12 @@ function qaFields(type) {
       <label class="field">Gift reminder<select name="lead">${o(0, "Off", p.lead)}${o(7, "1 week before", p.lead)}${o(14, "2 weeks before", p.lead)}${o(21, "3 weeks before", p.lead)}${o(28, "4 weeks before", p.lead)}</select></label>
       <input name="ideas" placeholder="Gift ideas, sizes, favorites (optional)" value="${esc(p.ideas || "")}" autocomplete="off">
       ${PERSON_EDIT ? `<button type="button" class="btn sm ghost" data-pdel="${PERSON_EDIT}">Delete this date</button>` : ""}`; })(),
+    alarm: (() => { const a = S.alarms.find(x => x.id === ALARM_EDIT) || { time: "06:00", days: [1, 2, 3, 4, 5], label: "" };
+      return `<label class="field">Alarm time<input name="time" type="time" value="${a.time}" required></label>
+        <div class="field">Which days?<div class="dow">${DOW.map((n, i) => `<label><input type="checkbox" name="d${i}" ${a.days.includes(i) ? "checked" : ""}>${n}</label>`).join("")}</div></div>
+        <input name="label" placeholder="Label (optional — Work, Gym…)" value="${esc(a.label || "")}" autocomplete="off">
+        <div class="hint">Set the same alarm in your phone's Clock app — Day Hub shows it on your schedule and in the Nightly reset. No days ticked = just tomorrow.</div>
+        ${ALARM_EDIT ? `<button type="button" class="btn sm ghost" data-aldel="${ALARM_EDIT}">Delete this alarm</button>` : ""}`; })(),
     routine: (() => { const r = S.routines.find(x => x.id === ROUTINE_EDIT) || { name: "", steps: [], days: [], time: "" };
       return `<input name="name" placeholder="Name (e.g. 🏋️ Gym day)" value="${esc(r.name)}" required autocomplete="off">
         <label class="field">Steps — one per line<textarea name="steps" rows="6" required placeholder="Fill water bottle&#10;Pack gym bag&#10;Protein shake">${esc(r.steps.map(x => x.text).join("\n"))}</textarea></label>
@@ -3145,7 +3236,9 @@ function qaFields(type) {
 let NOTE_EDIT = null, ERASE_ARMED = 0;
 let TRIP_EDIT = null, PORT_EDIT = null, PORT_DAY = null, PERK_EDIT = null;
 function openQA(type, keepEdit) {
-  if (!keepEdit) { TRIP_EDIT = null; PERSON_EDIT = null; UPKEEP_EDIT = null; UPKEEP_PRESET = null; ROUTINE_EDIT = null; }
+  if (!keepEdit) { TRIP_EDIT = null; PERSON_EDIT = null; UPKEEP_EDIT = null; UPKEEP_PRESET = null; ROUTINE_EDIT = null; ALARM_EDIT = null; }
+  // Opened from ⚙ (✏️ an alarm, ＋ Add an alarm): close Settings first - it sat on top and hid the form.
+  if (!document.getElementById("sheet").classList.contains("hidden")) closeSettings();
   QA_TYPE = type || QA_TYPE;
   if (QA_TYPE !== "dump") DUMP = [];
   if (RECOG) RECOG.stop();
@@ -3181,6 +3274,13 @@ function submitQA(f) {
     // Added after this month's due day = treat this month as handled; before it = due this month.
     const paid = day < now.getDate() ? today().slice(0, 7) : prevMonthKey();
     S.bills.push({ id: uid(), name: d.title.trim(), amount: Number(d.amount), day, paid });
+  }
+  else if (ty === "alarm") {
+    const days = DOW.map((_, i) => d["d" + i] ? i : -1).filter(i => i >= 0);
+    const rec = { time: d.time, days, label: (d.label || "").trim(), on: true, once: days.length ? null : addDays(today(), 1) };
+    const old = S.alarms.find(x => x.id === ALARM_EDIT);
+    if (old) Object.assign(old, rec); else S.alarms.push({ id: uid(), ...rec });
+    ALARM_EDIT = null; if (!document.getElementById("sheet").classList.contains("hidden")) drawAlarmBox();
   }
   else if (ty === "routine") {
     const texts = (d.steps || "").split(/\n+/).map(x => x.trim()).filter(Boolean), days = DOW.map((_, i) => d["d" + i] ? i : -1).filter(i => i >= 0);
@@ -3382,6 +3482,11 @@ document.addEventListener("click", e => {
   if (ds.syncall) { syncTap(); return; }
   if (ds.ai === "off") { try { localStorage.removeItem(AI_KEY); } catch (e) { /* ok */ } drawAiBox(); toast("AI helper off — the quick sorter takes over"); return; }
   if (ds.ai === "test") { drawAiBox("testing…"); aiCall("ping", "").then(j => drawAiBox(`working · ${j.left} left today`)).catch(e => drawAiBox("problem: " + e.message)); return; }
+  if (ds.fadd) { snap(); const keys = ds.fadd === "__all" ? (S.gcal.dates || []).map(b => b.key) : [ds.fadd];
+    const n = addFoundDates(keys); save(); render(); buzz(); toast(`🎂 Added ${n} date${n === 1 ? "" : "s"} — ✏️ to add gift ideas`, true); return; }
+  if (ds.fno) { S.gcal.datesNo = [...new Set([...(S.gcal.datesNo || []), ...(S.gcal.dates || []).map(b => b.key)])]; S.gcal.dates = []; saveLocal(); render(); return; }
+  if (ds.aledit) { ALARM_EDIT = ds.aledit; openQA("alarm", true); return; }
+  if (ds.aldel) { snap(); S.alarms = S.alarms.filter(a => a.id !== ds.aldel); ALARM_EDIT = null; closeQA(); save(); render(); drawAlarmBox(); toast("Alarm removed", true); return; }
   if (ds.ask === "open") { showAsk(); return; }
   if (ds.askclose) { document.getElementById("askSheet").classList.add("hidden"); if (ds.open === "sheet") openSettings(); return; }
   if (ds.askq) { askDayHub(ds.askq); return; }
@@ -3459,6 +3564,7 @@ document.addEventListener("change", e => {
   if (ds.dday !== undefined) { DUMP[Number(ds.dday)].day = t.value; return; }
   if (ds.dtime !== undefined) { DUMP[Number(ds.dtime)].time = t.value; return; }
   if (t.dataset.briefauto !== undefined) { S.briefAuto = t.checked; saveLocal(); toast(t.checked ? "Morning brief on" : "Morning brief off — ☀️ chip still opens it"); return; }
+  if (ds.alon) { const a = S.alarms.find(x => x.id === ds.alon); if (a) { a.on = t.checked; save(); render(); } return; }
   if (ds.t3chk) { const x = S.top3.items.find(y => y.id === ds.t3chk); if (x) { x.done = t.checked; saveLocal(); render(); buzz();
     if (S.top3.items.every(y => y.done)) toast("🎯 All three done!"); } return; }
   if (ds.rstep) { const [rid, sid] = ds.rstep.split(":"), r = S.routines.find(x => x.id === rid); if (!r) return;
@@ -3506,6 +3612,9 @@ function drawSettings() {
   let sb = document.getElementById("syncBox");
   if (!sb) { sb = document.createElement("div"); sb.id = "syncBox"; document.getElementById("cardList").before(sb); }
   drawSyncBox();
+  let alb = document.getElementById("alarmBox");
+  if (!alb) { alb = document.createElement("div"); alb.id = "alarmBox"; document.getElementById("cardList").before(alb); }
+  drawAlarmBox();
   let ab = document.getElementById("aiBox");
   if (!ab) { ab = document.createElement("div"); ab.id = "aiBox"; document.getElementById("cardList").before(ab); }
   drawAiBox();

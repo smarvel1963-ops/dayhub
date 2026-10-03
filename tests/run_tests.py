@@ -925,6 +925,60 @@ def t_v032_ask_top3(b, base):
     a.close()
 
 
+def t_v033_alarms(b, base):
+    print("\n[v0.33 alarms on the schedule + nightly reset]")
+    a = App(b, base, at="2026-10-01T20:00:00"); setup(a)     # Thu evening; tomorrow = Fri
+    check("nightly reset offers to add your alarm", "Add your alarm" in a.card("reset"))
+    a.qa("alarm", {"time": "05:30", "d1": True, "d2": True, "d3": True, "d4": True, "d5": True, "label": "Work"})
+    a.js("closeQA()")
+    check("alarm on tomorrow's schedule", a.js("dayItems('2026-10-02').some(i => i.kind === 'alarm' && i.t === '05:30')"))
+    check("not on Saturday's", not a.js("dayItems('2026-10-03').some(i => i.kind === 'alarm')"))
+    check("nightly reset shows tomorrow's alarm", "Alarm 5:30 AM (Work)" in a.card("reset"))
+    a.qa("event", {"title": "Truck inspection", "date": "2026-10-02", "time": "05:50"}); a.js("closeQA()")
+    check("warns when the first thing is right after the alarm", "only 20 min before Truck inspection" in a.card("reset"), a.card("reset")[:400])
+    a.js("S.events[0].time = '05:00'; save(); render()")
+    check("warns when the first thing is BEFORE the alarm", "BEFORE your alarm" in a.card("reset"))
+    check("Tomorrow card shows the real alarm", "Alarm 5:30 AM" in a.card("tomorrow"))
+    a.page.click("#settingsBtn")
+    check("⚙ My alarms lists it (weekdays)", "5:30 AM" in a.page.inner_text("#alarmBox") and "weekdays" in a.page.inner_text("#alarmBox"))
+    a.page.click('#alarmBox [data-alon]')
+    check("switch it off: gone from the schedule", not a.js("dayItems('2026-10-02').some(i => i.kind === 'alarm')"))
+    a.page.click('#alarmBox [data-aledit]'); a.page.click("[data-aldel]")
+    check("delete an alarm", a.js("S.alarms.length") == 0)
+    a.close()
+
+
+def t_v033_calendar_dates(b, base):
+    print("\n[v0.33 birthdays found in Google Calendar + tomorrow list]")
+    a = App(b, base, at="2026-10-01T20:00:00"); setup(a)
+    a.js("""(() => { const real = window.fetch; window.fetch = async (u, o) => { u = String(u);
+      if (u.includes('/calendars/primary/events') && (!o || !o.method || o.method === 'GET') && u.includes('timeMax'))
+        return new Response(JSON.stringify({ items: [
+          { summary: "Roxanne's birthday", eventType: 'birthday', start: { date: '2026-10-13' } },
+          { summary: 'Mom bday', start: { date: '2027-02-02' } },
+          { summary: 'Our anniversary', start: { date: '2026-12-01' } },
+          { summary: 'Dentist', start: { dateTime: '2026-10-05T10:00:00-05:00' } },
+          { summary: 'Roxanne\\'s birthday', start: { date: '2027-10-13' } } ] }), { status: 200 });
+      return real(u, o); }; })()""")
+    a.js("GTOKEN = 'tok'; GTOKEN_EXP = Date.now() + 3e6; S.gcal.connected = true; S.gcal.scope = GCAL_SCOPE")
+    a.js("gcalDates(true)"); a.page.wait_for_timeout(300)
+    card = a.card("people")
+    check("found 3 dates (no dentist, no duplicate)", "Found 3 dates" in card and "Dentist" not in card, card[:300])
+    check("names cleaned up", a.js("S.gcal.dates.map(b => b.name).sort().join('|')") == "Mom|Our anniversary|Roxanne", a.js("S.gcal.dates.map(b => b.name)"))
+    a.page.click('[data-fadd^="roxanne"]')
+    check("＋ Add one", a.js("S.people.some(p => p.name === 'Roxanne' && p.md === '10-13' && p.lead === 14)") and a.js("S.gcal.dates.length") == 2)
+    a.page.click('[data-fno]')
+    check("Not these hides the rest for good", a.js("S.gcal.dates.length") == 0 and a.js("S.gcal.datesNo.length") == 2)
+    a.js("gcalDates(true)"); a.page.wait_for_timeout(300)
+    check("rescan doesn't bring back added or hidden ones", a.js("S.gcal.dates.length") == 0)
+    # nightly reset lists all of tomorrow
+    a.js("S.gcal.events = [{id:'g1', title:'Pick up prescription', day:'2026-10-02', time:'16:00', where:''}]; S.gcal.connected = true")
+    a.qa("event", {"title": "Truck inspection", "date": "2026-10-02", "time": "08:00"}); a.js("closeQA()")
+    rs = a.card("reset")
+    check("nightly reset lists tomorrow's calendar + Day Hub items", "Pick up prescription" in rs and "Truck inspection" in rs, rs[:500])
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -937,7 +991,8 @@ def main():
                   t_v026_upkeep, t_v027_routines,
                   t_v028_payday, t_v029_pulse,
                   t_v030_brief_countdowns, t_v031_ai_helper,
-                  t_v032_ask_top3):
+                  t_v032_ask_top3, t_v033_alarms,
+                  t_v033_calendar_dates):
             try:
                 t(b, base)
             except Exception as e:
