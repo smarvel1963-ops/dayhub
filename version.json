@@ -1,6 +1,9 @@
 {
- "version": "0.52",
+ "version": "0.53",
  "notes": {
+  "0.53": [
+   "💡 Ask Cruise Hub: tap 💡 and ask in plain words — \"When do we need to be back on the ship?\", \"What's left to pack?\", \"How much do I still owe?\" — it answers from your own cruise (AI helper, part of Pro)."
+  ],
   "0.52": [
    "🚢 Return Guard: on port days Cruise Hub shows all aboard in your phone's time, when to head back (with your safety margin and trip back), and turns from green to red as time runs out. A BACK TO SHIP bar stays on screen until you tap \"I'm back on board\".",
    "⏰ Fix: all-aboard alarms now use your phone's clock when the ship's clock is different (they could fire an hour late)."

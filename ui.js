@@ -740,11 +740,13 @@ const aiPass = () => { try { return localStorage.getItem(AI_KEY) || ""; } catch 
 // v0.40: the owner's passphrase works exactly as before; with AI_PUBLIC on, a
 // Pro phone sends its Whop email (+ phone id) instead and the relay gives each
 // buyer their own cap.
-const aiByKey = () => !aiPass() && switchOn("AI_PUBLIC") && isPro() && !!proState().buyer;
+// v0.53: in Cruise Hub a Day Hub Pro unlock on the same phone counts (proViaDayHub) - send that buyer.
+const aiBuyer = () => (proGood(proState()) ? proState() : readPro(DAY_PRO_KEY)).buyer || proState().buyer || "";
+const aiByKey = () => !aiPass() && switchOn("AI_PUBLIC") && isPro() && !!aiBuyer();
 const aiOn = () => !!aiPass() || aiByKey();
 async function aiCall(task, input, pass = aiPass()) {
   const t = today(), body = { task, input, today: t, weekday: parseDay(t).toLocaleDateString("en-US", { weekday: "long" }) };
-  if (pass) body.pass = pass; else { body.buyer = proState().buyer; body.device = deviceId(); }
+  if (pass) body.pass = pass; else { body.buyer = aiBuyer(); body.device = deviceId(); }
   const r = await fetch(AI_URL, { method: "POST", body: JSON.stringify(body) });
   const j = await r.json();
   if (j.error) throw new Error(j.error);

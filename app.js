@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.52";
+const VERSION = "0.53";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -2453,22 +2453,48 @@ function aiContext() {
   out.weatherToday = WXDATA && WXDATA.here && WXDATA.here.day ? { hi: Math.round(WXDATA.here.day.hi), lo: Math.round(WXDATA.here.day.lo), rainFrom: WXDATA.here.day.rainFrom ? fmtTime(WXDATA.here.day.rainFrom) : null } : null;
   out.alerts = pulseItems().map(x => x.text);
   out.futureMe = S.future.map(f => ({ saved: f.created.slice(0, 10), note: f.text }));
+  { const tr = curTrip(); if (tr) out.trip = tripContext(tr); }          // v0.53: the trip / cruise, for Ask Cruise Hub
   let j = JSON.stringify(out);
   if (j.length > 14000) { out.notes = out.notes.slice(-5); out.schedule = out.schedule.filter(x => x.day <= d(7)); j = JSON.stringify(out); }
   return j.slice(0, 15000);
+}
+// v0.53 (V1 step 2, Ask Cruise Hub): the current trip as FACTS for the AI - dates, ports, all-aboard
+// in phone time + the Return Guard head-back time, money, what's still open, perks left, cruise-area
+// weather. The AI only explains these; it never invents times (Scott's plan: "facts come from data").
+function tripContext(tr) {
+  const R = readiness(tr), sd = tr.start ? daysUntil(tr.start) : null, hmOr = t => t ? hm(t) : null;
+  const o = { name: tr.name, type: tr.type, line: tr.line || null, ship: tr.ship || null, departurePort: tr.port || null,
+    start: tr.start || null, end: tr.end || null, daysToGo: sd, nights: tripNights(tr) || null, cabin: tr.cabin || null,
+    travelers: tr.travelers || null, readyPercent: R.pct, stage: R.phase, nextStep: R.next ? R.next.action : null,
+    stillToDo: R.items.filter(i => i.score < 1).map(i => `${i.label}${i.now ? " (matters now)" : " (later)"}`) };
+  if (tr.total) o.money = { total: money(tr.total), paid: money(tripPaid(tr)), left: money(tripLeft(tr) || 0), finalPaymentDue: tr.finalDue || null };
+  o.ports = (tr.ports || []).map(pt => ({ day: pt.day, port: pt.name, arrive: hmOr(pt.arrive),
+    allAboardPhoneTime: pt.allAboard ? hm(aaLocal(pt)) : null, allAboardShipTime: pt.allAboard && Number(pt.shipOffset) ? hm(pt.allAboard) : undefined,
+    headBackBy: pt.allAboard ? hm(guardBy(pt)) : null, excursion: pt.excursion || null, meet: hmOr(pt.meet), meetingPoint: pt.where || null,
+    independentTour: !!pt.indie, cash: pt.cash || undefined, currency: pt.currency || undefined, weather: portWxText(pt) || undefined }));
+  o.perksLeft = perksLeft(tr).map(x => `${x.name}: ${x.unit === "$" ? money(x.total - x.used) : x.total - x.used} left`);
+  ensureLists(tr);
+  o.notDoneYet = Object.fromEntries(Object.entries(tr.lists).map(([k, l]) => [k, (l || []).filter(i => !i.done).map(i => i.text).slice(0, 30)]).filter(([, v]) => v.length));
+  o.cruiseAreaWeather = cruiseWxDays(tr).map(x => { const w = PORTWX[`${x.name}|${x.day}`];
+    return w && !w.loading && !w.none ? { day: x.day, place: x.name, hi: Math.round(w.hi), lo: Math.round(w.lo), rainChance: w.rain, uv: w.uv, alerts: cruiseWxAlerts(w, x.kind).map(a => a.text) } : null; }).filter(Boolean);
+  o.returnGuardSafetyMarginMin = guardMargin();
+  return o;
 }
 let ASK_BUSY = false, ASK_LOG = [];
 function showAsk() {
   let el = document.getElementById("askSheet");
   if (!el) { el = document.createElement("div"); el.id = "askSheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); document.body.appendChild(el); }
-  const ex = ["What's happening tomorrow?", "When is my next oil change?", "What haven't I finished this week?", "What bills are due before payday?"];
+  const tr = MODE === "cruise" ? curTrip() : null, away = tr && tr.start && daysUntil(tr.start) <= 0;
+  const ex = MODE !== "cruise" ? ["What's happening tomorrow?", "When is my next oil change?", "What haven't I finished this week?", "What bills are due before payday?"]
+    : away ? ["When do we need to be back on the ship?", "What's the plan tomorrow?", "What should I bring ashore tomorrow?", "Which perks haven't we used?"]
+    : ["What am I forgetting?", "How much do I still owe, and when?", "What's left to pack?", "What should I do this week for my cruise?"];
   el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
-    <div class="sheet-head"><h2>💡 Ask Day Hub</h2><button class="icon-btn" data-askclose="1" aria-label="Close">✕</button></div>
-    ${aiOn() ? `<form class="ask-form" data-ask="1"><input name="q" placeholder="Ask anything about your day…" autocomplete="off" required>
+    <div class="sheet-head"><h2>💡 Ask ${APP_NAME}</h2><button class="icon-btn" data-askclose="1" aria-label="Close">✕</button></div>
+    ${aiOn() ? `<form class="ask-form" data-ask="1"><input name="q" placeholder="${MODE === "cruise" ? "Ask anything about your cruise…" : "Ask anything about your day…"}" autocomplete="off" required>
         <button type="button" class="btn sm ghost" data-askmic="1" aria-label="Talk">🎤</button><button class="btn sm">Ask</button></form>
       <div class="chips up-chips">${ex.map(q => `<button class="chip" data-askq="${esc(q)}">${esc(q)}</button>`).join("")}</div>
       <div id="askOut">${ASK_LOG.map(a => `<div class="ask-q">${esc(a.q)}</div><div class="ask-a">${esc(a.a)}</div>`).join("")}</div>`
-    : `<p class="fine" style="margin-top:4px">Ask in plain words — "When's my next oil change?" — and Day Hub answers from your own planner.</p>
+    : `<p class="fine" style="margin-top:4px">${MODE === "cruise" ? `Ask in plain words — "When do we need to be back on the ship?" — and Cruise Hub answers from your own cruise.` : `Ask in plain words — "When's my next oil change?" — and Day Hub answers from your own planner.`}</p>
        <ol class="steps"><li>Tap ⚙ (top right).</li><li>Find <b>🤖 AI helper</b>, type your passphrase, tap <b>Turn on</b>.</li></ol>
        <button class="btn sm" data-askclose="1" data-open="sheet">Open ⚙</button>`}
   </div>`;
@@ -2478,7 +2504,9 @@ function showAsk() {
 async function askDayHub(q) {
   q = String(q || "").trim(); if (!q || ASK_BUSY) return;
   ASK_BUSY = true; ASK_LOG.unshift({ q, a: "…thinking" }); showAsk();
-  try { ASK_LOG[0].a = String((await aiCall("ask", `QUESTION: ${q}\n\nMY PLANNER (JSON):\n${aiContext()}`)).text || "").trim() || "I couldn't find that in your planner."; }
+  // Cruise Hub: the relay's "ask" job answers only from the JSON; the trip block holds the cruise facts.
+  const lead = MODE === "cruise" ? "(Asked in Cruise Hub - answer about my cruise, using the \"trip\" section first.) " : "";
+  try { ASK_LOG[0].a = String((await aiCall("ask", `QUESTION: ${lead}${q}\n\nMY PLANNER (JSON):\n${aiContext()}`)).text || "").trim() || `I couldn't find that in your ${MODE === "cruise" ? "cruise" : "planner"}.`; }
   catch (e) { ASK_LOG[0].a = `⚠️ ${/passphrase/.test(e.message) ? "The AI helper's passphrase changed — set it again in ⚙" : "Couldn't reach the AI helper right now. Try again in a minute."}`; }
   ASK_LOG = ASK_LOG.slice(0, 6); ASK_BUSY = false; showAsk();
 }
@@ -2754,7 +2782,7 @@ function heroHtml() {
   // Cruise Hub's top line is about the cruise only (Day Hub's chips stay in Day Hub).
   const keep = MODE !== "cruise" ? chips : chips.filter(c => /forgetting|Final payment|🚢|✈️|[Rr]ain|New version|Install|⚓|data-cwx/.test(c));
   return `<div class="hero-top"><div class="greet">${greet()}</div>
-      <span class="hero-btns">${MODE !== "cruise" ? `<button class="icon-btn" data-ask="open" aria-label="Ask Day Hub">💡</button><button class="icon-btn" data-leave="1" aria-label="Don't forget">🚪</button><button class="icon-btn" data-dump="1" aria-label="Brain dump">🧠</button>` : ""}<button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button></span></div>
+      <span class="hero-btns">${MODE !== "cruise" ? `<button class="icon-btn" data-ask="open" aria-label="Ask Day Hub">💡</button><button class="icon-btn" data-leave="1" aria-label="Don't forget">🚪</button><button class="icon-btn" data-dump="1" aria-label="Brain dump">🧠</button>` : `<button class="icon-btn" data-ask="open" aria-label="Ask Cruise Hub">💡</button>`}<button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button></span></div>
     <div class="hero-main"><div><div class="hero-clock" id="clockNow"></div><div class="hero-date">${longDate(today())}</div></div>${wx}</div>
     ${CD || `<div class="verdict-row">${MODE !== "cruise" && (S.name || hasData(S)) ? pulseRing() : ""}<div class="verdict">${verdict}</div></div>`}
     <div class="chips">${chipsShown(keep).join("")}</div>`;

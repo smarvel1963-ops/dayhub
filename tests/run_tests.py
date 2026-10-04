@@ -1574,6 +1574,53 @@ def t_v052_return_guard(b, base):
     a.close()
 
 
+def t_v053_ask_cruise_hub(b, base):
+    print("\n[v0.53 Ask Cruise Hub: the AI answers from the cruise's own facts]")
+    a = App(b, base, path=CRUISE, at="2026-10-01T09:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess", "port": "Port Canaveral"})
+    a.js("""const tr = curTrip(); tr.total = 3000; tr.payments = [{ id: 'x', amt: 1000, day: '2026-09-01' }]; tr.finalDue = '2026-10-15';
+            tr.ports = [{ id: 'p1', name: 'Grand Turk', day: '2026-11-14', arrive: '08:00', allAboard: '16:30', shipOffset: 60, excursion: 'Hummer tour', meet: '07:30' }]; save(); render()""")
+    check("Cruise Hub hero has the 💡 Ask button", a.js("!!document.querySelector('#hero [data-ask=\"open\"]')"))
+    a.page.click('#hero [data-ask="open"]')
+    t = a.page.inner_text("#askSheet")
+    check("without AI: 'Ask Cruise Hub' + how to turn it on (cruise wording)", "Ask Cruise Hub" in t and "back on the ship" in t and "passphrase" in t, t[:300])
+    a.page.click('#askSheet [data-askclose]')
+    a.js("localStorage.setItem('dayhub.aipass', 'test-only-passphrase-x7')")
+    a.page.click('#hero [data-ask="open"]')
+    t = a.page.inner_text("#askSheet")
+    check("before the cruise: cruise questions offered", "What am I forgetting?" in t and "How much do I still owe" in t and "oil change" not in t, t[:400])
+    a.page.fill("#askSheet input[name=q]", "When is my final payment?"); a.page.click("#askSheet form button:last-child"); a.page.wait_for_timeout(600)
+    inp = a.ctx._ask_input
+    ctxj = json.loads(inp.split("MY PLANNER (JSON):\n", 1)[1])
+    trip = ctxj.get("trip") or {}
+    check("the question says it's Cruise Hub", "Asked in Cruise Hub" in inp)
+    check("trip facts sent: ship, port, days to go, money left + final payment", trip.get("ship") == "Caribbean Princess" and trip.get("departurePort") == "Port Canaveral"
+          and trip.get("daysToGo") == 42 and trip.get("money", {}).get("left") == "$2,000.00" and trip.get("money", {}).get("finalPaymentDue") == "2026-10-15", json.dumps(trip)[:500])
+    pt = (trip.get("ports") or [{}])[0]
+    check("port facts: all aboard in phone time + ship time + head back by + excursion", pt.get("allAboardPhoneTime") == "3:30 PM" and pt.get("allAboardShipTime") == "4:30 PM"
+          and pt.get("headBackBy") == "2:10 PM" and pt.get("excursion") == "Hummer tour" and pt.get("meet") == "7:30 AM", json.dumps(pt))
+    check("what's still open is sent (readiness + list items)", any("Booking number" in x for x in trip.get("stillToDo", [])) and len(trip.get("notDoneYet", {})) > 0)
+    a.close()
+    # on the trip: on-board questions
+    a = App(b, base, path=CRUISE, at="2026-11-13T10:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess"})
+    a.js("localStorage.setItem('dayhub.aipass', 'test-only-passphrase-x7')")
+    a.page.click('#hero [data-ask="open"]')
+    check("on the cruise: on-board questions offered", "When do we need to be back on the ship?" in a.page.inner_text("#askSheet"))
+    a.close()
+    # a Day Hub Pro unlock on this phone gives Cruise Hub the AI too (the buyer is sent)
+    a = App(b, base, path=CRUISE)
+    a.js("localStorage.setItem('dayhub.pro', JSON.stringify({ buyer: 'buyer@example.com', ok: true, checked: Date.now() }))")
+    check("Day Hub Pro on this phone: Cruise Hub AI uses that buyer", a.js("aiBuyer()") == "buyer@example.com" and a.js("aiByKey()"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1592,7 +1639,8 @@ def main():
                   t_v037_future_me, t_v039_short_home, t_v040_switches, t_v045_cruise_hub,
                   t_v046_hub_family, t_v048_cruise_pass,
                   t_v049_scenes, t_v050_countdown_family,
-                  t_v051_cruise_weather, t_v052_return_guard):
+                  t_v051_cruise_weather, t_v052_return_guard,
+                  t_v053_ask_cruise_hub):
             try:
                 t(b, base)
             except Exception as e:
