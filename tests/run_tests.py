@@ -1739,6 +1739,40 @@ def t_v056_go_home(b, base):
     a.close()
 
 
+def t_v057_crisis(b, base):
+    print("\n[v0.57 crisis mode: 🛟 five big choices from the trip's own contacts]")
+    a = App(b, base, path=CRUISE, at="2026-11-14T15:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess", "port": "Port Canaveral"})
+    a.js("curTrip().ports = [{ id: 'p1', name: 'Grand Turk', day: '2026-11-14', allAboard: '16:30', agent: '+1 649 946 1234' }]; save(); render()")
+    a.page.click('#hero [data-help="home"]'); a.page.wait_for_timeout(200)
+    t = a.page.inner_text("#helpSheet")
+    check("🛟 opens five big choices + contacts", all(x in t for x in ("BACK TO SHIP", "GET TO THE SHIP", "MEDICAL / SAFETY", "TRAVEL PROBLEM", "MY DOCUMENTS", "MY TRIP CONTACTS")) and "4 not saved" in t, t[:400])
+    a.page.click('[data-help="contacts"]'); a.page.wait_for_timeout(150)
+    a.page.fill('form[data-helpform] [name=line]', "Princess 1-800-774-6237"); a.page.fill('form[data-helpform] [name=ins]', "Allianz 1-866-884-3556")
+    a.js("document.querySelector('form[data-helpform]').requestSubmit()"); a.page.wait_for_timeout(200)
+    check("contacts saved on the trip", a.js("curTrip().help.line") == "Princess 1-800-774-6237" and a.js("curTrip().help.ins").startswith("Allianz"))
+    a.page.click('[data-help="back"]'); a.page.wait_for_timeout(150)
+    t = a.page.inner_text("#helpSheet")
+    check("Back to ship: today's port, all aboard, port agent + line, tap-to-call", "Grand Turk" in t and "all aboard" in t and "Port agent" in t
+          and a.js("!!document.querySelector('#helpSheet a[href=\"tel:+16499461234\"]')") and a.js("!!document.querySelector('#helpSheet a[href=\"tel:18007746237\"]')"))
+    check("Back to ship has map directions", a.js("!!document.querySelector('#helpSheet a[href*=\"google.com/maps\"]')"))
+    a.page.click('#helpSheet [data-help="home"]'); a.page.click('[data-help="medical"]'); a.page.wait_for_timeout(150)
+    t = a.page.inner_text("#helpSheet")
+    check("Medical: cabin phone on the ship, insurance shown, 911 in the US", "cabin phone" in t and "Allianz" in t and "911" in t)
+    a.page.click('#helpSheet [data-help="home"]'); a.page.click('[data-help="travel"]'); a.page.wait_for_timeout(150)
+    check("Travel problem: call the line first, keep receipts", "Call the cruise line" in a.page.inner_text("#helpSheet") and "receipt" in a.page.inner_text("#helpSheet"))
+    a.page.click('[data-helpclose="1"]')
+    a.js("TRIP_EDIT = null; PORT_EDIT = 'p1'; openQA('tport', true)")
+    check("port form has port agent + local emergency number fields", a.js("!!document.querySelector('#qaForm [name=agent]') && !!document.querySelector('#qaForm [name=emergency]')"))
+    a.close()
+    a = App(b, base); setup(a)
+    check("Day Hub: no 🛟 in its hero (Cruise Hub only)", not a.js("!!document.querySelector('#hero [data-help]')"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1759,7 +1793,8 @@ def main():
                   t_v049_scenes, t_v050_countdown_family,
                   t_v051_cruise_weather, t_v052_return_guard,
                   t_v053_ask_cruise_hub, t_v054_name_bar_wallet,
-                  t_v055_packing_bags, t_v056_go_home):
+                  t_v055_packing_bags, t_v056_go_home,
+                  t_v057_crisis):
             try:
                 t(b, base)
             except Exception as e:

@@ -79,6 +79,7 @@ function cruiseReminders(add, inWin) {
 }
 // Click / submit handlers (called from ui.js's listeners; return true when handled).
 function cruiseClick(ds) {
+  if (helpClick(ds)) return true;                                          // v0.57 crisis mode
   if (ds.gohome) { showGoHome(); return true; }
   if (ds.ghclose) { document.getElementById("ghSheet").classList.add("hidden"); return true; }
   if (ds.ghgo) { const tr = curTrip(); document.getElementById("ghSheet").classList.add("hidden");
@@ -96,9 +97,77 @@ function cruiseChange(ds, t) {
   save(); setTimeout(() => { render(); showGoHome(); }, 0); return true;
 }
 function cruiseSubmit(f, data) {
+  if (helpSubmit(f, data)) return true;                                     // v0.57 crisis mode
   if (!f.dataset.car) return false;
   const tr = S.trips.find(x => x.id === f.dataset.car); if (!tr) return true;
   const c = { where: String(data.where || "").trim(), level: String(data.level || "").trim(), spot: String(data.spot || "").trim() };
   tr.car = c.where || c.level || c.spot ? { ...c, savedAt: new Date().toISOString() } : null;
   save(); render(); showGoHome(); toast(tr.car ? "🚗 Car spot saved" : "Car spot cleared"); return true;
+}
+
+// ------------------------------------------------------------ crisis mode
+// v0.57 (V1 step 6, Scott's plan: "CRISIS MODE - only five big choices: GET TO SHIP, BACK TO SHIP,
+// MEDICAL/SAFETY, TRAVEL PROBLEM, MY DOCUMENTS. No ads, no recommendations, no clutter."). Everything
+// shown comes from what the traveler saved on the trip (tr.help + the port's agent phone) - Cruise Hub
+// never invents a phone number. Phone numbers are tap-to-call.
+const HELP_FIELDS = [["line", "Cruise line phone"], ["agent", "Travel agent (name + phone)"], ["ins", "Travel insurance (company + phone)"],
+  ["policy", "Insurance policy #"], ["contact", "Emergency contact at home (name + phone)"]];
+const telLinks = s => esc(s || "").replace(/(\+?\d[\d\s().-]{6,}\d)/g, m => `<a href="tel:${m.replace(/[^\d+]/g, "")}">${m}</a>`);
+const helpVal = (tr, k) => ((tr.help || {})[k] || "").trim();
+const mapsLink = q => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+let HELP_VIEW = null;
+function showHelp(view) {
+  const tr = curTrip(); HELP_VIEW = view || null;
+  let el = document.getElementById("helpSheet");
+  if (!el) { el = document.createElement("div"); el.id = "helpSheet"; el.className = "sheet help"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Need help"); document.body.appendChild(el); }
+  const pt = tr && portOn(tr, today()), line = (k, label) => helpVal(tr || {}, k) ? `<div class="row"><span class="grow"><b>${label}</b><span class="sub">${telLinks(helpVal(tr, k))}</span></span></div>` : "";
+  const missing = tr ? HELP_FIELDS.filter(([k]) => !helpVal(tr, k) && k !== "policy").length : 0;
+  let body;
+  if (!view) body = `<div class="help-grid">
+      <button class="help-btn" data-help="back">🚢<b>BACK TO SHIP</b></button>
+      <button class="help-btn" data-help="get">🚗<b>GET TO THE SHIP</b></button>
+      <button class="help-btn red" data-help="medical">🩺<b>MEDICAL / SAFETY</b></button>
+      <button class="help-btn" data-help="travel">✈️<b>TRAVEL PROBLEM</b></button>
+      <button class="help-btn" data-help="docs">📄<b>MY DOCUMENTS</b></button>
+      <button class="help-btn ghost" data-help="contacts">📇<b>MY TRIP CONTACTS</b>${missing ? `<span class="sub">${missing} not saved</span>` : ""}</button></div>`;
+  else if (view === "back") { const g = tr && guardFor(tr);
+    body = (pt ? `<div class="today-line">⚓ <b>${esc(pt.name)}</b>${pt.allAboard ? ` · all aboard <b>${hm(aaLocal(pt))}</b>${Number(pt.shipOffset) ? ` (${hm(pt.allAboard)} ship time)` : ""}` : ""}</div>
+        ${g ? `<div class="rg-pill big rg-${g.level}">${GUARD_LABEL[g.level]}</div>` : ""}
+        <a class="btn" style="width:100%" href="${mapsLink(`${placeName(pt.name)} cruise port`)}" target="_blank" rel="noopener">🗺️ Directions to the cruise port</a>
+        ${pt.agent ? `<div class="row"><span class="grow"><b>Port agent</b><span class="sub">${telLinks(pt.agent)}</span></span></div>` : `<p class="fine">No port agent number saved for ${esc(pt.name)} — it's in the ship's daily planner. Add it in 🗺️ Ports ✏️.</p>`}`
+      : `<p class="fine">No port day today.</p>`) + line("line", "Cruise line") + `<p class="fine">If you won't make all aboard: call the port agent / cruise line NOW. The ship will not wait.</p>`; }
+  else if (view === "get") body = tr ? `<div class="today-line">🚢 <b>${esc(tr.ship || tr.name)}</b>${tr.start ? ` · sails ${prettyDate(tr.start)}` : ""}</div>
+      ${tr.port ? `<a class="btn" style="width:100%" href="${mapsLink(`${placeName(tr.port)} cruise terminal`)}" target="_blank" rel="noopener">🗺️ Directions to ${esc(placeName(tr.port))} cruise terminal</a>` : `<p class="fine">Add the departure port (Edit trip) to get directions.</p>`}
+      ${tr.booking ? `<div class="row"><span class="grow"><b>Booking #</b><span class="sub">${esc(tr.booking)}</span></span></div>` : ""}
+      ${line("line", "Cruise line")}${line("agent", "Travel agent")}
+      <p class="fine">Running late? Call the cruise line first. Don't book anything else until they tell you what's possible.</p>` : `<p class="fine">Plan a cruise first.</p>`;
+  else if (view === "medical") body = `<div class="today-line"><b>On the ship:</b> use your cabin phone to call the ship's medical center or emergency number (it's printed on or by the phone).</div>
+      <div class="today-line"><b>Ashore:</b> ${pt && pt.emergency ? `local emergency number ${telLinks(pt.emergency)}` : "ask port staff or the ship's port agent for local emergency help"}${pt && pt.agent ? ` · port agent ${telLinks(pt.agent)}` : ""}.</div>
+      <div class="today-line"><b>In the US:</b> <a href="tel:911">911</a></div>` + (tr ? line("ins", "Travel insurance") + line("policy", "Policy #") + line("contact", "Emergency contact") : "");
+  else if (view === "travel") body = (tr ? line("line", "Cruise line") + line("agent", "Travel agent") + line("ins", "Travel insurance") + line("policy", "Policy #") +
+      (tr.booking ? `<div class="row"><span class="grow"><b>Booking #</b><span class="sub">${esc(tr.booking)}</span></span></div>` : "") : "") +
+      `<ol class="steps"><li>Call the cruise line (or your travel agent) first.</li><li>Don't cancel or book anything until they tell you what's possible.</li>
+       <li>Keep every receipt and screenshot — insurance claims need them.</li><li>Write down times: when it happened, who you spoke to.</li></ol>`;
+  else if (view === "docs") { ensureLists(tr || { lists: {} }); const D = tr ? (tr.lists.docs || []) : [];
+    body = (tr && tr.booking ? `<div class="row"><span class="grow"><b>Booking #</b><span class="sub">${esc(tr.booking)}</span></span></div>` : "") +
+      (D.length ? D.map(i => `<div class="today-line">${i.done ? "✅" : "⬜"} ${esc(i.text)}</div>`).join("") : `<p class="fine">No documents list yet.</p>`) +
+      `<p class="fine">Keep a photo of your passport / ID in your phone's photos and a paper copy apart from it.</p>`; }
+  else body = tr ? `<form class="help-form" data-helpform="${tr.id}">${HELP_FIELDS.map(([k, l]) => `<label class="field">${l}<input name="${k}" value="${esc(helpVal(tr, k))}" autocomplete="off"></label>`).join("")}
+      <button class="btn" style="width:100%;margin-top:8px">Save contacts</button></form><p class="fine">Saved on this phone only (and in your backup if it's on).</p>` : `<p class="fine">Plan a cruise first.</p>`;
+  const titles = { back: "🚢 Back to ship", get: "🚗 Get to the ship", medical: "🩺 Medical / safety", travel: "✈️ Travel problem", docs: "📄 My documents", contacts: "📇 My trip contacts" };
+  el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
+    <div class="sheet-head"><h2>${view ? titles[view] : "🛟 Need help?"}</h2><button class="icon-btn" data-helpclose="1" aria-label="Close">✕</button></div>
+    ${view ? `<button class="btn sm ghost" data-help="home" style="margin-bottom:8px">‹ All help</button>` : ""}${body}</div>`;
+  el.classList.remove("hidden");
+}
+function helpClick(ds) {
+  if (ds.help) { showHelp(ds.help === "home" ? null : ds.help); return true; }
+  if (ds.helpclose) { document.getElementById("helpSheet").classList.add("hidden"); return true; }
+  return false;
+}
+function helpSubmit(f, data) {
+  if (!f.dataset.helpform) return false;
+  const tr = S.trips.find(x => x.id === f.dataset.helpform); if (!tr) return true;
+  tr.help = {}; HELP_FIELDS.forEach(([k]) => { const v = String(data[k] || "").trim(); if (v) tr.help[k] = v; });
+  save(); showHelp(null); toast("📇 Trip contacts saved"); return true;
 }

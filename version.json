@@ -1,6 +1,9 @@
 {
- "version": "0.56",
+ "version": "0.57",
  "notes": {
+  "0.57": [
+   "🛟 Need help? A new 🛟 button in Cruise Hub with five big choices — Back to ship, Get to the ship, Medical / safety, Travel problem, My documents — filled from your own saved trip contacts (cruise line, travel agent, insurance, emergency contact, port agent), tap to call."
+  ],
   "0.56": [
    "🌙 Final night: the evening before you get off, Cruise Hub shows what's left — ship account, unused benefits, final-night bag, the cabin safe, your car — with GET ME HOME READY. An 8 PM nudge to check the safe.",
    "🚗 Remember my car: save the garage, level and space; the last morning shows it under TIME TO GO HOME."

@@ -474,3 +474,14 @@ details.steps .fine { margin-top: 8px; }
 .car-form input[name=where] { flex: 1 1 100%; }
 .car-form input[name=level], .car-form input[name=spot] { flex: 1 1 30%; min-width: 0; }
 
+/* v0.57 crisis mode - big, plain, no clutter */
+.help-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+.help-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 104px; padding: 12px;
+  border-radius: 18px; border: 1px solid var(--line); background: var(--card-solid); color: var(--text); font: inherit; font-size: 30px; cursor: pointer; }
+.help-btn b { font-size: 14px; letter-spacing: .6px; }
+.help-btn .sub { font-size: 11px; color: var(--orange); }
+.help-btn.red { border-color: rgba(251,113,133,.6); background: rgba(251,113,133,.14); }
+.help-btn.ghost { background: none; }
+.help .row a, .help .today-line a { color: var(--accent); font-weight: 700; }
+.help-form .field { margin-top: 8px; }
+
