@@ -1,6 +1,10 @@
 {
- "version": "0.51",
+ "version": "0.52",
  "notes": {
+  "0.52": [
+   "🚢 Return Guard: on port days Cruise Hub shows all aboard in your phone's time, when to head back (with your safety margin and trip back), and turns from green to red as time runs out. A BACK TO SHIP bar stays on screen until you tap \"I'm back on board\".",
+   "⏰ Fix: all-aboard alarms now use your phone's clock when the ship's clock is different (they could fire an hour late)."
+  ],
   "0.51": [
    "🌴 Cruise Hub has two weathers: where your cruise is (boarding port and each port day — UV, rain, wind, storms and what to bring) and where you are. Alerts show up top."
   ],

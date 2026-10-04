@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.51";
+const VERSION = "0.52";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -927,8 +927,13 @@ function reminderList() {
       if (inWin(d)) { const at = atMs(d, "10:00"); add(`pk:${tr.id}:${n}`, atMs(d, "23:59"), at, `🎁 Use it before you lose it — ${n} day${n === 1 ? "" : "s"} left`,
         perksLeft(tr).map(x => `${x.name}: ${x.unit === "$" ? money(x.total - x.used) : x.total - x.used} left`).join(" · ")); } });
     (tr.ports || []).filter(pt => inWin(pt.day)).forEach(pt => {
-      if (pt.allAboard) (pt.indie ? [90, 60, 30] : [60, 30]).forEach(m => { const aa = atMs(pt.day, pt.allAboard);
-        add(`aa:${pt.id}:${m}`, aa, aa - m * 60000, `⚓ Back on the ship by ${hm(pt.allAboard)}`, `${m} minutes — ${pt.name}. The ship will not wait.`); });
+      // v0.52: alarms run on the PHONE's clock, so all aboard is converted from ship time first (it fired
+      // an hour late when the ship's clock was an hour ahead).
+      if (pt.allAboard) (pt.indie ? [90, 60, 30] : [60, 30]).forEach(m => { const aa = atMs(pt.day, aaLocal(pt));
+        add(`aa:${pt.id}:${m}`, aa, aa - m * 60000, `⚓ Back on the ship by ${hm(aaLocal(pt))}`, `${m} minutes — ${pt.name}. The ship will not wait.`); });
+      if (pt.allAboard && pt.boarded !== pt.day) { const by = atMs(pt.day, guardBy(pt));      // v0.52 Return Guard
+        add(`rg:${pt.id}:plan`, by, by - 30 * 60000, `🟡 Start heading back soon — ${pt.name}`, `Leave by ${hm(guardBy(pt))} to be on the ship with your ${guardMargin()} min safety margin.`);
+        add(`rg:${pt.id}:go`, by + 30 * 60000, by, `🟠 Leave now for the ship — ${pt.name}`, `All aboard ${hm(aaLocal(pt))}. Don't make another stop.`); }
       if (pt.meet && pt.excursion && pt.excursion.toLowerCase() !== "none") { const mt = atMs(pt.day, pt.meet);
         add(`ex:${pt.id}`, mt, mt - R.lead * 60000, `🤿 ${pt.excursion}`, `Meet ${hm(pt.meet)}${pt.where ? " at " + pt.where : ""} — ${pt.name}`);
         const lc = mt - (Number(pt.walk) || 15) * 60000;
@@ -1758,6 +1763,32 @@ const TAKE_WITH = ["Cruise card / Medallion / ship app", "Photo ID (passport if 
 const FIRST_BAG = ["Documents + boarding pass", "Medications", "Phone + charger", "Valuables", "Swimsuit + sunscreen", "Change of clothes for dinner"];
 const CELL_WARN = "⚠️ CELLULAR AT SEA — before the ship leaves port turn on airplane mode (then Wi-Fi back on), or check your phone plan's cruise coverage. The ship's cell network can cost a fortune.";
 const addMinT = (t, m) => { const x = toMin(t) + m; const y = ((x % 1440) + 1440) % 1440; return `${pad(Math.floor(y / 60))}:${pad(y % 60)}`; };
+
+// ---------------------------------------------------------- return guard
+// v0.52 (MVP #1, Scott's plan: "Return Guard calculates a conservative recommended
+// return window and escalates reminders as all-aboard approaches"). RULES ONLY - no AI:
+//   head back by = all aboard (in phone time) - safety margin - travel back to the ship.
+// Margin 45 / 60 / 90 (default 60, the conservative side); travel back is per port
+// (default 20 min, 45 for an independent tour). Estimates only - the ship's own
+// announcements and all-aboard time always win.
+const GUARD_MARGINS = [45, 60, 90];
+const guardMargin = () => GUARD_MARGINS.includes(Number(S.guardMargin)) ? Number(S.guardMargin) : 60;
+const guardBack = pt => Number(pt.backMin) > 0 ? Number(pt.backMin) : pt.indie ? 45 : 20;
+const aaLocal = pt => pt.allAboard ? addMinT(pt.allAboard, -(Number(pt.shipOffset) || 0)) : null;    // all aboard on the PHONE's clock
+const guardBy = pt => addMinT(aaLocal(pt), -(guardMargin() + guardBack(pt)));
+// Today's guard for a trip: null outside a port day with an all-aboard time, before
+// arrival (or 6 AM), after you tapped "back on board", or an hour past all aboard.
+function guardFor(tr, now = Date.now()) {
+  const pt = tr && portOn(tr, today());
+  if (!pt || !pt.allAboard || pt.boarded === pt.day) return null;
+  const aa = atMs(pt.day, aaLocal(pt)), by = atMs(pt.day, guardBy(pt)), from = atMs(pt.day, pt.arrive || "06:00");
+  if (now < from || now > aa + 60 * 60000) return null;
+  const toBy = Math.round((by - now) / 60000), toAA = Math.round((aa - now) / 60000);
+  const level = toAA < 0 ? "missed" : toBy < 0 ? "critical" : toBy < 30 ? "leave" : toBy < 90 ? "plan" : "good";
+  return { pt, aa, by, toBy, toAA, level, margin: guardMargin(), back: guardBack(pt) };
+}
+const GUARD_LABEL = { good: "🟢 GOOD", plan: "🟡 PLAN YOUR RETURN", leave: "🟠 LEAVE NOW", critical: "🔴 TIME CRITICAL — GO TO THE SHIP", missed: "🔴 ALL ABOARD HAS PASSED" };
+const minsText = n => { const a = Math.abs(n), h = Math.floor(a / 60), m = a % 60; return h ? `${h}h ${pad(m)}m` : `${m} min`; };
 const shipNote = pt => Number(pt.shipOffset) ? ` <span class="sub" style="display:inline">SHIP time · ${hm(addMinT(pt.allAboard, -Number(pt.shipOffset)))} local</span>` : "";
 const hasExc = pt => pt && pt.excursion && pt.excursion.toLowerCase() !== "none";
 function forgetHtml() {
@@ -1919,7 +1950,7 @@ function dayItems(day) {
       const pt = portOn(tr, day);
       if (pt) {
         it.push({ t: null, title: `${pt.name} — port day`, sub: [pt.arrive && `in ${hm(pt.arrive)}`, pt.allAboard && `all aboard ${hm(pt.allAboard)}`].filter(Boolean).join(" · "), kind: "trip", icon: "⚓" });
-        if (pt.allAboard) it.push({ t: pt.allAboard, title: `ALL ABOARD — ${pt.name}`, sub: "be on the ship", kind: "aboard", icon: "⚓" });
+        if (pt.allAboard) it.push({ t: aaLocal(pt), title: `ALL ABOARD — ${pt.name}`, sub: Number(pt.shipOffset) ? `${hm(pt.allAboard)} ship time · be on the ship` : "be on the ship", kind: "aboard", icon: "⚓" });
         if (pt.meet && pt.excursion && pt.excursion.toLowerCase() !== "none")
           it.push({ t: pt.meet, title: pt.excursion, sub: pt.where || "excursion meeting point", kind: "exc", icon: "🤿" });
       } else

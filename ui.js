@@ -490,6 +490,7 @@ const CD_RM = () => !!(window.matchMedia && matchMedia("(prefers-reduced-motion:
 let CD_COUNTED = false;
 function cruiseCountdown(tr) {
   if (!tr || !tr.start) return "";
+  { const g = guardFor(tr); if (g) return guardHtml(g); }                 // v0.52 port day: Return Guard takes the hero
   const sd = daysUntil(tr.start), end = tr.end || tr.start;
   if (daysUntil(end) < 0) return "";
   const R = readiness(tr), who = esc(tr.ship || tr.name);
@@ -504,9 +505,49 @@ function cruiseCountdown(tr) {
     <span class="cd-txt"><span class="cd-l">${lab}</span><span class="cd-ship">${line}</span>
       <span class="cd-bar"><i style="width:${R.pct}%"></i></span><span class="cd-pct ${R.pct >= 100 ? "done" : ""}">${pctTxt}${R.next && R.pct < 100 ? ` · next: ${esc(R.next.action.replace(/\s*\([^)]*\)/g, "").replace(/^\w/, c => c.toLowerCase()))}` : ""}</span></span></button>`;
 }
+// v0.52 Return Guard - the hero on a port day (rules in app.js guardFor).
+function guardHtml(g) {
+  const pt = g.pt, ship = Number(pt.shipOffset) ? ` <span class="rg-ship">(${hm(pt.allAboard)} ship time)</span>` : "";
+  const line = g.level === "missed" ? "If you're not on the ship, call the port agent / cruise line now"
+    : g.level === "critical" ? `Head back NOW — all aboard in ${minsText(g.toAA)}`
+    : `Head back by <b>${hm(guardBy(pt))}</b> · ${minsText(g.toBy)} to go`;
+  return `<button class="rg rg-${g.level}" data-rg="open" aria-label="Return Guard. All aboard ${hm(aaLocal(pt))}. ${GUARD_LABEL[g.level]}">
+    <span class="rg-top">🚢 RETURN GUARD · ${esc(pt.name)}</span>
+    <span class="rg-main"><span class="rg-l">ALL ABOARD</span><span class="rg-t">${hm(aaLocal(pt))}</span>${ship}</span>
+    <span class="rg-line">${line}</span><span class="rg-pill">${GUARD_LABEL[g.level]}</span></button>`;
+}
+// The always-there BACK TO SHIP bar while a guard is running (Cruise Hub).
+function paintGuardBar() {
+  const tr = MODE === "cruise" ? curTrip() : null, g = tr && guardFor(tr);
+  let el = document.getElementById("rgBar");
+  if (!g) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement("button"); el.id = "rgBar"; el.dataset.rg = "open"; document.body.appendChild(el); }
+  el.className = `rg-bar rg-${g.level}`;
+  el.innerHTML = g.level === "missed" || g.level === "critical" ? `🚢 BACK TO SHIP — NOW` : `🚢 BACK TO SHIP · by ${hm(guardBy(g.pt))} · ${minsText(g.toBy)}`;
+}
+function showGuard() {
+  const tr = curTrip(), g = tr && guardFor(tr); if (!g) return;
+  const pt = g.pt;
+  let el = document.getElementById("rgSheet");
+  if (!el) { el = document.createElement("div"); el.id = "rgSheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Return Guard"); document.body.appendChild(el); }
+  el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
+    <div class="sheet-head"><h2>🚢 Return Guard · ${esc(pt.name)}</h2><button class="icon-btn" data-rgclose="1" aria-label="Close">✕</button></div>
+    <div class="rg-pill big rg-${g.level}">${GUARD_LABEL[g.level]}</div>
+    <div class="row"><span class="grow">All aboard</span><b>${hm(aaLocal(pt))}${Number(pt.shipOffset) ? ` <span class="sub" style="display:inline">phone time · ${hm(pt.allAboard)} ship time</span>` : ""}</b></div>
+    <div class="row"><span class="grow">Safety margin</span><span class="seg">${GUARD_MARGINS.map(m => `<button class="tab ${m === g.margin ? "on" : ""}" data-rgmargin="${m}">${m} min</button>`).join("")}</span></div>
+    <label class="row"><span class="grow">Your trip back to the ship (minutes)</span><input type="number" min="0" max="240" inputmode="numeric" data-rgback="${pt.id}" value="${g.back}" style="width:84px"></label>
+    <div class="row"><span class="grow"><b>Head back by</b></span><b style="font-size:20px">${hm(guardBy(pt))}</b></div>
+    <p class="fine">${hm(aaLocal(pt))} all aboard − ${g.margin} min safety margin − ${g.back} min trip back = <b>${hm(guardBy(pt))}</b>. You'll get a heads-up 30 minutes before, and again when it's time to leave.</p>
+    ${Number(pt.shipOffset) ? `<p class="fine">⚠️ The ship's clock and the local clock are different today. Your phone shows local time, and every time here is converted to it. The ship's announcements always win.</p>` : ""}
+    <p class="fine">These are estimates. The ship's all-aboard time and announcements always win, and the ship will not wait.</p>
+    <button class="btn" data-rgboard="${pt.id}" style="width:100%;margin-top:8px">✅ I'm back on board</button></div>`;
+  el.classList.remove("hidden");
+}
+
 // After each hero paint: count the number up the first time this visit, and
 // celebrate the first time a trip reaches 100% (once per trip, remembered).
 function afterHero(hero) {
+  paintGuardBar();
   const n = hero.querySelector(".cd-n[data-count]");
   if (n && !CD_COUNTED) { CD_COUNTED = true;
     const to = Number(n.dataset.count);
@@ -1333,6 +1374,11 @@ document.addEventListener("click", e => {
   if (ds.t3up) { const T = S.top3.items, i = T.findIndex(x => x.id === ds.t3up); if (i > 0) [T[i - 1], T[i]] = [T[i], T[i - 1]]; saveLocal(); render(); return; }
   if (ds.t3del) { S.top3.items = S.top3.items.filter(x => x.id !== ds.t3del); saveLocal(); render(); return; }
   if (ds.cd) { showReady(); return; }
+  if (ds.rg) { showGuard(); return; }
+  if (ds.rgclose) { document.getElementById("rgSheet").classList.add("hidden"); return; }
+  if (ds.rgmargin) { S.guardMargin = Number(ds.rgmargin); save(); render(); showGuard(); return; }
+  if (ds.rgboard) { const tr = curTrip(), pt = tr && (tr.ports || []).find(x => x.id === ds.rgboard);
+    if (pt) { snap(); pt.boarded = pt.day; save(); } document.getElementById("rgSheet").classList.add("hidden"); render(); toast("Welcome back on board 🚢", true); return; }
   if (ds.cwx) { S.hidden = S.hidden.filter(x => x !== "weather"); S.collapsed = S.collapsed.filter(x => x !== "weather"); save(); render();
     const el = document.querySelector('[data-card="weather"]'); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   if (ds.readyclose) { document.getElementById("readySheet").classList.add("hidden"); return; }
@@ -1407,6 +1453,9 @@ document.addEventListener("input", e => {
 document.addEventListener("change", e => {
   const t = e.target, ds = t.dataset;
   if (t.id === "importFile" && t.files && t.files[0]) { importData(t.files[0]); t.value = ""; return; }
+  if (ds.rgback) { const tr = curTrip(), pt = tr && (tr.ports || []).find(x => x.id === ds.rgback);
+    // redraw after this event finishes: redrawing the sheet while its input is still blurring throws
+    if (pt) { pt.backMin = Math.max(0, Math.min(240, Number(t.value) || 0)); save(); setTimeout(() => { render(); showGuard(); }, 0); } return; }
   if (ds.fam) { S.family = t.checked; FAM_RAW = null; save(); drawSettings(); render();
     toast(t.checked ? `Linked with ${SIB.name} ✓` : `${APP_NAME} on its own — ${SIB.name} trips hidden`); if (t.checked) famDriveRefresh(); return; }
   if (ds.owner) { setOwnerSwitch(ds.owner, t.checked); drawSettings(); render(); toast(`${ds.owner} ${t.checked ? "on" : "off"} — this phone only`); return; }

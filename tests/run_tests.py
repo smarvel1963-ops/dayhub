@@ -1463,7 +1463,8 @@ def t_v050_countdown_family(b, base):
     a.close()
     a = mk("2026-11-14T09:00:00")
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess"})
-    a.js("curTrip().ports = [{ id: 'p1', name: 'Grand Turk', day: '2026-11-14', allAboard: '16:30' }]; save(); render()")
+    # boarded: v0.52 Return Guard owns the hero on a port day until you're back on board
+    a.js("curTrip().ports = [{ id: 'p1', name: 'Grand Turk', day: '2026-11-14', allAboard: '16:30', boarded: '2026-11-14' }]; save(); render()")
     h = a.page.inner_text("#hero")
     check("on board: DAY 3 OF 8 + today's port and all-aboard", "DAY 3 OF 8" in h and "Grand Turk" in h and "all aboard 4:30" in h.lower(), h[:300])
     # hub family card: last, lists the others, Trip Hub coming soon
@@ -1523,6 +1524,56 @@ def t_v051_cruise_weather(b, base):
     a.close()
 
 
+def t_v052_return_guard(b, base):
+    print("\n[v0.52 Return Guard: all aboard in phone time, head-back time, GOOD -> PLAN -> LEAVE -> CRITICAL, BACK TO SHIP bar]")
+    # clock: 10:00 -05:00 = 9:00 AM Chicago (CST in November)
+    a = App(b, base, path=CRUISE, at="2026-11-14T10:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess"})
+    a.js("curTrip().ports = [{ id: 'p1', name: 'Grand Turk', day: '2026-11-14', arrive: '08:00', allAboard: '16:30', shipOffset: 60 }]; save(); render()")
+    h = a.page.inner_text("#hero")
+    check("port day: Return Guard takes the hero", "RETURN GUARD" in h.upper() and "Grand Turk" in h, h[:300])
+    check("all aboard shown in PHONE time (ship 1 hr ahead: 4:30 ship = 3:30 local) + the ship time", "3:30 PM" in h and "4:30 PM ship time" in h)
+    check("head back by = 3:30 - 60 margin - 20 trip = 2:10 PM", a.js("guardBy(curTrip().ports[0])") == "14:10" and "2:10 PM" in h)
+    check("GOOD at 9 AM", a.js("guardFor(curTrip()).level") == "good" and "GOOD" in h)
+    check("BACK TO SHIP bar is up", a.js("!!document.getElementById('rgBar')") and "BACK TO SHIP" in a.page.inner_text("#rgBar"))
+    lv = a.js("""(() => { const tr = curTrip(), at = t => atMs('2026-11-14', t);
+        return ['06:30', '11:00', '13:00', '13:50', '14:20', '15:45'].map(t => { const g = guardFor(tr, at(t)); return g ? g.level : 'none'; }).join(); })()""")
+    check("levels through the day: before arrival none, good, plan, leave, critical, missed", lv == "none,good,plan,leave,critical,missed", lv)
+    # the sheet: margin + trip back
+    a.page.click("#rgBar"); a.page.wait_for_timeout(200)
+    check("tap = Return Guard sheet with the sum", "60 min safety margin" in a.page.inner_text("#rgSheet") and "2:10 PM" in a.page.inner_text("#rgSheet"))
+    a.page.click('[data-rgmargin="90"]'); a.page.wait_for_timeout(200)
+    check("margin 90 -> head back by 1:40 PM, remembered", a.js("guardBy(curTrip().ports[0])") == "13:40" and a.js("JSON.parse(localStorage.getItem('cruisehub.v1')).guardMargin") == 90)
+    a.page.fill('[data-rgback="p1"]', "40"); a.page.dispatch_event('[data-rgback="p1"]', "change"); a.page.wait_for_timeout(200)
+    check("trip back 40 min -> 1:20 PM", a.js("guardBy(curTrip().ports[0])") == "13:20" and a.js("curTrip().ports[0].backMin") == 40)
+    # reminders: all-aboard alarms in phone time + the two guard heads-ups
+    r = a.js("reminderList().filter(x => /^(aa|rg):p1/.test(x.key)).map(x => x.key + '@' + new Date(x.at).toTimeString().slice(0,5)).sort().join()")
+    check("alarms use phone time (60/30 before 3:30) + plan 30 min before 1:20 + leave at 1:20", r == "aa:p1:30@15:00,aa:p1:60@14:30,rg:p1:go@13:20,rg:p1:plan@12:50", r)
+    sched = a.js("dayItems('2026-11-14').filter(i => i.kind === 'aboard').map(i => i.t + '|' + i.sub).join()")
+    check("schedule: ALL ABOARD at 15:30 local, ship time noted", sched == "15:30|4:30 PM ship time · be on the ship", sched)
+    # back on board
+    a.page.click('[data-rgboard="p1"]'); a.page.wait_for_timeout(300)
+    check("I'm back on board: guard + bar gone, countdown back", not a.js("guardFor(curTrip())") and not a.js("!!document.getElementById('rgBar')") and "DAY 3 OF 8" in a.page.inner_text("#hero"))
+    check("no guard heads-ups after boarding", a.js("reminderList().filter(x => x.key.startsWith('rg:')).length") == 0)
+    a.close()
+    # same ship and local clock: no ship-time note; independent tour = 45 min trip back by default
+    a = App(b, base, path=CRUISE, at="2026-11-14T10:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess"})
+    a.js("curTrip().ports = [{ id: 'p2', name: 'Nassau', day: '2026-11-14', allAboard: '17:30', indie: true }]; save(); render()")
+    check("same clocks: no ship-time note; independent tour -> 45 min trip back (5:30 - 105 = 3:45 PM)", "ship time" not in a.page.inner_text("#hero") and a.js("guardBy(curTrip().ports[0])") == "15:45")
+    a.close()
+    a = App(b, base)
+    setup(a)
+    check("Day Hub: no Return Guard bar", not a.js("!!document.getElementById('rgBar')"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1541,7 +1592,7 @@ def main():
                   t_v037_future_me, t_v039_short_home, t_v040_switches, t_v045_cruise_hub,
                   t_v046_hub_family, t_v048_cruise_pass,
                   t_v049_scenes, t_v050_countdown_family,
-                  t_v051_cruise_weather):
+                  t_v051_cruise_weather, t_v052_return_guard):
             try:
                 t(b, base)
             except Exception as e:
