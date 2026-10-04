@@ -44,6 +44,15 @@
  *   unlock anything.
  * What is stored: per buyer a one-way hash of their Whop user id -> the random
  * phone ids + last-seen day. Never the email.
+ *
+ * v5 (Day Hub v0.48, Scott 10/4: "cruise app 9.99 per year as many cruises as
+ * you want that year"). CRUISE HUB PASS = a second Whop product. The phone now
+ * says which app is asking (req.app):
+ *   app "cruisehub" -> Cruise Hub Pass OR Day Hub Pro unlocks it
+ *   anything else   -> Day Hub Pro only (unchanged; a Cruise Pass never opens Day Hub or the AI)
+ * New Script Property, optional until the Cruise Hub Pass is on sale:
+ *     CRUISE_PRODUCT_ID = prod_... (Cruise Hub Pass)
+ * The answer also says which product matched: product "dayhub" | "cruisehub".
  */
 const MODEL = "claude-haiku-4-5";
 const DAILY_CAP = 200;              // requests per day, all tasks together
@@ -82,8 +91,8 @@ function doPost(e) {
     // Forgiving match (Scott 10/2: phone keyboards capitalise the first letter and add
     // spaces): case, extra spaces and leading/trailing spaces don't count.
     const norm = v => String(v || "").trim().replace(/\s+/g, " ").toLowerCase();
-    if (req.task === "verify") return out(verifyBuyer(P, req.buyer, req.device));
-    if (req.task === "release") return out(releasePhone(P, req.buyer, req.device));
+    if (req.task === "verify") return out(verifyBuyer(P, req.buyer, req.device, req.app));
+    if (req.task === "release") return out(releasePhone(P, req.buyer, req.device, req.app));
     let keyCounter = null;                                       // set = this request is on a Pro buyer
     if (req.buyer && !req.pass) {
       if (!/^(1|true|yes|on)$/i.test(String(prop(P, "AI_PUBLIC") || "").trim())) return out({ error: "the AI helper for Pro isn't switched on yet" });
@@ -138,7 +147,7 @@ function doPost(e) {
 // -> {valid, status, until, who} or {error} when the relay itself can't check
 // (no Whop key, Whop down). The phone treats {error} as "couldn't check" and
 // keeps its grace period, so a relay problem never locks out a paying customer.
-function verifyBuyer(P, buyer, device) {
+function verifyBuyer(P, buyer, device, app) {
   const b = String(buyer || "").trim(), dev = String(device || "").trim();
   if (!/^[A-Za-z0-9_-]{8,64}$/.test(dev)) return { valid: false, status: "no phone id" };
   const isMem = /^mem_[A-Za-z0-9]{4,40}$/.test(b), isMail = /^[^@\s]{1,64}@[^@\s]{1,190}\.[^@\s]{2,}$/.test(b);
@@ -146,9 +155,13 @@ function verifyBuyer(P, buyer, device) {
   const whop = prop(P, "WHOP_API_KEY"), pid = prop(P, "WHOP_PRODUCT_ID");
   if (!whop || !pid) return { error: "relay has no WHOP_API_KEY / WHOP_PRODUCT_ID yet" };
   const co = prop(P, "WHOP_COMPANY_ID") || WHOP_COMPANY;
+  // v5: Cruise Hub accepts its own Cruise Hub Pass as well as Day Hub Pro.
+  const cpid = app === "cruisehub" ? prop(P, "CRUISE_PRODUCT_ID") : null;
+  const pids = cpid ? [pid, cpid] : [pid];
+  const label = cpid ? "Cruise Hub Pass or Day Hub Pro" : "Day Hub Pro";
 
   // Whop answer cached 6 h (spares Whop's API); the phone list is checked every time.
-  const cache = CacheService.getScriptCache(), ck = "B_" + keyHash(b.toLowerCase()), hit = cache.get(ck);
+  const cache = CacheService.getScriptCache(), ck = "B_" + keyHash(b.toLowerCase() + "|" + pids.join(",")), hit = cache.get(ck);
   let res = hit ? JSON.parse(hit) : null;
   if (!res) {
     let mems;
@@ -170,17 +183,18 @@ function verifyBuyer(P, buyer, device) {
       if (!users.length) return { valid: false, status: "no Whop purchase with that email" };
       mems = [];
       for (let k = 0; k < users.length; k++) {
-        const list = whopGet(whop, "/memberships", { account_id: co, user_ids: users[k].id, product_ids: pid, first: 50 });
+        const list = whopGet(whop, "/memberships", { account_id: co, user_ids: users[k].id, product_ids: pids, first: 50 });
         if (list.error) return list;
         mems = mems.concat((list.data || []).filter(function (m) { return memUser(m) === users[k].id; }));
       }
     }
-    const mine = mems.filter(function (m) { return memProd(m) === pid; });
+    const mine = mems.filter(function (m) { return pids.indexOf(memProd(m)) >= 0; });
     const good = mine.filter(function (m) { return OK_STATUS.indexOf(m.status) >= 0; });
     const m = good[0] || mine[0];
     res = good.length
-      ? { valid: true, status: String(m.status), until: m.current_period_end || m.renewal_period_end || null, who: keyHash(memUser(m) || m.id) }
-      : { valid: false, status: m ? String(m.status) : (isMem ? "not a Day Hub Pro membership" : "no Day Hub Pro purchase with that email") };
+      ? { valid: true, status: String(m.status), until: m.current_period_end || m.renewal_period_end || null, who: keyHash(memUser(m) || m.id),
+          product: memProd(m) === pid ? "dayhub" : "cruisehub" }
+      : { valid: false, status: m ? String(m.status) : (isMem ? "not a " + label + " membership" : "no " + label + " purchase with that email") };
     if (res.valid) cache.put(ck, JSON.stringify(res), 6 * 3600);
   }
   if (!res.valid) return res;
@@ -196,13 +210,13 @@ function verifyBuyer(P, buyer, device) {
       return { valid: false, status: "already on " + MAX_PHONES + " phones — remove it from one (⚙ → Day Hub Pro → Remove from this phone), or wait " + PHONE_DAYS + " days" };
     devs[dh] = today; P.setProperty(pk, JSON.stringify(devs));
   } finally { lock.releaseLock(); }
-  return { valid: true, status: res.status, until: res.until, who: res.who };
+  return { valid: true, status: res.status, until: res.until, who: res.who, product: res.product || "dayhub" };
 }
 
 // "Remove from this phone": frees the phone's spot. Needs the same email/mem id
 // AND the phone id, so nobody can knock someone else's phones off by email alone.
-function releasePhone(P, buyer, device) {
-  const v = verifyBuyer(P, buyer, device);
+function releasePhone(P, buyer, device, app) {
+  const v = verifyBuyer(P, buyer, device, app);
   if (!v.valid) return { ok: true };
   const lock = LockService.getScriptLock(); lock.waitLock(5000);
   try {

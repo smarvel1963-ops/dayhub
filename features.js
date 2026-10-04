@@ -20,6 +20,7 @@ const SWITCHES = Object.freeze({
   AI_PUBLIC: true,    // ON 2026-10-03 (Scott: "turn it on"). Relay also needs Script Property AI_PUBLIC=true. OFF = only the owner passphrase works.
   GMAIL: false,       // Gmail -> plans. Waits on Google's restricted-scope verification.
   STORE: false,       // "Get it on Google Play" link. Waits on the Play listing going live.
+  CRUISE_PASS: false, // Cruise Hub sells its own Cruise Hub Pass. Waits on the Whop product + relay v5 (docs/LAUNCH_SWITCHES.md).
 });
 
 // Scott approved 10/3: $4.99/mo or $29.99/yr, contact smarvel1963@gmail.com.
@@ -39,6 +40,11 @@ const PLAN = Object.freeze({
   RECHECK_DAYS: 7,    // the purchase is re-checked with Whop once a week
   GRACE_DAYS: 14,     // ...and stays good this long past that if the phone can't reach the check
   MAX_PHONES: 3,      // must match MAX_PHONES in relay/Code.gs (the relay enforces it)
+  // CRUISE HUB PASS (Scott 10/4: "cruise app 9.99 per year as many cruises as you want that year").
+  // A second Whop product; Cruise Hub only. Day Hub Pro ALSO unlocks Cruise Hub. Shown while CRUISE_PASS is on.
+  CRUISE_NAME: "Cruise Hub Pass",
+  CRUISE_YEARLY: "$9.99/year",
+  CRUISE_CHECKOUT_URL: "",   // the Whop checkout link, once the product exists
 });
 
 const OWNER_KEY = "dayhub.owner";

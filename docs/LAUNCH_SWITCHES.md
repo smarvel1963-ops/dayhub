@@ -21,6 +21,7 @@ don't see "Connect Gmail" (see GMAIL below).
 | `PRO_GATE` | Free vs Pro: the ⭐ Day Hub Pro section, and locks Pro features for non-Pro phones | Whop product (DONE 10/3, step 3) + the Whop API key and relay v4 pasted (step 4) |
 | `AI_PUBLIC` | The AI helper for Pro phones | Relay v4 pasted with `AI_PUBLIC=true` (step 4), and Scott's OK on the AI cost |
 | `STORE` | "▶ Get it on Google Play" in ⚙ → On your home screen | The Play listing being live (step 5) |
+| `CRUISE_PASS` | Cruise Hub sells its own **Cruise Hub Pass, $9.99/year** (every cruise that year). Day Hub Pro still unlocks Cruise Hub | The Whop product + relay v5 + `CRUISE_PRODUCT_ID` (step 3b) |
 
 ## How to flip a switch
 - **Try it on your phone only (safe):** open Day Hub → ⚙ → scroll to the bottom → tap the
@@ -104,6 +105,36 @@ What's left on Whop:
 >
 > Works on up to 3 phones. Your plans stay on your phone. Turn on **backup** in ⚙ to keep a copy in your
 > own Google Drive. Questions: smarvel1963@gmail.com · Privacy: https://smarvel1963-ops.github.io/dayhub/privacy.html
+
+## Step 3b: Cruise Hub Pass (Scott 10/4: "cruise app 9.99 per year as many cruises as you want that year")
+Built in v0.48 behind `CRUISE_PASS` (OFF). Who it unlocks: **Cruise Hub only**. Day Hub Pro unlocks **both** apps;
+a Cruise Hub Pass never opens Day Hub or the AI helper (the relay checks which app is asking).
+
+1. **Whop → Marvel Corp → Create product:** name **Cruise Hub Pass**, **$9.99 / year** (renewing yearly),
+   hidden for now. Copy its **product id** (`prod_...`) and its **checkout link**.
+2. **Relay v5:** https://script.google.com/ → **Day Hub AI relay** → Code.gs → select all, delete, paste the whole
+   of `C:\MarvelApps\dayhub\relay\Code.gs` → 💾 Save. **Project Settings → Script Properties → Add**:
+   `CRUISE_PRODUCT_ID` = the `prod_...` from step 1 → Save. Then **Deploy → Manage deployments → ✏️ → Version: New
+   version → Deploy** (NOT "New deployment"). v5 changes nothing for Day Hub Pro.
+3. **Tell Claude the checkout link** → it goes in `PLAN.CRUISE_CHECKOUT_URL` (features.js).
+4. **Verify** (100% promo code purchase): on a phone **without** the relay passphrase, Cruise Hub → ⚙ → 7 taps on the
+   version line → owner switch **Cruise Hub Pass** on → ⭐ Cruise Hub Pass → the email you bought with → **Unlock** →
+   "Cruise Hub Pass is on". Then open Day Hub on that phone: it must still say **Day Hub Pro**, not Pro.
+5. Flip `CRUISE_PASS` in `features.js` (Claude), un-hide the Whop product.
+
+**Delivery text for the Cruise Hub Pass (paste into Whop):**
+
+> **Thanks for getting the Cruise Hub Pass! 🚢** Plan as many cruises as you like this year.
+>
+> **1. Open Cruise Hub on your phone:** https://smarvel1963-ops.github.io/cruisehub/
+>
+> **2. Put it on your home screen:** Android (Chrome): **⋮** → **Install app**. iPhone (Safari): **Share** →
+> **Add to Home Screen** → **Add**.
+>
+> **3. Unlock:** open Cruise Hub from the new icon → **⚙** → **⭐ Cruise Hub Pass** → the **email you bought with**
+> on Whop → **Unlock**.
+>
+> Works on up to 3 phones. Not affiliated with any cruise line. Questions: smarvel1963@gmail.com
 
 ## Step 4: Whop API key + relay v4 (Scott; about 10 minutes)
 **4a. Make the Whop API key** (whop.com → the **Marvel Corp** business dashboard → **Developer** → **API keys** →

@@ -527,7 +527,7 @@ function render() {
     const c = CARDS[k]; const col = S.collapsed.includes(k) && !MINI_OPEN.has(k);
     const tag = PACKS[S.pack].cards.includes(k) ? ` <span class="tag">${PACKS[S.pack].label}</span>` : "";
     if (!can(k)) return `<section class="card" data-card="${k}"><h3><span class="ci">${c.icon}</span>${c.title} <span class="tag">PRO</span></h3>
-      <div class="body"><div class="empty">Part of Day Hub Pro. No ads, ever — Pro just does more.</div></div></section>`;
+      <div class="body"><div class="empty">Part of ${proName()}. No ads, ever — Pro just does more.</div></div></section>`;
     if (isMini(k)) return miniHtml(k);
     return `<section class="card ${col ? "collapsed" : ""}" data-card="${k}">
       <h3 data-collapse="${k}"><span class="ci">${c.icon}</span>${c.title}${tag}<span class="meta">${c.meta ? c.meta() : ""}</span><span class="chev">⌄</span></h3>
@@ -1115,8 +1115,8 @@ document.addEventListener("click", e => {
   if (ds.undo) { if (UNDO) { S = JSON.parse(UNDO); UNDO = null; save(); render(); toast("Restored ✓"); } return; }
   if (ds.pro === "check") { const p = proState(); if (p.buyer) unlockPro(p.buyer); return; }
   if (ds.pro === "remove") { const p = proState();
-    if (p.buyer) fetch(AI_URL, { method: "POST", body: JSON.stringify({ task: "release", buyer: p.buyer, device: deviceId() }) }).catch(() => {});
-    setProState({}); PRO_MSG = ""; drawProBox(); drawAiBox(); render(); toast("Day Hub Pro removed from this phone"); return; }
+    if (p.buyer) fetch(AI_URL, { method: "POST", body: JSON.stringify({ task: "release", buyer: p.buyer, device: deviceId(), app: APP_ID }) }).catch(() => {});
+    setProState({}); PRO_MSG = ""; drawProBox(); drawAiBox(); render(); toast(`${proName()} removed from this phone`); return; }
   if (ds.chipsmore) { CHIPS_ALL = ds.chipsmore === "1"; paintHero(); return; }
   if (ds.collapse) { const k = ds.collapse;
     MINI_OPEN.delete(k);
@@ -1391,24 +1391,30 @@ function drawProBox() {
   g.hidden = !switchOn("PRO_GATE"); if (g.hidden) { g.innerHTML = ""; return; }
   const p = proState(), who = p.buyer ? esc(p.buyer) : "";
   // v0.45: Cruise Hub lists only what Cruise Hub has; it is included with Day Hub Pro (one Whop purchase).
+  // v0.48: with CRUISE_PASS on, Cruise Hub sells its own Cruise Hub Pass ($9.99/year, every cruise that year).
   const what = MODE === "cruise"
-    ? `<p class="fine" style="margin-top:0">Cruise Hub's extras come with ${PLAN.NAME} — one purchase unlocks Day Hub and Cruise Hub.</p>
+    ? (cruisePass() ? `<p class="fine" style="margin-top:0"><b>One price for the whole year — plan as many cruises as you like.</b> Already have ${PLAN.NAME}? It includes Cruise Hub: enter that email below.</p>`
+      : `<p class="fine" style="margin-top:0">Cruise Hub's extras come with ${PLAN.NAME} — one purchase unlocks Day Hub and Cruise Hub.</p>`) + `
        <ul class="pro-list"><li>🗓️ Your trip, payments and port days on your phone's calendar</li>
        ${switchOn("GMAIL") ? "<li>📬 Your cruise booking found in your email</li>" : ""}<li>☁️ Backup to your own Google Drive</li></ul>
        <p class="fine" style="margin-top:4px">Everything else — countdown, payments, ports and all-aboard alarms, onboard spending, perks, lists, tips — is free forever. No ads, ever.</p>`
     : `<ul class="pro-list"><li>🤖 AI helper — Brain dump, Ask Day Hub, Top 3</li><li>🗓️ Two-way Google Calendar sync</li>
     ${switchOn("GMAIL") ? "<li>📬 Plans found in your email</li>" : ""}<li>☁️ Backup to your own Google Drive</li></ul>
     <p class="fine" style="margin-top:4px">Everything else — every card, reminders, budget, lists, trips — is free forever. No ads, ever.</p>`;
-  g.innerHTML = `<h3>⭐ ${PLAN.NAME}</h3>` + (ownerPhone()
+  const price = cruisePass() ? `<p class="fine"><b>${PLAN.CRUISE_YEARLY}</b> — every cruise you take that year.</p>` : `<p class="fine"><b>${PLAN.MONTHLY}</b> or <b>${PLAN.YEARLY}</b>.</p>`;
+  const buyUrl = cruisePass() ? PLAN.CRUISE_CHECKOUT_URL : PLAN.WHOP_CHECKOUT_URL;
+  g.innerHTML = `<h3>⭐ ${proName()}</h3>` + (ownerPhone()
     ? `<div class="leg"><span>✅ Pro — this is the owner's phone</span></div>`
+    : proViaDayHub()
+    ? `<div class="leg"><span>✅ Included with your ${PLAN.NAME} on this phone</span></div>`
     : isPro()
-    ? `<div class="leg"><span>✅ ${PLAN.NAME} is on · ${who} · checked ${prettyDate(ymd(new Date(p.checked)))}</span></div>
+    ? `<div class="leg"><span>✅ ${p.product === "dayhub" && cruisePass() ? `Included with ${PLAN.NAME}` : `${proName()} is on`} · ${who} · checked ${prettyDate(ymd(new Date(p.checked)))}</span></div>
        <div class="foot-actions"><button class="btn sm ghost" data-pro="check">Check now</button><button class="btn sm ghost" data-pro="remove">Remove from this phone</button></div>
        <p class="fine" style="margin-top:6px">One purchase works on up to ${PLAN.MAX_PHONES} phones. Removing it here frees this phone's spot.</p>`
-    : what + `<p class="fine"><b>${PLAN.MONTHLY}</b> or <b>${PLAN.YEARLY}</b>.</p>` +
-      (PLAN.WHOP_CHECKOUT_URL ? `<a class="btn sm" href="${esc(PLAN.WHOP_CHECKOUT_URL)}" target="_blank" rel="noopener">Get ${PLAN.NAME}</a>`
+    : what + price +
+      (buyUrl ? `<a class="btn sm" href="${esc(buyUrl)}" target="_blank" rel="noopener">Get ${proName()}</a>`
         : `<p class="fine">Coming soon.</p>`) +
-      `<ol class="steps"><li>Buy ${PLAN.NAME} on Whop.</li><li>Enter the <b>email you used on Whop</b> below and tap <b>Unlock</b>.</li></ol>
+      `<ol class="steps"><li>Buy ${proName()} on Whop.</li><li>Enter the <b>email you used on Whop</b> below and tap <b>Unlock</b>.</li></ol>
        <form class="inline-add" data-proform="1"><input name="key" type="text" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="Email you used on Whop" value="${who}" autocomplete="email" required><button class="btn sm">Unlock</button></form>
        <p class="fine" style="margin-top:6px">Bought with a different sign-in? Your Whop membership id (starts with <b>mem_</b>, on your Whop purchase page) works too. Works on up to ${PLAN.MAX_PHONES} phones.</p>`) +
     (PRO_MSG ? `<p class="fine" style="margin-top:6px">${esc(PRO_MSG)}</p>` : "");
@@ -1417,9 +1423,9 @@ function unlockPro(buyer) {
   PRO_MSG = "Checking…"; drawProBox();
   verifyPro(buyer).then(ok => { const st = proState().status || "";
       PRO_MSG = ok ? "" : /phones/.test(st) ? `It's already on ${PLAN.MAX_PHONES} phones — tap Remove from this phone on one of them, then try again.`
-        : "No active Day Hub Pro found for that — use the email you bought with on Whop (or your mem_ membership id).";
+        : `No active ${cruisePass() ? `${PLAN.CRUISE_NAME} or ${PLAN.NAME}` : PLAN.NAME} found for that — use the email you bought with on Whop (or your mem_ membership id).`;
       drawProBox(); drawAiBox(); render();
-      if (ok) toast(`⭐ ${PLAN.NAME} unlocked`); })
+      if (ok) toast(`⭐ ${proName()} unlocked`); })
     .catch(e => { PRO_MSG = "Couldn't reach the check — try again in a minute. (" + e.message + ")"; drawProBox(); });
 }
 
@@ -1427,7 +1433,7 @@ function unlockPro(buyer) {
 // phone only, to try a feature before it goes on for everyone (features.js).
 let OWNER_OPEN = false, VER_TAPS = [];
 const OWNER_ROWS = [["PRO_GATE", "Pro gate — free vs Pro"], ["AI_PUBLIC", "AI for Whop-key holders"], ["GMAIL", "Gmail → plans"],
-  ["STORE", "Google Play link"], ["OWNER", "Count this phone as Pro"]];
+  ["STORE", "Google Play link"], ["CRUISE_PASS", "Cruise Hub Pass ($9.99/yr)"], ["OWNER", "Count this phone as Pro"]];
 // v0.46 HUB FAMILY (Scott 10/4): separate apps that work together. The steps
 // are in the box (Scott 10/2: every setting carries its own easy setup).
 function drawFamBox() {

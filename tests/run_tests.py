@@ -87,12 +87,13 @@ def route(ctx):
             if body.get("task") == "verify":
                 if getattr(ctx, "_verify_down", False):
                     return r.fulfill(status=502, body="<html>Bad gateway</html>")
-                if body.get("buyer") not in buyers:
+                cruiser = body.get("buyer") == "cruiser@example.com" and body.get("app") == "cruisehub"   # v0.48 Cruise Hub Pass
+                if body.get("buyer") not in buyers and not cruiser:
                     return r.fulfill(json={"valid": False, "status": "no Day Hub Pro purchase with that email"})
                 if body.get("device") not in devs and len(devs) >= 3:
                     return r.fulfill(json={"valid": False, "status": "already on 3 phones — remove it from one"})
                 devs.add(body.get("device"))
-                return r.fulfill(json={"valid": True, "status": "active", "until": "2026-11-01T00:00:00Z", "who": "h1"})
+                return r.fulfill(json={"valid": True, "status": "active", "until": "2026-11-01T00:00:00Z", "who": "h1", "product": "cruisehub" if cruiser else "dayhub"})
             if body.get("task") == "release":
                 devs.discard(body.get("device"))
                 return r.fulfill(json={"ok": True})
@@ -1145,7 +1146,7 @@ def t_v039_short_home(b, base):
 def t_v040_switches(b, base):
     print("\n[v0.40 switchboard: everything OFF by default, owner switches, Pro key, legal pages, manifest]")
     a = App(b, base); setup(a)
-    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3 go-live), GMAIL + STORE OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE'"))
+    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3 go-live), GMAIL + STORE + CRUISE_PASS OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && !SWITCHES.CRUISE_PASS && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS'"))
     check("plan: approved price, contact, Whop checkout", a.js("PLAN.MONTHLY") == "$4.99/month" and a.js("PLAN.YEARLY") == "$29.99/year" and a.js("PLAN.CONTACT_EMAIL") == "smarvel1963@gmail.com" and a.js("PLAN.WHOP_CHECKOUT_URL") == "https://whop.com/commander-marvel-por-picks/day-hub-pro")
     check("PRO_GATE on, free phone: Pro features locked, free ones open", a.js("!['ai','gcal','mail','sync'].some(can) && ['reminders','budget'].every(can)"))
     a.page.click("#settingsBtn")
@@ -1362,6 +1363,48 @@ def t_v046_hub_family(b, base):
     a.close()
 
 
+def t_v048_cruise_pass(b, base):
+    print("\n[v0.48 Cruise Hub Pass: $9.99/year, every cruise that year; Day Hub Pro also unlocks Cruise Hub]")
+    a = App(b, base, path=CRUISE)
+    def go(path):
+        a.page.goto(base + path); a.page.wait_for_function("typeof render === 'function' && document.querySelector('#hero .greet')")
+        if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.page.click("#settingsBtn")
+    pro = a.page.inner_text("#proBox")
+    check("CRUISE_PASS off (default): Cruise Hub still offers Day Hub Pro, no $9.99", a.js("SWITCHES.CRUISE_PASS") is False and "Day Hub Pro" in pro and "$9.99" not in pro, pro[:200])
+    a.js("setOwnerSwitch('CRUISE_PASS', true); drawSettings()")
+    pro = a.page.inner_text("#proBox")
+    check("CRUISE_PASS on: Cruise Hub Pass, $9.99/year, every cruise that year, Day Hub Pro mentioned", "Cruise Hub Pass" in pro and "$9.99/year" in pro and "every cruise you take that year" in pro
+          and "as many cruises as you like" in pro and "Already have Day Hub Pro" in pro and "$4.99" not in pro, pro[:400])
+    check("no checkout link yet: says Coming soon", "Coming soon" in pro and not a.js("!!document.querySelector('#proBox a.btn[href*=whop]')"))
+    a.page.fill('form[data-proform] [name=key]', "cruiser@example.com"); a.page.click('form[data-proform] button'); a.page.wait_for_timeout(300)
+    check("Cruise Hub Pass buyer: Cruise Hub unlocked", a.js("isPro() && can('sync')") and "Cruise Hub Pass is on" in a.page.inner_text("#proBox"), a.page.inner_text("#proBox")[:200])
+    check("verify tells the relay it's Cruise Hub asking", any(x.get("task") == "verify" and x.get("app") == "cruisehub" for x in a.ctx._relay))
+    check("the unlock is Cruise Hub's own (cruisehub.pro), Day Hub's untouched", a.js("JSON.parse(localStorage.getItem('cruisehub.pro')).product") == "cruisehub" and not a.js("localStorage.getItem('dayhub.pro')"))
+    a.page.click('[data-close="sheet"]')
+    go("/")
+    check("a Cruise Hub Pass does NOT unlock Day Hub (same phone)", not a.js("isPro()") and not a.js("can('sync')"))
+    a.page.click("#settingsBtn")
+    check("Day Hub still sells Day Hub Pro at its own price", "Day Hub Pro" in a.page.inner_text("#proBox") and "$4.99/month" in a.page.inner_text("#proBox") and "Cruise Hub Pass" not in a.page.inner_text("#proBox"))
+    a.page.fill('form[data-proform] [name=key]', "cruiser@example.com"); a.page.click('form[data-proform] button'); a.page.wait_for_timeout(300)
+    check("Cruise Hub Pass email in Day Hub: not Pro, says why", not a.js("isPro()") and "No active Day Hub Pro" in a.page.inner_text("#proBox"))
+    check("Day Hub's verify says app dayhub", any(x.get("task") == "verify" and x.get("app") == "dayhub" for x in a.ctx._relay))
+    a.close()
+    # Day Hub Pro buyer: one purchase unlocks both
+    a = App(b, base)
+    setup(a)
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.page.click("#settingsBtn")
+    a.page.fill('form[data-proform] [name=key]', "buyer@example.com"); a.page.click('form[data-proform] button'); a.page.wait_for_timeout(300)
+    check("Day Hub Pro unlocked in Day Hub", a.js("isPro()"))
+    a.page.goto(base + CRUISE); a.page.wait_for_function("typeof render === 'function' && document.querySelector('#hero .greet')")
+    a.js("setOwnerSwitch('CRUISE_PASS', true)")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.page.click("#settingsBtn")
+    check("Day Hub Pro on this phone also unlocks Cruise Hub", a.js("isPro() && can('sync')") and "Included with your Day Hub Pro" in a.page.inner_text("#proBox"), a.page.inner_text("#proBox")[:200])
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1378,7 +1421,7 @@ def main():
                   t_v033_calendar_dates, t_v034_backup_nudge,
                   t_v035_errands, t_v036_returns,
                   t_v037_future_me, t_v039_short_home, t_v040_switches, t_v045_cruise_hub,
-                  t_v046_hub_family):
+                  t_v046_hub_family, t_v048_cruise_pass):
             try:
                 t(b, base)
             except Exception as e:

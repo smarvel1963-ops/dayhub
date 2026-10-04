@@ -1,6 +1,9 @@
 {
- "version": "0.47",
+ "version": "0.48",
  "notes": {
+  "0.48": [
+   "Behind the scenes: Cruise Hub is ready for its own Cruise Hub Pass. Day Hub Pro keeps unlocking Cruise Hub too."
+  ],
   "0.47": [
    "🚢 Cruise Hub has its own address now: smarvel1963-ops.github.io/cruisehub — the old link takes you there."
   ],

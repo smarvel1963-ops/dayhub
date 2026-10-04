@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.47";
+const VERSION = "0.48";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -62,8 +62,11 @@ const can = f => !switchOn("PRO_GATE") || !PLAN.PRO_FEATURES.includes(f) || isPr
 // this phone only ("dayhub.pro"); re-checked every RECHECK_DAYS; if the phone
 // can't reach the check it stays Pro for GRACE_DAYS more, so a dead signal never
 // locks anyone out.
-const PRO_KEY = "dayhub.pro", DAY_MS = 86400000;
-const proState = () => { try { return JSON.parse(localStorage.getItem(PRO_KEY) || "{}") || {}; } catch (e) { return {}; } };
+// v0.48: each hub keeps its own unlock ("cruisehub.pro" in Cruise Hub); Cruise
+// Hub ALSO counts a Day Hub Pro unlock on the same phone (Day Hub Pro covers both).
+const PRO_KEY = APP_ID + ".pro", DAY_PRO_KEY = "dayhub.pro", DAY_MS = 86400000;
+const readPro = k => { try { return JSON.parse(localStorage.getItem(k) || "{}") || {}; } catch (e) { return {}; } };
+const proState = () => readPro(PRO_KEY);
 const setProState = p => { try { localStorage.setItem(PRO_KEY, JSON.stringify(p)); } catch (e) { /* private mode */ } };
 function deviceId() {
   let d = ""; try { d = localStorage.getItem("dayhub.device") || ""; } catch (e) { /* private mode */ }
@@ -74,16 +77,19 @@ function deviceId() {
 // Never lock the owner out of his own app: the phone holding the relay
 // passphrase (or with the OWNER owner-switch) counts as Pro.
 const ownerPhone = () => !!aiPass() || !!ownerSwitches().OWNER;
+const proGood = p => !!(p.buyer && p.ok && Date.now() < (p.checked || 0) + (PLAN.RECHECK_DAYS + PLAN.GRACE_DAYS) * DAY_MS);
+const proViaDayHub = () => MODE === "cruise" && !proGood(proState()) && proGood(readPro(DAY_PRO_KEY));
 function isPro() {
-  if (ownerPhone()) return true;
-  const p = proState();
-  return !!(p.buyer && p.ok && Date.now() < (p.checked || 0) + (PLAN.RECHECK_DAYS + PLAN.GRACE_DAYS) * DAY_MS);
+  return ownerPhone() || proGood(proState()) || proViaDayHub();
 }
+// What this app sells: Cruise Hub sells the Cruise Hub Pass once CRUISE_PASS is on; otherwise Day Hub Pro.
+const cruisePass = () => MODE === "cruise" && switchOn("CRUISE_PASS");
+const proName = () => cruisePass() ? PLAN.CRUISE_NAME : PLAN.NAME;
 async function verifyPro(buyer) {                   // throws when the check can't be reached
-  const j = await (await fetch(AI_URL, { method: "POST", body: JSON.stringify({ task: "verify", buyer, device: deviceId() }) })).json();
+  const j = await (await fetch(AI_URL, { method: "POST", body: JSON.stringify({ task: "verify", buyer, device: deviceId(), app: APP_ID }) })).json();
   if (typeof j.valid !== "boolean") throw new Error(j.error || "no answer");
   // A "no" never wipes a known buyer: the email stays so Check now can retry.
-  setProState({ buyer, ok: j.valid, checked: Date.now(), status: j.status || "", until: j.until || null });
+  setProState({ buyer, ok: j.valid, checked: Date.now(), status: j.status || "", until: j.until || null, product: j.product || "" });
   return j.valid;
 }
 function recheckPro() {
@@ -418,7 +424,7 @@ const gReady = () => GTOKEN && Date.now() < GTOKEN_EXP;
 
 // Must run from a tap: Google opens its own sign-in window.
 async function gcalConnect() {
-  if (!can("gcal")) { toast("Google Calendar sync is part of Day Hub Pro"); return; }
+  if (!can("gcal")) { toast(`Google Calendar sync is part of ${proName()}`); return; }
   if (!GCAL_CLIENT_ID) { toast("Google Calendar link is being set up — coming soon"); return; }
   try { await loadGis(); } catch (e) { toast("Couldn't reach Google — check your connection"); return; }
   const client = google.accounts.oauth2.initTokenClient({
@@ -822,7 +828,7 @@ function scheduleBackup() {
 // Turning backup on. A new phone (nothing here yet) restores by itself; a phone
 // that already has data and finds an older or different backup gets the CHOICE.
 async function syncOn() {
-  if (!can("sync")) { toast("Backup & sync is part of Day Hub Pro"); return; }
+  if (!can("sync")) { toast(`Backup & sync is part of ${proName()}`); return; }
   if (!(await driveSignIn(S.sync.on ? "" : "consent"))) return;
   try {
     let cloud = await driveDownload();
@@ -992,7 +998,7 @@ async function checkReminders() {
   if (changed) saveLocal();
 }
 async function remindOn() {
-  if (!can("reminders")) { toast("Reminders are part of Day Hub Pro"); return; }
+  if (!can("reminders")) { toast(`Reminders are part of ${proName()}`); return; }
   if (!("Notification" in window)) {
     toast(isIOS() ? "On iPhone: Share → Add to Home Screen, open Day Hub from there, then turn reminders on" : "This browser can't show notifications");
     return;
@@ -1379,7 +1385,7 @@ async function gmail(path) {
 }
 async function scanMail() {                                   // from a tap, or on open while signed in
   if (!gmailAllowed()) return;
-  if (!can("mail")) { toast("Email scanning is part of Day Hub Pro"); return; }
+  if (!can("mail")) { toast(`Email scanning is part of ${proName()}`); return; }
   if (MAIL_BUSY) return;
   if (!mReady() && !(await mailSignIn(S.mail.on ? "" : "consent"))) return;
   MAIL_BUSY = true; drawMailBox(); render();
