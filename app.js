@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.54";
+const VERSION = "0.55";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -1514,8 +1514,8 @@ function whatsNewHtml() {
 // other trip gets the countdown, money and lists without the cruise extras.
 const ONBOARD_CATS = ["Drinks", "Excursions", "Gratuities", "Dining", "Spa", "Casino", "Wi-Fi", "Photos", "Shopping", "Other"];
 const GRAT_PER_DAY = 18;          // per person per night - most mainstream lines charge about $16-18
-const TRIP_LISTS = { packing: "Packing", docs: "Documents", before: "Before you go", embark: "Sail day", requests: "Cabin requests", home: "Getting home", after: "After the trip" };
-const CRUISE_ONLY_LISTS = ["requests", "home", "after"];
+const TRIP_LISTS = { packing: "Packing", docs: "Documents", before: "Before you go", embark: "Sail day", requests: "Cabin requests", home: "Getting home", final: "Final-night bag", after: "After the trip" };
+const CRUISE_ONLY_LISTS = ["requests", "home", "final", "after"];
 const TEMPLATES = {
   cruise: {
     packing: ["Swimsuits + cover-up", "Formal-night outfit", "Comfortable walking shoes", "Sandals / flip-flops", "Water shoes (rocky beaches, snorkeling, coral)",
@@ -1540,6 +1540,10 @@ const TEMPLATES = {
     requests: ["BEFORE SAILING - tell the cruise line: dietary needs / allergies", "BEFORE SAILING - medical equipment (CPAP, oxygen): follow the line's own instructions",
       "BEFORE SAILING - accessibility needs", "BEFORE SAILING - celebrating? (birthday / anniversary)", "STEWARD - beds together or apart",
       "STEWARD - extra hangers", "STEWARD - extra towels / pillows", "STEWARD - ice bucket refills"],
+    // v0.55 (Scott's plan: "Final-night packing reversal - DON'T PUT THESE OUTSIDE"): what stays WITH you the last night.
+    final: ["Passport / ID - with you, never in the bag outside", "Wallet + cards", "Medication", "Phone + charger", "Glasses / contacts",
+      "Car keys - out of the cabin safe tonight", "Tomorrow's clothes + shoes set out", "Morning toiletries", "Parking / flight / ride confirmations",
+      "Cabin safe opened and EMPTY", "Checked: closets, drawers, under the bed, bathroom, balcony"],
     after: ["Card holds released + final charges match the ship account", "Refunds or unused credits checked", "Loyalty points posted",
       "Download / sort your photos", "Write down what to do differently next time", "Leave a review", "Look at future-cruise offers"],
     embark: ["Carry-on: documents, meds, swimsuit, chargers", "Arrive at your check-in time - not hours early",
@@ -1724,6 +1728,35 @@ function ensureLists(tr) {
   return tr;
 }
 const tripListKeys = tr => Object.keys(TRIP_LISTS).filter(k => isCruise(tr) || !CRUISE_ONLY_LISTS.includes(k));
+
+// ------------------------------------------------------ packing by bag
+// v0.55 (V1 step 4, Scott's plan: "separates checked luggage / carry-on / port bag / final-night bag" +
+// "weather-aware and excursion-aware packing"). Each packing item has a bag (guessed from its words
+// until the traveler changes it), and "Suggested for your trip" offers items the trip's own forecast
+// and excursions call for - each with the reason, one tap to add, never added by itself.
+const BAGS = [["checked", "🧳 Checked"], ["carry", "🎒 Carry-on"], ["port", "🏖️ Port bag"]];
+const bagLabel = k => (BAGS.find(b => b[0] === k) || BAGS[0])[1];
+const bagGuess = text => /medic|passport|document|\bid\b|charger|cable|swimsuit|wallet|cash|\bglasses\b|keys|seasick|lanyard/i.test(text) ? "carry"
+  : /sunscreen|water shoes|sunglasses|\bhat\b|pouch|day bag|water bottle|snorkel|beach|towel/i.test(text) ? "port" : "checked";
+const bagOf = i => BAGS.some(b => b[0] === i.bag) ? i.bag : bagGuess(i.text || "");
+function packSuggest(tr) {
+  if (!tr) return [];
+  const have = ((tr.lists || {}).packing || []).map(i => (i.text || "").toLowerCase()), no = tr.sugNo || [], out = [];
+  const add = (key, text, why, bag) => { if (no.includes(key) || out.some(o => o.key === key) || have.some(h => h.includes(key))) return; out.push({ key, text, why, bag }); };
+  const when = d => d === today() ? "today" : d === addDays(today(), 1) ? "tomorrow" : `${dayName(d)} ${prettyDate(d)}`;
+  cruiseWxDays(tr).forEach(x => { const w = PORTWX[`${x.name}|${x.day}`]; if (!w || w.loading || w.none) return;
+    const at = `${placeName(x.name)} ${when(x.day)}`;
+    if (w.rain >= 35 || w.code >= 95) { add("rain jacket", "Light rain jacket", `rain ${w.rain}% at ${at}`, "port"); add("phone pouch", "Waterproof phone pouch", `rain at ${at}`, "port"); }
+    if (w.uv != null && w.uv >= 8) { add("sunscreen", "Reef-safe sunscreen", `UV ${Math.round(w.uv)} at ${at}`, "port"); add("hat", "Sun hat", `UV ${Math.round(w.uv)} at ${at}`, "port"); }
+    if (w.hi != null && w.hi >= 90) add("water bottle", "Refillable water bottle", `${Math.round(w.hi)}° at ${at}`, "port");
+    if (w.lo != null && w.lo <= 55) add("warm layer", "Warm layer for the deck and evenings", `low ${Math.round(w.lo)}° at ${at}`, "checked"); });
+  (tr.ports || []).forEach(pt => { const ex = `${pt.excursion || ""}`;
+    if (/snorkel|beach|swim|kayak|boat|catamaran|paddle|dive/i.test(ex)) { add("water shoes", "Water shoes", `${ex} at ${pt.name}`, "port"); add("phone pouch", "Waterproof phone pouch", `${ex} at ${pt.name}`, "port"); }
+    if (/hummer|jeep|atv|buggy|drive|driving|scooter|rental car|car rental|golf cart/i.test(ex)) add("driver", "Driver's license", `${ex} at ${pt.name} — drivers usually need it`, "carry");
+    if (/hike|hiking|walk|walking|trail|climb|ruins/i.test(ex)) add("walking shoes", "Comfortable walking shoes", `${ex} at ${pt.name}`, "port");
+    if (pt.indie) add("port agent", "Screenshot of the ship's port agent contact", `independent tour at ${pt.name}`, "carry"); });
+  return out;
+}
 
 // v0.13 CRUISE MODE (Scott 10/1, the master list from his other chat): one
 // "% READY", the ✅ / ⚠️ items, and ONE next action - what matters NOW. An

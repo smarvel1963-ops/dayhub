@@ -1654,6 +1654,46 @@ def t_v054_name_bar_wallet(b, base):
     a.close()
 
 
+def t_v055_packing_bags(b, base):
+    print("\n[v0.55 packing by bag + suggestions from the trip's forecast and excursions + final-night bag]")
+    a = App(b, base, path=CRUISE, at="2026-10-04T09:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-10-06", "end": "2026-10-11", "line": "Princess", "port": "Port Canaveral"})
+    a.js("curTrip().ports = [{ id: 'p1', name: 'Grand Turk', day: '2026-10-07', allAboard: '16:30', excursion: 'Hummer tour' }, { id: 'p2', name: 'Nassau', day: '2026-10-08', excursion: 'Snorkel catamaran', indie: true }]; save(); S.tripTab = 'lists'; S.tripList = 'packing'; render()")
+    a.page.wait_for_timeout(1200); a.js("render()")
+    g = a.js("['Daily medications (keep in your carry-on)', 'Sunglasses + hat', 'Sunscreen (reef-safe for some ports)', 'Formal-night outfit', 'Passport', 'Reading glasses'].map(bagGuess).join()")
+    check("bag guesses: meds carry, sunglasses port, sunscreen port, outfit checked, passport carry, glasses carry", g == "carry,port,port,checked,carry,carry", g)
+    keys = a.js("packSuggest(curTrip()).map(x => x.key)")
+    check("excursion suggestions: driver's license (Hummer), phone pouch (snorkel), port-agent screenshot (independent)", "driver" in keys and "phone pouch" in keys and "port agent" in keys, keys)
+    check("UV 9 but 'Sunglasses + hat' + sunscreen already packed: no hat / sunscreen suggestion", "hat" not in keys and "sunscreen" not in keys, keys)
+    a.js("const L = curTrip().lists.packing; curTrip().lists.packing = L.filter(i => !/hat/i.test(i.text)); save(); render()")
+    check("take the hat off the list -> UV 9 at the port suggests a sun hat", "hat" in a.js("packSuggest(curTrip()).map(x => x.key)"))
+    check("nothing suggested that's already on the list (water shoes)", "water shoes" not in keys)
+    t = a.card("trips")
+    check("shown with the reason and its bag", "SUGGESTED FOR YOUR TRIP" in t.upper() and "Hummer tour at Grand Turk" in t, t[:400])
+    tid = a.js("curTrip().id")
+    a.page.click(f'[data-sugadd="{tid}:driver"]'); a.page.wait_for_timeout(150)
+    check("+ Add puts it on the packing list in the carry-on, suggestion gone", a.js("curTrip().lists.packing.some(i => i.text === \"Driver's license\" && i.bag === 'carry')") and "driver" not in a.js("packSuggest(curTrip()).map(x => x.key)"))
+    a.page.click(f'[data-sugno="{tid}:port agent"]'); a.page.wait_for_timeout(150)
+    check("✕ = not needed, stays gone", "port agent" not in a.js("packSuggest(curTrip()).map(x => x.key)") and a.js("curTrip().sugNo.includes('port agent')"))
+    a.page.click('[data-bagview="port"]'); a.page.wait_for_timeout(150)
+    rows = a.js("[...document.querySelectorAll('[data-card=\"trips\"] .bagchip')].map(b => b.textContent.trim())")
+    check("Port bag view shows only port-bag items", rows and all("Port bag" in r for r in rows), rows)
+    a.page.click('[data-bagview="all"]'); a.page.wait_for_timeout(150)
+    iid = a.js("curTrip().lists.packing.find(i => i.text === 'Formal-night outfit').id")
+    a.page.click(f'[data-bag="{tid}:{iid}"]'); a.page.wait_for_timeout(150)
+    check("tap the bag chip: Checked -> Carry-on (remembered)", a.js(f"curTrip().lists.packing.find(i => i.id === '{iid}').bag") == "carry")
+    check("cruise has the Final-night bag list (passport, car keys out of the safe, safe empty)", a.js("tripListKeys(curTrip()).includes('final')")
+          and a.js("curTrip().lists.final.some(i => /Car keys/.test(i.text)) && curTrip().lists.final.some(i => /safe opened and EMPTY/.test(i.text))"))
+    a.close()
+    a = App(b, base); setup(a)
+    a.qa("trip", {"ttype": "trip", "tname": "Orlando", "start": "2026-10-20", "end": "2026-10-24"})
+    check("a plain trip (not a cruise) has no Final-night bag list", not a.js("tripListKeys(curTrip()).includes('final')"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1673,7 +1713,8 @@ def main():
                   t_v046_hub_family, t_v048_cruise_pass,
                   t_v049_scenes, t_v050_countdown_family,
                   t_v051_cruise_weather, t_v052_return_guard,
-                  t_v053_ask_cruise_hub, t_v054_name_bar_wallet):
+                  t_v053_ask_cruise_hub, t_v054_name_bar_wallet,
+                  t_v055_packing_bags):
             try:
                 t(b, base)
             except Exception as e:

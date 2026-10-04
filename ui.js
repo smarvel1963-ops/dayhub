@@ -306,8 +306,9 @@ const CARDS = {
         body = `<div class="tabs">${keys.map(k => [k, TRIP_LISTS[k]]).map(([k, l]) => { const n = ((tr.lists || {})[k] || []);
             return `<button class="tab ${k === lk ? "on" : ""}" data-triplist="${k}">${l}<small>${n.filter(i => i.done).length}/${n.length}</small></button>`; }).join("")}</div>
           <div class="today-line sub">${done} of ${L.length} done</div>` +
-          L.map(i => `<div class="row ${i.done ? "done" : ""}"><input type="checkbox" class="tick" data-titem="${tr.id}:${lk}:${i.id}" ${i.done ? "checked" : ""} aria-label="Done">
-            <span class="grow">${esc(i.text)}</span><button class="x" data-tripdel="${tr.id}:lists.${lk}:${i.id}" aria-label="Remove">✕</button></div>`).join("") +
+          (lk === "packing" ? packExtrasHtml(tr) : "") +
+          L.filter(i => lk !== "packing" || !S.bagView || S.bagView === "all" || bagOf(i) === S.bagView).map(i => `<div class="row ${i.done ? "done" : ""}"><input type="checkbox" class="tick" data-titem="${tr.id}:${lk}:${i.id}" ${i.done ? "checked" : ""} aria-label="Done">
+            <span class="grow">${esc(i.text)}</span>${lk === "packing" ? `<button class="bagchip" data-bag="${tr.id}:${i.id}" aria-label="Bag: ${bagLabel(bagOf(i))} - tap to change">${bagLabel(bagOf(i))}</button>` : ""}<button class="x" data-tripdel="${tr.id}:lists.${lk}:${i.id}" aria-label="Remove">✕</button></div>`).join("") +
           `<form class="inline-add" data-tadd="${tr.id}:${lk}"><input name="text" placeholder="Add to ${TRIP_LISTS[lk]}…" required autocomplete="off"><button class="btn sm">Add</button></form>`;
       } else {
         body = `<div class="today-line sub">For first-timers — things most people wish someone had told them.</div>` +
@@ -648,6 +649,15 @@ function cruiseWxChip() {
     if (a) return `<button class="chip warn" data-cwx="1">${a.icon} ${esc(placeName(x.name))} ${x.day === today() ? "today" : "tomorrow"}: ${esc(a.text.split(" — ")[0])}</button>`;
   }
   return "";
+}
+
+// v0.55 packing extras: suggestions from the trip's forecast + excursions, and a bag filter.
+function packExtrasHtml(tr) {
+  const sug = packSuggest(tr), L = (tr.lists && tr.lists.packing) || [], view = S.bagView || "all";
+  const count = k => L.filter(i => bagOf(i) === k).length;
+  return (sug.length ? `<div class="sugbox"><div class="day-label">✨ Suggested for your trip</div>` + sug.map(x => `<div class="row"><span class="grow">${esc(x.text)}<span class="sub">${esc(x.why)} · ${bagLabel(x.bag)}</span></span>
+      <button class="btn sm" data-sugadd="${tr.id}:${esc(x.key)}">＋ Add</button><button class="x" data-sugno="${tr.id}:${esc(x.key)}" aria-label="Not needed">✕</button></div>`).join("") + `</div>` : "") +
+    `<div class="tabs bagtabs">${[["all", "All"], ...BAGS].map(([k, l]) => `<button class="tab ${k === view ? "on" : ""}" data-bagview="${k}">${l}${k !== "all" ? `<small>${count(k)}</small>` : ""}</button>`).join("")}</div>`;
 }
 
 const MINI = {
@@ -1342,6 +1352,13 @@ document.addEventListener("click", e => {
   if (ds.portedit) { PORT_EDIT = ds.portedit; PORT_DAY = null; openQA("tport"); return; }
   if (ds.tripsel) { S.tripSel = ds.tripsel; save(); render(); return; }
   if (ds.triptab) { S.tripTab = ds.triptab; save(); render(); return; }
+  if (ds.bagview) { S.bagView = ds.bagview; save(); render(); return; }
+  if (ds.bag) { const [tid, iid] = ds.bag.split(":"), tr = S.trips.find(x => x.id === tid), it = tr && ((tr.lists || {}).packing || []).find(x => x.id === iid);
+    if (it) { const ks = BAGS.map(b => b[0]); it.bag = ks[(ks.indexOf(bagOf(it)) + 1) % ks.length]; save(); render(); } return; }
+  if (ds.sugadd) { const [tid, key] = ds.sugadd.split(":"), tr = S.trips.find(x => x.id === tid), sg = tr && packSuggest(tr).find(x => x.key === key);
+    if (sg) { ensureLists(tr); tr.lists.packing.push({ id: uid(), text: sg.text, done: false, bag: sg.bag, why: sg.why }); save(); render(); toast(`Added: ${sg.text}`); } return; }
+  if (ds.sugno) { const [tid, key] = ds.sugno.split(":"), tr = S.trips.find(x => x.id === tid);
+    if (tr) { tr.sugNo = [...(tr.sugNo || []), key]; save(); render(); } return; }
   if (ds.triplist) { S.tripList = ds.triplist; save(); render(); return; }
   if (ds.tripedit) { TRIP_EDIT = ds.tripedit; openQA("trip", true); return; }
   if (ds.tripqa) { openQA(ds.tripqa); return; }

@@ -1,6 +1,11 @@
 {
- "version": "0.54",
+ "version": "0.55",
  "notes": {
+  "0.55": [
+   "🧳 Packing by bag: every item sits in Checked, Carry-on or Port bag — tap to move it, or view one bag at a time.",
+   "✨ Suggested for your trip: the port forecast and your excursions suggest what to bring (a Hummer tour → driver's license, snorkeling → phone pouch, high UV → sun hat), with the reason. One tap adds it.",
+   "🌙 New Final-night bag list: what stays WITH you the last night — passport, meds, car keys out of the safe."
+  ],
   "0.54": [
    "🏷️ Each app now shows its name across the top — DAY HUB, CRUISE HUB.",
    "👛 Money tab: the WHOLE vacation — add the hotel, gas or flights, parking, excursions, packages and insurance, mark each paid, and see the total, what's paid, what's left and your onboard credit."
