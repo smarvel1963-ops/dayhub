@@ -1,6 +1,10 @@
 {
- "version": "0.61",
+ "version": "0.62",
  "notes": {
+  "0.62": [
+   "👓 Simple mode (⚙ → Display): big text, today, what's next and four big buttons — My day, My cruise, Ask, Help. Everything else is still one tap away.",
+   "🧾 Itemized running cost (Wallet → Money): every cost of the trip on one list — fare, hotel, gas, parking, excursions, onboard charges, gratuities — each with a running total."
+  ],
   "0.61": [
    "🚗 Tomorrow you sail / 🚢 Today you sail: Home shows documents, bags, getting there, the sail-day plan and directions to the terminal. Tap '✅ We're on board' and you get a first-things checklist.",
    "🟠 Offline? The app says so by its name, keeps your last forecast, and everything you planned still works."

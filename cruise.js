@@ -307,3 +307,26 @@ function phaseChange(ds, t) {
   const tr = curTrip(); if (!tr) return true;
   tr.firstThings = Object.assign({}, tr.firstThings, { [ds.first]: t.checked }); save(); setTimeout(render, 0); return true;
 }
+
+// ------------------------------------------------------- itemized running cost
+// v0.62 (Scott 10/5: "it needs itemized running cost of trip/cruise"): every cost of the trip on ONE list,
+// each line with a running total - the fare, everything booked around it (hotel, gas/flights, parking,
+// excursions, packages, insurance), every onboard charge as it happens, and the gratuity estimate.
+function tripItems(tr) {
+  const out = [];
+  if (Number(tr.total) > 0) out.push({ day: null, what: `🚢 ${isCruise(tr) ? "Cruise fare" : "Trip price"}`, amt: Number(tr.total), status: tripLeft(tr) ? `${money(tripPaid(tr))} paid` : "paid ✓" });
+  (tr.costs || []).filter(c => Number(c.amt) > 0).forEach(c => out.push({ day: null, what: `${costLabel(c.cat)}${c.what ? ` — ${c.what}` : ""}`, amt: Number(c.amt), status: c.paid ? "paid ✓" : "not paid" }));
+  (tr.spends || []).slice().sort((a, b) => String(a.day || "").localeCompare(String(b.day || ""))).forEach(x =>
+    out.push({ day: x.day || null, what: `${isCruise(tr) ? "🍹" : "💵"} ${x.note || x.cat || "Spending"}`, amt: Number(x.amt) || 0, status: isCruise(tr) ? "ship account" : "spent" }));
+  const g = gratEstimate(tr); if (g) out.push({ day: null, what: "🧾 Gratuities (estimate)", amt: g, status: "estimate" });
+  let run = 0; out.forEach(i => { run += i.amt; i.run = run; });
+  return out;
+}
+function itemizedHtml(tr) {
+  const L = tripItems(tr); if (!L.length) return "";
+  const total = L[L.length - 1].run;
+  return `<div class="day-label" style="margin-top:4px">🧾 Itemized — running total</div>
+    <div class="itemized">${L.map(i => `<div class="it-row"><span class="grow">${esc(i.what)}<span class="sub">${i.day ? `${prettyDate(i.day)} · ` : ""}${esc(i.status)}</span></span>
+      <span class="it-amt">${money(i.amt)}</span><span class="it-run">${money(i.run)}</span></div>`).join("")}
+      <div class="it-row it-total"><span class="grow"><b>Trip so far</b></span><span class="it-amt"></span><span class="it-run"><b>${money(total)}</b></span></div></div>`;
+}

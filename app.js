@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.61";
+const VERSION = "0.62";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -2518,6 +2518,7 @@ function tripContext(tr) {
     travelers: tr.travelers || null, readyPercent: R.pct, stage: R.phase, nextStep: R.next ? R.next.action : null,
     stillToDo: R.items.filter(i => i.score < 1).map(i => `${i.label}${i.now ? " (matters now)" : " (later)"}`) };
   if (tr.total) o.money = { total: money(tr.total), paid: money(tripPaid(tr)), left: money(tripLeft(tr) || 0), finalPaymentDue: tr.finalDue || null };
+  if (typeof tripItems === "function") { const L = tripItems(tr); if (L.length) o.itemizedCost = { lines: L.map(i => `${i.what.replace(/^\S+\s/, "")}: ${money(i.amt)} (${i.status})`), runningTotal: money(L[L.length - 1].run) }; }   // v0.62
   { const W = tripWallet(tr); if (W.extras) o.wholeTrip = { totalVacation: money(W.total), paid: money(W.paid), left: money(W.left),
       otherCosts: W.costs.map(c => `${costLabel(c.cat).replace(/^\S+\s/, "")}: ${c.what || ""} ${money(c.amt)} ${c.paid ? "(paid)" : "(not paid yet)"}`) };
     if (W.credit) o.onboardCredit = money(W.credit); }

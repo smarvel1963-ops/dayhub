@@ -67,6 +67,7 @@ function nextUp() {
   return "";
 }
 function homeHtml() {
+  if (S.simple) return simpleHomeHtml();                                    // v0.62 simple mode
   const tr = curTrip(), items = rightNow(tr), nx = nextUp(), bb = bigButton(tr);
   if (!tr) return addCruiseHtml();                                          // v0.60 no cruise yet: the ways in
   return prefsCardHtml() + phaseCardHtml(tr) + `<section class="card shell-home"><h3>🔥 Right now</h3><div class="body">
@@ -108,7 +109,7 @@ function paintTabs() {
   let nav = document.getElementById("tabbar");
   if (!shellOn()) { if (nav) nav.remove(); document.body.classList.remove("shell"); return; }
   if (!nav) { nav = document.createElement("nav"); nav.id = "tabbar"; nav.setAttribute("aria-label", "Main"); document.body.appendChild(nav); }
-  document.body.classList.add("shell"); document.body.dataset.tab = TAB;
+  document.body.classList.add("shell"); document.body.dataset.tab = TAB; document.body.classList.toggle("simple", !!S.simple);
   nav.innerHTML = SHELL_TABS.map(([k, ic, l]) => `<button class="${k === TAB ? "on" : ""}" data-shellgo="${k}" aria-current="${k === TAB ? "page" : "false"}"><span>${ic}</span>${l}</button>`).join("");
 }
 // Clicks that move between tabs (data-shellgo), optionally landing on a trips-card tab or list.
@@ -196,4 +197,36 @@ function showDay(d) {
       <button class="btn sm ghost" data-dayplan="${d}">＋ Add a plan this day</button>
       ${d === today() && guardFor(tr) ? `<button class="btn sm" data-rg="open">🚢 Return Guard</button>` : ""}</div></div>`;
   el.classList.remove("hidden");
+}
+
+// ------------------------------------------------------------ simple mode
+// v0.62 (Scott's ease-of-use plan: "SIMPLE MODE - Settings -> Display -> Simple Mode ... GOOD MORNING, SCOTT /
+// SEA DAY / NEXT Dinner 6:00 / [WHAT SHOULD I DO NOW?] [MY DAY] [...] [HELP] - Huge buttons. Large text.
+// Minimal choices. Same intelligence underneath."). A per-phone display choice (S.simple).
+function simpleHomeHtml() {
+  const tr = curTrip(), bb = bigButton(tr), nx = nextUp();
+  let today = "🗓️ No cruise yet";
+  if (tr && tr.start) { const sd = daysUntil(tr.start), pt = portOn(tr, today_()), end = tr.end || tr.start;
+    today = sd > 0 ? `🚢 ${sd} day${sd === 1 ? "" : "s"} to your cruise` : sd === 0 ? "🚢 Today you sail" : daysUntil(end) < 0 ? "🏠 Welcome home"
+      : pt ? `⚓ ${esc(pt.name)}${pt.allAboard ? ` — back by ${hm(guardBy(pt))}` : ""}` : today_() === end ? "🏠 Going home today" : "🌊 Sea day"; }
+  return `<section class="card simple-home"><div class="simple-big">${esc(greet())}</div><div class="simple-now">${today}</div>
+      ${nx ? `<div class="simple-next"><span>NEXT</span>${nx}</div>` : ""}</section>
+    <button class="big-btn simple" ${bb.act}>${bb.label}</button>
+    <div class="simple-grid">
+      <button class="simple-btn" data-shellgo="plan" data-planview="today">📅<b>MY DAY</b></button>
+      <button class="simple-btn" data-shellgo="plan" data-planview="trip">🚢<b>MY CRUISE</b></button>
+      <button class="simple-btn" data-ask="open">💡<b>ASK</b></button>
+      <button class="simple-btn red" data-help="home">🛟<b>HELP</b></button></div>`;
+}
+const today_ = () => today();
+function drawSimpleBox() {
+  const g = document.getElementById("simpleBox"); if (!g) return;
+  g.hidden = !SHELL_MODES.includes(MODE); if (g.hidden) { g.innerHTML = ""; return; }
+  g.innerHTML = `<h3>👓 Display</h3><ul class="card-list"><li><span>Simple mode — big text, a few big buttons</span>
+    <input type="checkbox" data-simple="1" ${S.simple ? "checked" : ""} aria-label="Simple mode"></li></ul>
+    <p class="fine" style="margin-top:6px">Home shows only today, what's next and four big buttons. Everything else is still one tap away.</p>`;
+}
+function simpleChange(ds, t) {
+  if (!ds.simple) return false;
+  S.simple = t.checked; save(); render(); drawSimpleBox(); toast(t.checked ? "👓 Simple mode on" : "Simple mode off"); return true;
 }

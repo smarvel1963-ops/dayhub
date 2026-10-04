@@ -1955,6 +1955,59 @@ def t_v061_travel_day_offline(b, base):
     a.close()
 
 
+def t_v062_simple_mode(b, base):
+    print("\n[v0.62 simple mode: big text, today, next, four big buttons]")
+    a = App(b, base, path=CRUISE, at="2026-11-13T09:00:00")
+    a.js("localStorage.setItem('cruisehub.startTab', 'home')"); a.page.reload(); a.page.wait_for_function("document.querySelector('#hero .greet')")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.js("S.magicSeen = true; S.prefs = { skipped: true, loves: [] }; save()")
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-16", "line": "Princess", "ship": "Caribbean Princess"})
+    a.js("curTrip().aboard = true; curTrip().firstDone = true; save(); shellGo('home')")
+    a.page.click("#settingsBtn"); a.page.wait_for_timeout(150)
+    check("⚙ has Display -> Simple mode (Cruise Hub)", "Simple mode" in a.page.inner_text("#simpleBox"))
+    a.page.check('[data-simple="1"]'); a.page.wait_for_timeout(200); a.page.click('[data-close="sheet"]')
+    h = a.page.inner_text("#cards")
+    check("simple HOME: greeting, Sea day, NEXT, big button, MY DAY / MY CRUISE / ASK / HELP", "Sea day" in h and "WHAT SHOULD WE DO NOW" in h.upper()
+          and all(x in h for x in ("MY DAY", "MY CRUISE", "ASK", "HELP")) and "Right now" not in h, h[:400])
+    check("large text on", a.js("document.body.classList.contains('simple')") and a.js("parseFloat(getComputedStyle(document.body).fontSize)") >= 18)
+    a.page.click('.simple-btn[data-planview="today"]'); a.page.wait_for_timeout(150)
+    check("MY DAY -> Plan / Today", a.js("TAB") == "plan" and a.js("PLAN_VIEW") == "today")
+    a.js("shellGo('home')"); a.page.click('.simple-btn[data-help]'); a.page.wait_for_timeout(150)
+    check("HELP -> the 🛟 sheet", not a.js("document.getElementById('helpSheet').classList.contains('hidden')"))
+    a.js("hideSheet('helpSheet'); S.simple = false; save(); render()")
+    check("off again: normal HOME", "Right now" in a.page.inner_text("#cards") and not a.js("document.body.classList.contains('simple')"))
+    a.close()
+    a = App(b, base); setup(a); a.page.click("#settingsBtn")
+    check("Day Hub: no Simple mode box yet (no shell)", a.js("document.getElementById('simpleBox').hidden"))
+    a.close()
+
+
+def t_v062_itemized(b, base):
+    print("\n[v0.62 itemized running cost of the trip]")
+    a = App(b, base, path=CRUISE, at="2026-11-14T10:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess", "travelers": "2"})
+    a.js("""const tr = curTrip(); tr.total = 3000; tr.payments = [{ id: 'x', amt: 3000, day: '2026-09-01' }];
+            tr.costs = [{ id: 'c1', cat: 'hotel', what: 'Westgate', amt: 336, paid: true }, { id: 'c2', cat: 'parking', what: 'Port garage', amt: 160, paid: false }];
+            tr.spends = [{ id: 's2', day: '2026-11-13', amt: 24, cat: 'Drinks', note: 'Crooners' }, { id: 's1', day: '2026-11-12', amt: 18.5, cat: 'Drinks', note: 'Sail-away drinks' }];
+            save(); S.tripTab = 'money'; shellGo('wallet')""")
+    L = a.js("tripItems(curTrip()).map(i => [i.what, i.amt, i.run, i.status])")
+    g = a.js("gratEstimate(curTrip())")
+    check("lines in order: fare, hotel, parking, onboard by date, gratuities - running total adds up",
+          [x[0] for x in L][:5] == ["🚢 Cruise fare", "🏨 Hotel — Westgate", "🅿️ Parking — Port garage", "🍹 Sail-away drinks", "🍹 Crooners"]
+          and L[-1][0].startswith("🧾 Gratuities") and abs(L[-1][2] - (3000 + 336 + 160 + 18.5 + 24 + g)) < 0.01 and L[2][2] == 3496, L)
+    check("status per line: paid / not paid / ship account / estimate", [x[3] for x in L] == ["paid ✓", "paid ✓", "not paid", "ship account", "ship account", "estimate"], [x[3] for x in L])
+    t = a.card("trips")
+    check("shown first on Wallet -> Money with 'Trip so far'", "ITEMIZED" in t.upper() and "Trip so far" in t and t.upper().index("ITEMIZED") < t.upper().index("WHOLE TRIP"), t[:300])
+    ctx = json.loads(a.js("aiContext()"))
+    check("Ask Cruise Hub sees the itemized list + running total", len(ctx["trip"].get("itemizedCost", {}).get("lines", [])) == 6 and ctx["trip"]["itemizedCost"]["runningTotal"].startswith("$"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1978,7 +2031,8 @@ def main():
                   t_v055_packing_bags, t_v056_go_home,
                   t_v057_crisis, t_v058_shell,
                   t_v059_plan_timeline, t_v060_onboarding,
-                  t_v061_travel_day_offline):
+                  t_v061_travel_day_offline, t_v062_simple_mode,
+                  t_v062_itemized):
             try:
                 t(b, base)
             except Exception as e:

@@ -248,6 +248,7 @@ const CARDS = {
         body += `<button class="add-link" data-tripqa="tpay">＋ Log a payment</button>`;
         // v0.54 WALLET: the whole vacation, not just the fare.
         const W = tripWallet(tr);
+        if (typeof itemizedHtml === "function") body = itemizedHtml(tr) + body;          // v0.62 itemized running cost, first
         body += `<div class="day-label" style="margin-top:14px">👛 Whole trip</div>
           <div class="paygrid"><div class="fact">Total vacation<b>${money(W.total)}</b></div><div class="fact">Paid<b>${money(W.paid)}</b></div>
             <div class="fact ${W.left ? "" : "take"}">Left<b>${money(W.left)}</b></div></div>
@@ -1506,6 +1507,7 @@ document.addEventListener("input", e => {
 document.addEventListener("change", e => {
   const t = e.target, ds = t.dataset;
   if (t.id === "importFile" && t.files && t.files[0]) { importData(t.files[0]); t.value = ""; return; }
+  if (typeof simpleChange === "function" && simpleChange(ds, t)) return;    // v0.62 shell.js
   if (typeof cruiseChange === "function" && cruiseChange(ds, t)) return;    // v0.56 cruise.js
   if (ds.rgback) { const tr = curTrip(), pt = tr && (tr.ports || []).find(x => x.id === ds.rgback);
     // redraw after this event finishes: redrawing the sheet while its input is still blurring throws
@@ -1562,6 +1564,9 @@ function drawSettings() {
   let pb = document.getElementById("proBox");
   if (!pb) { pb = document.createElement("div"); pb.id = "proBox"; ib.before(pb); }
   drawProBox();
+  let smb = document.getElementById("simpleBox");                           // v0.62 simple mode (shell.js)
+  if (!smb) { smb = document.createElement("div"); smb.id = "simpleBox"; document.getElementById("cardList").before(smb); }
+  if (typeof drawSimpleBox === "function") drawSimpleBox();
   let fb = document.getElementById("famBox");
   if (!fb) { fb = document.createElement("div"); fb.id = "famBox"; db.before(fb); }
   drawFamBox();
