@@ -10,6 +10,8 @@
  * traveler saved.
  */
 "use strict";
+// Close a sheet if it is open (safe when it was never opened).
+const hideSheet = id => { const el = document.getElementById(id); if (el) el.classList.add("hidden"); };
 
 // "final" = the evening before the trip ends (from 2 PM); "leave" = the last morning (until 2 PM).
 function goHomeState(tr, now = new Date()) {
@@ -81,17 +83,19 @@ function cruiseReminders(add, inWin) {
 function cruiseClick(ds) {
   if (helpClick(ds)) return true;                                          // v0.57 crisis mode
   if (onboardClick(ds)) return true;                                        // v0.60 onboarding
+  if (phaseClick(ds)) return true;                                          // v0.61 on board
   if (ds.gohome) { showGoHome(); return true; }
-  if (ds.ghclose) { document.getElementById("ghSheet").classList.add("hidden"); return true; }
-  if (ds.ghgo) { const tr = curTrip(); document.getElementById("ghSheet").classList.add("hidden");
+  if (ds.ghclose) { hideSheet("ghSheet"); return true; }
+  if (ds.ghgo) { const tr = curTrip(); hideSheet("ghSheet");
     if (ds.ghgo === "perks") S.tripTab = "perks"; else { S.tripTab = "lists"; S.tripList = "final"; }
     S.hidden = S.hidden.filter(x => x !== "trips"); S.collapsed = S.collapsed.filter(x => x !== "trips"); save(); render();
     const el = document.querySelector('[data-card="trips"]'); if (el && tr) el.scrollIntoView({ behavior: "smooth", block: "start" }); return true; }
   if (ds.ghdone) { const tr = curTrip(); if (tr) { snap(); tr.homeDone = tr.end; save(); }
-    document.getElementById("ghSheet").classList.add("hidden"); render(); toast("Welcome home 🏠", true); return true; }
+    hideSheet("ghSheet"); render(); toast("Welcome home 🏠", true); return true; }
   return false;
 }
 function cruiseChange(ds, t) {
+  if (phaseChange(ds, t)) return true;                                      // v0.61 first things
   if (!ds.ghtoggle) return false;
   const tr = curTrip(); if (!tr) return true;
   if (ds.ghtoggle === "safe") tr.safeEmpty = t.checked; else if (ds.ghtoggle === "account") tr.accountVerified = t.checked;
@@ -165,8 +169,9 @@ function showHelp(view) {
 }
 function helpClick(ds) {
   if (ds.help) { showHelp(ds.help === "home" ? null : ds.help); return true; }
-  if (ds.helpclose) { document.getElementById("helpSheet").classList.add("hidden"); return true; }
-  if (ds.aboard) { const tr = curTrip(); if (tr) { tr.aboard = true; save(); } document.getElementById("helpSheet").classList.add("hidden"); render(); toast("Welcome aboard! 🚢🥂", true); return true; }
+  if (ds.helpclose) { hideSheet("helpSheet"); return true; }
+  if (ds.aboard) { const tr = curTrip(); if (tr) { tr.aboard = true; save(); } const hs = document.getElementById("helpSheet"); if (hs) hs.classList.add("hidden");
+    render(); toast("Welcome aboard! 🚢🥂", true); return true; }
   return false;
 }
 function helpSubmit(f, data) {
@@ -244,8 +249,8 @@ function prefsCardHtml() {
 }
 function onboardClick(ds) {
   if (ds.pasteopen) { showPaste(); return true; }
-  if (ds.pasteclose) { document.getElementById("pasteSheet").classList.add("hidden"); return true; }
-  if (ds.magicclose) { document.getElementById("magicSheet").classList.add("hidden"); render(); return true; }
+  if (ds.pasteclose) { hideSheet("pasteSheet"); return true; }
+  if (ds.magicclose) { hideSheet("magicSheet"); render(); return true; }
   if (ds.prefwith) { PREF_DRAFT = PREF_DRAFT || { with: "", loves: [] }; PREF_DRAFT.with = PREF_DRAFT.with === ds.prefwith ? "" : ds.prefwith; render(); return true; }
   if (ds.preflove) { PREF_DRAFT = PREF_DRAFT || { with: "", loves: [] }; const L = PREF_DRAFT.loves, i = L.indexOf(ds.preflove);
     if (i >= 0) L.splice(i, 1); else L.push(ds.preflove); render(); return true; }
@@ -258,4 +263,47 @@ function onboardSubmit(f, data) {
   if (!f.dataset.pastecruise) return false;
   if (pasteCruise(data.text || "")) { const el = document.getElementById("pasteSheet"); if (el) el.classList.add("hidden"); }
   return true;
+}
+
+// ------------------------------------------------- travel day / sail day / on board
+// v0.61 (V1 step 10, Scott's blueprint 26-28: "TRAVEL DAY - TOMORROW YOU SAIL ... GET ME TO MY SHIP",
+// "EMBARKATION - TODAY YOU SAIL", "FIRST 10 MINUTES ONBOARD - YOU'RE ONBOARD! muster, dining, shows,
+// package, Wi-Fi, explore"). HOME shows the card for the moment; nothing is stored but ticks.
+const FIRST_THINGS = [["muster", "Safety drill / muster check-in done"], ["dining", "Dinner time + first-night reservation checked"],
+  ["shows", "Show / specialty dining reservations checked"], ["cabin", "Found the cabin — safe works, bags arriving"],
+  ["wifi", "Wi-Fi / package set up on your phone"], ["explore", "Walked the ship — dining room, theater, guest services"]];
+function listFrac(tr, k) { ensureLists(tr); const L = tr.lists[k] || []; return [L.filter(i => i.done).length, L.length]; }
+function phaseCardHtml(tr) {
+  if (!tr || !tr.start || !isCruise(tr)) return "";
+  const sd = daysUntil(tr.start);
+  const tick = (ok, label, act) => `<button class="rn-row" ${act || ""}><span>${ok ? "✅" : "⬜"}</span><span class="grow">${label}</span><span class="chev">›</span></button>`;
+  if (sd === 1 || (sd === 0 && !tr.aboard)) {
+    const [dd, dn] = listFrac(tr, "docs"), [pd, pn] = listFrac(tr, "packing"), [ed, en] = listFrac(tr, "embark");
+    const w = tr.port ? PORTWX[`${tr.port}|${tr.start}`] : null, wx = w && !w.loading && !w.none ? ` · ${wmo(w.code)[0]} ${Math.round(w.hi)}° at ${esc(placeName(tr.port))}` : "";
+    return `<section class="card phase"><h3>${sd === 1 ? "🚗 Tomorrow you sail" : "🚢 Today you sail"}</h3><div class="body">
+      <div class="today-line"><b>${esc(tr.ship || tr.name)}</b>${tr.port ? ` · ${esc(placeName(tr.port))}` : ""}${wx}</div>
+      ${tick(dn > 0 && dd === dn, `Documents ${dd}/${dn}`, 'data-shellgo="plan" data-triplistgo="docs"')}
+      ${tick(pn > 0 && pd === pn, `Bags packed ${pd}/${pn}`, 'data-shellgo="plan" data-planview="packing"')}
+      ${tick(!!tr.travel || (tr.costs || []).some(c => c.cat === "parking"), tr.travel ? `Getting there: ${esc(tr.travel)}` : "Getting there + parking planned", 'data-shellgo="wallet"')}
+      ${tick(en > 0 && ed === en, `Sail-day plan ${ed}/${en}`, 'data-shellgo="plan" data-triplistgo="embark"')}
+      ${tr.port ? `<a class="btn sm ghost" style="margin-top:8px" href="${mapsLink(`${placeName(tr.port)} cruise terminal`)}" target="_blank" rel="noopener">🗺️ Directions to the terminal</a>` : ""}
+      ${sd === 0 ? `<button class="btn sm" data-aboard="1" style="margin:8px 0 0 6px">✅ We're on board</button>` : ""}</div></section>`;
+  }
+  if (sd === 0 && tr.aboard && !tr.firstDone) {
+    const F = tr.firstThings || {}, n = FIRST_THINGS.filter(([k]) => F[k]).length;
+    return `<section class="card phase"><h3>🎉 You're on board! <span class="meta">${n}/${FIRST_THINGS.length}</span></h3><div class="body">
+      <div class="today-line sub">First things — before the crowds:</div>
+      ${FIRST_THINGS.map(([k, l]) => `<label class="row"><input type="checkbox" class="tick" data-first="${k}" ${F[k] ? "checked" : ""}><span class="grow">${l}</span></label>`).join("")}
+      <button class="btn sm ghost" data-firstdone="1" style="margin-top:6px">${n === FIRST_THINGS.length ? "🥂 All done — start my cruise" : "Hide this"}</button></div></section>`;
+  }
+  return "";
+}
+function phaseClick(ds) {
+  if (ds.firstdone) { const tr = curTrip(); if (tr) { tr.firstDone = true; save(); render(); } return true; }
+  return false;
+}
+function phaseChange(ds, t) {
+  if (!ds.first) return false;
+  const tr = curTrip(); if (!tr) return true;
+  tr.firstThings = Object.assign({}, tr.firstThings, { [ds.first]: t.checked }); save(); setTimeout(render, 0); return true;
 }

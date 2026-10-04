@@ -113,7 +113,7 @@ const CARDS = {
     } },
 
   weather: { icon: "🌤️", title: "Weather",
-    meta: () => (WXDATA && WXDATA.here) ? esc(WXDATA.here.label) : "",
+    meta: () => (WXDATA && WXDATA.here) ? esc(WXDATA.here.label) + (navigator.onLine === false && WX_AT ? ` · updated ${new Date(WX_AT).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "") : "",
     body: () => {
       if (!S.city) return `<div class="empty">Add your city or ZIP to see the weather.</div>
         <button class="btn sm" data-open="sheet" style="margin-top:10px">Set location</button>`;
@@ -1752,6 +1752,9 @@ document.getElementById("ver").addEventListener("click", () => {
     if (OWNER_OPEN) document.getElementById("ownerBox").scrollIntoView({ behavior: "smooth", block: "center" }); }
 });
 setInterval(tick, 10000);
+// v0.61: show / clear the Offline pill the moment the connection changes
+window.addEventListener("online", () => { render(); loadWeather(); });
+window.addEventListener("offline", () => render());
 // Once a minute: move the NOW line and the chips - unless someone is typing.
 setInterval(() => { const a = document.activeElement;
   if (!a || !/INPUT|SELECT|TEXTAREA/.test(a.tagName)) render(); }, 60000);

@@ -69,7 +69,7 @@ function nextUp() {
 function homeHtml() {
   const tr = curTrip(), items = rightNow(tr), nx = nextUp(), bb = bigButton(tr);
   if (!tr) return addCruiseHtml();                                          // v0.60 no cruise yet: the ways in
-  return prefsCardHtml() + `<section class="card shell-home"><h3>🔥 Right now</h3><div class="body">
+  return prefsCardHtml() + phaseCardHtml(tr) + `<section class="card shell-home"><h3>🔥 Right now</h3><div class="body">
       ${items.length ? items.map(x => `<button class="rn-row" ${x.act}>${x.icon ? `<span>${x.icon}</span>` : ""}<span class="grow">${esc(x.text)}</span><span class="chev">›</span></button>`).join("")
         : `<div class="today-line">✅ Nothing needs you right now.</div>`}</div></section>
     ${nx ? `<section class="card shell-home"><h3>⏭ Next up</h3><div class="body"><div class="today-line">${nx}</div></div></section>` : ""}
@@ -113,11 +113,12 @@ function paintTabs() {
 }
 // Clicks that move between tabs (data-shellgo), optionally landing on a trips-card tab or list.
 function shellClick(ds) {
-  if (ds.planview) { PLAN_VIEW = ds.planview; render(); return true; }
+  if (ds.planview && !ds.shellgo) { PLAN_VIEW = ds.planview; render(); return true; }
+  if (ds.planview) PLAN_VIEW = ds.planview;                               // a jump into PLAN that lands on a view
   if (ds.tlday) { showDay(ds.tlday); return true; }
-  if (ds.dayclose) { document.getElementById("daySheet").classList.add("hidden"); return true; }
-  if (ds.dayplan) { document.getElementById("daySheet").classList.add("hidden"); VIEW = ds.dayplan; openQA("event"); return true; }
-  if ((ds.portedit || ds.portadd) && document.getElementById("daySheet")) document.getElementById("daySheet").classList.add("hidden");
+  if (ds.dayclose) { hideSheet("daySheet"); return true; }
+  if (ds.dayplan) { hideSheet("daySheet"); VIEW = ds.dayplan; openQA("event"); return true; }
+  if ((ds.portedit || ds.portadd) && document.getElementById("daySheet")) hideSheet("daySheet");
   if (!ds.shellgo) return false;
   if (ds.triptabgo) S.tripTab = ds.triptabgo;
   if (ds.triplistgo) { S.tripTab = "lists"; S.tripList = ds.triplistgo; }

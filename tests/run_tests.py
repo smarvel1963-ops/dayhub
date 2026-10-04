@@ -1831,7 +1831,7 @@ def t_v058_shell(b, base):
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "port": "Port Canaveral"})
     a.js("shellGo('home')")
     check("sail day morning: GET ME TO MY SHIP", "GET ME TO MY SHIP" in a.page.inner_text(".big-btn"))
-    a.page.click(".big-btn"); a.page.wait_for_timeout(150); a.page.click('[data-aboard="1"]'); a.page.wait_for_timeout(150)
+    a.page.click(".big-btn"); a.page.wait_for_timeout(150); a.page.click('#helpSheet [data-aboard="1"]'); a.page.wait_for_timeout(150)
     check("'We're on board' -> WHAT SHOULD WE DO NOW?", "WHAT SHOULD WE DO NOW" in a.page.inner_text(".big-btn"))
     a.close()
     a = mk("2026-11-18T19:00:00")
@@ -1920,6 +1920,41 @@ def t_v060_onboarding(b, base):
     a.close()
 
 
+def t_v061_travel_day_offline(b, base):
+    print("\n[v0.61 tomorrow you sail / today you sail / you're on board + offline pill]")
+    def mk(at):
+        a = App(b, base, path=CRUISE, at=at)
+        a.js("localStorage.setItem('cruisehub.startTab', 'home')"); a.page.reload(); a.page.wait_for_function("document.querySelector('#hero .greet')")
+        a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+        a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+        if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+        a.js("S.magicSeen = true; S.prefs = { skipped: true, loves: [] }; save()")
+        a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-10-02", "end": "2026-10-09", "line": "Princess", "ship": "Caribbean Princess", "port": "Port Canaveral"})
+        a.js("shellGo('home')"); a.page.wait_for_timeout(300); a.js("render()")
+        return a
+    a = mk("2026-10-01T09:00:00")
+    h = a.page.inner_text("#cards")
+    check("the day before: TOMORROW YOU SAIL with documents, bags, getting there, sail-day plan", "TOMORROW YOU SAIL" in h.upper() and "Documents 0/" in h and "Bags packed 0/" in h and "Getting there" in h and "Sail-day plan" in h, h[:400])
+    check("terminal directions", a.js("!!document.querySelector('.phase a[href*=\"google.com/maps\"]')"))
+    a.page.click('.phase [data-triplistgo="docs"]'); a.page.wait_for_timeout(150)
+    check("tap Documents -> PLAN on the documents list", a.js("TAB") == "plan" and a.js("S.tripList") == "docs")
+    a.close()
+    a = mk("2026-10-02T09:00:00")
+    check("sail day: TODAY YOU SAIL + We're on board", "TODAY YOU SAIL" in a.page.inner_text("#cards").upper() and a.js("!!document.querySelector('.phase [data-aboard]')"))
+    a.page.click('.phase [data-aboard="1"]'); a.page.wait_for_timeout(200)
+    h = a.page.inner_text("#cards")
+    check("on board: YOU'RE ON BOARD + 6 first things", "YOU'RE ON BOARD" in h.upper() and a.js("document.querySelectorAll('[data-first]').length") == 6)
+    a.page.check('[data-first="muster"]'); a.page.wait_for_timeout(150)
+    check("tick a first thing -> saved, 1/6", a.js("curTrip().firstThings.muster") is True and "1/6" in a.page.inner_text(".phase"))
+    a.page.click('[data-firstdone="1"]'); a.page.wait_for_timeout(150)
+    check("Hide this -> gone", not a.js("!!document.querySelector('.phase')"))
+    a.ctx.set_offline(True); a.js("window.dispatchEvent(new Event('offline'))"); a.page.wait_for_timeout(200)
+    check("offline: 🟠 Offline by the name, the forecast is kept", "Offline" in a.page.inner_text("#hero .brand") and a.js("!!(WXDATA && WXDATA.here)"))
+    a.ctx.set_offline(False); a.js("window.dispatchEvent(new Event('online'))"); a.page.wait_for_timeout(300)
+    check("back online: pill gone", "Offline" not in a.page.inner_text("#hero .brand"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1942,7 +1977,8 @@ def main():
                   t_v053_ask_cruise_hub, t_v054_name_bar_wallet,
                   t_v055_packing_bags, t_v056_go_home,
                   t_v057_crisis, t_v058_shell,
-                  t_v059_plan_timeline, t_v060_onboarding):
+                  t_v059_plan_timeline, t_v060_onboarding,
+                  t_v061_travel_day_offline):
             try:
                 t(b, base)
             except Exception as e:

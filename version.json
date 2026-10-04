@@ -1,6 +1,10 @@
 {
- "version": "0.60",
+ "version": "0.61",
  "notes": {
+  "0.61": [
+   "🚗 Tomorrow you sail / 🚢 Today you sail: Home shows documents, bags, getting there, the sail-day plan and directions to the terminal. Tap '✅ We're on board' and you get a first-things checklist.",
+   "🟠 Offline? The app says so by its name, keeps your last forecast, and everything you planned still works."
+  ],
   "0.60": [
    "🚢 New in Cruise Hub: paste your cruise confirmation email and it fills in the ship, dates, booking, cabin, port and final payment.",
    "🎉 YOU'RE GOING! — adding your cruise now gets a proper welcome, and a quick 'Make it yours' (who's going + your top 3 things) so Ask Cruise Hub suggests what fits you."
