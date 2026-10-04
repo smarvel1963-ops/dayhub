@@ -100,6 +100,7 @@ function shellHtml(cardHtml) {
   if (TAB === "home") return homeHtml();
   if (TAB === "explore") return exploreHtml(cardHtml);
   if (TAB === "ai") return aiTabHtml();
+  if (TAB === "plan") return planHtml(cardHtml);                          // v0.59 Today | Trip | Packing | Reservations
   return SHELL_CARDS[TAB].filter(k => k !== "inbox" || S.mail.on || S.mail.found.length).map(k => cardHtml(k)).join("");
 }
 function paintTabs() {
@@ -111,8 +112,86 @@ function paintTabs() {
 }
 // Clicks that move between tabs (data-shellgo), optionally landing on a trips-card tab or list.
 function shellClick(ds) {
+  if (ds.planview) { PLAN_VIEW = ds.planview; render(); return true; }
+  if (ds.tlday) { showDay(ds.tlday); return true; }
+  if (ds.dayclose) { document.getElementById("daySheet").classList.add("hidden"); return true; }
+  if (ds.dayplan) { document.getElementById("daySheet").classList.add("hidden"); VIEW = ds.dayplan; openQA("event"); return true; }
+  if ((ds.portedit || ds.portadd) && document.getElementById("daySheet")) document.getElementById("daySheet").classList.add("hidden");
   if (!ds.shellgo) return false;
   if (ds.triptabgo) S.tripTab = ds.triptabgo;
   if (ds.triplistgo) { S.tripTab = "lists"; S.tripList = ds.triplistgo; }
   shellGo(ds.shellgo); return true;
+}
+
+// ------------------------------------------------------------ PLAN tab
+// v0.59 (V1 step 8, Scott's map: "PLAN - TODAY | TRIP | PACKING | RESERVATIONS ... chronological, that's how
+// humans think about vacations" + "Tap any day -> Day screen"). TRIP = the whole cruise day by day, then the
+// full trip card, schedule, to-dos and lists underneath. Nothing new is stored - it's a view of the trip.
+const PLAN_VIEWS = [["today", "Today"], ["trip", "Trip"], ["packing", "Packing"], ["reservations", "Reservations"]];
+let PLAN_VIEW = "trip";
+function dayKind(tr, d) {
+  const pt = portOn(tr, d), end = tr.end || tr.start;
+  if (pt) return { icon: "⚓", title: pt.name, pt };
+  if (d === tr.start) return { icon: "🚢", title: `Sail day${tr.port ? ` — ${placeName(tr.port)}` : ""}` };
+  if (d === end) return { icon: "🏠", title: `Back in port${tr.port ? ` — ${placeName(tr.port)}` : ""}` };
+  return { icon: "🌊", title: "At sea" };
+}
+function timelineHtml() {
+  const tr = curTrip(); if (!tr || !tr.start) return "";
+  ensurePortWx(tr);
+  const sd = daysUntil(tr.start), R = readiness(tr), end = tr.end || tr.start, rows = [];
+  if (sd > 0) rows.push(`<button class="tl-row before" data-cd="open"><span class="tl-ic">🧳</span><span class="grow"><b>Before you sail</b>
+      <span class="sub">${sd} day${sd === 1 ? "" : "s"} to go · ${R.pct}% ready${R.next ? ` · next: ${esc(R.next.action.replace(/\s*\([^)]*\)/g, ""))}` : ""}</span></span><span class="chev">›</span></button>`);
+  for (let d = tr.start, n = 1; d <= end; d = addDays(d, 1), n++) {
+    const k = dayKind(tr, d), pt = k.pt, past = d < today(), now = d === today();
+    const bits = pt ? [pt.arrive && `in ${hm(pt.arrive)}`, pt.allAboard && `all aboard ${hm(aaLocal(pt))}`, pt.excursion && pt.excursion.toLowerCase() !== "none" && `🤿 ${esc(pt.excursion)}`, portWxText(pt)].filter(Boolean)
+      : d === tr.start ? [tr.ship && `board ${esc(tr.ship)}`] : d === end ? ["getting home"] : [];
+    rows.push(`<button class="tl-row ${past ? "past" : ""} ${now ? "now" : ""}" data-tlday="${d}"><span class="tl-ic">${k.icon}</span><span class="grow">
+        <b>${esc(k.title)}</b>${now ? ` <span class="pill">TODAY</span>` : ""}<span class="sub">Day ${n} · ${dayName(d)} ${prettyDate(d)}${bits.length ? " · " + bits.join(" · ") : ""}</span></span><span class="chev">›</span></button>`);
+  }
+  return `<section class="card timeline"><h3>🗺️ Your cruise, day by day</h3><div class="body">${rows.join("")}</div></section>`;
+}
+function reservationsHtml() {
+  const tr = curTrip(); if (!tr) return `<div class="empty">Plan a cruise first.</div>`;
+  const ex = (tr.ports || []).filter(p => p.excursion && p.excursion.toLowerCase() !== "none").sort((a, b) => a.day.localeCompare(b.day));
+  const plans = []; if (tr.start) for (let d = addDays(tr.start, -3); d <= addDays(tr.end || tr.start, 1); d = addDays(d, 1))
+    dayItems(d).filter(x => ["event", "g"].includes(x.kind)).forEach(x => plans.push({ d, x }));
+  const books = (tr.costs || []).filter(c => ["hotel", "parking", "travel", "excursion", "package"].includes(c.cat));
+  const row = (ic, title, sub) => `<div class="row"><span class="grow">${ic} <b>${esc(title)}</b><span class="sub">${sub}</span></span></div>`;
+  return `<section class="card"><h3>🎟️ Reservations</h3><div class="body">
+      <div class="day-label">Excursions</div>${ex.length ? ex.map(p => row("🤿", p.excursion, `${dayName(p.day)} ${prettyDate(p.day)} · ${esc(p.name)}${p.meet ? ` · meet ${hm(p.meet)}` : ""}${p.where ? ` at ${esc(p.where)}` : ""}`)).join("") : `<div class="today-line sub">None yet — add one on a port day (tap the day in Trip).</div>`}
+      <div class="day-label" style="margin-top:10px">Plans around the trip</div>${plans.length ? plans.map(({ d, x }) => row("📅", x.title, `${dayName(d)} ${prettyDate(d)}${x.t ? ` · ${hm(x.t)}` : ""}${x.sub ? ` · ${esc(x.sub)}` : ""}`)).join("") : `<div class="today-line sub">Dinner, shows, spa — add them with ＋ and they show here.</div>`}
+      <div class="day-label" style="margin-top:10px">Booked around the cruise</div>${books.length ? books.map(c => row(costLabel(c.cat).split(" ")[0], c.what || costLabel(c.cat).replace(/^\S+\s/, ""), `${money(c.amt)} · ${c.paid ? "paid ✓" : "not paid yet"}`)).join("") : `<div class="today-line sub">Hotel, parking, flights — add them in Wallet → Money.</div>`}
+      <button class="add-link" data-qa="event">＋ Add a plan (dinner, show, spa…)</button></div></section>`;
+}
+function planHtml(cardHtml) {
+  const nav = `<div class="tabs planview">${PLAN_VIEWS.map(([k, l]) => `<button class="tab ${k === PLAN_VIEW ? "on" : ""}" data-planview="${k}">${l}</button>`).join("")}</div>`;
+  const cards = ks => ks.filter(k => k !== "inbox" || S.mail.on || S.mail.found.length).map(k => cardHtml(k)).join("");
+  if (PLAN_VIEW === "today") return nav + cards(["schedule", "todos"]);
+  if (PLAN_VIEW === "packing") { S.tripTab = "lists"; if (!["packing", "final"].includes(S.tripList)) S.tripList = "packing"; return nav + cards(["trips"]); }
+  if (PLAN_VIEW === "reservations") return nav + reservationsHtml();
+  return nav + timelineHtml() + cards(SHELL_CARDS.plan);
+}
+// Day screen: everything about one day, then what to do next (Scott: "There should almost never be a dead end").
+function showDay(d) {
+  const tr = curTrip(); if (!tr) return;
+  const k = dayKind(tr, d), pt = k.pt, items = dayItems(d).filter(x => !["sun"].includes(x.kind));
+  let el = document.getElementById("daySheet");
+  if (!el) { el = document.createElement("div"); el.id = "daySheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Day"); document.body.appendChild(el); }
+  const w = pt ? portWxText(pt) : "", al = pt ? cruiseWxAlerts(PORTWX[`${pt.name}|${pt.day}`], "port") : [];
+  el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
+    <div class="sheet-head"><h2>${k.icon} ${esc(k.title)}</h2><button class="icon-btn" data-dayclose="1" aria-label="Close">✕</button></div>
+    <p class="fine" style="margin-top:0">${dayName(d)} ${prettyDate(d)}${w ? ` · ${w}` : ""}</p>
+    ${al.map(a => `<div class="wx-alert">${a.icon} ${esc(a.text)}</div>`).join("")}
+    ${pt && pt.allAboard ? `<div class="row"><span class="grow"><b>All aboard</b>${Number(pt.shipOffset) ? `<span class="sub">${hm(pt.allAboard)} ship time</span>` : ""}</span><b>${hm(aaLocal(pt))}</b></div>
+      <div class="row"><span class="grow"><b>Head back by</b><span class="sub">${guardMargin()} min margin + ${guardBack(pt)} min trip back</span></span><b>${hm(guardBy(pt))}</b></div>` : ""}
+    ${pt && pt.excursion && pt.excursion.toLowerCase() !== "none" ? `<div class="row"><span class="grow">🤿 <b>${esc(pt.excursion)}</b><span class="sub">${[pt.meet && `meet ${hm(pt.meet)}`, pt.where, pt.walk && `${pt.walk} min walk from the cabin`].filter(Boolean).map(esc).join(" · ")}</span></span></div>` : ""}
+    ${pt && (pt.cash || pt.currency) ? `<div class="today-line">💵 ${esc([pt.cash && `bring ${pt.cash}`, pt.currency].filter(Boolean).join(" · "))}</div>` : ""}
+    <div class="day-label" style="margin-top:10px">The day</div>
+    ${items.length ? items.map(x => `<div class="row"><span class="time">${x.t ? hm(x.t) : ""}</span><span class="grow">${x.icon || ""} ${esc(x.title)}${x.sub ? `<span class="sub">${esc(x.sub)}</span>` : ""}</span></div>`).join("") : `<div class="today-line sub">🌊 Nothing planned yet — a good day to relax.</div>`}
+    <div class="foot-actions" style="flex-wrap:wrap;margin-top:10px">
+      ${pt ? `<button class="btn sm ghost" data-portedit="${pt.id}">✏️ Edit this port</button>` : d !== tr.start && d !== (tr.end || tr.start) ? `<button class="btn sm ghost" data-portadd="${d}">⚓ It's a port day</button>` : ""}
+      <button class="btn sm ghost" data-dayplan="${d}">＋ Add a plan this day</button>
+      ${d === today() && guardFor(tr) ? `<button class="btn sm" data-rg="open">🚢 Return Guard</button>` : ""}</div></div>`;
+  el.classList.remove("hidden");
 }

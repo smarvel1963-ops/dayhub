@@ -1843,6 +1843,40 @@ def t_v058_shell(b, base):
     a.close()
 
 
+def t_v059_plan_timeline(b, base):
+    print("\n[v0.59 PLAN: Today | Trip | Packing | Reservations + the day-by-day timeline + day screen]")
+    a = App(b, base, path=CRUISE, at="2026-11-13T09:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-16", "line": "Princess", "ship": "Caribbean Princess", "port": "Port Canaveral"})
+    a.js("""curTrip().ports = [{ id: 'p1', name: 'Grand Turk', day: '2026-11-14', arrive: '08:00', allAboard: '16:30', excursion: 'Hummer tour', meet: '08:30', where: 'Pier gate' }];
+            curTrip().costs = [{ id: 'c1', cat: 'hotel', what: 'Westgate', amt: 336, paid: true }]; save(); shellGo('plan')""")
+    views = a.js("[...document.querySelectorAll('[data-planview]')].map(b => b.textContent)")
+    check("PLAN views: Today | Trip | Packing | Reservations (Trip first shown)", views == ["Today", "Trip", "Packing", "Reservations"] and a.js("PLAN_VIEW") == "trip", views)
+    tl = a.page.inner_text(".timeline")
+    check("timeline: every day in order - sail day, at sea (TODAY), Grand Turk, at sea, back in port", tl.index("Sail day") < tl.index("At sea") < tl.index("Grand Turk") < tl.index("Back in port") and "TODAY" in tl and a.js("document.querySelectorAll('.tl-row').length") == 5, tl[:500])
+    check("port row: all aboard + excursion", "all aboard 4:30 PM" in tl and "Hummer tour" in tl)
+    check("the trip card, schedule etc. are still under the timeline", a.js("!!document.querySelector('[data-card=\"trips\"]') && !!document.querySelector('[data-card=\"schedule\"]')"))
+    a.page.click('[data-tlday="2026-11-14"]'); a.page.wait_for_timeout(200)
+    ds = a.page.inner_text("#daySheet")
+    check("day screen: all aboard, head back by, excursion with meeting point, the day's items, next actions",
+          "All aboard" in ds and "Head back by" in ds and "3:10 PM" in ds and "Pier gate" in ds and "ALL ABOARD" in ds and "Edit this port" in ds and "Add a plan this day" in ds, ds[:500])
+    a.page.click('[data-dayclose="1"]')
+    a.page.click('[data-tlday="2026-11-13"]'); a.page.wait_for_timeout(150)
+    check("a sea day offers 'It's a port day'", "It's a port day" in a.page.inner_text("#daySheet"))
+    a.page.click('[data-dayclose="1"]')
+    check("schedule ‹ › still works under the timeline", a.js("(() => { document.querySelector('[data-card=\"schedule\"] [data-day=\"1\"]').click(); return VIEW; })()") == "2026-11-14")
+    a.page.click('[data-planview="packing"]'); a.page.wait_for_timeout(150)
+    check("Packing view = the packing list", a.js("S.tripTab") == "lists" and "Swimsuits" in a.card("trips"))
+    a.page.click('[data-planview="reservations"]'); a.page.wait_for_timeout(150)
+    r = a.page.inner_text("#cards")
+    check("Reservations: excursions + bookings around the cruise", "Hummer tour" in r and "Westgate" in r and "Add a plan" in r, r[:400])
+    a.page.click('[data-planview="today"]'); a.page.wait_for_timeout(150)
+    check("Today view = schedule + to-dos only", a.js("!!document.querySelector('[data-card=\"schedule\"]') && !document.querySelector('[data-card=\"trips\"]')"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1864,7 +1898,8 @@ def main():
                   t_v051_cruise_weather, t_v052_return_guard,
                   t_v053_ask_cruise_hub, t_v054_name_bar_wallet,
                   t_v055_packing_bags, t_v056_go_home,
-                  t_v057_crisis, t_v058_shell):
+                  t_v057_crisis, t_v058_shell,
+                  t_v059_plan_timeline):
             try:
                 t(b, base)
             except Exception as e:

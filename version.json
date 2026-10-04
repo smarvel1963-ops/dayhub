@@ -1,6 +1,9 @@
 {
- "version": "0.58",
+ "version": "0.59",
  "notes": {
+  "0.59": [
+   "📅 Plan now has Today · Trip · Packing · Reservations. Trip shows your whole cruise day by day — sail day, ports with all-aboard and excursions, sea days — tap a day for everything about it."
+  ],
   "0.58": [
    "🧭 Cruise Hub's new layout: five buttons along the bottom — Home, Plan, Explore, Wallet, AI. Home shows only what matters right now (3 things at most) and the next thing coming up.",
    "🔘 One big button that always does the right thing for the moment: What am I forgetting? → Get me to my ship → Back to ship → What should we do now? / Plan tonight → Get me home ready."

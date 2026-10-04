@@ -511,3 +511,15 @@ body.shell .arrange-link { display: none; }
 .port-card .sub { color: var(--dim); font-size: 13px; }
 body.shell[data-tab="home"] .fab, body.shell[data-tab="ai"] .fab { display: none; }
 
+/* v0.59 PLAN: views + the day-by-day timeline */
+.planview { margin: 0 0 10px; }
+.tl-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 2px; border: 0; border-top: 1px solid var(--line);
+  background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.tl-row:first-child { border-top: 0; }
+.tl-row .tl-ic { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--card); font-size: 17px; }
+.tl-row .sub { display: block; color: var(--dim); font-size: 13px; margin-top: 2px; }
+.tl-row .chev { color: var(--dim); font-size: 20px; }
+.tl-row.past { opacity: .5; }
+.tl-row.now .tl-ic { background: var(--accent); }
+.tl-row.before .tl-ic { background: rgba(252,211,77,.2); }
+
