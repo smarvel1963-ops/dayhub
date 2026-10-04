@@ -468,3 +468,9 @@ details.steps .fine { margin-top: 8px; }
 .sugbox .row:first-of-type { border-top: 0; }
 .bagtabs { margin: 4px 0 2px; }
 
+/* v0.56 final night / time to go home (hero) */
+.gohome .gh-list { display: grid; grid-template-columns: 1fr; gap: 2px; font-size: 13px; margin-top: 4px; opacity: .95; }
+.car-form { flex-wrap: wrap; gap: 6px; }
+.car-form input[name=where] { flex: 1 1 100%; }
+.car-form input[name=level], .car-form input[name=spot] { flex: 1 1 30%; min-width: 0; }
+

@@ -1694,6 +1694,51 @@ def t_v055_packing_bags(b, base):
     a.close()
 
 
+def t_v056_go_home(b, base):
+    print("\n[v0.56 final night + safe check + remember my car + time to go home]")
+    def mk(at):
+        a = App(b, base, path=CRUISE, at=at)
+        a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+        a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+        if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+        a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess"})
+        return a
+    # mid-cruise: car chip, no final night yet
+    a = mk("2026-11-14T10:00:00")
+    check("on the cruise: 'Remember where you parked' chip, no final night yet", "Remember where you parked" in a.page.inner_text("#hero") and a.js("goHomeState(curTrip())") is None)
+    a.close()
+    # the evening before the end (7 PM -05:00 = 6 PM Chicago)
+    a = mk("2026-11-18T19:00:00")
+    h = a.page.inner_text("#hero")
+    check("final evening: hero = FINAL NIGHT with the checklist + GET ME HOME READY", "FINAL NIGHT" in h and "GET ME HOME READY" in h and "Cabin safe not checked" in h and "Final-night bag 0/" in h, h[:400])
+    r = a.js("reminderList().filter(x => x.key.startsWith('gh:')).map(x => x.key.split(':')[2] + '@' + new Date(x.at).toTimeString().slice(0,5)).join()")
+    check("8 PM reminder to check the safe", r == "safe@20:00", r)
+    a.page.click('#hero [data-gohome="open"]'); a.page.wait_for_timeout(200)
+    a.page.check('[data-ghtoggle="safe"]'); a.page.wait_for_timeout(200)
+    check("tick 'my safe is EMPTY' -> saved, reminder gone", a.js("curTrip().safeEmpty") is True and a.js("reminderList().filter(x => x.key.startsWith('gh:')).length") == 0)
+    a.page.fill('form[data-car] [name=where]', "Port garage B"); a.page.fill('form[data-car] [name=level]', "3"); a.page.fill('form[data-car] [name=spot]', "C318")
+    a.js("document.querySelector('form[data-car]').requestSubmit()"); a.page.wait_for_timeout(200)
+    check("car saved", a.js("curTrip().car.where") == "Port garage B" and a.js("carText(curTrip().car)") == "Port garage B · Level 3 · Row/space C318")
+    a.page.click('[data-ghclose="1"]'); a.page.wait_for_timeout(100)
+    h = a.page.inner_text("#hero")
+    check("hero shows the car + safe done", "Cabin safe is EMPTY" in h and "Port garage B" in h)
+    a.page.click('#hero [data-gohome="open"]'); a.page.wait_for_timeout(150); a.page.click('[data-ghgo="final"]'); a.page.wait_for_timeout(200)
+    check("'Open' on the bag goes to Trips -> Lists -> Final-night bag", a.js("S.tripTab") == "lists" and a.js("S.tripList") == "final")
+    a.close()
+    # last morning
+    a = mk("2026-11-19T08:00:00")
+    a.js("curTrip().car = { where: 'Port garage B', level: '3', spot: 'C318' }; save(); render()")
+    h = a.page.inner_text("#hero")
+    check("last morning: TIME TO GO HOME + where the car is", "TIME TO GO HOME" in h and "Port garage B" in h, h[:300])
+    a.page.click('#hero [data-gohome="open"]'); a.page.wait_for_timeout(150)
+    a.page.click('[data-ghdone="1"]'); a.page.wait_for_timeout(200)
+    check("'We're off the ship' ends it", a.js("goHomeState(curTrip())") is None and "TIME TO GO HOME" not in a.page.inner_text("#hero"))
+    a.close()
+    a = App(b, base); setup(a)
+    check("Day Hub loads cruise.js quietly (no cruise hero)", a.js("typeof goHomeState") == "function" and not a.js("!!document.querySelector('#hero [data-gohome]')"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1714,7 +1759,7 @@ def main():
                   t_v049_scenes, t_v050_countdown_family,
                   t_v051_cruise_weather, t_v052_return_guard,
                   t_v053_ask_cruise_hub, t_v054_name_bar_wallet,
-                  t_v055_packing_bags):
+                  t_v055_packing_bags, t_v056_go_home):
             try:
                 t(b, base)
             except Exception as e:

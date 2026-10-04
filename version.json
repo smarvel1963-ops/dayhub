@@ -1,6 +1,10 @@
 {
- "version": "0.55",
+ "version": "0.56",
  "notes": {
+  "0.56": [
+   "🌙 Final night: the evening before you get off, Cruise Hub shows what's left — ship account, unused benefits, final-night bag, the cabin safe, your car — with GET ME HOME READY. An 8 PM nudge to check the safe.",
+   "🚗 Remember my car: save the garage, level and space; the last morning shows it under TIME TO GO HOME."
+  ],
   "0.55": [
    "🧳 Packing by bag: every item sits in Checked, Carry-on or Port bag — tap to move it, or view one bag at a time.",
    "✨ Suggested for your trip: the port forecast and your excursions suggest what to bring (a Hummer tour → driver's license, snorkeling → phone pouch, high UV → sun hat), with the reason. One tap adds it.",

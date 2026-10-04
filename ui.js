@@ -507,6 +507,7 @@ let CD_COUNTED = false;
 function cruiseCountdown(tr) {
   if (!tr || !tr.start) return "";
   { const g = guardFor(tr); if (g) return guardHtml(g); }                 // v0.52 port day: Return Guard takes the hero
+  { const st = typeof goHomeState === "function" && goHomeState(tr); if (st) return goHomeHtml(tr, st); }   // v0.56 final night / last morning
   const sd = daysUntil(tr.start), end = tr.end || tr.start;
   if (daysUntil(end) < 0) return "";
   const R = readiness(tr), who = esc(tr.ship || tr.name);
@@ -1248,6 +1249,7 @@ document.addEventListener("submit", e => {
   if (f.dataset.remember !== undefined) { const x = (data.text || "").trim(); if (!x) return;
     S.remember.push({ id: uid(), day: addDays(today(), 1), text: x }); save(); render(); toast("📌 Saved for the morning"); return; }
   if (f.dataset.route) { S.route = { from: data.from.trim(), to: data.to.trim() }; save(); loadWeather(); return; }
+  if (typeof cruiseSubmit === "function" && cruiseSubmit(f, data)) return;   // v0.56 cruise.js
   if (f.dataset.cost) { const tr = S.trips.find(x => x.id === f.dataset.cost), amt = Number(data.amt);
     if (tr && amt > 0) { tr.costs = tr.costs || []; tr.costs.push({ id: uid(), cat: data.cat || "other", what: String(data.what || "").trim(), amt, paid: data.paid === "1" }); save(); render(); buzz(); }
     return; }
@@ -1412,6 +1414,7 @@ document.addEventListener("click", e => {
   if (ds.top3 === "pick") { top3Pick(true); render(); return; }
   if (ds.t3up) { const T = S.top3.items, i = T.findIndex(x => x.id === ds.t3up); if (i > 0) [T[i - 1], T[i]] = [T[i], T[i - 1]]; saveLocal(); render(); return; }
   if (ds.t3del) { S.top3.items = S.top3.items.filter(x => x.id !== ds.t3del); saveLocal(); render(); return; }
+  if (typeof cruiseClick === "function" && cruiseClick(ds)) return;          // v0.56 cruise.js
   if (ds.cd) { showReady(); return; }
   if (ds.rg) { showGuard(); return; }
   if (ds.rgclose) { document.getElementById("rgSheet").classList.add("hidden"); return; }
@@ -1492,6 +1495,7 @@ document.addEventListener("input", e => {
 document.addEventListener("change", e => {
   const t = e.target, ds = t.dataset;
   if (t.id === "importFile" && t.files && t.files[0]) { importData(t.files[0]); t.value = ""; return; }
+  if (typeof cruiseChange === "function" && cruiseChange(ds, t)) return;    // v0.56 cruise.js
   if (ds.rgback) { const tr = curTrip(), pt = tr && (tr.ports || []).find(x => x.id === ds.rgback);
     // redraw after this event finishes: redrawing the sheet while its input is still blurring throws
     if (pt) { pt.backMin = Math.max(0, Math.min(240, Number(t.value) || 0)); save(); setTimeout(() => { render(); showGuard(); }, 0); } return; }
