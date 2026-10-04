@@ -1,6 +1,9 @@
 {
- "version": "0.44",
+ "version": "0.45",
  "notes": {
+  "0.45": [
+   "🚢 Cruise Hub: its own welcome, works with any cruise line (pick yours, or add your own package perks), a 'Your cruise card' guide with a tip for your line, and 'What am I forgetting?' now opens on its own screen"
+  ],
   "0.44": [
    "Small fix: tidier wording in the backup box"
   ],

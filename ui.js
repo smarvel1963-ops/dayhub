@@ -268,7 +268,7 @@ const CARDS = {
         body = P ? `<div class="today-line"><b>${esc(P.name)}</b> — what's already included:</div>` + P.includes.map(x => `<div class="today-line">✅ ${esc(x)}</div>`).join("") +
             `<div class="fine">From <a href="${PKG_SRC}" target="_blank" rel="noopener" style="color:var(--accent)">Princess's package terms</a> (sailings from Jan 14, 2026). Your own booking's terms win if they differ.</div>
              <form class="inline-add" data-drink="${tr.id}"><input name="price" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Drink price $ — is it included?" required><button class="btn sm">Check</button></form>`
-          : `<div class="empty">Bought a drinks / dining / Wi-Fi package? Pick it on the trip (Edit → Package) and Day Hub shows what's included. Any line: add your perks below.</div>`;
+          : `<div class="empty">Custom package: add what your drinks / dining / Wi-Fi package includes below${linePkgs(tr.line).length ? ` — or pick your line's package on the trip (Edit → Package) to fill it in` : ""}.</div>`;
         body += `<div class="day-label" style="margin-top:12px">Use it before you lose it</div>` + ((tr.perks || []).length ? tr.perks.map(x => {
             const left = x.total ? x.total - x.used : null;
             return `<div class="row"><span class="grow">${esc(x.name)}<span class="sub">${x.unit === "$" ? `${money(x.used)} used${x.total ? ` of ${money(x.total)}` : " — set the amount ✏️"}` : `${x.used} of ${x.total} used`}</span></span>
@@ -277,14 +277,13 @@ const CARDS = {
               <button class="x" data-perkedit="${tr.id}:${x.id}" aria-label="Set amount">✏️</button>
               <button class="x" data-tripdel="${tr.id}:perks:${x.id}" aria-label="Remove">✕</button></div>`; }).join("")
           : `<div class="empty">Nothing tracked yet.</div>`) + `<button class="add-link" data-tripqa="tperk">＋ Add a perk (credit, meals, photos…)</button>`;
-        if (/princess/i.test(tr.line || "")) body += `<div class="day-label" style="margin-top:12px">🟠 Your Medallion (Princess)</div>
-            <div class="today-line">• A quarter-sized disc you wear — it's your boarding pass, cabin key, ID and how you pay onboard.</div>
-            <div class="today-line">• Your cabin door unlocks as you walk up to it.</div>
-            <div class="today-line">• OceanNow finds you by your Medallion — order food and drinks to your cabin or where you're sitting.</div>
-            <div class="today-line">• Get it: mailed home (a fee — set it in online check-in at least 13 days before sailing, US / PR / Canada addresses) or picked up free at the port.</div>
-            <div class="today-line">• Use the Princess app with it: check-in, your calendar / planner, finding your group.</div>
-            <div class="today-line">⚠️ Before you leave the cabin: Medallion → pocket or lanyard.</div>
-            <div class="fine">From <a href="https://www.princess.com/ships-and-experience/princess-medallionclass/ocean-faq" target="_blank" rel="noopener" style="color:var(--accent)">Princess MedallionClass FAQ</a>.</div>`;
+        if (isCruise(tr)) { const tip = lineTip(tr.line);
+          body += `<div class="day-label" style="margin-top:12px">🪪 Your cruise card / wearable</div>
+            <div class="today-line">• It's your cabin key, your ID on and off the ship, and how you pay for everything onboard.</div>
+            <div class="today-line">• Every charge goes to your onboard account — check it in the cruise line's app or at guest services.</div>
+            <div class="today-line">• Lost it? Guest services replaces it — report it straight away.</div>
+            <div class="today-line">⚠️ Before you leave the cabin — and before every port — it goes in your pocket or on a lanyard.</div>` +
+            (tip ? `<div class="today-line">💡 <b>${esc(tip.line)}:</b> ${esc(tip.text)}</div>` : ""); }
       } else if (tab === "lists") {
         ensureLists(tr); const keys = tripListKeys(tr);
         const lk = keys.includes(S.tripList) ? S.tripList : "packing", L = (tr.lists && tr.lists[lk]) || [];
@@ -447,10 +446,13 @@ function listCard(key, word) {
 }
 
 function welcomeHtml() {
-  return `<section class="card welcome"><h2>Welcome to Day Hub 👋</h2><p>Two quick things and your day is set.</p>
+  // v0.45: Cruise Hub greets as itself and has no profession packs.
+  return `<section class="card welcome"><h2>${MODE === "cruise" ? "Welcome to Cruise Hub 🚢" : "Welcome to Day Hub 👋"}</h2>
+    <p>${MODE === "cruise" ? "Two quick things, then plan your cruise." : "Two quick things and your day is set."}</p>
     <form class="qa-form" data-setup="1"><input name="name" placeholder="Your first name" autocomplete="given-name">
-      <input name="city" placeholder="City or ZIP for weather (e.g. 72032)" required>
-      <select name="pack">${Object.entries(PACKS).map(([k, p]) => `<option value="${k}">${p.label}</option>`).join("")}</select>
+      <input name="city" placeholder="${MODE === "cruise" ? "Your home city or ZIP (e.g. 72032)" : "City or ZIP for weather (e.g. 72032)"}" required>
+      ${MODE === "cruise" ? `<input type="hidden" name="pack" value="general">`
+        : `<select name="pack">${Object.entries(PACKS).map(([k, p]) => `<option value="${k}">${p.label}</option>`).join("")}</select>`}
       <button class="btn">Let's go</button></form></section>`;
 }
 
@@ -461,7 +463,7 @@ function welcomeHtml() {
 // MINI_OPEN lives for this visit only (never saved). A card with content, or one
 // opened, draws exactly as before.
 const MINI = {
-  trips:      [() => !curTrip(), 'data-qa="trip"', "Plan a trip"],
+  trips:      [() => MODE !== "cruise" && !curTrip(), 'data-qa="trip"', "Plan a trip"],
   top3:       [() => !TOP3_BUSY && !(S.top3.day === today() && S.top3.items.length), 'data-top3="pick"', "Pick my top 3"],
   payday:     [() => !S.payday.freq, "open", "Set up payday"],
   budget:     [() => !budget().income, 'data-qa="pay"', "Set income"],
@@ -525,6 +527,17 @@ function tick() {
   const s = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   const m = s.match(/^(.*?)\s*([AaPp]\.?\s?[Mm]\.?)$/);
   c.innerHTML = m ? `${m[1]}<small>${m[2].toUpperCase()}</small>` : s;
+}
+
+// v0.45: "What am I forgetting?" opens its own sheet (it used to borrow the + Add sheet).
+function showForget() {
+  let el = document.getElementById("forgetSheet");
+  if (!el) { el = document.createElement("div"); el.id = "forgetSheet"; el.className = "sheet"; el.setAttribute("role", "dialog");
+    el.setAttribute("aria-label", "What am I forgetting?"); document.body.appendChild(el); }
+  el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
+    <div class="sheet-head"><h2>🛳️ What am I forgetting?</h2><button class="icon-btn" data-forgetclose="1" aria-label="Close">✕</button></div>
+    <div class="qa-form">${forgetHtml()}<button class="btn" data-forgetclose="1">Got it</button></div></div>`;
+  el.classList.remove("hidden");
 }
 
 // ---------------------------------------------------------- toast + undo
@@ -775,7 +788,8 @@ function qaFields(type) {
         <input name="tname" placeholder="Name (e.g. Caribbean cruise)" value="${v("name")}" required autocomplete="off"></div>
       <div class="two"><label class="field" style="margin:0">Leave<input name="start" type="date" value="${v("start")}" required></label>
         <label class="field" style="margin:0">Back<input name="end" type="date" value="${v("end")}"></label></div>
-      <div class="two"><input name="line" placeholder="Cruise line / airline" value="${v("line")}"><input name="ship" placeholder="Ship (optional)" value="${v("ship")}"></div>
+      <div class="two"><input name="line" list="lineList" placeholder="Cruise line / airline" value="${v("line")}" autocomplete="off"><input name="ship" placeholder="Ship (optional)" value="${v("ship")}"></div>
+      <datalist id="lineList">${CRUISE_LINE_LIST.map(n => `<option value="${esc(n)}">`).join("")}</datalist>
       <div class="two"><input name="port" placeholder="Leaving from (port / city)" value="${v("port")}"><input name="travelers" type="number" min="1" inputmode="numeric" placeholder="People" value="${v("travelers")}"></div>
       <div class="two"><input name="total" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Total price $" value="${v("total")}">
         <label class="field" style="margin:0">Final payment due<input name="finalDue" type="date" value="${v("finalDue")}"></label></div>
@@ -784,7 +798,7 @@ function qaFields(type) {
       <div class="two"><input name="booking" placeholder="Booking number" value="${v("booking")}" autocomplete="off"><input name="cabin" placeholder="Cabin (e.g. D-512)" value="${v("cabin")}" autocomplete="off"></div>
       <label class="field" style="margin:0">Travel insurance<select name="insurance">${["undecided", "bought", "declined"].map(o => `<option value="${o}" ${(tr.insurance || "undecided") === o ? "selected" : ""}>${{ undecided: "Not decided yet", bought: "Bought", declined: "Decided not to" }[o]}</option>`).join("")}</select></label>
       <input name="travel" placeholder="Getting there (drive / flight + hotel night before…)" value="${v("travel")}" autocomplete="off">
-      <label class="field" style="margin:0">Package<select name="pkg"><option value="">None / not sure</option>${Object.entries(PACKAGES).map(([k, P]) => `<option value="${k}" ${tr.pkg === k ? "selected" : ""}>${P.name}</option>`).join("")}<option value="other" ${tr.pkg === "other" ? "selected" : ""}>Another line's package (add perks yourself)</option></select></label>
+      <label class="field" style="margin:0">Package<select name="pkg"><option value="">Custom package (add your own perks)</option>${linePkgs(tr.line).concat(tr.pkg && PACKAGES[tr.pkg] && !linePkgs(tr.line).includes(tr.pkg) ? [tr.pkg] : []).map(k => `<option value="${k}" ${tr.pkg === k ? "selected" : ""}>${esc(PACKAGES[k].name)}</option>`).join("")}</select></label>
       <div class="hint">Day Hub never asks for passport or ID numbers — only whether they're ready.</div>
       <div class="hint">${TRIP_EDIT ? "Changing a trip keeps its payments, spending and lists." : "Packing, documents and before-you-go lists are filled in for you."}</div>
       ${TRIP_EDIT ? `<button type="button" class="btn sm ghost" data-tripremove="${TRIP_EDIT}">Delete this trip</button>` : ""}`; })(),
@@ -1069,7 +1083,7 @@ document.addEventListener("click", e => {
   const ne = e.target.closest && e.target.closest("[data-noteedit]");
   if (ne) { NOTE_EDIT = ne.dataset.noteedit; openQA("note"); return; }
   if (e.target.classList && e.target.classList.contains("sheet")) {         // tap on the dim backdrop
-    if (e.target.id === "sheet") closeSettings(); else if (e.target.id === "pulseSheet" || e.target.id === "askSheet") e.target.classList.add("hidden"); else closeQA(); return;
+    if (e.target.id === "sheet") closeSettings(); else if (e.target.id === "pulseSheet" || e.target.id === "askSheet" || e.target.id === "forgetSheet") e.target.classList.add("hidden"); else closeQA(); return;
   }
   const t = e.target.closest("button, h3[data-collapse]");
   if (!t) return;
@@ -1126,7 +1140,8 @@ document.addEventListener("click", e => {
   if (ds.data === "export") { exportData(); return; }
   if (ds.data === "import") { document.getElementById("importFile").click(); return; }
   if (ds.data === "erase") { eraseAll(); return; }
-  if (ds.forget) { openQA("forget"); return; }
+  if (ds.forget) { showForget(); return; }
+  if (ds.forgetclose) { document.getElementById("forgetSheet").classList.add("hidden"); return; }
   if (ds.perk) { const [tid, pid] = ds.perk.split(":"); const tr = S.trips.find(x => x.id === tid); const x = tr && tr.perks.find(y => y.id === pid);
     if (x) { if (x.unit === "$") { PERK_EDIT = pid; openQA("tperkset"); return; } x.used = Math.min(x.used + 1, x.total || x.used + 1); save(); render(); buzz(); } return; }
   if (ds.perkedit) { PERK_EDIT = ds.perkedit.split(":")[1]; openQA("tperkset"); return; }
@@ -1244,6 +1259,11 @@ document.addEventListener("click", e => {
 
 document.addEventListener("input", e => {
   const t = e.target; if (t.dataset && t.dataset.dtext !== undefined && DUMP[Number(t.dataset.dtext)]) DUMP[Number(t.dataset.dtext)].title = t.value;
+  // v0.45: the trip's package list follows the cruise line as it's typed (presets only for their own line).
+  if (t.name === "line" && t.form && t.form.id === "qaForm") { const sel = t.form.querySelector("[name=pkg]"); if (!sel) return;
+    const keep = sel.value, ks = linePkgs(t.value);
+    sel.innerHTML = `<option value="">Custom package (add your own perks)</option>` + ks.map(k => `<option value="${k}">${esc(PACKAGES[k].name)}</option>`).join("");
+    sel.value = ks.includes(keep) ? keep : ""; }
 });
 document.addEventListener("change", e => {
   const t = e.target, ds = t.dataset;
@@ -1286,6 +1306,7 @@ function openSettings() {
 function drawSettings() {
   document.getElementById("setName").value = S.name;
   document.getElementById("setCity").value = S.city;
+  document.getElementById("setPack").closest("label").hidden = MODE === "cruise";   // v0.45: no profession packs in Cruise Hub
   document.getElementById("setPack").innerHTML = Object.entries(PACKS).map(([k, p]) => `<option value="${k}" ${k === S.pack ? "selected" : ""}>${p.label}</option>`).join("");
   drawCardList();
   let db = document.getElementById("dataBox");
@@ -1346,7 +1367,13 @@ function drawProBox() {
   const g = document.getElementById("proBox"); if (!g) return;
   g.hidden = !switchOn("PRO_GATE"); if (g.hidden) { g.innerHTML = ""; return; }
   const p = proState(), who = p.buyer ? esc(p.buyer) : "";
-  const what = `<ul class="pro-list"><li>🤖 AI helper — Brain dump, Ask Day Hub, Top 3</li><li>🗓️ Two-way Google Calendar sync</li>
+  // v0.45: Cruise Hub lists only what Cruise Hub has; it is included with Day Hub Pro (one Whop purchase).
+  const what = MODE === "cruise"
+    ? `<p class="fine" style="margin-top:0">Cruise Hub's extras come with ${PLAN.NAME} — one purchase unlocks Day Hub and Cruise Hub.</p>
+       <ul class="pro-list"><li>🗓️ Your trip, payments and port days on your phone's calendar</li>
+       ${switchOn("GMAIL") ? "<li>📬 Your cruise booking found in your email</li>" : ""}<li>☁️ Backup to your own Google Drive</li></ul>
+       <p class="fine" style="margin-top:4px">Everything else — countdown, payments, ports and all-aboard alarms, onboard spending, perks, lists, tips — is free forever. No ads, ever.</p>`
+    : `<ul class="pro-list"><li>🤖 AI helper — Brain dump, Ask Day Hub, Top 3</li><li>🗓️ Two-way Google Calendar sync</li>
     ${switchOn("GMAIL") ? "<li>📬 Plans found in your email</li>" : ""}<li>☁️ Backup to your own Google Drive</li></ul>
     <p class="fine" style="margin-top:4px">Everything else — every card, reminders, budget, lists, trips — is free forever. No ads, ever.</p>`;
   g.innerHTML = `<h3>⭐ ${PLAN.NAME}</h3>` + (ownerPhone()

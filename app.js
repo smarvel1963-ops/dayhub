@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.44";
+const VERSION = "0.45";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
@@ -1505,6 +1505,21 @@ const PACKAGES = {
     perks: [{ name: "Photo prints (up to 8×10)", per: 3, unit: "prints" }, { name: "Shore excursion credit", per: 0, unit: "$" }] },
 };
 const pkgOf = tr => PACKAGES[tr.pkg] || null;
+// v0.45 (any cruise line): package presets are DATA, offered only for their own
+// line; every other line starts on "Custom package". Line names are plain text
+// for the traveller to pick - no logos, not affiliated with any cruise line.
+const linePkgs = line => Object.keys(PACKAGES).filter(k => line && PACKAGES[k].line.toLowerCase() === String(line).trim().toLowerCase());
+const CRUISE_LINE_LIST = [...new Set(Object.values(LINE_NAMES))].sort();
+// What each line calls its card / wearable - common public names only.
+const LINE_TIPS = {
+  princess: ["Princess", "it's the Medallion, a small disc you wear. Set up delivery in online check-in, or pick it up at the port."],
+  carnival: ["Carnival", "it's the Sail & Sign card — you get it at check-in or in your cabin."],
+  "royal caribbean": ["Royal Caribbean", "it's the SeaPass card — keep it with you; many ships also let you use the app."],
+  celebrity: ["Celebrity", "it's the SeaPass card — you get it at check-in or in your cabin."],
+  disney: ["Disney", "it's the Key to the World card — waiting in your stateroom or at check-in."],
+};
+const lineTip = line => { const n = String(line || "").toLowerCase();
+  const k = Object.keys(LINE_TIPS).find(x => n.includes(x)); return k ? { line: LINE_TIPS[k][0], text: LINE_TIPS[k][1] } : null; };
 // A package that pays gratuities means the automatic daily charge is NOT coming.
 const gratEstimate = tr => isCruise(tr) && !(pkgOf(tr) && pkgOf(tr).gratsPaid) ? (Number(tr.travelers) || 1) * tripNights(tr) * GRAT_PER_DAY : 0;
 function seedPerks(tr) {

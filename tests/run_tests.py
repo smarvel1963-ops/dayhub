@@ -152,7 +152,8 @@ class App:
         self.page.evaluate("""([t, v]) => { openQA(t, true); const f = document.getElementById('qaForm');
             for (const [k, x] of Object.entries(v)) { const el = f.querySelector(`[name=${k}]`);
               if (!el) throw new Error('no field ' + k + ' on ' + t);
-              if (el.type === 'checkbox') el.checked = !!x; else el.value = x; }
+              if (el.type === 'checkbox') el.checked = !!x; else el.value = x;
+            el.dispatchEvent(new Event('input', {bubbles: true})); }
             f.requestSubmit(); }""", [type_, vals])
 
     def card(self, key):
@@ -307,11 +308,11 @@ def t_trips_cruise(b, base):
     tr = a.js("(() => { const t = curTrip(); return {left: tripLeft(t), grat: gratEstimate(t), perks: t.perks.map(x=>x.name+':'+x.total), ready: readiness(t).pct}; })()")
     check("paid in full + package pays gratuities", tr["left"] == 0 and tr["grat"] == 0, tr)
     check("Plus seeds 8 casual meals for 2 people", "Casual dining meals:8" in tr["perks"], tr)
-    a.js("openQA('forget')")
-    sheet = a.page.inner_text("#qaForm")
+    a.js("showForget()")
+    sheet = a.page.inner_text("#forgetSheet")
     check("What am I forgetting? port morning", "GOOD MORNING — NASSAU" in sheet and "ALL ABOARD" in sheet and "Leave the cabin by" in sheet, sheet[:200])
     check("independent-tour warning", "does NOT wait" in sheet)
-    a.js("closeQA()")
+    a.page.click('#forgetSheet .btn[data-forgetclose]')
     a.js("S.remind.on = true")
     rem = a.js("reminderList().filter(r => /^(aa|lc|ex):/.test(r.key)).map(r => new Date(r.at).toTimeString().slice(0,5))")
     check("alarms: leave cabin 9:10, meet 9:15, back-on-ship 3:00/3:30/4:00", sorted(rem) == ["09:10", "09:15", "15:00", "15:30", "16:00"], rem)
@@ -1237,6 +1238,63 @@ def t_v040_switches(b, base):
     a.close()
 
 
+def t_v045_cruise_hub(b, base):
+    print("\n[v0.45 Cruise Hub: its own welcome, any cruise line, no email promise while GMAIL is off]")
+    a = App(b, base, path="/cruise/")
+    w = a.page.inner_text("#cards")
+    check("cruise welcome card, no profession picker", "Welcome to Cruise Hub" in w and "Welcome to Day Hub" not in w and "Trucker" not in w and not a.js("!!document.querySelector('form[data-setup] select')"))
+    setup_c = lambda: (a.page.fill('form[data-setup] [name=name]', "Pat"), a.page.fill('form[data-setup] [name=city]', "72032"),
+                       a.page.click('form[data-setup] button'), a.page.wait_for_function("WXDATA && WXDATA.here"))
+    setup_c()
+    check("setup works without a profession (pack = general)", a.js("S.pack") == "general" and a.js("S.name") == "Pat")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    check("empty Trips card stays FULL size in Cruise Hub", not a.js("document.querySelector('[data-card=\"trips\"]').classList.contains('mini')") and "Plan a trip" in a.card("trips"))
+    check("no email promise while GMAIL is off", "Connect Gmail" not in a.card("trips") and "fill in by themselves" not in a.card("trips"))
+    a.page.click("#settingsBtn")
+    check("settings: no Profession in Cruise Hub", a.js("document.getElementById('setPack').closest('label').hidden"))
+    pro = a.page.inner_text("#proBox")
+    check("Pro box: included with Day Hub Pro, only Cruise Hub features", "one purchase unlocks Day Hub and Cruise Hub" in pro and "Brain dump" not in pro and "Top 3" not in pro and "calendar" in pro and "Backup" in pro, pro[:300])
+    check("fine print: Not affiliated with any cruise line", "Not affiliated with any cruise line." in a.page.inner_text("#sheet"))
+    a.page.click('[data-close="sheet"]')
+    # Carnival: custom package by default, generic card section + Carnival tip
+    a.js("openQA('trip')")
+    check("cruise line box suggests lines (neutral list)", a.js("[...document.querySelectorAll('#lineList option')].map(o => o.value).includes('Carnival')") and a.js("document.querySelectorAll('#lineList option').length") >= 10)
+    check("new trip: package defaults to Custom, no other line's presets", a.js("[...document.querySelectorAll('#qaForm [name=pkg] option')].map(o => o.textContent).join('|')") == "Custom package (add your own perks)")
+    a.qa("trip", {"ttype": "cruise", "tname": "Bahamas", "start": "2026-11-05", "end": "2026-11-09", "line": "Carnival", "travelers": "4"})
+    a.page.click('[data-triptab="perks"]'); a.page.wait_for_timeout(200)
+    t = a.card("trips")
+    check("any line: 'Your cruise card / wearable' + the line's own tip, no Princess text", "your cruise card / wearable" in t.lower() and "Sail & Sign" in t and "Princess" not in t and "Medallion" not in t, [l for l in t.splitlines() if "Princess" in l or "Medallion" in l])
+    check("Carnival: custom package text, no preset offer", "Custom package" in t and "pick your line's package" not in t)
+    # Princess: its presets are offered on Edit (data kept)
+    a.js("TRIP_EDIT = curTrip().id; openQA('trip', true)")
+    a.page.fill("#qaForm [name=line]", "Princess"); a.js("document.getElementById('qaForm').requestSubmit()"); a.page.wait_for_timeout(200)
+    check("editing the line keeps the trip", a.js("S.trips.length") == 1 and a.js("curTrip().line") == "Princess")
+    a.js("TRIP_EDIT = curTrip().id; openQA('trip', true)")
+    check("Princess trip: its two presets are offered", a.js("[...document.querySelectorAll('#qaForm [name=pkg] option')].map(o => o.value).join()") == ",princess-plus,princess-premier")
+    a.js("closeQA()"); a.page.click('[data-triptab="perks"]'); a.page.wait_for_timeout(200)
+    t = a.card("trips")
+    check("Princess line: generic section + Medallion tip, no princess.com link", "your cruise card / wearable" in t.lower() and "Medallion" in t and not a.js("!!document.querySelector('[data-card=\"trips\"] a[href*=\"princess.com/ships\"]')"))
+    # own sheet for What am I forgetting?
+    a.page.click('[data-forget="1"]'); a.page.wait_for_timeout(200)
+    check("'What am I forgetting?' opens its own sheet, not the Add sheet", not a.js("document.getElementById('forgetSheet').classList.contains('hidden')") and a.js("document.getElementById('qa').classList.contains('hidden')")
+          and "What am I forgetting?" in a.page.inner_text("#forgetSheet h2") and "Brain dump" not in a.page.inner_text("#forgetSheet"))
+    a.page.click('#forgetSheet .btn[data-forgetclose]')
+    check("Got it closes it", a.js("document.getElementById('forgetSheet').classList.contains('hidden')"))
+    m = a.page.request.get(base + "/cruise/manifest.json").json()
+    check("Cruise Hub manifest: any line, not affiliated, no email-import promise", "Not affiliated with any cruise line" in m["description"] and "fills itself" not in m["description"] and "email" not in m["description"].lower())
+    a.close()
+    # Day Hub unchanged
+    a = App(b, base)
+    w = a.page.inner_text("#cards")
+    check("Day Hub: welcome + profession picker unchanged", "Welcome to Day Hub" in w and a.js("!!document.querySelector('form[data-setup] select[name=pack]')"))
+    setup(a)
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    check("Day Hub: empty Trips still one line", a.js("document.querySelector('[data-card=\"trips\"]').classList.contains('mini')"))
+    a.page.click("#settingsBtn")
+    check("Day Hub: Profession still in settings, Pro box lists the AI helper", not a.js("document.getElementById('setPack').closest('label').hidden") and "AI helper" in a.page.inner_text("#proBox"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1252,7 +1310,7 @@ def main():
                   t_v032_ask_top3, t_v033_alarms,
                   t_v033_calendar_dates, t_v034_backup_nudge,
                   t_v035_errands, t_v036_returns,
-                  t_v037_future_me, t_v039_short_home, t_v040_switches):
+                  t_v037_future_me, t_v039_short_home, t_v040_switches, t_v045_cruise_hub):
             try:
                 t(b, base)
             except Exception as e:

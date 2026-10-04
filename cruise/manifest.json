@@ -2,7 +2,7 @@
   "id": "/dayhub/cruise/",
   "name": "Cruise Hub",
   "short_name": "Cruise Hub",
-  "description": "Cruise Hub by Marvel Corp - countdown to your cruise, final payment reminders, port days with all-aboard alarms, onboard spending and ready-made packing lists. Works with Day Hub. No ads, ever.",
+  "description": "Cruise Hub by Marvel Corp - countdown to your cruise, final payment reminders, port days with all-aboard alarms, onboard spending, perks and ready-made packing lists. Works with any cruise line and with Day Hub. Not affiliated with any cruise line. No ads, ever.",
   "lang": "en-US",
   "dir": "ltr",
   "start_url": "./",
