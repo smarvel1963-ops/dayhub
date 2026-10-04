@@ -16,9 +16,10 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.46";
+const VERSION = "0.47";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
-// day hub as well"). The SAME code runs from /dayhub/cruise/ with
+// day hub as well"). The SAME code runs from its own address /cruisehub/ (its
+// own repo since v0.47; /dayhub/cruise/ forwards there) with
 // window.DH_MODE = "cruise": a cruise-first screen and its own name / install.
 // v0.46 (Scott 10/4: "build separate app ... its independent but also a family
 // of apps"): each hub keeps its OWN data (STORE) and its OWN Drive backup
@@ -28,6 +29,8 @@ const MODE = window.DH_MODE === "cruise" ? "cruise" : "day";
 const APP_NAME = MODE === "cruise" ? "Cruise Hub" : "Day Hub";
 const BASE_URL = new URL(".", (document.currentScript && document.currentScript.src) || location.href).href;   // where app.js lives
 const APP_ID = MODE === "cruise" ? "cruisehub" : "dayhub";
+const CRUISE_URL = new URL("../cruisehub/", BASE_URL).href;    // Cruise Hub's own address (repo smarvel1963-ops/cruisehub)
+const HOME_URL = MODE === "cruise" ? CRUISE_URL : BASE_URL;     // this app's own folder (its sw.js lives here)
 
 const STORE = APP_ID + ".v1";
 const WX = "https://api.open-meteo.com/v1/forecast";
@@ -106,7 +109,7 @@ const gmailAllowed = () => switchOn("GMAIL") || S.mail.on || !!S.mail.found.leng
 // Hub in both, so there is one live copy. Off: Settings -> Hub family.
 const SIB = MODE === "cruise"
   ? { id: "dayhub", name: "Day Hub", store: "dayhub.v1", file: "dayhub.json", url: BASE_URL, icon: "☀️" }
-  : { id: "cruisehub", name: "Cruise Hub", store: "cruisehub.v1", file: "cruisehub.json", url: BASE_URL + "cruise/", icon: "🚢" };
+  : { id: "cruisehub", name: "Cruise Hub", store: "cruisehub.v1", file: "cruisehub.json", url: CRUISE_URL, icon: "🚢" };
 const FAM_KEY = APP_ID + ".family";              // the other hub's trips from its Drive backup (a cache)
 let FAM_RAW = null, FAM_DATA = null, FAM_DRIVE_AT = 0;
 function sibData() {

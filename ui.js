@@ -1,7 +1,7 @@
 /* SAVE AS: ui.js · LOCATION: C:/MarvelApps/dayhub/ui.js
  * Day Hub, part 2 of 2 (split out of app.js in v0.38 to stay under 3,000 lines):
  * the cards, quick add, AI helper + brain dump, events, settings and START.
- * Loaded right AFTER app.js (index.html + cruise/index.html); both are classic
+ * Loaded right AFTER app.js (index.html + ../cruisehub/index.html); both are classic
  * scripts sharing one global scope, so everything in app.js is visible here.
  * START must stay at the bottom of this file - it runs once both are loaded. */
 "use strict";
@@ -1532,4 +1532,4 @@ setInterval(() => { if (S.mail.on && mReady()) scanMail(); }, 20 * 60000);
 checkReminders();
 if (!RENEWING) { syncOnOpen(true); maybeBrief(); }
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { if (autoRenew()) return; recheckPro(); VIEW = today(); render(); checkReminders(); syncOnOpen(); maybeBrief(); } });
-if ("serviceWorker" in navigator) navigator.serviceWorker.register(new URL("sw.js", BASE_URL)).catch(() => {});
+if ("serviceWorker" in navigator) navigator.serviceWorker.register(new URL("sw.js", HOME_URL)).catch(() => {});

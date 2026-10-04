@@ -1,6 +1,9 @@
 {
- "version": "0.46",
+ "version": "0.47",
  "notes": {
+  "0.47": [
+   "🚢 Cruise Hub has its own address now: smarvel1963-ops.github.io/cruisehub — the old link takes you there."
+  ],
   "0.46": [
    "🚢 Cruise Hub is now its own app with its own saved data and its own backup. It still works with Day Hub: a trip planned in one shows in the other (⚙ → Hub family). Your cruises from Day Hub were brought over, and nothing was removed from Day Hub."
   ],

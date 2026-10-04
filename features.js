@@ -1,7 +1,7 @@
 /* SAVE AS: features.js · LOCATION: C:/MarvelApps/dayhub/features.js
  * DAY HUB SWITCHBOARD (Scott 10/3: "make it a workable and saleable project and
  * then have things to turn on once approved"). Loaded FIRST (before app.js) by
- * index.html and cruise/index.html.
+ * index.html and ../cruisehub/index.html.
  *
  * Every switch defaults OFF. OFF = Day Hub behaves like v0.39 for everyone,
  * except GMAIL off hides the Gmail connect from phones that never connected it.

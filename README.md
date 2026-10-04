@@ -26,7 +26,7 @@ screen but could customize by profession"). Tracked on Marvel Desktop -> MOBILE 
 
 ## Files
 `features.js` (the SWITCHBOARD - launch switches, all OFF, see `docs/LAUNCH_SWITCHES.md`), then `app.js` (state + feature logic) then `ui.js` (cards, sheets, events, start) - two classic scripts, one shared
-scope, loaded in that order by `index.html` and `cruise/index.html`. Each stays under 3,000 lines. A new script
+scope, loaded in that order by `index.html` and Cruise Hub's `../cruisehub/index.html` (its own repo). Each stays under 3,000 lines. A new script
 file must also go in the `SHELL` list in `sw.js`.
 
 ## Releasing an update (since v0.11)

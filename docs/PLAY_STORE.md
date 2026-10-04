@@ -13,7 +13,7 @@ re-upload for each version.
   `categories` (productivity, lifestyle, utilities), 192/512 icons + maskable, and **screenshots** (4 phone 1080x1920
   + 1 wide 1280x800 in `screenshots/`). Regenerate them with `python tests/make_screenshots.py` after visible changes.
 - Service worker (offline open), HTTPS, no ads, privacy policy + terms URLs (`privacy.html`, `terms.html`).
-- Cruise Hub has its own manifest (`cruise/manifest.json`) and could be a second listing later.
+- Cruise Hub has its own repo + manifest (`C:/MarvelApps/cruisehub/manifest.json`, smarvel1963-ops.github.io/cruisehub/) and could be a second listing later.
 
 ## What Scott does (click by click)
 1. **Play Console account:** https://play.google.com/console/signup → personal or organization (**Marvel Corp**

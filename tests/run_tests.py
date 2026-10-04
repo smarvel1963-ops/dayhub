@@ -31,15 +31,19 @@ def check(name, cond, extra=""):
         FAIL += 1; print(f"  FAIL  {name}  {extra}")
 
 
+CRUISE = "/../cruisehub/"     # Cruise Hub's own address, next to /dayhub/ (v0.47)
+
+
 # ------------------------------------------------------------------ server
 def serve():
     s = socket.socket(); s.bind(("127.0.0.1", 0)); port = s.getsockname()[1]; s.close()
     class Quiet(http.server.SimpleHTTPRequestHandler):
         def log_message(self, *a, **k): pass
-    h = functools.partial(Quiet, directory=ROOT)
+    # Serve C:/MarvelApps so /dayhub/ and /cruisehub/ sit side by side, like on GitHub Pages (v0.47).
+    h = functools.partial(Quiet, directory=os.path.dirname(ROOT))
     srv = http.server.ThreadingHTTPServer(("127.0.0.1", port), h)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
-    return srv, f"http://127.0.0.1:{port}"
+    return srv, f"http://127.0.0.1:{port}/dayhub"
 
 
 # ------------------------------------------------------------------ fixtures
@@ -366,7 +370,7 @@ def t_settings_layout_offline(b, base):
     check("opens with no internet (offline copy)", a.js("typeof render === 'function' && !!document.querySelector('#hero .greet')"))
     a.ctx.set_offline(False)
     a.close()
-    c = App(b, base, path="/cruise/")
+    c = App(b, base, path=CRUISE)
     check("Cruise Hub runs in cruise mode with its own name", c.js("MODE") == "cruise" and c.js("document.title") == "Cruise Hub")
     check("Cruise Hub: trips first", c.js("cardOrder()[0]") == "trips")
     c.close()
@@ -1226,21 +1230,21 @@ def t_v040_switches(b, base):
     check("privacy page: Marvel Corp, contact, Google Limited Use, 13+, Whop", all(x in t for x in ("Marvel Corp", "smarvel1963@gmail.com", "Limited Use", "13", "Whop", "Open-Meteo", "Anthropic")))
     pg.goto(base + "/terms.html"); t = pg.inner_text("body")
     check("terms page: price matches the plan, Whop billing, contact", "$4.99 a month" in t and "$29.99 a year" in t and "Whop" in t and "smarvel1963@gmail.com" in t)
-    for mp, ident in (("/manifest.json", "/dayhub/index.html"), ("/cruise/manifest.json", "/dayhub/cruise/")):
+    for mp, ident in (("/manifest.json", "/dayhub/index.html"), (CRUISE + "manifest.json", "/cruisehub/")):
         m = pg.request.get(base + mp).json()
         check(f"{mp}: id kept, scope, categories, screenshots", m.get("id") == ident and m.get("scope") == "./" and bool(m.get("categories")) and len(m.get("screenshots", [])) >= 4)
         bad = [x["src"] for x in m["screenshots"] if pg.request.get(base + mp.rsplit("/", 1)[0] + "/" + x["src"]).status != 200]
         check(f"{mp}: every screenshot file exists", not bad, bad)
     ctx.close()
     # cruise page loads the switchboard too
-    a = App(b, base, path="/cruise/")
+    a = App(b, base, path=CRUISE)
     check("Cruise Hub loads the switchboard", a.js("typeof switchOn") == "function" and a.js("can('reminders')"))
     a.close()
 
 
 def t_v045_cruise_hub(b, base):
     print("\n[v0.45 Cruise Hub: its own welcome, any cruise line, no email promise while GMAIL is off]")
-    a = App(b, base, path="/cruise/")
+    a = App(b, base, path=CRUISE)
     w = a.page.inner_text("#cards")
     check("cruise welcome card, no profession picker", "Welcome to Cruise Hub" in w and "Welcome to Day Hub" not in w and "Trucker" not in w and not a.js("!!document.querySelector('form[data-setup] select')"))
     setup_c = lambda: (a.page.fill('form[data-setup] [name=name]', "Pat"), a.page.fill('form[data-setup] [name=city]', "72032"),
@@ -1280,7 +1284,7 @@ def t_v045_cruise_hub(b, base):
           and "What am I forgetting?" in a.page.inner_text("#forgetSheet h2") and "Brain dump" not in a.page.inner_text("#forgetSheet"))
     a.page.click('#forgetSheet .btn[data-forgetclose]')
     check("Got it closes it", a.js("document.getElementById('forgetSheet').classList.contains('hidden')"))
-    m = a.page.request.get(base + "/cruise/manifest.json").json()
+    m = a.page.request.get(base + CRUISE + "manifest.json").json()
     check("Cruise Hub manifest: any line, not affiliated, no email-import promise", "Not affiliated with any cruise line" in m["description"] and "fills itself" not in m["description"] and "email" not in m["description"].lower())
     a.close()
     # Day Hub unchanged
@@ -1307,7 +1311,7 @@ def t_v046_hub_family(b, base):
     a.qa("trip", {"ttype": "trip", "tname": "Vegas", "start": "2026-12-01", "end": "2026-12-04"})
     check("Day Hub: two trips of its own", a.js("S.trips.length") == 2 and a.js("STORE") == "dayhub.v1")
     # same phone: open Cruise Hub for the first time
-    go("/cruise/")
+    go(CRUISE)
     check("Cruise Hub keeps its OWN data + backup file", a.js("STORE") == "cruisehub.v1" and a.js("DFILE") == "cruisehub.json" and a.js("!!localStorage.getItem('cruisehub.v1')"))
     check("first open: Day Hub's cruise came over (+ name, city), the Vegas trip did not", a.js("S.trips.map(t => t.name).join()") == "Alaska" and a.js("S.name") == "Scott" and a.js("S.city") == "72032" and a.js("S.adopted.length") == 1)
     check("Day Hub's data left untouched", a.js("JSON.parse(localStorage.getItem('dayhub.v1')).trips.length") == 2)
@@ -1345,10 +1349,16 @@ def t_v046_hub_family(b, base):
     check("settings say linked through Drive backup + show the iPhone steps", "Google Drive backup" in fam and "same Google account" in fam, fam[:300])
     a.close()
     # a Day Hub backup file loaded into Cruise Hub brings its cruises only
-    a = App(b, base, path="/cruise/")
+    a = App(b, base, path=CRUISE)
     check("Day Hub file -> Cruise Hub: cruises only", a.js("cruiseSlice({ name: 'Q', trips: [{ id: 'x', type: 'cruise', name: 'A' }, { id: 'y', type: 'trip', name: 'B' }], todos: [{ id: 't' }] })").get("trips") == [{"id": "x", "type": "cruise", "name": "A"}]
           and "todos" not in a.js("cruiseSlice({ trips: [], todos: [{ id: 't' }] })"))
     check("fresh Cruise Hub with no Day Hub: empty, no family rows", a.js("S.trips.length") == 0 and a.js("famTrips().length") == 0)
+    check("v0.47: Cruise Hub lives at /cruisehub/ with its OWN service worker", a.js("location.pathname") == "/cruisehub/"
+          and a.js("navigator.serviceWorker.ready.then(r => r.scope)").endswith("/cruisehub/"))
+    check("v0.47: Day Hub's Open button points at /cruisehub/", a.js("SIB.url").endswith("/dayhub/") and a.js("CRUISE_URL").endswith("/cruisehub/"))
+    a.close()
+    a = App(b, base, path="/cruise/")
+    check("v0.47: the old /dayhub/cruise/ address forwards to /cruisehub/", a.js("location.pathname") == "/cruisehub/" and a.js("MODE") == "cruise")
     a.close()
 
 
