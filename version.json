@@ -1,6 +1,9 @@
 {
- "version": "0.50",
+ "version": "0.51",
  "notes": {
+  "0.51": [
+   "🌴 Cruise Hub has two weathers: where your cruise is (boarding port and each port day — UV, rain, wind, storms and what to bring) and where you are. Alerts show up top."
+  ],
   "0.50": [
    "🚢 Cruise Hub opens on a big countdown over the ocean — days to go, % ready and your next step. Tap it for the checklist; reach 100% for a little celebration 🎉",
    "🌐 Meet the Hub family: a card at the bottom (and ⚙ → Hub family) shows our other apps. Hide it any time — still no ads, ever."

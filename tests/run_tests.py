@@ -51,7 +51,8 @@ def forecast_fixture(q):
     if "start_date" in q:                                     # one port day
         day = q["start_date"][0]
         return {"daily": {"time": [day], "temperature_2m_max": [88.0], "temperature_2m_min": [77.0],
-                          "precipitation_probability_max": [30], "weather_code": [2]}}
+                          "precipitation_probability_max": [30], "weather_code": [2],
+                          "uv_index_max": [9.2], "wind_speed_10m_max": [14.0], "wind_gusts_10m_max": [21.0]}}
     days = ["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05", "2026-10-06"]
     hours = [f"2026-10-01T{h:02d}:00" for h in range(24)] + [f"2026-10-02T{h:02d}:00" for h in range(24)]
     rain = [10] * 48
@@ -1481,6 +1482,47 @@ def t_v050_countdown_family(b, base):
     a.close()
 
 
+def t_v051_cruise_weather(b, base):
+    print("\n[v0.51 Cruise Hub: two weathers - where the cruise is + where you are, with alerts]")
+    a = App(b, base, path=CRUISE, at="2026-10-04T09:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-10-04", "end": "2026-10-11", "line": "Princess",
+                  "ship": "Caribbean Princess", "port": "Fort Lauderdale (Port Everglades)"})
+    a.js("curTrip().ports = [{ id: 'p1', name: 'Grand Turk', day: '2026-10-05', allAboard: '16:30' }]; save(); render()")
+    a.page.wait_for_timeout(1500)
+    w = a.card("weather")
+    check("weather card: where the cruise is FIRST, then where you are", "WHERE YOUR CRUISE IS" in w.upper() and "WHERE YOU ARE" in w.upper() and w.upper().index("WHERE YOUR CRUISE IS") < w.upper().index("WHERE YOU ARE"), w[:300])
+    check("sail day = departure port (boarding), tomorrow = the port day with all-aboard", "Fort Lauderdale" in w and "boarding" in w and "Tomorrow · Grand Turk" in w and "all aboard 4:30" in w.lower())
+    check("cruise-area forecast shows UV + gusts, and the UV alert", "UV 9" in w and "gusts 21 mph" in w and "UV very high" in w)
+    check("hurricane-season note for a Caribbean trip in October", "hurricane season" in w.lower())
+    check("geocode asked for the plain city (no parentheses)", a.js("placeName('Fort Lauderdale (Port Everglades)')") == "Fort Lauderdale")
+    check("hero chip: today's cruise-area alert, short port name", "Fort Lauderdale today: UV very high" in a.page.inner_text("#hero") and "(Port Everglades) today" not in a.page.inner_text("#hero"))
+    a.page.click('[data-cwx="1"]'); a.page.wait_for_timeout(300)
+    check("tapping the chip opens the Weather card", not a.js("S.collapsed.includes('weather')"))
+    check("alert rules: storm / rain / wind / cool / boarding rain", a.js("""[cruiseWxAlerts({code: 95, rain: 80, hi: 80, lo: 70}, 'port')[0].key,
+        cruiseWxAlerts({code: 61, rain: 70, hi: 80, lo: 70}, 'port')[0].key,
+        cruiseWxAlerts({code: 1, rain: 0, hi: 80, lo: 70, gust: 34}, 'port')[0].key,
+        cruiseWxAlerts({code: 1, rain: 0, hi: 60, lo: 48}, 'port')[0].key,
+        cruiseWxAlerts({code: 61, rain: 40, hi: 80, lo: 70}, 'sail').map(x => x.key).join()].join('|')""") == "storm|rain|wind|cool|showers,sailrain")
+    check("calm day: no alerts", a.js("cruiseWxAlerts({code: 1, rain: 5, hi: 82, lo: 74, uv: 4, gust: 12}, 'port').length") == 0)
+    a.close()
+    a = App(b, base, path=CRUISE, at="2026-10-01T09:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Alaska", "start": "2027-06-20", "end": "2027-06-27", "line": "Princess", "port": "Seattle"})
+    w = a.card("weather")
+    check("far-off cruise: says when the sail-day forecast shows up", "forecast shows up 16 days before you sail" in w, w[:300])
+    check("Alaska (Seattle) in June: no Caribbean hurricane note", "hurricane" not in w.lower())
+    a.close()
+    a = App(b, base)
+    setup(a)
+    check("Day Hub weather card unchanged (no cruise block)", "WHERE YOUR CRUISE IS" not in a.card("weather").upper())
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1498,7 +1540,8 @@ def main():
                   t_v035_errands, t_v036_returns,
                   t_v037_future_me, t_v039_short_home, t_v040_switches, t_v045_cruise_hub,
                   t_v046_hub_family, t_v048_cruise_pass,
-                  t_v049_scenes, t_v050_countdown_family):
+                  t_v049_scenes, t_v050_countdown_family,
+                  t_v051_cruise_weather):
             try:
                 t(b, base)
             except Exception as e:

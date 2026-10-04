@@ -128,7 +128,7 @@ const CARDS = {
         <span class="bar"><span style="left:${(d.lo - mn) / span * 100}%;width:${Math.max(6, (d.hi - d.lo) / span * 100)}%"></span></span>
         <span class="hi">${Math.round(d.hi)}°${d.rain >= 30 ? `<span class="rn"> ${d.rain}%</span>` : ""}</span></div>`).join("");
       const al = wxAlerts(today());
-      return `${al.length ? `<div class="wx-alerts">${wxAlertHtml(al)}</div>` : ""}<div class="hours">${hours}</div>
+      return cruiseWxBlock() + `${MODE === "cruise" ? `<div class="wx-where">📍 Where you are — ${esc(w.label)}</div>` : ""}${al.length ? `<div class="wx-alerts">${wxAlertHtml(al)}</div>` : ""}<div class="hours">${hours}</div>
         <div class="wx-facts"><div class="fact">Feels like<b>${Math.round(w.cur.apparent_temperature)}°</b></div>
           <div class="fact">Wind<b>${Math.round(w.cur.wind_speed_10m)} mph</b></div>
           <div class="fact">Sunrise<b>${fmtTime(w.day.sunrise)}</b></div><div class="fact">Sunset<b>${fmtTime(w.day.sunset)}</b></div></div>
@@ -562,6 +562,37 @@ function hubRows() {
 }
 CARDS.family = { icon: "🌐", title: "Hub family",
   body: () => hubRows() + `<p class="fine" style="margin-top:6px">Made by Marvel Corp. They work together — one Pro unlocks the family. No ads, ever.</p>` };
+
+// v0.51 Cruise Hub's second weather: where the cruise is (app.js cruiseWxDays).
+function cruiseWxBlock() {
+  if (MODE !== "cruise") return "";
+  const tr = curTrip(); if (!tr || !tr.start || daysUntil(tr.end || tr.start) < 0) return "";
+  ensurePortWx(tr);
+  const sd = daysUntil(tr.start), hn = hurricaneNote(tr);
+  const days = cruiseWxDays(tr);
+  const head = `<div class="wx-where">🚢 Where your cruise is${tr.ship ? ` — ${esc(tr.ship)}` : ""}</div>`;
+  if (sd > 15) return `<div class="cruise-wx">${head}<div class="today-line">${tr.port ? `⚓ ${esc(tr.port)} on sail day` : "⚓ Sail day"}: the forecast shows up 16 days before you sail — ${sd - 15} day${sd - 15 === 1 ? "" : "s"} from now.</div>
+    ${!tr.port ? `<div class="fine">Add your departure port (Edit trip) and your port days (🗺️ Ports) to see their weather.</div>` : ""}${hn ? `<div class="wx-alert">${hn}</div>` : ""}</div>`;
+  const rows = days.map(x => { const w = PORTWX[`${x.name}|${x.day}`], when = x.day === today() ? "Today" : x.day === addDays(today(), 1) ? "Tomorrow" : `${dayName(x.day)} ${prettyDate(x.day)}`;
+    const tag = x.kind === "sail" ? "boarding" : "port day";
+    const wx = !w || w.loading ? `<span class="sub">loading…</span>` : w.none ? `<span class="sub">no forecast for this place</span>`
+      : `<span class="sub">${wmo(w.code)[0]} ${Math.round(w.hi)}°/${Math.round(w.lo)}°${w.rain >= 20 ? ` · rain ${w.rain}%` : ""}${w.uv != null ? ` · UV ${Math.round(w.uv)}` : ""}${w.gust != null ? ` · gusts ${Math.round(w.gust)} mph` : ""}</span>`;
+    const al = cruiseWxAlerts(w, x.kind);
+    return `<div class="cwx-day"><div><b>${when} · ${esc(x.name)}</b> <span class="tag">${tag}</span>${x.pt && x.pt.allAboard ? ` <span class="tag">all aboard ${hm(x.pt.allAboard)}</span>` : ""}</div>${wx}
+      ${al.length ? `<div class="wx-alerts">${al.map(a => `<div class="wx-alert">${a.icon} ${esc(a.text)}</div>`).join("")}</div>` : x.kind && w && !w.loading && !w.none ? `<div class="sub">✅ Nothing to watch for.</div>` : ""}</div>`; }).join("");
+  const none = !days.length ? `<div class="today-line">🌊 ${sd > 0 ? "Add your departure port and port days to see their weather." : "At sea — the next port day shows here once it's within 16 days."}</div>` : "";
+  return `<div class="cruise-wx">${head}${rows}${none}${hn ? `<div class="wx-alert">${hn}</div>` : ""}</div>`;
+}
+// The first cruise-area alert for today or tomorrow, for a hero chip.
+function cruiseWxChip() {
+  const tr = MODE === "cruise" ? curTrip() : null; if (!tr) return "";
+  for (const x of cruiseWxDays(tr)) {
+    if (x.day > addDays(today(), 1)) break;
+    const a = cruiseWxAlerts(PORTWX[`${x.name}|${x.day}`], x.kind)[0];
+    if (a) return `<button class="chip warn" data-cwx="1">${a.icon} ${esc(placeName(x.name))} ${x.day === today() ? "today" : "tomorrow"}: ${esc(a.text.split(" — ")[0])}</button>`;
+  }
+  return "";
+}
 
 const MINI = {
   trips:      [() => MODE !== "cruise" && !curTrip() && !famUpcoming().length, 'data-qa="trip"', "Plan a trip"],
@@ -1302,6 +1333,8 @@ document.addEventListener("click", e => {
   if (ds.t3up) { const T = S.top3.items, i = T.findIndex(x => x.id === ds.t3up); if (i > 0) [T[i - 1], T[i]] = [T[i], T[i - 1]]; saveLocal(); render(); return; }
   if (ds.t3del) { S.top3.items = S.top3.items.filter(x => x.id !== ds.t3del); saveLocal(); render(); return; }
   if (ds.cd) { showReady(); return; }
+  if (ds.cwx) { S.hidden = S.hidden.filter(x => x !== "weather"); S.collapsed = S.collapsed.filter(x => x !== "weather"); save(); render();
+    const el = document.querySelector('[data-card="weather"]'); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   if (ds.readyclose) { document.getElementById("readySheet").classList.add("hidden"); return; }
   if (ds.readygo) { document.getElementById("readySheet").classList.add("hidden"); S.tripTab = "ready";
     S.hidden = S.hidden.filter(x => x !== "trips"); S.collapsed = S.collapsed.filter(x => x !== "trips"); save(); render();

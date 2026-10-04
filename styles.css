@@ -424,3 +424,11 @@ details.steps .fine { margin-top: 8px; }
 @keyframes confetti { to { top: 105%; transform: translateX(40px) rotate(720deg); } }
 @media (prefers-reduced-motion: reduce) { .cd-bar i { transition: none; } .confetti { display: none; } }
 
+/* v0.51 Cruise Hub: two weathers (where the cruise is + where you are) */
+.cruise-wx { margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.wx-where { font-size: 12px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; color: var(--dim); margin: 2px 0 6px; }
+.cwx-day { padding: 8px 0; border-top: 1px solid var(--line); }
+.cwx-day:first-of-type { border-top: 0; }
+.cwx-day .sub { display: block; color: var(--dim); font-size: 13px; margin-top: 2px; }
+.cwx-day .wx-alerts { margin-top: 6px; }
+

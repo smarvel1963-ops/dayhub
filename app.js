@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.50";
+const VERSION = "0.51";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -1624,23 +1624,72 @@ const perksLeft = tr => (tr.perks || []).filter(x => x.total > 0 && x.used < x.t
 
 // Port weather: Open-Meteo daily forecast for the port's day (up to 16 days ahead).
 const PORTWX = {};
+// Weather for one cruise place on one day (a port, or the departure port on sail
+// day). v0.51 adds UV and wind for the cruise-area alerts. Forecasts reach 16 days.
+const placeName = n => String(n || "").replace(/\s*\([^)]*\)/g, "").trim();   // "Fort Lauderdale (Port Everglades)" -> "Fort Lauderdale"
+function ensurePlaceWx(name, day) {
+  const k = `${name}|${day}`, d = daysUntil(day);
+  if (!name || PORTWX[k] || d < 0 || d > 15) return;
+  PORTWX[k] = { loading: true };
+  (async () => {
+    try {
+      const place = await geocode(placeName(name));
+      if (!place) { PORTWX[k] = { none: true }; return; }
+      const q = `latitude=${place.lat}&longitude=${place.lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,uv_index_max,wind_speed_10m_max,wind_gusts_10m_max` +
+                `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&start_date=${day}&end_date=${day}`;
+      const j = await (await fetch(`${WX}?${q}`)).json(), D = j.daily, v = a => (a && a[0] != null ? a[0] : null);
+      PORTWX[k] = { hi: v(D.temperature_2m_max), lo: v(D.temperature_2m_min), rain: v(D.precipitation_probability_max) ?? 0, code: v(D.weather_code),
+                    uv: v(D.uv_index_max), wind: v(D.wind_speed_10m_max), gust: v(D.wind_gusts_10m_max), lat: place.lat, lon: place.lon };
+    } catch (e) { PORTWX[k] = { none: true }; }
+    render();
+  })();
+}
 function ensurePortWx(tr) {
-  (tr.ports || []).forEach(pt => {
-    const k = `${pt.name}|${pt.day}`, d = daysUntil(pt.day);
-    if (PORTWX[k] || d < 0 || d > 15) return;
-    PORTWX[k] = { loading: true };
-    (async () => {
-      try {
-        const place = await geocode(pt.name);
-        if (!place) { PORTWX[k] = { none: true }; return; }
-        const q = `latitude=${place.lat}&longitude=${place.lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code` +
-                  `&temperature_unit=fahrenheit&timezone=auto&start_date=${pt.day}&end_date=${pt.day}`;
-        const j = await (await fetch(`${WX}?${q}`)).json();
-        PORTWX[k] = { hi: j.daily.temperature_2m_max[0], lo: j.daily.temperature_2m_min[0], rain: j.daily.precipitation_probability_max[0] ?? 0, code: j.daily.weather_code[0] };
-      } catch (e) { PORTWX[k] = { none: true }; }
-      render();
-    })();
-  });
+  (tr.ports || []).forEach(pt => ensurePlaceWx(pt.name, pt.day));
+  if (tr.port && tr.start) ensurePlaceWx(tr.port, tr.start);
+}
+
+// ---------------------------------------------------- cruise-area weather
+// v0.51 (Scott 10/4: "cruise app 2 weathers - actuals and one for cruise area,
+// any alerts or info needed"). Weather where you are stays in the hero and the
+// Weather card; this is the weather WHERE THE CRUISE IS: the departure port on
+// sail day, then each port day (sea days have no place to forecast). Next 3
+// cruise days that are today or later, inside the 16-day forecast.
+function cruiseWxDays(tr) {
+  if (!tr || !tr.start) return [];
+  const out = [], end = tr.end || tr.start;
+  for (let d = tr.start > today() ? tr.start : today(); d <= end && out.length < 3; d = addDays(d, 1)) {
+    const pt = portOn(tr, d);
+    if (pt) out.push({ day: d, name: pt.name, kind: "port", pt });
+    else if (d === tr.start && tr.port) out.push({ day: d, name: tr.port, kind: "sail" });
+  }
+  return out;
+}
+// What the passenger should know or do, from one cruise-area forecast.
+function cruiseWxAlerts(w, kind) {
+  const out = [], add = (icon, text, key) => out.push({ icon, text, key });
+  if (!w || w.loading || w.none) return out;
+  if (w.code >= 95) add("⛈️", "Thunderstorms possible — times, tenders and excursions can change. Follow the ship's announcements", "storm");
+  else if (w.rain >= 60) add("☔", `Rain likely (${w.rain}%) — light rain jacket, waterproof phone pouch, zip bags`, "rain");
+  else if (w.rain >= 35) add("🌦️", `Showers possible (${w.rain}%) — pack a light layer`, "showers");
+  if (w.uv != null && w.uv >= 8) add("🧴", `UV very high (${Math.round(w.uv)}) — reef-safe sunscreen, hat, sunglasses, water`, "uv");
+  else if (w.uv != null && w.uv >= 6) add("🧴", `UV high (${Math.round(w.uv)}) — sunscreen and a hat`, "uv");
+  if (w.hi != null && w.hi >= 90) add("🥵", `Hot — high ${Math.round(w.hi)}°. Drink water, find shade midday`, "heat");
+  if ((w.gust != null && w.gust >= 30) || (w.wind != null && w.wind >= 22))
+    add("💨", `Windy (gusts ${Math.round(w.gust ?? w.wind)} mph) — boat, snorkel and tender trips can be rough or cancelled`, "wind");
+  if (w.lo != null && w.lo <= 55) add("🧥", `Cool — low ${Math.round(w.lo)}°. Bring a layer for the deck and evening`, "cool");
+  if (kind === "sail" && w.rain >= 35) add("🧳", "Rain on boarding day — keep a jacket in your carry-on (checked bags come later)", "sailrain");
+  return out;
+}
+// Atlantic hurricane season (Jun 1 - Nov 30) for Caribbean / Gulf / Atlantic places.
+function hurricaneNote(tr) {
+  if (!tr || !tr.start) return "";
+  const m = Number(tr.start.slice(5, 7)), em = Number((tr.end || tr.start).slice(5, 7));
+  if (!(m >= 6 && m <= 11) && !(em >= 6 && em <= 11)) return "";
+  const w = Object.values(PORTWX).find(x => x && x.lat != null && x.lat >= 5 && x.lat <= 36 && x.lon >= -100 && x.lon <= -50);
+  const words = /caribbean|bahama|nassau|cozumel|key west|miami|lauderdale|canaveral|galveston|tampa|orleans|san juan|grand turk|st\.? (thomas|maarten|kitts|lucia)|jamaica|cayman|roat|belize|costa maya|aruba|cura|barbados|antigua|cococay|amber cove|labadee|half moon/i;
+  const named = words.test([tr.name, tr.port, tr.ship, ...(tr.ports || []).map(p => p.name)].join(" "));
+  return w || named ? "🌀 Atlantic hurricane season (June–November): the cruise line can change ports or times. Watch for its emails, check its travel alerts, and think about travel insurance." : "";
 }
 const portWxText = pt => { const w = PORTWX[`${pt.name}|${pt.day}`];
   return w && !w.loading && !w.none ? `${wmo(w.code)[0]} ${Math.round(w.hi)}°/${Math.round(w.lo)}°${w.rain >= 20 ? ` · rain ${w.rain}%` : ""}` : ""; };
@@ -2634,6 +2683,7 @@ function heroHtml() {
     chips.push(`<button class="chip" data-leave="1">🚪 Don't forget: ${leaveLeft()} to check</button>`);
   const wa = wxAlerts(today());
   wa.slice(0, 2).forEach(a => chips.push(`<span class="chip warn">${a.icon} ${esc(a.text.split(" — ")[0])}</span>`));
+  if (MODE === "cruise") { const cw = cruiseWxChip(); if (cw) chips.unshift(cw); }   // v0.51 cruise-area weather alert
   if (w && w.day.rainFrom && !wa.some(a => a.key === "rain-plan")) chips.push(`<span class="chip warn">☔ Rain from ${fmtTime(w.day.rainFrom)}</span>`);
   else if (w && w.day.rain < 20) chips.push(`<span class="chip good">☀ No rain today</span>`);
   const nx = nextPlan();
@@ -2671,7 +2721,7 @@ function heroHtml() {
               <div class="hl">H ${Math.round(w.day.hi)}° · L ${Math.round(w.day.lo)}°</div></div>`; })()
     : S.city && !WXDATA ? `<div class="hero-wx"><div class="skel" style="width:84px;height:74px"></div></div>` : "";
   // Cruise Hub's top line is about the cruise only (Day Hub's chips stay in Day Hub).
-  const keep = MODE !== "cruise" ? chips : chips.filter(c => /forgetting|Final payment|🚢|✈️|[Rr]ain|New version|Install|⚓/.test(c));
+  const keep = MODE !== "cruise" ? chips : chips.filter(c => /forgetting|Final payment|🚢|✈️|[Rr]ain|New version|Install|⚓|data-cwx/.test(c));
   return `<div class="hero-top"><div class="greet">${greet()}</div>
       <span class="hero-btns">${MODE !== "cruise" ? `<button class="icon-btn" data-ask="open" aria-label="Ask Day Hub">💡</button><button class="icon-btn" data-leave="1" aria-label="Don't forget">🚪</button><button class="icon-btn" data-dump="1" aria-label="Brain dump">🧠</button>` : ""}<button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button></span></div>
     <div class="hero-main"><div><div class="hero-clock" id="clockNow"></div><div class="hero-date">${longDate(today())}</div></div>${wx}</div>
