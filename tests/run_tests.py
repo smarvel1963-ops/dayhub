@@ -1231,7 +1231,9 @@ def t_v040_switches(b, base):
     check("privacy page: Marvel Corp, contact, Google Limited Use, 13+, Whop", all(x in t for x in ("Marvel Corp", "smarvel1963@gmail.com", "Limited Use", "13", "Whop", "Open-Meteo", "Anthropic")))
     pg.goto(base + "/terms.html"); t = pg.inner_text("body")
     check("terms page: price matches the plan, Whop billing, contact", "$4.99 a month" in t and "$29.99 a year" in t and "Whop" in t and "smarvel1963@gmail.com" in t)
-    for mp, ident in (("/manifest.json", "/dayhub/index.html"), (CRUISE + "manifest.json", "/cruisehub/")):
+    m = pg.request.get(base + CRUISE + "manifest.json").json()
+    check("Cruise Hub manifest: its own id, no Day Hub screenshots", m.get("id") == "/cruisehub/" and m.get("scope") == "./" and not any("dayhub" in x.get("src", "") for x in m.get("screenshots", [])))
+    for mp, ident in (("/manifest.json", "/dayhub/index.html"),):
         m = pg.request.get(base + mp).json()
         check(f"{mp}: id kept, scope, categories, screenshots", m.get("id") == ident and m.get("scope") == "./" and bool(m.get("categories")) and len(m.get("screenshots", [])) >= 4)
         bad = [x["src"] for x in m["screenshots"] if pg.request.get(base + mp.rsplit("/", 1)[0] + "/" + x["src"]).status != 200]
