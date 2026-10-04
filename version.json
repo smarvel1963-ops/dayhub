@@ -1,6 +1,10 @@
 {
- "version": "0.62",
+ "version": "0.63",
  "notes": {
+  "0.63": [
+   "🔲 Getting around is now big icon tiles everywhere — your trip's sections, the lists, Plan's views, and a tile menu at the top of ⚙ that jumps to each setting.",
+   "Fix: settings that should be hidden (like Profession in Cruise Hub) really are now."
+  ],
   "0.62": [
    "👓 Simple mode (⚙ → Display): big text, today, what's next and four big buttons — My day, My cruise, Ask, Help. Everything else is still one tap away.",
    "🧾 Itemized running cost (Wallet → Money): every cost of the trip on one list — fare, hotel, gas, parking, excursions, onboard charges, gratuities — each with a running total."

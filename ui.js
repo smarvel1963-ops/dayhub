@@ -305,8 +305,9 @@ const CARDS = {
         ensureLists(tr); const keys = tripListKeys(tr);
         const lk = keys.includes(S.tripList) ? S.tripList : "packing", L = (tr.lists && tr.lists[lk]) || [];
         const done = L.filter(i => i.done).length;
-        body = `<div class="tabs">${keys.map(k => [k, TRIP_LISTS[k]]).map(([k, l]) => { const n = ((tr.lists || {})[k] || []);
-            return `<button class="tab ${k === lk ? "on" : ""}" data-triplist="${k}">${l}<small>${n.filter(i => i.done).length}/${n.length}</small></button>`; }).join("")}</div>
+        const LIST_IC = { packing: "🧳", docs: "📄", before: "✅", embark: "🚢", requests: "🛎️", home: "🏠", final: "🌙", after: "📸" };
+        body = tileNav(keys.map(k => { const n = ((tr.lists || {})[k] || []);
+            return { icon: LIST_IC[k] || "📋", label: TRIP_LISTS[k], small: `${n.filter(i => i.done).length}/${n.length}`, attrs: `data-triplist="${k}"`, on: k === lk }; }), 4, "compact") + `
           <div class="today-line sub">${done} of ${L.length} done</div>` +
           (lk === "packing" ? packExtrasHtml(tr) : "") +
           L.filter(i => lk !== "packing" || !S.bagView || S.bagView === "all" || bagOf(i) === S.bagView).map(i => `<div class="row ${i.done ? "done" : ""}"><input type="checkbox" class="tick" data-titem="${tr.id}:${lk}:${i.id}" ${i.done ? "checked" : ""} aria-label="Done">
@@ -316,7 +317,7 @@ const CARDS = {
         body = `<div class="today-line sub">For first-timers — things most people wish someone had told them.</div>` +
           CRUISE_TIPS.map(t => `<div class="today-line">💡 ${esc(t)}</div>`).join("");
       }
-      return pick + head + `<div class="tabs" style="margin-top:10px">${tabs.map(k => `<button class="tab ${k === tab ? "on" : ""}" data-triptab="${k}">${TL[k]}</button>`).join("")}</div>` +
+      return pick + head + tileNav(tabs.map(k => { const [ic, l] = splitIcon(TL[k]); return { icon: ic, label: l, attrs: `data-triptab="${k}"`, on: k === tab }; }), 4, "triptabs") +   // v0.63 icon tiles
         body + `<div class="foot-actions" style="margin-top:6px"><button class="add-link" data-qa="trip">＋ Another trip</button></div>`;
     } },
 
@@ -1425,6 +1426,7 @@ document.addEventListener("click", e => {
   if (ds.top3 === "pick") { top3Pick(true); render(); return; }
   if (ds.t3up) { const T = S.top3.items, i = T.findIndex(x => x.id === ds.t3up); if (i > 0) [T[i - 1], T[i]] = [T[i], T[i - 1]]; saveLocal(); render(); return; }
   if (ds.t3del) { S.top3.items = S.top3.items.filter(x => x.id !== ds.t3del); saveLocal(); render(); return; }
+  if (ds.setjump) { const el = document.getElementById(ds.setjump); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }   // v0.63
   if (typeof shellClick === "function" && shellClick(ds)) return;           // v0.58 shell.js tabs
   if (typeof cruiseClick === "function" && cruiseClick(ds)) return;          // v0.56 cruise.js
   if (ds.cd) { showReady(); return; }
@@ -1547,7 +1549,19 @@ document.addEventListener("change", e => {
 // ------------------------------------------------------------ settings
 function openSettings() {
   drawSettings();
+  { let j = document.getElementById("setJump");                             // v0.63 tile menu at the top of ⚙
+    if (!j) { j = document.createElement("div"); j.id = "setJump"; const head = document.querySelector("#sheet .sheet-head"); head.after(j); }
+    drawSetJump(); }
   document.getElementById("sheet").classList.remove("hidden");
+}
+// v0.63 settings jump tiles (the hub navigation)
+function drawSetJump() {
+  const g = document.getElementById("setJump"); if (!g) return;
+  const want = [["proBox", "⭐", "Pro"], ["remindBox", "🔔", "Reminders"], ["syncBox", "☁️", "Backup"], ["aiBox", "🤖", "AI helper"], ["simpleBox", "👓", "Display"],
+    ["famBox", "🌐", "Hub family"], ["installBox", "📲", "Install"], ["cardList", "🗂️", "Cards"], ["dataBox", "💾", "My data"]];
+  const items = want.filter(([id]) => { const el = document.getElementById(id); return el && !el.hidden && el.innerHTML.trim(); })
+    .map(([id, ic, l]) => ({ icon: ic, label: l, attrs: `data-setjump="${id}"` }));
+  g.innerHTML = tileNav(items, 3, "compact");
 }
 function drawSettings() {
   document.getElementById("setName").value = S.name;

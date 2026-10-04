@@ -9,6 +9,8 @@
   --radius: 20px;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* v0.63: anything marked hidden stays hidden (label.field / boxes set display, which beat the browser's [hidden] - Profession showed in Cruise Hub) */
+[hidden] { display: none !important; }
 html, body { margin: 0; background: var(--bg); color: var(--text);
   font-family: Inter, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
 body { max-width: 560px; margin: 0 auto; padding-bottom: 110px; min-height: 100vh;
@@ -576,4 +578,21 @@ body.simple .hero .chips, body.simple .hero .cd-pct, body.simple .hero .hero-btn
 .it-run { min-width: 86px; text-align: right; font-variant-numeric: tabular-nums; color: var(--dim); }
 .it-total { background: rgba(255,255,255,.04); }
 .it-total .it-run { color: var(--text); }
+
+/* v0.63 THE HUB NAVIGATION: big icon tiles (like the 🛟 Need help sheet) */
+.tilenav { display: grid; gap: 8px; margin: 10px 0; }
+.tilenav.cols2 { grid-template-columns: repeat(2, 1fr); }
+.tilenav.cols3 { grid-template-columns: repeat(3, 1fr); }
+.tilenav.cols4 { grid-template-columns: repeat(4, 1fr); }
+.tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 72px; padding: 8px 4px;
+  border-radius: 16px; border: 1px solid var(--line); background: var(--card-solid); color: var(--text); font: inherit; cursor: pointer;
+  transition: transform .12s ease, border-color .2s ease; }
+.tile:active { transform: scale(.96); }
+.tile .tile-ic { font-size: 24px; line-height: 1; }
+.tile b { font-size: 11.5px; font-weight: 700; letter-spacing: .2px; text-align: center; line-height: 1.15; }
+.tile small { font-size: 10px; color: var(--dim); }
+.tile.on { border-color: var(--accent); background: rgba(94,234,212,.14); box-shadow: 0 0 0 1px rgba(94,234,212,.35) inset; }
+.tilenav.compact .tile { min-height: 62px; }
+.tilenav.compact .tile .tile-ic { font-size: 20px; }
+#setJump { margin-bottom: 4px; }
 

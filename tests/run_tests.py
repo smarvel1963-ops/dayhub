@@ -1264,7 +1264,7 @@ def t_v045_cruise_hub(b, base):
     check("empty Trips card stays FULL size in Cruise Hub", not a.js("document.querySelector('[data-card=\"trips\"]').classList.contains('mini')") and "Plan a trip" in a.card("trips"))
     check("no email promise while GMAIL is off", "Connect Gmail" not in a.card("trips") and "fill in by themselves" not in a.card("trips"))
     a.page.click("#settingsBtn")
-    check("settings: no Profession in Cruise Hub", a.js("document.getElementById('setPack').closest('label').hidden"))
+    check("settings: no Profession in Cruise Hub (really invisible)", a.js("document.getElementById('setPack').closest('label').hidden") and not a.js("document.getElementById('setPack').offsetParent"))
     pro = a.page.inner_text("#proBox")
     check("Pro box: included with Day Hub Pro, only Cruise Hub features", "one purchase unlocks Day Hub and Cruise Hub" in pro and "Brain dump" not in pro and "Top 3" not in pro and "calendar" in pro and "Backup" in pro, pro[:300])
     check("fine print: Not affiliated with any cruise line", "Not affiliated with any cruise line." in a.page.inner_text("#sheet"))
@@ -1853,7 +1853,7 @@ def t_v059_plan_timeline(b, base):
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-16", "line": "Princess", "ship": "Caribbean Princess", "port": "Port Canaveral"})
     a.js("""curTrip().ports = [{ id: 'p1', name: 'Grand Turk', day: '2026-11-14', arrive: '08:00', allAboard: '16:30', excursion: 'Hummer tour', meet: '08:30', where: 'Pier gate' }];
             curTrip().costs = [{ id: 'c1', cat: 'hotel', what: 'Westgate', amt: 336, paid: true }]; save(); shellGo('plan')""")
-    views = a.js("[...document.querySelectorAll('[data-planview]')].map(b => b.textContent)")
+    views = a.js("[...document.querySelectorAll('.planview [data-planview] b')].map(b => b.textContent)")
     check("PLAN views: Today | Trip | Packing | Reservations (Trip first shown)", views == ["Today", "Trip", "Packing", "Reservations"] and a.js("PLAN_VIEW") == "trip", views)
     tl = a.page.inner_text(".timeline")
     check("timeline: every day in order - sail day, at sea (TODAY), Grand Turk, at sea, back in port", tl.index("Sail day") < tl.index("At sea") < tl.index("Grand Turk") < tl.index("Back in port") and "TODAY" in tl and a.js("document.querySelectorAll('.tl-row').length") == 5, tl[:500])
@@ -2008,6 +2008,28 @@ def t_v062_itemized(b, base):
     a.close()
 
 
+def t_v063_icon_tiles(b, base):
+    print("\n[v0.63 the hub navigation: big icon tiles everywhere you choose a section]")
+    a = App(b, base, path=CRUISE, at="2026-10-01T09:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess"})
+    a.js("shellGo('plan')")
+    tt = a.js("[...document.querySelectorAll('.triptabs .tile')].map(t => t.querySelector('.tile-ic').textContent + '|' + t.querySelector('b').textContent)")
+    check("trip sections are icon tiles (icon + label)", len(tt) >= 6 and "✅|Ready" in tt and "💳|Money" in tt, tt)
+    check("plan views are icon tiles", a.js("document.querySelectorAll('.planview .tile').length") == 4)
+    a.page.click('.triptabs [data-triptab="lists"]'); a.page.wait_for_timeout(150)
+    check("tap a tile = that section, tile lit", a.js("S.tripTab") == "lists" and a.js("document.querySelector('.triptabs .tile.on').dataset.triptab") == "lists")
+    check("lists are icon tiles with done counts", a.js("document.querySelectorAll('.tilenav.compact [data-triplist]').length") >= 7 and "/" in a.js("document.querySelector('[data-triplist=\"packing\"] small').textContent"))
+    a.page.click("#settingsBtn"); a.page.wait_for_timeout(200)
+    j = a.js("[...document.querySelectorAll('#setJump .tile b')].map(b => b.textContent)")
+    check("⚙ opens with a tile menu of its sections", "Reminders" in j and "My data" in j and "Hub family" in j, j)
+    a.page.click('#setJump [data-setjump="dataBox"]'); a.page.wait_for_timeout(1000)
+    check("a settings tile jumps to its section", a.js("(() => { const r = document.getElementById('dataBox').getBoundingClientRect(); return r.top < window.innerHeight; })()"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -2032,7 +2054,7 @@ def main():
                   t_v057_crisis, t_v058_shell,
                   t_v059_plan_timeline, t_v060_onboarding,
                   t_v061_travel_day_offline, t_v062_simple_mode,
-                  t_v062_itemized):
+                  t_v062_itemized, t_v063_icon_tiles):
             try:
                 t(b, base)
             except Exception as e:

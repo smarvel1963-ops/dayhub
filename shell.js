@@ -16,6 +16,15 @@
 "use strict";
 
 const SHELL_MODES = ["cruise"];
+
+// THE HUB NAVIGATION (Scott 10/5: "the little drop down logos you did on cruise hub like on the life
+// preserver needs to be how our navigation in our app functions on almost every thing"). Big icon tiles -
+// icon + short label, the chosen one lit - wherever the user picks a section, view or menu. Every hub.
+// items: [{ icon, label, attrs, on, small }]
+function tileNav(items, cols = 4, cls = "") {
+  return `<div class="tilenav cols${cols} ${cls}">${items.map(i => `<button class="tile ${i.on ? "on" : ""}" ${i.attrs}><span class="tile-ic">${i.icon}</span><b>${i.label}</b>${i.small ? `<small>${i.small}</small>` : ""}</button>`).join("")}</div>`;
+}
+const splitIcon = s => { const m = String(s).match(/^(\S+)\s+(.*)$/); return m ? [m[1], m[2]] : ["•", String(s)]; };
 const SHELL_TABS = [["home", "🏠", "Home"], ["plan", "📅", "Plan"], ["explore", "🌎", "Explore"], ["wallet", "👛", "Wallet"], ["ai", "✨", "AI"]];
 const SHELL_CARDS = { plan: ["trips", "inbox", "schedule", "todos", "lists"], explore: ["weather", "family"], wallet: ["trips"] };
 // Trips-card tabs per shell tab (null = all of them).
@@ -168,7 +177,8 @@ function reservationsHtml() {
       <button class="add-link" data-qa="event">＋ Add a plan (dinner, show, spa…)</button></div></section>`;
 }
 function planHtml(cardHtml) {
-  const nav = `<div class="tabs planview">${PLAN_VIEWS.map(([k, l]) => `<button class="tab ${k === PLAN_VIEW ? "on" : ""}" data-planview="${k}">${l}</button>`).join("")}</div>`;
+  const PV_IC = { today: "📅", trip: "🗺️", packing: "🧳", reservations: "🎟️" };
+  const nav = tileNav(PLAN_VIEWS.map(([k, l]) => ({ icon: PV_IC[k], label: l, attrs: `data-planview="${k}"`, on: k === PLAN_VIEW })), 4, "planview");
   const cards = ks => ks.filter(k => k !== "inbox" || S.mail.on || S.mail.found.length).map(k => cardHtml(k)).join("");
   if (PLAN_VIEW === "today") return nav + cards(["schedule", "todos"]);
   if (PLAN_VIEW === "packing") { S.tripTab = "lists"; if (!["packing", "final"].includes(S.tripList)) S.tripList = "packing"; return nav + cards(["trips"]); }
