@@ -451,3 +451,13 @@ details.steps .fine { margin-top: 8px; }
   background: var(--rg, #4ade80); box-shadow: 0 10px 30px rgba(0,0,0,.35); max-width: 452px; }
 @media (min-width: 600px) { .rg-bar { left: calc(50% - 264px); } }
 
+/* v0.54 name bar (every hub) + wallet */
+.brand { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; letter-spacing: 3px; }
+.brand img { width: 24px; height: 24px; border-radius: 7px; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+.hero .greet { margin-top: 10px; }
+.cost-add { flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.cost-add select, .cost-add input[name=what] { flex: 1 1 45%; min-width: 0; }
+.cost-add input[name=amt] { flex: 0 1 90px; }
+.paidbox { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--dim); }
+.linkish { background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; padding: 6px 0; width: 100%; }
+

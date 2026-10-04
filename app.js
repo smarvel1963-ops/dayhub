@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.53";
+const VERSION = "0.54";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -1579,6 +1579,20 @@ const CRUISE_TIPS = [
 const isCruise = tr => tr.type === "cruise";
 const tripNights = tr => tr.start && tr.end ? Math.max(0, Math.round((parseDay(tr.end) - parseDay(tr.start)) / 86400000)) : 0;
 const tripPaid = tr => (tr.payments || []).reduce((n, x) => n + Number(x.amt || 0), 0);
+// v0.54 WALLET (V1 step 3, Scott's plan: "Real Vacation Cost = cruise + transportation + hotel + parking +
+// packages + excursions + insurance"). Costs AROUND the cruise, each paid or not yet; the cruise fare stays
+// total + payments. Onboard credit = tr.credit (Onboard tab); benefits = perks.
+const COST_CATS = [["hotel", "🏨 Hotel"], ["travel", "🚗 Gas / flights"], ["parking", "🅿️ Parking"], ["excursion", "🤿 Excursions"],
+  ["package", "🍹 Packages"], ["insurance", "🛡️ Insurance"], ["other", "🧾 Other"]];
+const costLabel = k => (COST_CATS.find(c => c[0] === k) || COST_CATS[COST_CATS.length - 1])[1];
+function tripWallet(tr) {
+  const costs = (tr.costs || []).filter(c => Number(c.amt) > 0);
+  const extras = costs.reduce((n, c) => n + Number(c.amt), 0), extrasPaid = costs.filter(c => c.paid).reduce((n, c) => n + Number(c.amt), 0);
+  const fare = Number(tr.total) || 0, farePaid = tripPaid(tr);
+  const total = fare + extras, paid = Math.min(fare, farePaid) + extrasPaid;
+  return { fare, farePaid, extras, extrasPaid, total, paid, left: Math.max(0, total - paid), credit: Number(tr.credit) || 0,
+           unused: perksLeft(tr).length, costs };
+}
 const tripLeft = tr => tr.total ? Math.max(0, tr.total - tripPaid(tr)) : null;
 const tripSpent = tr => (tr.spends || []).reduce((n, x) => n + Number(x.amt || 0), 0);
 // PACKAGES - checked 2026-10-01 on princess.com "Princess Plus & Princess Premier"
@@ -2468,6 +2482,9 @@ function tripContext(tr) {
     travelers: tr.travelers || null, readyPercent: R.pct, stage: R.phase, nextStep: R.next ? R.next.action : null,
     stillToDo: R.items.filter(i => i.score < 1).map(i => `${i.label}${i.now ? " (matters now)" : " (later)"}`) };
   if (tr.total) o.money = { total: money(tr.total), paid: money(tripPaid(tr)), left: money(tripLeft(tr) || 0), finalPaymentDue: tr.finalDue || null };
+  { const W = tripWallet(tr); if (W.extras) o.wholeTrip = { totalVacation: money(W.total), paid: money(W.paid), left: money(W.left),
+      otherCosts: W.costs.map(c => `${costLabel(c.cat).replace(/^\S+\s/, "")}: ${c.what || ""} ${money(c.amt)} ${c.paid ? "(paid)" : "(not paid yet)"}`) };
+    if (W.credit) o.onboardCredit = money(W.credit); }
   o.ports = (tr.ports || []).map(pt => ({ day: pt.day, port: pt.name, arrive: hmOr(pt.arrive),
     allAboardPhoneTime: pt.allAboard ? hm(aaLocal(pt)) : null, allAboardShipTime: pt.allAboard && Number(pt.shipOffset) ? hm(pt.allAboard) : undefined,
     headBackBy: pt.allAboard ? hm(guardBy(pt)) : null, excursion: pt.excursion || null, meet: hmOr(pt.meet), meetingPoint: pt.where || null,
@@ -2781,8 +2798,11 @@ function heroHtml() {
     : S.city && !WXDATA ? `<div class="hero-wx"><div class="skel" style="width:84px;height:74px"></div></div>` : "";
   // Cruise Hub's top line is about the cruise only (Day Hub's chips stay in Day Hub).
   const keep = MODE !== "cruise" ? chips : chips.filter(c => /forgetting|Final payment|🚢|✈️|[Rr]ain|New version|Install|⚓|data-cwx/.test(c));
-  return `<div class="hero-top"><div class="greet">${greet()}</div>
+  // v0.54 (Scott 10/4: "across the top of the apps to signify app you're on - DAY HUB, CRUISE HUB"):
+  // every hub shows its own name + icon at the top.
+  return `<div class="hero-top"><div class="brand"><img src="icon-192.png" alt="" width="24" height="24"><span>${esc(APP_NAME.toUpperCase())}</span></div>
       <span class="hero-btns">${MODE !== "cruise" ? `<button class="icon-btn" data-ask="open" aria-label="Ask Day Hub">💡</button><button class="icon-btn" data-leave="1" aria-label="Don't forget">🚪</button><button class="icon-btn" data-dump="1" aria-label="Brain dump">🧠</button>` : `<button class="icon-btn" data-ask="open" aria-label="Ask Cruise Hub">💡</button>`}<button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button></span></div>
+    <div class="greet">${greet()}</div>
     <div class="hero-main"><div><div class="hero-clock" id="clockNow"></div><div class="hero-date">${longDate(today())}</div></div>${wx}</div>
     ${CD || `<div class="verdict-row">${MODE !== "cruise" && (S.name || hasData(S)) ? pulseRing() : ""}<div class="verdict">${verdict}</div></div>`}
     <div class="chips">${chipsShown(keep).join("")}</div>`;

@@ -1621,6 +1621,39 @@ def t_v053_ask_cruise_hub(b, base):
     a.close()
 
 
+def t_v054_name_bar_wallet(b, base):
+    print("\n[v0.54 name bar on every hub + Wallet: the whole vacation]")
+    a = App(b, base); setup(a)
+    check("Day Hub: DAY HUB name bar with its icon", a.js("document.querySelector('#hero .brand').textContent.trim()") == "DAY HUB" and a.js("!!document.querySelector('#hero .brand img[src=\"icon-192.png\"]')"))
+    check("greeting still there under it", "Good" in a.page.inner_text("#hero .greet"))
+    a.close()
+    a = App(b, base, path=CRUISE)
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    check("Cruise Hub: CRUISE HUB name bar", a.js("document.querySelector('#hero .brand').textContent.trim()") == "CRUISE HUB")
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess"})
+    a.js("const tr = curTrip(); tr.total = 3000; tr.payments = [{ id: 'x', amt: 1000, day: '2026-09-01' }]; tr.credit = 200; save(); S.tripTab = 'money'; render()")
+    t = a.card("trips")
+    check("Money tab (was Payments) with the Whole trip section", "Money" in t and "WHOLE TRIP" in t.upper() and "Cruise Hub reminds you" in t and "Day Hub reminds you" not in t)
+    for cat, what, amt, paid in (("hotel", "Westgate, 2 nights", "336", True), ("parking", "Port garage", "160", False), ("excursion", "Hummer", "298", False)):
+        a.js("([c,w,m,p]) => { const f = document.querySelector('form[data-cost]'); f.cat.value = c; f.what.value = w; f.amt.value = m; f.paid.checked = p; f.requestSubmit(); }", [cat, what, amt, paid])
+        a.page.wait_for_timeout(120)
+    W = a.js("(({total, paid, left, extras, credit}) => ({total, paid, left, extras, credit}))(tripWallet(curTrip()))")
+    check("whole trip = 3000 + 794 = 3794; paid 1000 + 336; left 2458; credit 200", W == {"total": 3794, "paid": 1336, "left": 2458, "extras": 794, "credit": 200}, W)
+    t = a.card("trips")
+    check("shown: total vacation, the three costs, onboard credit", "$3,794.00" in t and "Westgate" in t and "Port garage" in t and "Onboard credit" in t and "$200.00" in t)
+    cid = a.js("curTrip().costs[1].id"); tid = a.js("curTrip().id")
+    a.page.click(f'[data-costpaid="{tid}:{cid}"]'); a.page.wait_for_timeout(150)
+    check("tap 'not paid' -> paid; left drops by 160", a.js("curTrip().costs[1].paid") is True and a.js("tripWallet(curTrip()).left") == 2298)
+    a.page.click(f'[data-tripdel="{tid}:costs:{cid}"]'); a.page.wait_for_timeout(150)
+    check("remove a cost", a.js("curTrip().costs.length") == 2 and a.js("tripWallet(curTrip()).total") == 3634)
+    ctx = json.loads(a.js("aiContext()"))
+    check("Ask Cruise Hub sees the whole-trip money + onboard credit", ctx["trip"].get("wholeTrip", {}).get("totalVacation") == "$3,634.00" and ctx["trip"].get("onboardCredit") == "$200.00", json.dumps(ctx["trip"].get("wholeTrip")))
+    check("a zero / blank amount is not added", a.js("(() => { const f = document.querySelector('form[data-cost]'); f.amt.value = '0'; f.requestSubmit(); return curTrip().costs.length; })()") == 2)
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1640,7 +1673,7 @@ def main():
                   t_v046_hub_family, t_v048_cruise_pass,
                   t_v049_scenes, t_v050_countdown_family,
                   t_v051_cruise_weather, t_v052_return_guard,
-                  t_v053_ask_cruise_hub):
+                  t_v053_ask_cruise_hub, t_v054_name_bar_wallet):
             try:
                 t(b, base)
             except Exception as e:

@@ -1,6 +1,10 @@
 {
- "version": "0.53",
+ "version": "0.54",
  "notes": {
+  "0.54": [
+   "🏷️ Each app now shows its name across the top — DAY HUB, CRUISE HUB.",
+   "👛 Money tab: the WHOLE vacation — add the hotel, gas or flights, parking, excursions, packages and insurance, mark each paid, and see the total, what's paid, what's left and your onboard credit."
+  ],
   "0.53": [
    "💡 Ask Cruise Hub: tap 💡 and ask in plain words — \"When do we need to be back on the ship?\", \"What's left to pack?\", \"How much do I still owe?\" — it answers from your own cruise (AI helper, part of Pro)."
   ],

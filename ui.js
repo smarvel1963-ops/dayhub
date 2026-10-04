@@ -207,7 +207,7 @@ const CARDS = {
           <button class="btn sm ghost" data-tripedit="${tr.id}">Edit</button></div>
         <button class="btn" data-forget="1" style="width:100%;margin-top:10px">🛳️ What am I forgetting?</button>`;
       const tabs = ["ready", "money"].concat(isCruise(tr) ? ["ports"] : [], ["onboard"], isCruise(tr) ? ["perks"] : [], ["lists"], isCruise(tr) ? ["tips"] : []);
-      const TL = { ready: "✅ Ready", money: "💳 Payments", ports: "🗺️ Ports", onboard: isCruise(tr) ? "🍹 Onboard" : "💵 Spending", lists: "📋 Lists", perks: "🎁 Perks", tips: "💡 Good to know" };
+      const TL = { ready: "✅ Ready", money: "💳 Money", ports: "🗺️ Ports", onboard: isCruise(tr) ? "🍹 Onboard" : "💵 Spending", lists: "📋 Lists", perks: "🎁 Perks", tips: "💡 Good to know" };
       const tab = tabs.includes(S.tripTab) ? S.tripTab : "ready";
       let body = "";
       if (tab === "ready") {
@@ -240,11 +240,26 @@ const CARDS = {
           : `<div class="empty">Add the total price (Edit) to see what's left to pay.</div>`;
         if (tr.finalDue) body += `<div class="today-line" style="margin-top:8px">💳 Final payment due <b>${prettyDate(tr.finalDue)}</b>
             ${left === 0 ? `<span class="pill">paid off ✓</span>` : `<span class="pill ${fd !== null && fd <= 14 ? "late" : fd <= 45 ? "soon" : ""}">${fd < 0 ? `${-fd} days ago` : inDays(fd)}</span>`}</div>`;
-        else if (isCruise(tr)) body += `<div class="today-line sub" style="margin-top:8px">Add the final-payment date (Edit) — Day Hub reminds you 14, 3 and 1 day before.</div>`;
+        else if (isCruise(tr)) body += `<div class="today-line sub" style="margin-top:8px">Add the final-payment date (Edit) — ${APP_NAME} reminds you 14, 3 and 1 day before.</div>`;
         if (spm && left) body += `<div class="today-line">💰 Put aside about <b>${money(spm)}</b> a month to be ready.</div>`;
         body += (tr.payments || []).slice().sort((a, b) => b.day.localeCompare(a.day)).map(x => `<div class="row"><span class="time">${prettyDate(x.day)}</span>
             <span class="grow">${esc(x.note || "Payment")}</span><b>${money(x.amt)}</b><button class="x" data-tripdel="${tr.id}:payments:${x.id}" aria-label="Remove">✕</button></div>`).join("");
         body += `<button class="add-link" data-tripqa="tpay">＋ Log a payment</button>`;
+        // v0.54 WALLET: the whole vacation, not just the fare.
+        const W = tripWallet(tr);
+        body += `<div class="day-label" style="margin-top:14px">👛 Whole trip</div>
+          <div class="paygrid"><div class="fact">Total vacation<b>${money(W.total)}</b></div><div class="fact">Paid<b>${money(W.paid)}</b></div>
+            <div class="fact ${W.left ? "" : "take"}">Left<b>${money(W.left)}</b></div></div>
+          ${W.total ? `<div class="bar" style="margin-top:10px"><span style="left:0;width:${Math.min(100, W.paid / W.total * 100)}%"></span></div>` : ""}
+          <div class="today-line sub" style="margin-top:6px">Cruise ${W.fare ? money(W.fare) : "— (Edit to add)"}${W.extras ? ` + everything around it ${money(W.extras)}` : ""}</div>
+          ${W.credit ? `<div class="today-line">💵 Onboard credit: <b>${money(W.credit)}</b></div>` : ""}
+          ${W.unused ? `<button class="today-line linkish" data-triptab="perks">🎁 ${W.unused} benefit${W.unused === 1 ? "" : "s"} not used yet — see Perks</button>` : ""}` +
+          W.costs.map(c => `<div class="row"><span class="grow">${costLabel(c.cat)}${c.what ? ` — ${esc(c.what)}` : ""}</span><b>${money(c.amt)}</b>
+            <button class="pill ${c.paid ? "" : "soon"}" data-costpaid="${tr.id}:${c.id}" style="border:0;cursor:pointer">${c.paid ? "paid ✓" : "not paid"}</button>
+            <button class="x" data-tripdel="${tr.id}:costs:${c.id}" aria-label="Remove">✕</button></div>`).join("") +
+          `<form class="inline-add cost-add" data-cost="${tr.id}"><select name="cat" aria-label="What kind">${COST_CATS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select>
+            <input name="what" placeholder="What (e.g. Westgate, 2 nights)" autocomplete="off"><input name="amt" type="number" step="0.01" min="0" inputmode="decimal" placeholder="$" required>
+            <label class="paidbox"><input type="checkbox" name="paid" value="1"> paid</label><button class="btn sm">Add</button></form>`;
       } else if (tab === "onboard") {
         const spent = tripSpent(tr), bud = Number(tr.onboardBudget || 0), gr = gratEstimate(tr);
         const cats = {}; (tr.spends || []).forEach(x => { cats[x.cat] = (cats[x.cat] || 0) + Number(x.amt || 0); });
@@ -1223,6 +1238,9 @@ document.addEventListener("submit", e => {
   if (f.dataset.remember !== undefined) { const x = (data.text || "").trim(); if (!x) return;
     S.remember.push({ id: uid(), day: addDays(today(), 1), text: x }); save(); render(); toast("📌 Saved for the morning"); return; }
   if (f.dataset.route) { S.route = { from: data.from.trim(), to: data.to.trim() }; save(); loadWeather(); return; }
+  if (f.dataset.cost) { const tr = S.trips.find(x => x.id === f.dataset.cost), amt = Number(data.amt);
+    if (tr && amt > 0) { tr.costs = tr.costs || []; tr.costs.push({ id: uid(), cat: data.cat || "other", what: String(data.what || "").trim(), amt, paid: data.paid === "1" }); save(); render(); buzz(); }
+    return; }
   if (f.dataset.drink) { const tr = S.trips.find(x => x.id === f.dataset.drink); const P = tr && pkgOf(tr); const pr = Number(data.price);
     if (P) toast(pr <= P.drinkCap ? `✅ $${pr.toFixed(2)} — included in ${P.name} (up to $${P.drinkCap})` : `⚠️ $${pr.toFixed(2)} is over ${P.name}'s $${P.drinkCap} limit — ask the bartender before you order`);
     f.reset(); return; }
@@ -1327,6 +1345,8 @@ document.addEventListener("click", e => {
   if (ds.triplist) { S.tripList = ds.triplist; save(); render(); return; }
   if (ds.tripedit) { TRIP_EDIT = ds.tripedit; openQA("trip", true); return; }
   if (ds.tripqa) { openQA(ds.tripqa); return; }
+  if (ds.costpaid) { const [tid, cid] = ds.costpaid.split(":"), tr = S.trips.find(x => x.id === tid), c = tr && (tr.costs || []).find(x => x.id === cid);
+    if (c) { c.paid = !c.paid; save(); render(); } return; }
   if (ds.tripdel) { snap(); const [tid, where, id] = ds.tripdel.split(":"); const tr = S.trips.find(x => x.id === tid);
     if (tr) { if (where.startsWith("lists.")) { const k = where.slice(6); tr.lists[k] = tr.lists[k].filter(i => i.id !== id); }
               else tr[where] = tr[where].filter(i => i.id !== id); }
