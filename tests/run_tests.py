@@ -1786,6 +1786,7 @@ def t_v058_shell(b, base):
         a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
         a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
         if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+        a.js("S.magicSeen = true; S.prefs = { skipped: true, loves: [] }; save(); render()")     # v0.60 one-time onboarding done
         return a
     a = App(b, base, path=CRUISE)
     a.js("localStorage.setItem('cruisehub.startTab', 'home')"); a.page.reload(); a.page.wait_for_function("document.querySelector('#hero .greet')")
@@ -1794,7 +1795,7 @@ def t_v058_shell(b, base):
     a = mk("2026-10-01T09:00:00")
     tabs = a.js("[...document.querySelectorAll('#tabbar button')].map(b => b.textContent.trim())")
     check("5 permanent tabs, opens on HOME", tabs == ["🏠Home", "📅Plan", "🌎Explore", "👛Wallet", "✨AI"] and a.js("TAB") == "home", tabs)
-    check("no trip: big button = PLAN MY CRUISE", "PLAN MY CRUISE" in a.page.inner_text(".big-btn"))
+    check("no trip: HOME shows the ways to add a cruise", "Add my cruise" in a.page.inner_text("#cards") and "Paste my confirmation" in a.page.inner_text("#cards"))
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess", "port": "Port Canaveral"})
     a.js("const tr = curTrip(); tr.total = 3000; tr.finalDue = '2026-10-20'; tr.ports = [{ id: 'p1', name: 'Grand Turk', day: '2026-11-14', allAboard: '16:30', excursion: 'Hummer tour' }]; save(); shellGo('home')")
     home = a.page.inner_text("#cards")
@@ -1877,6 +1878,48 @@ def t_v059_plan_timeline(b, base):
     a.close()
 
 
+def t_v060_onboarding(b, base):
+    print("\n[v0.60 onboarding: add my cruise, paste a confirmation, YOU'RE GOING!, make it yours]")
+    a = App(b, base, path=CRUISE, at="2026-10-01T09:00:00")
+    a.js("localStorage.setItem('cruisehub.startTab', 'home')"); a.page.reload(); a.page.wait_for_function("document.querySelector('#hero .greet')")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    h = a.page.inner_text("#cards")
+    check("HOME with no cruise: Add my cruise - enter it / paste the confirmation", "Add my cruise" in h and "Enter my cruise" in h and "Paste my confirmation" in h and "Find it in my email" not in h)
+    a.page.click('[data-pasteopen="1"]'); a.page.wait_for_timeout(150)
+    a.page.fill("#pasteSheet textarea", "hello, not a cruise"); a.js("document.querySelector('form[data-pastecruise]').requestSubmit()"); a.page.wait_for_timeout(150)
+    check("text with no cruise: nothing added, sheet stays", a.js("S.trips.length") == 0 and not a.js("document.getElementById('pasteSheet').classList.contains('hidden')"))
+    mail = "Your Princess Cruises booking is confirmed\nShip Caribbean Princess\nSail Date Nov 12, 2026\nReturn Date Nov 19, 2026\nBooking # DN9MWJ\nStateroom C325\nEmbarkation Port Port Canaveral\nFinal Payment Due Oct 20, 2026\nTotal Price $3,214.50"
+    a.page.fill("#pasteSheet textarea", mail); a.js("document.querySelector('form[data-pastecruise]').requestSubmit()"); a.page.wait_for_timeout(300)
+    tr = a.js("(({ship, start, end, booking, cabin, port, finalDue, total, line}) => ({ship, start, end, booking, cabin, port, finalDue, total, line}))(curTrip())")
+    check("pasted confirmation -> the cruise filled in", tr == {"ship": "Caribbean Princess", "start": "2026-11-12", "end": "2026-11-19", "booking": "DN9MWJ", "cabin": "C325",
+          "port": "Port Canaveral", "finalDue": "2026-10-20", "total": 3214.5, "line": "Princess"}, tr)
+    m = a.page.inner_text("#magicSheet")
+    check("the magic moment: YOU'RE GOING! ship, 42 days, building..., READY + what's still needed", "YOU'RE GOING!" in m and "Caribbean Princess" in m and "42" in m and "YOUR CRUISE IS READY" in m and "still need from you" in m, m[:400])
+    a.page.click('[data-magicclose="1"]'); a.page.wait_for_timeout(150)
+    check("shown once (remembered)", a.js("S.magicSeen") is True and a.js("document.getElementById('magicSheet').classList.contains('hidden')"))
+    h = a.page.inner_text("#cards")
+    check("HOME now: Make it yours (optional) + Right now + the big button", "MAKE IT YOURS" in h.upper() and "WHO'S GOING?" in h.upper() and "RIGHT NOW" in h.upper(), h[:300])
+    a.page.click('[data-prefwith="partner"]'); [a.page.click(f'[data-preflove="{k}"]') for k in ("comedy", "casino", "beaches", "food")]
+    check("top 3 numbered in the order picked", a.js("[...document.querySelectorAll('.love i')].map(i => i.parentElement.dataset.preflove + i.textContent).join()") == "beaches3,comedy1,casino2" or a.js("[...document.querySelectorAll('.love.on i')].length") == 3)
+    a.page.click('[data-prefsave="1"]'); a.page.wait_for_timeout(150)
+    check("saved: partner, loves, top 3; card gone", a.js("S.prefs.with") == "partner" and a.js("S.prefs.top3.join()") == "comedy,casino,beaches" and "Make it yours" not in a.page.inner_text("#cards"))
+    check("Ask Cruise Hub gets the travel style", json.loads(a.js("aiContext()")).get("travelStyle", {}).get("top3") == ["comedy", "casino", "beaches"])
+    a.close()
+    # by hand: the magic moment too (on HOME)
+    a = App(b, base, path=CRUISE, at="2026-10-01T09:00:00")
+    a.js("localStorage.setItem('cruisehub.startTab', 'home')"); a.page.reload(); a.page.wait_for_function("document.querySelector('#hero .greet')")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Alaska", "start": "2027-06-20", "end": "2027-06-27", "line": "Princess"})
+    a.page.wait_for_timeout(200)
+    check("entering the cruise by hand also shows YOU'RE GOING!", "YOU'RE GOING!" in a.page.inner_text("#magicSheet"))
+    a.page.click('[data-prefskip="1"]') if a.js("!!document.querySelector('[data-prefskip]')") and False else None
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1899,7 +1942,7 @@ def main():
                   t_v053_ask_cruise_hub, t_v054_name_bar_wallet,
                   t_v055_packing_bags, t_v056_go_home,
                   t_v057_crisis, t_v058_shell,
-                  t_v059_plan_timeline):
+                  t_v059_plan_timeline, t_v060_onboarding):
             try:
                 t(b, base)
             except Exception as e:

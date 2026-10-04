@@ -68,7 +68,8 @@ function nextUp() {
 }
 function homeHtml() {
   const tr = curTrip(), items = rightNow(tr), nx = nextUp(), bb = bigButton(tr);
-  return `<section class="card shell-home"><h3>🔥 Right now</h3><div class="body">
+  if (!tr) return addCruiseHtml();                                          // v0.60 no cruise yet: the ways in
+  return prefsCardHtml() + `<section class="card shell-home"><h3>🔥 Right now</h3><div class="body">
       ${items.length ? items.map(x => `<button class="rn-row" ${x.act}>${x.icon ? `<span>${x.icon}</span>` : ""}<span class="grow">${esc(x.text)}</span><span class="chev">›</span></button>`).join("")
         : `<div class="today-line">✅ Nothing needs you right now.</div>`}</div></section>
     ${nx ? `<section class="card shell-home"><h3>⏭ Next up</h3><div class="body"><div class="today-line">${nx}</div></div></section>` : ""}

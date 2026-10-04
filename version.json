@@ -1,6 +1,10 @@
 {
- "version": "0.59",
+ "version": "0.60",
  "notes": {
+  "0.60": [
+   "🚢 New in Cruise Hub: paste your cruise confirmation email and it fills in the ship, dates, booking, cabin, port and final payment.",
+   "🎉 YOU'RE GOING! — adding your cruise now gets a proper welcome, and a quick 'Make it yours' (who's going + your top 3 things) so Ask Cruise Hub suggests what fits you."
+  ],
   "0.59": [
    "📅 Plan now has Today · Trip · Packing · Reservations. Trip shows your whole cruise day by day — sail day, ports with all-aboard and excursions, sea days — tap a day for everything about it."
   ],

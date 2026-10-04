@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.59";
+const VERSION = "0.60";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -2502,6 +2502,7 @@ function aiContext() {
   out.alerts = pulseItems().map(x => x.text);
   out.futureMe = S.future.map(f => ({ saved: f.created.slice(0, 10), note: f.text }));
   { const tr = curTrip(); if (tr) out.trip = tripContext(tr); }          // v0.53: the trip / cruise, for Ask Cruise Hub
+  if (S.prefs && !S.prefs.skipped) out.travelStyle = { travelingWith: S.prefs.with || undefined, loves: S.prefs.loves, top3: S.prefs.top3 };   // v0.60
   let j = JSON.stringify(out);
   if (j.length > 14000) { out.notes = out.notes.slice(-5); out.schedule = out.schedule.filter(x => x.day <= d(7)); j = JSON.stringify(out); }
   return j.slice(0, 15000);

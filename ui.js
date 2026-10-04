@@ -1208,7 +1208,8 @@ function submitQA(f) {
       insurance: d.insurance || "undecided", travel: (d.travel || "").trim(), pkg: d.pkg || "" };
     const old = S.trips.find(x => x.id === TRIP_EDIT);
     if (old) { Object.assign(old, fields); seedPerks(old); }
-    else { const id = uid(); const nt = ensureLists({ id, ...fields, payments: [], spends: [], ports: [], perks: [], lists: newLists(fields.type) }); seedPerks(nt); S.trips.push(nt); S.tripSel = id; S.tripTab = "ready"; }
+    else { const id = uid(); const nt = ensureLists({ id, ...fields, payments: [], spends: [], ports: [], perks: [], lists: newLists(fields.type) }); seedPerks(nt); S.trips.push(nt); S.tripSel = id; S.tripTab = "ready";
+      if (typeof cruiseAdded === "function") setTimeout(() => cruiseAdded(nt), 0); }                  // v0.60 the magic moment
     TRIP_EDIT = null;
   }
   else if (ty === "forget") { closeQA(); return; }
