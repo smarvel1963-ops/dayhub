@@ -1427,6 +1427,60 @@ def t_v049_scenes(b, base):
     a.close()
 
 
+def t_v050_countdown_family(b, base):
+    print("\n[v0.50 Cruise Hub countdown hero + Hub family card]")
+    def mk(at):
+        a = App(b, base, path=CRUISE, at=at)
+        a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+        a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+        if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+        return a
+    a = mk("2026-10-01T09:00:00")
+    check("no trip yet: no countdown, the plain line", not a.js("!!document.querySelector('#hero .cd')") and "Plan your next cruise" in a.page.inner_text("#hero"))
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess"})
+    a.page.wait_for_timeout(1200)
+    h = a.page.inner_text("#hero")
+    check("countdown: 42 DAYS until the ship + % READY", a.js("document.querySelector('.cd-n').textContent") == "42" and "DAYS" in h and "until Caribbean Princess" in h and "% READY" in h, h[:300])
+    check("next step reads as an action", "next: add your booking number" in h.lower(), h[-200:])
+    check("no duplicate 'in 42 days' chip", "in 42 days" not in h)
+    a.page.click(".cd"); a.page.wait_for_timeout(300)
+    rs = a.page.inner_text("#readySheet")
+    check("tap = the checklist sheet", not a.js("document.getElementById('readySheet').classList.contains('hidden')") and "Caribbean Princess" in rs and "Booking number saved" in rs and "Open my trip" in rs)
+    a.page.click('[data-readygo="1"]'); a.page.wait_for_timeout(300)
+    check("Open my trip: sheet closes, Trips on the Ready tab", a.js("document.getElementById('readySheet').classList.contains('hidden')") and a.js("S.tripTab") == "ready")
+    # everything done -> 100% + celebrate once
+    a.js("""const tr = curTrip(); tr.total = 0; tr.booking = 'X1'; tr.insurance = 'yes'; tr.cabin = 'B1'; tr.travel = 'drive';
+            tr.ports = [{ id: 'p', name: 'Grand Turk', day: '2026-11-14', excursion: 'none', allAboard: '16:30' }];
+            Object.values(tr.lists).forEach(l => l.forEach(i => i.done = true)); save(); render()""")
+    a.page.wait_for_timeout(300)
+    check("100%: READY 🎉 + celebrated once and remembered", "100% READY" in a.page.inner_text("#hero") and a.js("curTrip().ready100") is True
+          and a.js("!!document.querySelector('.confetti')"))
+    a.close()
+    a = mk("2026-11-12T09:00:00")
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess"})
+    check("sail day: SAIL DAY + welcome aboard", "SAIL DAY" in a.page.inner_text("#hero") and "Welcome aboard" in a.page.inner_text("#hero"))
+    a.close()
+    a = mk("2026-11-14T09:00:00")
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess"})
+    a.js("curTrip().ports = [{ id: 'p1', name: 'Grand Turk', day: '2026-11-14', allAboard: '16:30' }]; save(); render()")
+    h = a.page.inner_text("#hero")
+    check("on board: DAY 3 OF 8 + today's port and all-aboard", "DAY 3 OF 8" in h and "Grand Turk" in h and "all aboard 4:30" in h.lower(), h[:300])
+    # hub family card: last, lists the others, Trip Hub coming soon
+    check("Hub family card is the last card", a.js("cardOrder().slice(-1)[0]") == "family")
+    f = a.card("family")
+    check("family card: Day Hub with Open, Trip Hub coming soon, not itself", "Day Hub" in f and "Trip Hub" in f and "COMING SOON" in f and "Cruise Hub" not in f.split("Day Hub")[0] and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/dayhub/\"]')"), f[:300])
+    a.close()
+    a = App(b, base)
+    setup(a)
+    check("Day Hub: family card last (after profession cards), shows Cruise Hub", a.js("cardOrder().slice(-1)[0]") == "family" and "Cruise Hub" in a.card("family") and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/cruisehub/\"]')"))
+    a.js("S.hidden.push('family'); save(); render()")
+    check("the family card can be hidden like any card", not a.js("!!document.querySelector('[data-card=\"family\"]')"))
+    a.page.click("#settingsBtn")
+    check("settings Hub family box lists the family too", "More from the Hub family" in a.page.inner_text("#famBox") and "Trip Hub" in a.page.inner_text("#famBox"))
+    check("Day Hub never shows the cruise countdown", not a.js("!!document.querySelector('#hero .cd')"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1444,7 +1498,7 @@ def main():
                   t_v035_errands, t_v036_returns,
                   t_v037_future_me, t_v039_short_home, t_v040_switches, t_v045_cruise_hub,
                   t_v046_hub_family, t_v048_cruise_pass,
-                  t_v049_scenes):
+                  t_v049_scenes, t_v050_countdown_family):
             try:
                 t(b, base)
             except Exception as e:

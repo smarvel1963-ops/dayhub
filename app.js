@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.49";
+const VERSION = "0.50";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -322,7 +322,7 @@ const money = n => "$" + Number(n || 0).toLocaleString("en-US", { minimumFractio
 const buzz = () => { try { navigator.vibrate && navigator.vibrate(8); } catch (e) { /* no haptics */ } };
 
 function cardOrder() {
-  const want = [...BASE, ...(MODE === "cruise" ? [] : PACKS[S.pack].cards)];
+  const want = [...BASE, ...(MODE === "cruise" ? [] : PACKS[S.pack].cards), "family"];   // v0.50 Hub family card: always last
   let order = (S.order || []).filter(k => want.includes(k));
   // A card new in this version goes to its DEFAULT place, not to the bottom
   // of someone's saved order.
@@ -2616,6 +2616,8 @@ function heroHtml() {
     verdict = !tr ? "Plan your next cruise ⛴️" : !tr.start ? `🚢 ${esc(tr.name)}` : daysUntil(tr.start) > 0
       ? `🚢 ${isCruise(tr) ? "Cruise" : "Trip"} in ${daysUntil(tr.start)} day${daysUntil(tr.start) === 1 ? "" : "s"} · ${readiness(tr).pct}% ready`
       : daysUntil(tr.end || tr.start) >= 0 ? `🚢 Enjoy ${esc(tr.name)}!` : `🏠 Welcome home from ${esc(tr.name)}`; }
+  // v0.50 (Scott 10/4 "build the countdown next"): Cruise Hub's hero is the big countdown (ui.js cruiseCountdown).
+  const CD = MODE === "cruise" ? cruiseCountdown(curTrip()) : "";
 
   const chips = [];
   { const rn = routineNow(); if (rn) chips.unshift(`<button class="chip good" data-ropen="${rn.id}">🔁 ${esc(rn.name.replace(/^\S+\s/, ""))}: ${rDone(rn).length}/${rn.steps.length}</button>`); }
@@ -2648,7 +2650,8 @@ function heroHtml() {
     const fd = nt.finalDue ? daysUntil(nt.finalDue) : null;
     if (fd !== null && fd >= 0 && fd <= 30 && tripLeft(nt) !== 0) chips.push(`<span class="chip warn">💳 Final payment ${inDays(fd)}</span>`);
     const sd = daysUntil(nt.start);
-    if (sd > 0 && sd <= 365) chips.push(`<span class="chip">${isCruise(nt) ? "🚢" : "✈️"} ${esc(nt.name)} in ${sd} day${sd === 1 ? "" : "s"}</span>`);
+    if (CD) { /* the countdown already says it */ }
+    else if (sd > 0 && sd <= 365) chips.push(`<span class="chip">${isCruise(nt) ? "🚢" : "✈️"} ${esc(nt.name)} in ${sd} day${sd === 1 ? "" : "s"}</span>`);
     else if (sd <= 0 && daysUntil(nt.end || nt.start) >= 0) chips.push(`<span class="chip good">${isCruise(nt) ? "🚢" : "✈️"} Enjoy ${esc(nt.name)}!</span>`);
     if (sd <= 2 && daysUntil(nt.end || nt.start) >= -2) chips.unshift(`<button class="chip good" data-forget="1">🛳️ What am I forgetting?</button>`);
   }
@@ -2672,7 +2675,7 @@ function heroHtml() {
   return `<div class="hero-top"><div class="greet">${greet()}</div>
       <span class="hero-btns">${MODE !== "cruise" ? `<button class="icon-btn" data-ask="open" aria-label="Ask Day Hub">💡</button><button class="icon-btn" data-leave="1" aria-label="Don't forget">🚪</button><button class="icon-btn" data-dump="1" aria-label="Brain dump">🧠</button>` : ""}<button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button></span></div>
     <div class="hero-main"><div><div class="hero-clock" id="clockNow"></div><div class="hero-date">${longDate(today())}</div></div>${wx}</div>
-    <div class="verdict-row">${MODE !== "cruise" && (S.name || hasData(S)) ? pulseRing() : ""}<div class="verdict">${verdict}</div></div>
+    ${CD || `<div class="verdict-row">${MODE !== "cruise" && (S.name || hasData(S)) ? pulseRing() : ""}<div class="verdict">${verdict}</div></div>`}
     <div class="chips">${chipsShown(keep).join("")}</div>`;
 }
 // v0.39 (Scott 10/3 "do 1 2"): at most 3 chips up top, in the order above (= priority);
@@ -2692,5 +2695,6 @@ function paintHero() {
   hero.classList.toggle("gloomy", !!(w && w.cur.weather_code >= 45));
   document.getElementById("themeColor").setAttribute("content", p.c);
   hero.innerHTML = heroHtml();
+  if (typeof afterHero === "function") afterHero(hero);
 }
 

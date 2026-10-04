@@ -480,6 +480,89 @@ function famTripRows() {
     return !curTrip() && fam ? fam + `<button class="btn sm" data-qa="trip" style="margin-top:10px">🚢 Plan a trip</button>` : ownBody() + fam; };
   CARDS.trips.meta = () => ownMeta() || (famUpcoming().length ? `in ${SIB.name}` : ""); }
 
+// ------------------------------------------------------------ cruise countdown
+// v0.50 (Scott 10/4 "build the countdown next", from the Hub Experience plan:
+// "42 DAYS until Caribbean Princess · 87% READY", tap = the checklist, a
+// celebration at 100%). Cruise Hub's hero, over the ocean scene. Before sailing:
+// days to go; sail day: SAIL DAY; on board: DAY n of N (+ today's port and
+// all-aboard); after the trip it steps aside for the normal line.
+const CD_RM = () => !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+let CD_COUNTED = false;
+function cruiseCountdown(tr) {
+  if (!tr || !tr.start) return "";
+  const sd = daysUntil(tr.start), end = tr.end || tr.start;
+  if (daysUntil(end) < 0) return "";
+  const R = readiness(tr), who = esc(tr.ship || tr.name);
+  let big, lab, line;
+  if (sd > 0) { big = sd; lab = sd === 1 ? "DAY" : "DAYS"; line = `until ${who}`; }
+  else if (sd === 0) { big = "⚓"; lab = "SAIL DAY"; line = `Welcome aboard ${who}`; }
+  else { const n = -sd + 1, all = Math.round((parseDay(end) - parseDay(tr.start)) / 86400000) + 1, pt = portOn(tr, today());
+    big = n; lab = `DAY ${n} OF ${all}`; line = pt ? `⚓ ${esc(pt.name)}${pt.allAboard ? ` · all aboard ${hm(pt.allAboard)}` : ""}` : today() === end ? "Getting home today" : `🌊 At sea on ${who}`; }
+  const pctTxt = R.pct >= 100 ? "100% READY 🎉" : `${R.pct}% READY`;
+  return `<button class="cd" data-cd="open" aria-label="${esc(String(big))} ${esc(lab)} ${esc(line.replace(/<[^>]+>/g, ""))}. ${R.pct}% ready. Tap for the checklist.">
+    <span class="cd-n" ${typeof big === "number" && sd > 0 ? `data-count="${big}"` : ""}>${big}</span>
+    <span class="cd-txt"><span class="cd-l">${lab}</span><span class="cd-ship">${line}</span>
+      <span class="cd-bar"><i style="width:${R.pct}%"></i></span><span class="cd-pct ${R.pct >= 100 ? "done" : ""}">${pctTxt}${R.next && R.pct < 100 ? ` · next: ${esc(R.next.action.replace(/\s*\([^)]*\)/g, "").replace(/^\w/, c => c.toLowerCase()))}` : ""}</span></span></button>`;
+}
+// After each hero paint: count the number up the first time this visit, and
+// celebrate the first time a trip reaches 100% (once per trip, remembered).
+function afterHero(hero) {
+  const n = hero.querySelector(".cd-n[data-count]");
+  if (n && !CD_COUNTED) { CD_COUNTED = true;
+    const to = Number(n.dataset.count);
+    if (!CD_RM() && to > 1) { const t0 = performance.now(), dur = 900;
+      const step = t => { const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+        if (n.isConnected) n.textContent = Math.round(to * e); if (k < 1) requestAnimationFrame(step); };
+      n.textContent = "0"; requestAnimationFrame(step); } }
+  const tr = MODE === "cruise" ? curTrip() : null;
+  if (tr && hero.querySelector(".cd") && !tr.ready100 && readiness(tr).pct >= 100) {
+    tr.ready100 = true; save(); celebrate(`${tr.ship || tr.name}: 100% ready — you're all set! 🎉`); }
+}
+function celebrate(msg) {
+  buzz(); toast(msg);
+  if (CD_RM()) return;
+  const box = document.createElement("div"); box.className = "confetti"; box.setAttribute("aria-hidden", "true");
+  const C = ["#5eead4", "#fcd34d", "#fb7185", "#818cf8", "#4ade80", "#fb923c"];
+  box.innerHTML = Array.from({ length: 48 }, (_, i) => `<i style="left:${Math.random() * 100}%;background:${C[i % C.length]};animation-delay:${(Math.random() * .5).toFixed(2)}s;animation-duration:${(1.8 + Math.random() * 1.2).toFixed(2)}s;transform:rotate(${Math.round(Math.random() * 360)}deg)"></i>`).join("");
+  document.body.appendChild(box); setTimeout(() => box.remove(), 3500);
+}
+// Tap the countdown: the readiness checklist in a sheet.
+function showReady() {
+  const tr = curTrip(); if (!tr) return;
+  let el = document.getElementById("readySheet");
+  if (!el) { el = document.createElement("div"); el.id = "readySheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Cruise checklist"); document.body.appendChild(el); }
+  const R = readiness(tr), sd = tr.start ? daysUntil(tr.start) : null;
+  el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
+    <div class="sheet-head"><h2>${esc(tr.ship || tr.name)} · ${R.pct}% ready</h2><button class="icon-btn" data-readyclose="1" aria-label="Close">✕</button></div>
+    <div class="cd-bar big"><i style="width:${R.pct}%"></i></div>
+    <p class="fine" style="margin-top:6px">${sd > 0 ? `${sd} day${sd === 1 ? "" : "s"} to go · ` : ""}Stage: ${esc(R.phase)}</p>
+    ${R.next ? `<div class="today-line">➡️ <b>Next:</b> ${esc(R.next.action)}</div>` : `<div class="today-line">✅ Nothing needs you right now.</div>`}
+    ${R.items.map(i => `<div class="row ready-row"><span class="grow">${i.score >= 1 ? "✅" : i.now ? "⚠️" : "⏳"} ${esc(i.label)}</span>
+      <span class="sub">${i.score >= 1 ? "done" : i.score > 0 ? Math.round(i.score * 100) + "%" : i.now ? "now" : "later"}</span></div>`).join("")}
+    <p class="fine" style="margin-top:6px">⚠️ = matters now · ⏳ = later — Cruise Hub brings it up when it's time.</p>
+    <button class="btn" data-readygo="1" style="width:100%;margin-top:10px">Open my trip</button></div>`;
+  el.classList.remove("hidden");
+}
+
+// ------------------------------------------------------------ hub family card
+// v0.50 (Scott 10/4: "we can also advertise the hub family" / "in app"). OUR
+// apps only, quiet: one card at the END of the home screen (hide or move it
+// like any card) + the same list in ⚙ → Hub family. No pop-ups, nothing from
+// anyone else - "No ads. Ever." stays true. A new hub = one line in HUBS.
+const HUBS = [
+  { id: "dayhub", name: "Day Hub", icon: "☀️", what: "Your whole day on one screen — schedule, weather, to-dos, bills.", url: BASE_URL },
+  { id: "cruisehub", name: "Cruise Hub", icon: "🚢", what: "Countdown, payments, port days and all-aboard alarms.", url: CRUISE_URL },
+  { id: "triphub", name: "Trip Hub", icon: "✈️", what: "Flights, hotels and road trips.", soon: true },
+];
+function hubRows() {
+  const sd = sibData();
+  return HUBS.filter(h => h.id !== APP_ID).map(h => `<div class="row"><span class="ci">${h.icon}</span><div class="grow"><b>${h.name}</b>${h.soon ? ` <span class="tag">COMING SOON</span>` : ""}
+      ${h.id === SIB.id && sd && sd.src === "phone" ? ` <span class="tag">ON THIS PHONE ✓</span>` : ""}<span class="sub">${h.what}</span></div>
+      ${h.soon ? "" : `<a class="btn sm ghost" href="${esc(h.url)}" data-famopen="1">Open</a>`}</div>`).join("");
+}
+CARDS.family = { icon: "🌐", title: "Hub family",
+  body: () => hubRows() + `<p class="fine" style="margin-top:6px">Made by Marvel Corp. They work together — one Pro unlocks the family. No ads, ever.</p>` };
+
 const MINI = {
   trips:      [() => MODE !== "cruise" && !curTrip() && !famUpcoming().length, 'data-qa="trip"', "Plan a trip"],
   top3:       [() => !TOP3_BUSY && !(S.top3.day === today() && S.top3.items.length), 'data-top3="pick"', "Pick my top 3"],
@@ -1218,6 +1301,11 @@ document.addEventListener("click", e => {
   if (ds.top3 === "pick") { top3Pick(true); render(); return; }
   if (ds.t3up) { const T = S.top3.items, i = T.findIndex(x => x.id === ds.t3up); if (i > 0) [T[i - 1], T[i]] = [T[i], T[i - 1]]; saveLocal(); render(); return; }
   if (ds.t3del) { S.top3.items = S.top3.items.filter(x => x.id !== ds.t3del); saveLocal(); render(); return; }
+  if (ds.cd) { showReady(); return; }
+  if (ds.readyclose) { document.getElementById("readySheet").classList.add("hidden"); return; }
+  if (ds.readygo) { document.getElementById("readySheet").classList.add("hidden"); S.tripTab = "ready";
+    S.hidden = S.hidden.filter(x => x !== "trips"); S.collapsed = S.collapsed.filter(x => x !== "trips"); save(); render();
+    const el = document.querySelector('[data-card="trips"]'); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   if (ds.pulse) { showPulse(); return; }
   if (ds.pulseclose) { document.getElementById("pulseSheet").classList.add("hidden"); return; }
   if (ds.pulsego) { document.getElementById("pulseSheet").classList.add("hidden"); const k = ds.pulsego;
@@ -1450,7 +1538,8 @@ function drawFamBox() {
       <ol class="steps"><li>Here in ${APP_NAME}: ⚙ → <b>Backup & sync</b> → <b>Back up to my Google Drive</b>.</li>
       <li>Open ${SIB.name} → ⚙ → <b>Backup & sync</b> → the same button, the <b>same Google account</b>.</li>
       <li>Done — each app shows the other's trips after its next backup.</li></ol>` : ""}
-    <a class="btn sm ghost" href="${esc(SIB.url)}" data-famopen="1">Open ${SIB.name}</a>`;
+    <a class="btn sm ghost" href="${esc(SIB.url)}" data-famopen="1">Open ${SIB.name}</a>
+    <h3 style="margin-top:14px">More from the Hub family</h3>${hubRows()}`;
 }
 function drawOwnerBox() {
   const g = document.getElementById("ownerBox"); if (!g) return;
