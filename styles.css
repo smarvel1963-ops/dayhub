@@ -485,3 +485,29 @@ details.steps .fine { margin-top: 8px; }
 .help .row a, .help .today-line a { color: var(--accent); font-weight: 700; }
 .help-form .field { margin-top: 8px; }
 
+/* v0.58 the hub shell: 5 permanent tabs + the big button */
+#tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; display: flex; justify-content: center; gap: 2px;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); background: rgba(10,14,28,.94); backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px); border-top: 1px solid var(--line); }
+#tabbar button { flex: 1; max-width: 108px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; border: 0;
+  background: none; color: var(--dim); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; border-radius: 12px; }
+#tabbar button span { font-size: 20px; line-height: 1; }
+#tabbar button.on { color: var(--text); background: rgba(255,255,255,.08); }
+body.shell { padding-bottom: 150px; }
+body.shell .fab { bottom: calc(84px + env(safe-area-inset-bottom)); }
+body.shell .rg-bar { bottom: calc(84px + env(safe-area-inset-bottom)); }
+body.shell .toast { bottom: 150px; }
+body.shell:not([data-tab="home"]) .hero .hero-main { display: none; }
+body.shell .arrange-link { display: none; }
+.big-btn { display: block; width: 100%; margin: 14px 0 6px; padding: 18px 16px; border: 0; border-radius: 20px; font: inherit; font-size: 17px;
+  font-weight: 800; letter-spacing: .6px; color: #06102a; cursor: pointer; background: linear-gradient(135deg, #5eead4, #818cf8);
+  box-shadow: 0 12px 30px rgba(94,234,212,.25); }
+.rn-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 2px; border: 0; border-top: 1px solid var(--line);
+  background: none; color: var(--text); font: inherit; font-size: 15px; text-align: left; cursor: pointer; }
+.rn-row:first-child { border-top: 0; }
+.rn-row .chev { color: var(--dim); font-size: 20px; }
+.port-card { display: flex; flex-direction: column; gap: 2px; width: 100%; margin-top: 8px; padding: 12px 14px; border-radius: 16px;
+  border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.port-card .sub { color: var(--dim); font-size: 13px; }
+body.shell[data-tab="home"] .fab, body.shell[data-tab="ai"] .fab { display: none; }
+

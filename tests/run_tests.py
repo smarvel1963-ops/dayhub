@@ -143,6 +143,8 @@ class App:
         self.ctx = browser.new_context(viewport={"width": width, "height": height}, timezone_id="America/Chicago",
                                        permissions=["notifications"])
         route(self.ctx)
+        # v0.58: Cruise Hub opens on HOME; the older tests expect the cards, so they start on PLAN.
+        self.ctx.add_init_script("try { if (!localStorage.getItem('cruisehub.startTab')) localStorage.setItem('cruisehub.startTab', 'plan'); } catch (e) {}")
         self.page = self.ctx.new_page()
         self.page.on("pageerror", lambda e: ERRORS.append(f"pageerror: {e}"))
         self.page.on("console", lambda m: ERRORS.append(f"console: {m.text}") if m.type == "error" and "favicon" not in m.text else None)
@@ -164,6 +166,9 @@ class App:
 
     def card(self, key):
         el = self.page.query_selector(f'[data-card="{key}"]')
+        if not el and self.page.evaluate("typeof shellOn === 'function' && shellOn()"):     # v0.58: go to the card's tab
+            self.page.evaluate(f"shellGo(shellTabFor('{key}'))")
+            el = self.page.query_selector(f'[data-card="{key}"]')
         return el.inner_text() if el else ""
 
     def close(self):
@@ -1773,6 +1778,71 @@ def t_v057_crisis(b, base):
     a.close()
 
 
+def t_v058_shell(b, base):
+    print("\n[v0.58 the hub shell: HOME / PLAN / EXPLORE / WALLET / AI + the big button]")
+    def mk(at):
+        a = App(b, base, path=CRUISE, at=at)
+        a.js("localStorage.setItem('cruisehub.startTab', 'home')"); a.page.reload(); a.page.wait_for_function("typeof render === 'function' && document.querySelector('#hero .greet')")
+        a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+        a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+        if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+        return a
+    a = App(b, base, path=CRUISE)
+    a.js("localStorage.setItem('cruisehub.startTab', 'home')"); a.page.reload(); a.page.wait_for_function("document.querySelector('#hero .greet')")
+    check("first run: welcome card, no tab bar yet", "Welcome to Cruise Hub" in a.page.inner_text("#cards") and not a.js("!!document.getElementById('tabbar')"))
+    a.close()
+    a = mk("2026-10-01T09:00:00")
+    tabs = a.js("[...document.querySelectorAll('#tabbar button')].map(b => b.textContent.trim())")
+    check("5 permanent tabs, opens on HOME", tabs == ["🏠Home", "📅Plan", "🌎Explore", "👛Wallet", "✨AI"] and a.js("TAB") == "home", tabs)
+    check("no trip: big button = PLAN MY CRUISE", "PLAN MY CRUISE" in a.page.inner_text(".big-btn"))
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess", "port": "Port Canaveral"})
+    a.js("const tr = curTrip(); tr.total = 3000; tr.finalDue = '2026-10-20'; tr.ports = [{ id: 'p1', name: 'Grand Turk', day: '2026-11-14', allAboard: '16:30', excursion: 'Hummer tour' }]; save(); shellGo('home')")
+    home = a.page.inner_text("#cards")
+    check("HOME: Right now (max 3), Next up, WHAT AM I FORGETTING?", "Right now" in home and a.js("document.querySelectorAll('.rn-row').length") <= 3 and "Next up" in home and "WHAT AM I FORGETTING" in home.upper(), home[:500])
+    check("HOME has no card list (no Trips / Schedule cards)", not a.js("!!document.querySelector('#cards [data-card=\"trips\"]')") and not a.js("!!document.querySelector('#cards [data-card=\"schedule\"]')"))
+    check("final payment shown once in Right now", sum(1 for x in a.js("[...document.querySelectorAll('.rn-row')].map(r => r.textContent)") if "final payment" in x.lower()) == 1)
+    a.page.click(".big-btn"); a.page.wait_for_timeout(200)
+    check("big button opens 'What am I forgetting?'", not a.js("document.getElementById('forgetSheet').classList.contains('hidden')"))
+    a.page.click('#forgetSheet [data-forgetclose]')
+    a.page.click('#tabbar [data-shellgo="plan"]'); a.page.wait_for_timeout(150)
+    check("PLAN: the trip with every tab + schedule", a.js("!!document.querySelector('[data-card=\"trips\"]') && !!document.querySelector('[data-card=\"schedule\"]')") and a.js("document.querySelectorAll('[data-card=\"trips\"] [data-triptab]').length") >= 6)
+    a.page.click('#tabbar [data-shellgo="wallet"]'); a.page.wait_for_timeout(150)
+    tt = a.js("[...document.querySelectorAll('[data-card=\"trips\"] [data-triptab]')].map(b => b.dataset.triptab)")
+    check("WALLET: only Money / Onboard / Perks, opens on Money", tt == ["money", "onboard", "perks"] and "Whole trip" in a.card("trips").title() or "WHOLE TRIP" in a.card("trips").upper(), tt)
+    a.page.click('#tabbar [data-shellgo="explore"]'); a.page.wait_for_timeout(150)
+    ex = a.page.inner_text("#cards")
+    check("EXPLORE: My ports (Grand Turk + Hummer tour), My ship, weather", "My ports" in ex and "Grand Turk" in ex and "Hummer tour" in ex and "My ship" in ex and a.js("!!document.querySelector('[data-card=\"weather\"]')"))
+    a.page.click(".port-card"); a.page.wait_for_timeout(150)
+    check("tap a port -> PLAN on the Ports tab", a.js("TAB") == "plan" and a.js("S.tripTab") == "ports")
+    a.page.click('#tabbar [data-shellgo="ai"]'); a.page.wait_for_timeout(150)
+    check("AI: greeting + questions that fit + Ask anything", "42 days to Caribbean Princess" in a.page.inner_text("#cards") and "Ask anything" in a.page.inner_text("#cards"))
+    check("clock + weather only on HOME (other tabs stay compact)", not a.js("document.querySelector('#hero .hero-main').offsetParent"))
+    a.page.click('#tabbar [data-shellgo="home"]'); a.page.wait_for_timeout(150)
+    check("back on HOME the clock shows", a.js("!!document.querySelector('#hero .hero-main').offsetParent"))
+    a.close()
+    # the big button changes its job with the moment
+    a = mk("2026-11-14T15:00:00")
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess"})
+    a.js("curTrip().ports = [{ id: 'p1', name: 'Grand Turk', day: '2026-11-14', allAboard: '16:30' }]; save(); shellGo('home')")
+    check("port day: BACK TO SHIP", "BACK TO SHIP" in a.page.inner_text(".big-btn"))
+    a.close()
+    a = mk("2026-11-12T09:00:00")
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "port": "Port Canaveral"})
+    a.js("shellGo('home')")
+    check("sail day morning: GET ME TO MY SHIP", "GET ME TO MY SHIP" in a.page.inner_text(".big-btn"))
+    a.page.click(".big-btn"); a.page.wait_for_timeout(150); a.page.click('[data-aboard="1"]'); a.page.wait_for_timeout(150)
+    check("'We're on board' -> WHAT SHOULD WE DO NOW?", "WHAT SHOULD WE DO NOW" in a.page.inner_text(".big-btn"))
+    a.close()
+    a = mk("2026-11-18T19:00:00")
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess"})
+    a.js("shellGo('home')")
+    check("final evening: GET ME HOME READY", "GET ME HOME READY" in a.page.inner_text(".big-btn"))
+    a.close()
+    a = App(b, base); setup(a)
+    check("Day Hub keeps its cards (no tab bar)", not a.js("!!document.getElementById('tabbar')") and a.js("!!document.querySelector('[data-card=\"schedule\"]')"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1794,7 +1864,7 @@ def main():
                   t_v051_cruise_weather, t_v052_return_guard,
                   t_v053_ask_cruise_hub, t_v054_name_bar_wallet,
                   t_v055_packing_bags, t_v056_go_home,
-                  t_v057_crisis):
+                  t_v057_crisis, t_v058_shell):
             try:
                 t(b, base)
             except Exception as e:

@@ -1,6 +1,10 @@
 {
- "version": "0.57",
+ "version": "0.58",
  "notes": {
+  "0.58": [
+   "🧭 Cruise Hub's new layout: five buttons along the bottom — Home, Plan, Explore, Wallet, AI. Home shows only what matters right now (3 things at most) and the next thing coming up.",
+   "🔘 One big button that always does the right thing for the moment: What am I forgetting? → Get me to my ship → Back to ship → What should we do now? / Plan tonight → Get me home ready."
+  ],
   "0.57": [
    "🛟 Need help? A new 🛟 button in Cruise Hub with five big choices — Back to ship, Get to the ship, Medical / safety, Travel problem, My documents — filled from your own saved trip contacts (cruise line, travel agent, insurance, emergency contact, port agent), tap to call."
   ],

@@ -140,7 +140,8 @@ function showHelp(view) {
       ${tr.port ? `<a class="btn" style="width:100%" href="${mapsLink(`${placeName(tr.port)} cruise terminal`)}" target="_blank" rel="noopener">🗺️ Directions to ${esc(placeName(tr.port))} cruise terminal</a>` : `<p class="fine">Add the departure port (Edit trip) to get directions.</p>`}
       ${tr.booking ? `<div class="row"><span class="grow"><b>Booking #</b><span class="sub">${esc(tr.booking)}</span></span></div>` : ""}
       ${line("line", "Cruise line")}${line("agent", "Travel agent")}
-      <p class="fine">Running late? Call the cruise line first. Don't book anything else until they tell you what's possible.</p>` : `<p class="fine">Plan a cruise first.</p>`;
+      <p class="fine">Running late? Call the cruise line first. Don't book anything else until they tell you what's possible.</p>
+      ${tr.start && daysUntil(tr.start) === 0 && !tr.aboard ? `<button class="btn" data-aboard="1" style="width:100%;margin-top:8px">✅ We're on board</button>` : ""}` : `<p class="fine">Plan a cruise first.</p>`;
   else if (view === "medical") body = `<div class="today-line"><b>On the ship:</b> use your cabin phone to call the ship's medical center or emergency number (it's printed on or by the phone).</div>
       <div class="today-line"><b>Ashore:</b> ${pt && pt.emergency ? `local emergency number ${telLinks(pt.emergency)}` : "ask port staff or the ship's port agent for local emergency help"}${pt && pt.agent ? ` · port agent ${telLinks(pt.agent)}` : ""}.</div>
       <div class="today-line"><b>In the US:</b> <a href="tel:911">911</a></div>` + (tr ? line("ins", "Travel insurance") + line("policy", "Policy #") + line("contact", "Emergency contact") : "");
@@ -163,6 +164,7 @@ function showHelp(view) {
 function helpClick(ds) {
   if (ds.help) { showHelp(ds.help === "home" ? null : ds.help); return true; }
   if (ds.helpclose) { document.getElementById("helpSheet").classList.add("hidden"); return true; }
+  if (ds.aboard) { const tr = curTrip(); if (tr) { tr.aboard = true; save(); } document.getElementById("helpSheet").classList.add("hidden"); render(); toast("Welcome aboard! 🚢🥂", true); return true; }
   return false;
 }
 function helpSubmit(f, data) {

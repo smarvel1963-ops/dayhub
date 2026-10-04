@@ -208,7 +208,8 @@ const CARDS = {
         <button class="btn" data-forget="1" style="width:100%;margin-top:10px">🛳️ What am I forgetting?</button>`;
       const tabs = ["ready", "money"].concat(isCruise(tr) ? ["ports"] : [], ["onboard"], isCruise(tr) ? ["perks"] : [], ["lists"], isCruise(tr) ? ["tips"] : []);
       const TL = { ready: "✅ Ready", money: "💳 Money", ports: "🗺️ Ports", onboard: isCruise(tr) ? "🍹 Onboard" : "💵 Spending", lists: "📋 Lists", perks: "🎁 Perks", tips: "💡 Good to know" };
-      const tab = tabs.includes(S.tripTab) ? S.tripTab : "ready";
+      const tabsAll = tabs.slice(); tabs.splice(0, tabs.length, ...tabsAll.filter(k => typeof shellTripTabOk !== "function" || shellTripTabOk(k)));   // v0.58 shell
+      const tab = tabs.includes(S.tripTab) ? S.tripTab : tabs[0];
       let body = "";
       if (tab === "ready") {
         const R = readiness(tr);
@@ -704,7 +705,7 @@ function render() {
   if (!S.order && hr >= 17 && order.includes("tomorrow")) order = ["tomorrow", ...order.filter(k => k !== "tomorrow")];
   if (!S.order && hr >= 18 && order.includes("reset")) order = ["reset", ...order.filter(k => k !== "reset")];
   if (!S.order && S.mail.found.length && order.includes("inbox")) order = ["inbox", ...order.filter(k => k !== "inbox")];   // waiting on you = on top
-  const cards = order.map(k => {
+  const cardHtml = k => {
     const c = CARDS[k]; const col = S.collapsed.includes(k) && !MINI_OPEN.has(k);
     const tag = PACKS[S.pack].cards.includes(k) ? ` <span class="tag">${PACKS[S.pack].label}</span>` : "";
     if (!can(k)) return `<section class="card" data-card="${k}"><h3><span class="ci">${c.icon}</span>${c.title} <span class="tag">PRO</span></h3>
@@ -713,8 +714,14 @@ function render() {
     return `<section class="card ${col ? "collapsed" : ""}" data-card="${k}">
       <h3 data-collapse="${k}"><span class="ci">${c.icon}</span>${c.title}${tag}<span class="meta">${c.meta ? c.meta() : ""}</span><span class="chev">⌄</span></h3>
       <div class="body">${c.body()}${c.add ? `<button class="add-link" data-qa="${c.add[0]}">＋ ${c.add[1]}</button>` : ""}</div></section>`;
-  }).join("");
+  };
+  const cards = order.map(cardHtml).join("");
   futureDue();
+  if (typeof paintTabs === "function") paintTabs();
+  if (typeof shellOn === "function" && shellOn()) {                         // v0.58 the 5-tab shell (shell.js)
+    document.getElementById("cards").innerHTML = (TAB === "home" ? futureBanner() + whatsNewHtml() : "") + shellHtml(cardHtml);
+    tick(); return;
+  }
   document.getElementById("cards").innerHTML = futureBanner() + whatsNewHtml() + (!S.city && !S.name ? welcomeHtml() : "") + cards +
     `<button class="add-link arrange-link" data-arrange="1">↕ Arrange my screen</button>`;
   tick();
@@ -1416,6 +1423,7 @@ document.addEventListener("click", e => {
   if (ds.top3 === "pick") { top3Pick(true); render(); return; }
   if (ds.t3up) { const T = S.top3.items, i = T.findIndex(x => x.id === ds.t3up); if (i > 0) [T[i - 1], T[i]] = [T[i], T[i - 1]]; saveLocal(); render(); return; }
   if (ds.t3del) { S.top3.items = S.top3.items.filter(x => x.id !== ds.t3del); saveLocal(); render(); return; }
+  if (typeof shellClick === "function" && shellClick(ds)) return;           // v0.58 shell.js tabs
   if (typeof cruiseClick === "function" && cruiseClick(ds)) return;          // v0.56 cruise.js
   if (ds.cd) { showReady(); return; }
   if (ds.rg) { showGuard(); return; }
