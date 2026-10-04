@@ -25,7 +25,7 @@ screen but could customize by profession"). Tracked on Marvel Desktop -> MOBILE 
 - Google Calendar sync (needs Google sign-in), sports games feed, accounts / payments.
 
 ## Files
-`features.js` (the SWITCHBOARD - launch switches, all OFF, see `docs/LAUNCH_SWITCHES.md`), then `app.js` (state + feature logic) then `ui.js` (cards, sheets, events, start) - two classic scripts, one shared
+`features.js` (the SWITCHBOARD - launch switches, all OFF, see `docs/LAUNCH_SWITCHES.md`), then `app.js` (state + feature logic), then `scenes.js` (the faint scene behind the clock - every hub has one), then `ui.js` (cards, sheets, events, start) - two classic scripts, one shared
 scope, loaded in that order by `index.html` and Cruise Hub's `../cruisehub/index.html` (its own repo). Each stays under 3,000 lines. A new script
 file must also go in the `SHELL` list in `sw.js`.
 

@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.48";
+const VERSION = "0.49";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -2687,6 +2687,7 @@ function paintHero() {
   const h = new Date().getHours();
   const p = PHASES.find(x => h < x.to);
   hero.style.setProperty("--hero", p.g);
+  if (typeof paintScene === "function") paintScene(hero);    // v0.49 the faint scene behind the clock (scenes.js)
   const w = WXDATA && WXDATA.here;
   hero.classList.toggle("gloomy", !!(w && w.cur.weather_code >= 45));
   document.getElementById("themeColor").setAttribute("content", p.c);

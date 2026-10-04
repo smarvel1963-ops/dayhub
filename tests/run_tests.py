@@ -1407,6 +1407,26 @@ def t_v048_cruise_pass(b, base):
     a.close()
 
 
+def t_v049_scenes(b, base):
+    print("\n[v0.49 a faint scene behind the clock: weather (Day Hub), ocean + beach (Cruise Hub)]")
+    a = App(b, base)
+    setup(a)
+    check("Day Hub: weather scene painted", a.js("SCENE_FOR[MODE]") == "weather" and a.js("document.getElementById('hero').dataset.scene").startswith("weather|")
+          and "data:image/svg+xml" in a.js("getComputedStyle(document.getElementById('hero')).backgroundImage"))
+    a.js("WXDATA.here.cur.weather_code = 63; WXDATA.here.cur.is_day = 1; paintHero()")
+    check("rain now -> rain scene", a.js("document.getElementById('hero').dataset.scene") == "weather|rain|d")
+    a.js("WXDATA.here.cur.weather_code = 0; WXDATA.here.cur.is_day = 0; paintHero()")
+    check("clear night -> moon + stars", a.js("document.getElementById('hero').dataset.scene") == "weather|clear|n")
+    v = a.js("document.getElementById('hero').style.getPropertyValue('--scene')")
+    a.js("render()")
+    check("a redraw with the same weather keeps the same scene (motion doesn't restart)", a.js("document.getElementById('hero').style.getPropertyValue('--scene')") == v)
+    check("every weather kind draws", a.js("['clear','cloudy','rain','snow','storm','fog'].every(k => [true,false].every(n => SCENES.weather(k, n).length > 100 && SCENES.ocean(k, n).length > 100))"))
+    a.close()
+    a = App(b, base, path=CRUISE)
+    check("Cruise Hub: ocean scene", a.js("document.getElementById('hero').dataset.scene").startswith("ocean|"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1423,7 +1443,8 @@ def main():
                   t_v033_calendar_dates, t_v034_backup_nudge,
                   t_v035_errands, t_v036_returns,
                   t_v037_future_me, t_v039_short_home, t_v040_switches, t_v045_cruise_hub,
-                  t_v046_hub_family, t_v048_cruise_pass):
+                  t_v046_hub_family, t_v048_cruise_pass,
+                  t_v049_scenes):
             try:
                 t(b, base)
             except Exception as e:

@@ -1,6 +1,9 @@
 {
- "version": "0.48",
+ "version": "0.49",
  "notes": {
+  "0.49": [
+   "🌤️ A light scene behind the clock: Day Hub shows the sky as it is right now (sun, moon and stars, clouds, rain, snow, storms). 🌊 Cruise Hub shows the ocean, a ship and a beach."
+  ],
   "0.48": [
    "Behind the scenes: Cruise Hub is ready for its own Cruise Hub Pass. Day Hub Pro keeps unlocking Cruise Hub too."
   ],
