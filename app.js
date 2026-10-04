@@ -16,18 +16,20 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.45";
+const VERSION = "0.46";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from /dayhub/cruise/ with
-// window.DH_MODE = "cruise": a cruise-first screen and its own name / install,
-// but the SAME data - same origin (shared storage on Android / computer) and
-// the same Google Drive backup file (iPhone keeps each installed app apart, so
-// there the backup is what carries trips between the two).
+// window.DH_MODE = "cruise": a cruise-first screen and its own name / install.
+// v0.46 (Scott 10/4: "build separate app ... its independent but also a family
+// of apps"): each hub keeps its OWN data (STORE) and its OWN Drive backup
+// (DFILE). The HUB FAMILY link (below, "hub family") lets each one SEE the
+// other's trips - read only - when both are on the phone or both back up.
 const MODE = window.DH_MODE === "cruise" ? "cruise" : "day";
 const APP_NAME = MODE === "cruise" ? "Cruise Hub" : "Day Hub";
 const BASE_URL = new URL(".", (document.currentScript && document.currentScript.src) || location.href).href;   // where app.js lives
+const APP_ID = MODE === "cruise" ? "cruisehub" : "dayhub";
 
-const STORE = "dayhub.v1";
+const STORE = APP_ID + ".v1";
 const WX = "https://api.open-meteo.com/v1/forecast";
 const GEO = "https://geocoding-api.open-meteo.com/v1/search";
 
@@ -90,6 +92,76 @@ function recheckPro() {
 // connected it keeps it - turning the switch off never breaks a working phone.
 const gmailAllowed = () => switchOn("GMAIL") || S.mail.on || !!S.mail.found.length;
 
+// ---------------------------------------------------------- hub family
+// v0.46 (Scott 10/4: "its independent but also a family of apps"). Day Hub and
+// Cruise Hub each keep their own data; each READS the other's trips, never
+// writes them:
+//  - both on this phone in the same browser (Android / computer): straight
+//    from the other hub's saved data;
+//  - otherwise (iPhone keeps installed apps apart): from the other hub's Drive
+//    backup, when this hub's backup is on (the same Google sign-in reads both).
+// A trip from the other hub shows in this one's schedule, morning brief,
+// reminders and bills, and in the Trips card as a row with an Open button.
+// A cruise Cruise Hub took over from Day Hub (S.adopted) is shown from Cruise
+// Hub in both, so there is one live copy. Off: Settings -> Hub family.
+const SIB = MODE === "cruise"
+  ? { id: "dayhub", name: "Day Hub", store: "dayhub.v1", file: "dayhub.json", url: BASE_URL, icon: "☀️" }
+  : { id: "cruisehub", name: "Cruise Hub", store: "cruisehub.v1", file: "cruisehub.json", url: BASE_URL + "cruise/", icon: "🚢" };
+const FAM_KEY = APP_ID + ".family";              // the other hub's trips from its Drive backup (a cache)
+let FAM_RAW = null, FAM_DATA = null, FAM_DRIVE_AT = 0;
+function sibData() {
+  if (!S || S.family === false) return null;
+  let raw = null, src = "phone";
+  try { raw = localStorage.getItem(SIB.store); if (!raw) { raw = localStorage.getItem(FAM_KEY); src = "drive"; } } catch (e) { return null; }
+  if (!raw) return null;
+  if (raw !== FAM_RAW) {
+    FAM_RAW = raw; FAM_DATA = null;
+    try { const d = JSON.parse(raw);
+      if (d && typeof d === "object" && Array.isArray(d.trips))
+        FAM_DATA = { trips: d.trips.filter(t => t && typeof t === "object" && !Array.isArray(t) && t.id), adopted: Array.isArray(d.adopted) ? d.adopted : [], src };
+    } catch (e) { /* the other hub's data is its own business - just don't show it */ }
+  }
+  return FAM_DATA;
+}
+// This hub's own trips, less any the other hub took over (it shows them instead).
+const myTrips = () => { const sd = sibData();
+  return sd && sd.adopted.length ? S.trips.filter(t => !(sd.adopted.includes(t.id) && sd.trips.some(x => x.id === t.id))) : S.trips; };
+// The other hub's trips (copies, marked fam) - for showing only.
+function famTrips() {
+  const sd = sibData(); if (!sd) return [];
+  const mine = new Set(myTrips().map(t => t.id));
+  return sd.trips.filter(t => !mine.has(t.id)).map(t => ({ ...t, fam: SIB.name }));
+}
+const allTrips = () => myTrips().concat(famTrips());
+// What Cruise Hub takes from a Day Hub save: your name, city and your CRUISES.
+// Nothing is removed from Day Hub's data.
+function cruiseSlice(d) {
+  const trips = (d && Array.isArray(d.trips) ? d.trips : []).filter(t => t && typeof t === "object" && isCruise(t));
+  return { name: (d && d.name) || "", city: (d && d.city) || "", trips, adopted: trips.map(t => t.id),
+           tripTab: d && d.tripTab, tripList: d && d.tripList };
+}
+// First open of Cruise Hub v0.46+ on a phone that has Day Hub data (before
+// v0.46 the two shared it): bring the cruises over, once.
+function adoptFromDayHub() {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(SIB.store) || "null"); } catch (e) { d = null; }
+  if (!d || typeof d !== "object") return {};
+  const s = cruiseSlice(d);
+  try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) { /* private mode */ }
+  return s;
+}
+// The other hub's trips from its Drive backup (at most every 10 minutes).
+async function famDriveRefresh() {
+  if (S.family === false || !dReady() || Date.now() - FAM_DRIVE_AT < 10 * 60000) return;
+  FAM_DRIVE_AT = Date.now();
+  try { const c = await driveDownload(SIB.file), d = c && c.data;
+    if (d && Array.isArray(d.trips)) {
+      localStorage.setItem(FAM_KEY, JSON.stringify({ trips: d.trips, adopted: Array.isArray(d.adopted) ? d.adopted : [] }));
+      render();
+    }
+  } catch (e) { /* tried again next backup */ }
+}
+
 // ---------------------------------------------------------------- packs
 const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "top3", "schedule", "errands", "leave", "routines", "reset", "tomorrow", "work", "payday", "budget", "weather", "todos", "notes", "future", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
 const PACKS = {
@@ -122,6 +194,7 @@ const blank = () => ({
   mail: { on: false, last: null, seen: {}, found: [] },
   notes: [],
   trips: [], tripSel: null, tripTab: "money", tripList: "packing",
+  family: true, adopted: [],
   money: { type: "hourly", salary: 0, spends: [] },
   work: { rate: 0, taxPct: 20, otAfter: 40, shifts: [], clockIn: null },
 });
@@ -134,8 +207,10 @@ let UNDO = null, toastTimer = null;
 let GTOKEN = null, GTOKEN_EXP = 0, gisLoading = null;
 
 function load() {
-  let s;
-  try { s = JSON.parse(localStorage.getItem(STORE) || "{}"); }
+  let s, raw = null;
+  try { raw = localStorage.getItem(STORE); } catch (e) { /* private mode */ }
+  if (raw === null && MODE === "cruise") return normalize(adoptFromDayHub());
+  try { s = JSON.parse(raw || "{}"); }
   catch (e) { s = {}; }
   return normalize(s);
 }
@@ -193,6 +268,8 @@ function normalize(raw) {
   if (!obj(s.remind.fired)) s.remind.fired = {};
   s.money = Object.assign(blank().money, obj(s.money) ? s.money : {});
   if (!Array.isArray(s.money.spends)) s.money.spends = [];
+  s.family = s.family !== false;
+  s.adopted = (Array.isArray(s.adopted) ? s.adopted : []).filter(x => typeof x === "string");
   s.mail = Object.assign(blank().mail, obj(s.mail) ? s.mail : {});
   if (!obj(s.mail.seen)) s.mail.seen = {};
   if (!Array.isArray(s.mail.found)) s.mail.found = [];
@@ -504,7 +581,7 @@ async function syncOnOpen(force) {
   if (Date.now() - WX_AT > 15 * 60000) loadWeather();
   checkUpdate();
   if (S.gcal.connected && gReady()) { await gcalFetch(true); await gcalPush(); gcalDates(); }
-  if (S.sync.on && dReady()) await syncDrive();
+  if (S.sync.on && dReady()) { await syncDrive(); famDriveRefresh(); }
   if (S.mail.on && mReady() && can("mail")) scanMail();
   if (MODE !== "cruise" && S.top3.day !== today() && new Date().getHours() >= 4 && (S.name || hasData(S)) && !S.hidden.includes("top3")) top3Pick();
   render();
@@ -613,7 +690,7 @@ function briefLines() {
 }
 function briefCountdowns() {
   const out = liveCountdowns().map(c => ({ title: c.title, day: c.date, n: daysUntil(c.date), icon: "⏳" }));
-  S.trips.filter(tr => tr.start && daysUntil(tr.start) >= 0 && !out.some(o => o.day === tr.start && o.title === tr.name))
+  allTrips().filter(tr => tr.start && daysUntil(tr.start) >= 0 && !out.some(o => o.day === tr.start && o.title === tr.name))
     .forEach(tr => out.push({ title: tr.name, day: tr.start, n: daysUntil(tr.start), icon: isCruise(tr) ? "🚢" : "✈️" }));
   return out.sort((a, b) => a.day.localeCompare(b.day));
 }
@@ -679,7 +756,7 @@ function gcalDisconnect() {
 // and gets everything back. Google's token lasts about an hour and is never
 // stored; after that the next backup waits for one tap ("Back up now").
 let DTOKEN = null, DTOKEN_EXP = 0, backupTimer = null, CLOUD_PENDING = null;
-const DFILE = "dayhub.json";
+const DFILE = APP_ID + ".json";
 const dReady = () => DTOKEN && Date.now() < DTOKEN_EXP;
 const hasData = d => !!d && ((d.events || []).length + (d.todos || []).length + (d.bills || []).length +
   (d.countdowns || []).length + ((d.work || {}).shifts || []).length + ((d.money || {}).spends || []).length +
@@ -704,19 +781,19 @@ async function dfetch(url, opt = {}) {
   if (!r.ok) throw new Error(`Drive ${r.status}`);
   return r;
 }
-async function driveFind() {
-  const q = encodeURIComponent(`name='${DFILE}'`);
+async function driveFind(name = DFILE) {
+  const q = encodeURIComponent(`name='${name}'`);
   const j = await (await dfetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,modifiedTime)`)).json();
   return (j.files || [])[0] || null;
 }
-async function driveDownload() {
-  const f = await driveFind();
+async function driveDownload(name = DFILE) {
+  const f = await driveFind(name);
   return f ? (await dfetch(`https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`)).json() : null;
 }
 async function driveUpload() {
   const data = JSON.parse(JSON.stringify(S));
   delete data.gcal;                                            // re-fetched from Google, not ours to copy
-  const body = JSON.stringify({ app: "dayhub", v: VERSION, savedAt: new Date().toISOString(), data });
+  const body = JSON.stringify({ app: APP_ID, v: VERSION, savedAt: new Date().toISOString(), data });
   const f = await driveFind();
   if (f) {
     await dfetch(`https://www.googleapis.com/upload/drive/v3/files/${f.id}?uploadType=media`,
@@ -730,6 +807,7 @@ async function driveUpload() {
     });
   }
   S.sync.last = new Date().toISOString(); S.sync.dirty = false; saveLocal();
+  famDriveRefresh();
 }
 function scheduleBackup() {
   clearTimeout(backupTimer);
@@ -744,7 +822,11 @@ async function syncOn() {
   if (!can("sync")) { toast("Backup & sync is part of Day Hub Pro"); return; }
   if (!(await driveSignIn(S.sync.on ? "" : "consent"))) return;
   try {
-    const cloud = await driveDownload();
+    let cloud = await driveDownload();
+    if (!cloud && MODE === "cruise") {                         // before v0.46 Cruise Hub backed up into dayhub.json
+      const old = await driveDownload(SIB.file);
+      if (old && old.data) cloud = { savedAt: old.savedAt, data: cruiseSlice(old.data) };
+    }
     if (cloud && hasData(cloud.data) && !hasData(S)) { restoreFrom(cloud); return; }
     if (cloud && hasData(cloud.data) && cloud.savedAt > (S.sync.last || "")) {
       S.sync.on = true; saveLocal(); CLOUD_PENDING = cloud; drawSyncBox(); return;
@@ -827,7 +909,7 @@ function reminderList() {
     add(`tm:${T1}`, atMs(today(), "23:59"), at, "🌙 Tomorrow",
         [f ? `First up ${hm(f.t)} ${f.title}` : `${plans.length} planned`, w1 && w1.rain >= 50 ? `rain ${w1.rain}%` : ""].filter(Boolean).join(" · "));
   }
-  S.trips.forEach(tr => {
+  allTrips().forEach(tr => {
     if (tr.finalDue && tripLeft(tr) !== 0) [14, 3, 1, 0].forEach(n => { const d = addDays(tr.finalDue, -n);
       if (inWin(d)) { const at = atMs(d, R.billHour); add(`tf:${tr.id}:${n}`, atMs(d, "23:59"), at,
         `💳 Final payment ${n === 0 ? "due TODAY" : `due in ${n} day${n === 1 ? "" : "s"}`}`,
@@ -1553,9 +1635,9 @@ function ensurePortWx(tr) {
 }
 const portWxText = pt => { const w = PORTWX[`${pt.name}|${pt.day}`];
   return w && !w.loading && !w.none ? `${wmo(w.code)[0]} ${Math.round(w.hi)}°/${Math.round(w.lo)}°${w.rain >= 20 ? ` · rain ${w.rain}%` : ""}` : ""; };
-const upcomingTrips = () => S.trips.filter(tr => tr.end ? tr.end >= addDays(today(), -7) : true)
+const upcomingTrips = () => myTrips().filter(tr => tr.end ? tr.end >= addDays(today(), -7) : true)
   .sort((a, b) => (a.start || "9999").localeCompare(b.start || "9999"));
-const curTrip = () => S.trips.find(t => t.id === S.tripSel) || upcomingTrips()[0] || null;
+const curTrip = () => myTrips().find(t => t.id === S.tripSel) || upcomingTrips()[0] || null;
 // Lists added in a later version reach trips planned before it (no data is lost).
 function ensureLists(tr) {
   tr.lists = tr.lists || {};
@@ -1699,10 +1781,10 @@ function savePerMonth(tr) {
 // erasing the phone - two taps, and Undo still works.
 function exportData() {
   const data = JSON.parse(JSON.stringify(S)); delete data.gcal;
-  const body = JSON.stringify({ app: "dayhub", v: VERSION, savedAt: new Date().toISOString(), data }, null, 1);
+  const body = JSON.stringify({ app: APP_ID, v: VERSION, savedAt: new Date().toISOString(), data }, null, 1);
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([body], { type: "application/json" }));
-  a.download = `day-hub-backup-${today()}.json`;
+  a.download = `${MODE === "cruise" ? "cruise" : "day"}-hub-backup-${today()}.json`;
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
   toast("Backup file saved ✓");
 }
@@ -1710,15 +1792,17 @@ function importData(file) {
   const r = new FileReader();
   r.onload = () => {
     try {
-      const j = JSON.parse(r.result), data = j && j.app === "dayhub" ? j.data : null;
-      if (!data || typeof data !== "object") { toast("That file isn't a Day Hub backup"); return; }
+      const j = JSON.parse(r.result);
+      let data = j && (j.app === APP_ID || j.app === SIB.id) ? j.data : null;
+      if (!data || typeof data !== "object") { toast(`That file isn't a ${APP_NAME} backup`); return; }
+      if (j.app !== APP_ID && MODE === "cruise") data = cruiseSlice(data);   // a Day Hub file: its cruises only
       restoreFrom({ savedAt: j.savedAt || new Date().toISOString(), data });
     } catch (e) { toast("Couldn't read that file"); }
   };
   r.readAsText(file);
 }
 function eraseAll() {
-  if (Date.now() - ERASE_ARMED > 5000) { ERASE_ARMED = Date.now(); toast("Tap Erase again to wipe this phone's Day Hub"); drawDataBox(true); return; }
+  if (Date.now() - ERASE_ARMED > 5000) { ERASE_ARMED = Date.now(); toast(`Tap Erase again to wipe this phone's ${APP_NAME}`); drawDataBox(true); return; }
   ERASE_ARMED = 0; snap(); const keepName = S.name;
   // NOT closeSettings(): that saves the still-open form, which would write the
   // old name / city straight back into the erased app (caught by the test suite).
@@ -1771,7 +1855,7 @@ function dayItems(day) {
     it.push({ t: null, title: x.auto ? x.name : `${x.name} due`, sub: x.auto ? "" : upkeepWhen(x, upkeepNext(x)), kind: "upkeep", icon: x.area === "auto" ? "🚗" : "🏠" }));
   S.people.filter(p => personOn(p, day)).forEach(p => it.push({ t: null, title: personLabel(p, day), sub: giftDue(p, day) ? "🎁 gift?" : "", kind: "person", icon: PKIND[p.kind] || "⭐" }));
   S.countdowns.filter(c => c.date === day).forEach(c => it.push({ t: null, title: c.title, sub: "The day is here", kind: "cd", icon: "🎉" }));
-  S.trips.forEach(tr => {
+  allTrips().forEach(tr => {
     if (tr.start && day >= tr.start && day <= (tr.end || tr.start)) {
       const n = Math.round((parseDay(day) - parseDay(tr.start)) / 86400000) + 1;
       const pt = portOn(tr, day);
@@ -2029,7 +2113,7 @@ function leaveExtras() {
   const plans = dayItems(t).filter(isPlan).map(i => `${i.title} ${i.sub || ""}`).join(" | ");
   if (/\b(gym|workout|lift|yoga|swim|crossfit|practice)\b/i.test(plans)) add("gym", "👟 Gym bag", "on today's plan");
   if (/\b(doctor|dentist|dr\.?|clinic|hospital|appointment|vet|eye exam|physical)\b/i.test(plans)) add("ins", "🪪 Insurance card", "appointment today");
-  if (S.trips.some(tr => tr.start === t || tr.start === addDays(t, 1))) add("id", "🛂 ID / passport + travel docs", "trip");
+  if (allTrips().some(tr => tr.start === t || tr.start === addDays(t, 1))) add("id", "🛂 ID / passport + travel docs", "trip");
   return out;
 }
 const leaveDone = () => S.leave.day === today() ? S.leave.done : [];
@@ -2159,7 +2243,7 @@ function payAmount() {
 function dueBetween(from, to) {
   const out = [];
   S.bills.forEach(b => { for (let k = 0; k < 3; k++) { const d = nextDueFrom(b, from, k); if (d && d >= from && d < to && !out.some(o => o.id === b.id && o.day === d)) out.push({ id: b.id, name: b.name, amt: Number(b.amount) || 0, day: d, icon: "💳" }); } });
-  S.trips.forEach(tr => { if (tr.finalDue && tr.finalDue >= from && tr.finalDue < to && tripLeft(tr)) out.push({ id: tr.id, name: `${tr.name} final payment`, amt: tripLeft(tr), day: tr.finalDue, icon: "🚢" }); });
+  allTrips().forEach(tr => { if (tr.finalDue && tr.finalDue >= from && tr.finalDue < to && tripLeft(tr)) out.push({ id: tr.id, name: `${tr.name} final payment`, amt: tripLeft(tr), day: tr.finalDue, icon: "🚢" }); });
   return out.sort((a, b) => a.day.localeCompare(b.day));
 }
 // The k-th monthly due date of bill b on/after `from` (ignores "paid" - this is planning).

@@ -1,6 +1,9 @@
 {
- "version": "0.45",
+ "version": "0.46",
  "notes": {
+  "0.46": [
+   "🚢 Cruise Hub is now its own app with its own saved data and its own backup. It still works with Day Hub: a trip planned in one shows in the other (⚙ → Hub family). Your cruises from Day Hub were brought over, and nothing was removed from Day Hub."
+  ],
   "0.45": [
    "🚢 Cruise Hub: its own welcome, works with any cruise line (pick yours, or add your own package perks), a 'Your cruise card' guide with a tip for your line, and 'What am I forgetting?' now opens on its own screen"
   ],

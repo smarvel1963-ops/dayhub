@@ -1295,6 +1295,63 @@ def t_v045_cruise_hub(b, base):
     a.close()
 
 
+def t_v046_hub_family(b, base):
+    print("\n[v0.46 Cruise Hub is its own app + the hub family link]")
+    a = App(b, base)
+    def go(path):
+        a.page.goto(base + path); a.page.wait_for_function("typeof render === 'function' && document.querySelector('#hero .greet')")
+        if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    setup(a)
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Alaska", "start": "2026-11-05", "end": "2026-11-12", "line": "Princess"})
+    a.qa("trip", {"ttype": "trip", "tname": "Vegas", "start": "2026-12-01", "end": "2026-12-04"})
+    check("Day Hub: two trips of its own", a.js("S.trips.length") == 2 and a.js("STORE") == "dayhub.v1")
+    # same phone: open Cruise Hub for the first time
+    go("/cruise/")
+    check("Cruise Hub keeps its OWN data + backup file", a.js("STORE") == "cruisehub.v1" and a.js("DFILE") == "cruisehub.json" and a.js("!!localStorage.getItem('cruisehub.v1')"))
+    check("first open: Day Hub's cruise came over (+ name, city), the Vegas trip did not", a.js("S.trips.map(t => t.name).join()") == "Alaska" and a.js("S.name") == "Scott" and a.js("S.city") == "72032" and a.js("S.adopted.length") == 1)
+    check("Day Hub's data left untouched", a.js("JSON.parse(localStorage.getItem('dayhub.v1')).trips.length") == 2)
+    t = a.card("trips")
+    check("Cruise Hub shows Day Hub's Vegas trip as a family row with Open", "From Day Hub" in t and "Vegas" in t and "Open Day Hub" in t and a.js("famTrips().map(x => x.name).join()") == "Vegas")
+    a.js("curTrip().name = 'Alaska Inside Passage'; save()")
+    a.qa("todo", {"title": "Buy sunscreen"})
+    check("a Cruise Hub to-do stays in Cruise Hub", a.js("S.todos.length") == 1 and a.js("JSON.parse(localStorage.getItem('dayhub.v1')).todos.length") == 0)
+    a.page.click("#settingsBtn")
+    fam = a.page.inner_text("#famBox")
+    check("settings: Hub family box says linked on this phone", "Hub family" in fam and "Linked" in fam and "Day Hub is on this phone" in fam, fam[:200])
+    a.page.click('[data-close="sheet"]')
+    # back to Day Hub: the cruise now shows FROM Cruise Hub, with Cruise Hub's edit
+    go("/")
+    check("Day Hub: its own copy of the cruise steps aside (one live copy)", a.js("myTrips().map(x => x.name).join()") == "Vegas" and a.js("S.trips.length") == 2)
+    t = a.card("trips")
+    check("Day Hub: Trips card shows the cruise from Cruise Hub, with Cruise Hub's new name", "From Cruise Hub" in t and "Alaska Inside Passage" in t and "Open Cruise Hub" in t)
+    check("Day Hub: sail day on the schedule", any("Sail day — Alaska Inside Passage" in i["title"] for i in a.js("dayItems('2026-11-05')")))
+    check("Day Hub: cruise countdown in the morning brief list", "Alaska Inside Passage" in a.js("briefCountdowns().map(c => c.title).join()"))
+    check("Day Hub never gets Cruise Hub's to-do", a.js("S.todos.length") == 0)
+    # turn the link off: fully on its own, its own copy is back
+    a.page.click("#settingsBtn"); a.page.click('[data-fam="1"]'); a.page.wait_for_timeout(200)
+    check("link off: Cruise Hub trips hidden, Day Hub's own copy shows again", a.js("famTrips().length") == 0 and a.js("myTrips().length") == 2 and "Alaska Inside Passage" not in a.card("trips"))
+    check("link off is remembered", a.js("JSON.parse(localStorage.getItem('dayhub.v1')).family") is False)
+    a.page.click('[data-fam="1"]'); a.page.wait_for_timeout(200)
+    check("link back on", a.js("S.family") is True and a.js("famTrips().length") == 1)
+    a.close()
+    # phone that keeps the apps apart (iPhone): the other hub's trips come from its Drive backup
+    a = App(b, base)
+    setup(a)
+    a.js("""localStorage.setItem('dayhub.family', JSON.stringify({ trips: [{ id: 'c1', type: 'cruise', name: 'Greek Isles', start: '2026-10-20', end: '2026-10-27' }], adopted: ['c1'] })); FAM_RAW = null; render()""")
+    check("no Cruise Hub on this phone: trips from the Drive copy", a.js("famTrips().map(x => x.name).join()") == "Greek Isles" and a.js("sibData().src") == "drive")
+    a.page.click("#settingsBtn")
+    fam = a.page.inner_text("#famBox")
+    check("settings say linked through Drive backup + show the iPhone steps", "Google Drive backup" in fam and "same Google account" in fam, fam[:300])
+    a.close()
+    # a Day Hub backup file loaded into Cruise Hub brings its cruises only
+    a = App(b, base, path="/cruise/")
+    check("Day Hub file -> Cruise Hub: cruises only", a.js("cruiseSlice({ name: 'Q', trips: [{ id: 'x', type: 'cruise', name: 'A' }, { id: 'y', type: 'trip', name: 'B' }], todos: [{ id: 't' }] })").get("trips") == [{"id": "x", "type": "cruise", "name": "A"}]
+          and "todos" not in a.js("cruiseSlice({ trips: [], todos: [{ id: 't' }] })"))
+    check("fresh Cruise Hub with no Day Hub: empty, no family rows", a.js("S.trips.length") == 0 and a.js("famTrips().length") == 0)
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -1310,7 +1367,8 @@ def main():
                   t_v032_ask_top3, t_v033_alarms,
                   t_v033_calendar_dates, t_v034_backup_nudge,
                   t_v035_errands, t_v036_returns,
-                  t_v037_future_me, t_v039_short_home, t_v040_switches, t_v045_cruise_hub):
+                  t_v037_future_me, t_v039_short_home, t_v040_switches, t_v045_cruise_hub,
+                  t_v046_hub_family):
             try:
                 t(b, base)
             except Exception as e:

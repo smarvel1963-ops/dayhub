@@ -462,8 +462,26 @@ function welcomeHtml() {
 // a form or tap-to-start chips); ⓘ shows the full card, explainer included.
 // MINI_OPEN lives for this visit only (never saved). A card with content, or one
 // opened, draws exactly as before.
+// v0.46 HUB FAMILY: the other hub's upcoming trips sit under this hub's own in
+// the Trips card - read only, with a button that opens the other app.
+const famUpcoming = () => famTrips().filter(tr => tr.end ? tr.end >= addDays(today(), -7) : true)
+  .sort((a, b) => (a.start || "9999").localeCompare(b.start || "9999"));
+function famTripRows() {
+  const f = famUpcoming(); if (!f.length) return "";
+  return `<div class="fam-trips" style="margin-top:12px"><span class="sub"><b>${SIB.icon} From ${SIB.name}</b></span>` + f.map(tr => {
+    const n = tr.start ? daysUntil(tr.start) : null;
+    const when = n === null ? "no dates yet" : n > 0 ? `in ${n} day${n === 1 ? "" : "s"}` : daysUntil(tr.end || tr.start) >= 0 ? "happening now" : "just back";
+    return `<div class="row"><div class="grow">${isCruise(tr) ? "🚢" : "✈️"} <b>${esc(tr.name || "Trip")}</b>
+      <span class="sub">${when}${tr.start ? ` · ${prettyDate(tr.start)}` : ""} · planned in ${SIB.name}</span></div>
+      <a class="btn sm ghost" href="${esc(SIB.url)}" data-famopen="1">Open ${SIB.name}</a></div>`; }).join("") + `</div>`;
+}
+{ const ownBody = CARDS.trips.body, ownMeta = CARDS.trips.meta;
+  CARDS.trips.body = () => { const fam = famTripRows();
+    return !curTrip() && fam ? fam + `<button class="btn sm" data-qa="trip" style="margin-top:10px">🚢 Plan a trip</button>` : ownBody() + fam; };
+  CARDS.trips.meta = () => ownMeta() || (famUpcoming().length ? `in ${SIB.name}` : ""); }
+
 const MINI = {
-  trips:      [() => MODE !== "cruise" && !curTrip(), 'data-qa="trip"', "Plan a trip"],
+  trips:      [() => MODE !== "cruise" && !curTrip() && !famUpcoming().length, 'data-qa="trip"', "Plan a trip"],
   top3:       [() => !TOP3_BUSY && !(S.top3.day === today() && S.top3.items.length), 'data-top3="pick"', "Pick my top 3"],
   payday:     [() => !S.payday.freq, "open", "Set up payday"],
   budget:     [() => !budget().income, 'data-qa="pay"', "Set income"],
@@ -1268,6 +1286,8 @@ document.addEventListener("input", e => {
 document.addEventListener("change", e => {
   const t = e.target, ds = t.dataset;
   if (t.id === "importFile" && t.files && t.files[0]) { importData(t.files[0]); t.value = ""; return; }
+  if (ds.fam) { S.family = t.checked; FAM_RAW = null; save(); drawSettings(); render();
+    toast(t.checked ? `Linked with ${SIB.name} ✓` : `${APP_NAME} on its own — ${SIB.name} trips hidden`); if (t.checked) famDriveRefresh(); return; }
   if (ds.owner) { setOwnerSwitch(ds.owner, t.checked); drawSettings(); render(); toast(`${ds.owner} ${t.checked ? "on" : "off"} — this phone only`); return; }
   if (ds.dkind !== undefined) { const x = DUMP[Number(ds.dkind)]; x.kind = t.value;
     if (x.kind === "event" && !x.day) { x.day = today(); x.time = "09:00"; x.rep = "none"; } drawDump(); return; }
@@ -1318,6 +1338,9 @@ function drawSettings() {
   let pb = document.getElementById("proBox");
   if (!pb) { pb = document.createElement("div"); pb.id = "proBox"; ib.before(pb); }
   drawProBox();
+  let fb = document.getElementById("famBox");
+  if (!fb) { fb = document.createElement("div"); fb.id = "famBox"; db.before(fb); }
+  drawFamBox();
   let ob = document.getElementById("ownerBox");
   if (!ob) { ob = document.createElement("div"); ob.id = "ownerBox"; db.after(ob); }
   drawOwnerBox();
@@ -1405,6 +1428,24 @@ function unlockPro(buyer) {
 let OWNER_OPEN = false, VER_TAPS = [];
 const OWNER_ROWS = [["PRO_GATE", "Pro gate — free vs Pro"], ["AI_PUBLIC", "AI for Whop-key holders"], ["GMAIL", "Gmail → plans"],
   ["STORE", "Google Play link"], ["OWNER", "Count this phone as Pro"]];
+// v0.46 HUB FAMILY (Scott 10/4): separate apps that work together. The steps
+// are in the box (Scott 10/2: every setting carries its own easy setup).
+function drawFamBox() {
+  const g = document.getElementById("famBox"); if (!g) return;
+  const sd = S.family ? sibData() : null, n = sd ? sd.trips.length : 0;
+  const state = !S.family ? `Off — ${APP_NAME} keeps to itself.`
+    : sd && sd.src === "phone" ? `✓ Linked — ${SIB.name} is on this phone${n ? ` (${n} trip${n === 1 ? "" : "s"})` : ""}.`
+    : sd ? `✓ Linked through your Google Drive backup${n ? ` (${n} trip${n === 1 ? "" : "s"} from ${SIB.name})` : ""}.`
+    : `Waiting for ${SIB.name}.`;
+  g.innerHTML = `<h3>${SIB.icon} Hub family</h3>
+    <ul class="card-list"><li><span>See my ${SIB.name} trips here</span><input type="checkbox" data-fam="1" ${S.family ? "checked" : ""} aria-label="Link with ${SIB.name}"></li></ul>
+    <p class="fine" style="margin-top:6px"><b>${state}</b> ${APP_NAME} and ${SIB.name} are separate apps that work together: a trip planned in one shows in the other's schedule, morning brief, reminders and bills. Each app keeps its own data — ${APP_NAME} never changes ${SIB.name}'s. One Pro purchase unlocks both.</p>
+    ${S.family && !(sd && sd.src === "phone") ? `<p class="fine"><b>Phone that keeps each app apart (iPhone)? Link through backup (Pro):</b></p>
+      <ol class="steps"><li>Here in ${APP_NAME}: ⚙ → <b>Backup & sync</b> → <b>Back up to my Google Drive</b>.</li>
+      <li>Open ${SIB.name} → ⚙ → <b>Backup & sync</b> → the same button, the <b>same Google account</b>.</li>
+      <li>Done — each app shows the other's trips after its next backup.</li></ol>` : ""}
+    <a class="btn sm ghost" href="${esc(SIB.url)}" data-famopen="1">Open ${SIB.name}</a>`;
+}
 function drawOwnerBox() {
   const g = document.getElementById("ownerBox"); if (!g) return;
   g.hidden = !OWNER_OPEN; if (g.hidden) { g.innerHTML = ""; return; }
@@ -1469,7 +1510,7 @@ catch (e) {
     <div class="foot-actions"><button class="btn sm" id="bootSave">Save a copy</button><button class="btn sm ghost" id="bootReset">Start fresh</button></div></div></section>`;
   document.getElementById("bootSave").onclick = () => { const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([localStorage.getItem(STORE) || ""], { type: "application/json" }));
-    a.download = "dayhub-saved-data.json"; document.body.appendChild(a); a.click(); };
+    a.download = `${APP_ID}-saved-data.json`; document.body.appendChild(a); a.click(); };
   document.getElementById("bootReset").onclick = () => { S = blank(); saveLocal(); location.reload(); };
 }
 loadWeather();
