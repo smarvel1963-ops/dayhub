@@ -139,12 +139,60 @@ const PORT_GUIDES = {
       { icon: "🚕", text: "Agree on the taxi fare before you get in.", src: "https://www.celebritycruises.com/au/ports/cozumel-mexico" },
       { icon: "📶", text: "Free Wi-Fi past the terminal, plus food, shops and souvenir stalls.", src: "https://www.celebritycruises.com/au/ports/cozumel-mexico" },
     ] },
+  "st. thomas": { name: "St. Thomas", country: "U.S. Virgin Islands", flag: "🇻🇮", verified: "2026-10-05", keys: ["st. thomas", "st thomas", "saint thomas", "charlotte amalie"],
+    advisory: null,
+    sources: { "Celebrity Cruises": "https://www.celebritycruises.com/popular-cruises/cruises-to-st-thomas-and-st-maarten" },
+    facts: [
+      { icon: "🇺🇸", text: "St. Thomas is a U.S. territory, and the U.S. dollar is the currency.", src: "https://www.celebritycruises.com/popular-cruises/cruises-to-st-thomas-and-st-maarten" },
+      { icon: "🛳️", text: "Two docks — Havensight and Crown Bay — either side of Charlotte Amalie; neither is an easy walk to downtown.", src: "https://www.celebritycruises.com/popular-cruises/cruises-to-st-thomas-and-st-maarten" },
+      { icon: "🚕", text: "Taxis are open-air 'safari' trucks with set per-person rates.", src: "https://www.celebritycruises.com/popular-cruises/cruises-to-st-thomas-and-st-maarten" },
+      { icon: "🛍️", text: "Both piers have duty-free shopping, car rental, ATMs, tour desks and places to eat.", src: "https://www.celebritycruises.com/popular-cruises/cruises-to-st-thomas-and-st-maarten" },
+    ] },
+  "st. maarten": { name: "St. Maarten", country: "Sint Maarten", flag: "🇸🇽", verified: "2026-10-05", keys: ["st. maarten", "st maarten", "sint maarten", "philipsburg", "st. martin"],
+    advisory: SG_DOS + "traveladvisories.html",
+    sources: { "Celebrity Cruises port guide": "https://www.celebritycruises.com/ports/st-maarten" },
+    facts: [
+      { icon: "🚶", text: "Ships dock at Cruise Pier St. Maarten — about 15 minutes' walk to Philipsburg, 25 to Front Street.", src: "https://www.celebritycruises.com/ports/st-maarten" },
+      { icon: "💵", text: "Guilder on the Dutch side, euro on the French side — U.S. dollars are widely accepted.", src: "https://www.celebritycruises.com/ports/st-maarten" },
+      { icon: "⛴️", text: "Water taxis and shuttles run to the beaches.", src: "https://www.celebritycruises.com/ports/st-maarten" },
+      { icon: "🚕", text: "Taxis wait at the port; many drivers will act as a guide (a tip is welcome).", src: "https://www.celebritycruises.com/ports/st-maarten" },
+      { icon: "🏧", text: "At the port: ATMs, shops, tourist information, rental cars.", src: "https://www.celebritycruises.com/ports/st-maarten" },
+    ] },
+  "costa maya": { name: "Costa Maya", country: "Mexico", flag: "🇲🇽", verified: "2026-10-05", keys: ["costa maya", "mahahual"],
+    advisory: SG_DOS + "mexico-travel-advisory.html",
+    sources: { "Celebrity Cruises port guide": "https://www.celebritycruises.com/ports/costa-maya-mexico" },
+    facts: [
+      { icon: "🚋", text: "The pier is long — a free trolley runs from the ship to the port village.", src: "https://www.celebritycruises.com/ports/costa-maya-mexico" },
+      { icon: "🏊", text: "The port complex has shops, food, ATMs, restrooms, Wi-Fi, a spa and a big pool with a swim-up bar.", src: "https://www.celebritycruises.com/ports/costa-maya-mexico" },
+      { icon: "📍", text: "Mahahual is a short cab ride or about a 45-minute walk.", src: "https://www.celebritycruises.com/ports/costa-maya-mexico" },
+      { icon: "💵", text: "The peso is the currency; U.S. dollars are widely accepted.", src: "https://www.celebritycruises.com/ports/costa-maya-mexico" },
+      { icon: "🚕", text: "Taxis wait outside the port; golf carts can be rented.", src: "https://www.celebritycruises.com/ports/costa-maya-mexico" },
+    ] },
+  roatan: { name: "Roatán", country: "Honduras", flag: "🇭🇳", verified: "2026-10-05", keys: ["roatan", "roatán", "coxen hole", "mahogany bay"],
+    advisory: SG_DOS + "traveladvisories.html",
+    sources: { "Celebrity Cruises port guide": "https://www.celebritycruises.com/ports/roatan" },
+    facts: [
+      { icon: "🛳️", text: "Ships dock at Coxen Hole or Mahogany Bay — check which one is yours.", src: "https://www.celebritycruises.com/ports/roatan" },
+      { icon: "💵", text: "The lempira is the currency; U.S. dollars are commonly accepted.", src: "https://www.celebritycruises.com/ports/roatan" },
+      { icon: "🚕", text: "Taxis and rental cars are the usual way around.", src: "https://www.celebritycruises.com/ports/roatan" },
+      { icon: "🛍️", text: "At Coxen Hole: a shopping mall, restaurants, an ATM and internet access.", src: "https://www.celebritycruises.com/ports/roatan" },
+    ] },
+  "grand cayman": { name: "Grand Cayman", country: "Cayman Islands", flag: "🇰🇾", verified: "2026-10-05", keys: ["grand cayman", "george town", "cayman"],
+    advisory: SG_DOS + "traveladvisories.html",
+    sources: { "Celebrity Cruises port guide": "https://www.celebritycruises.com/ports/grand-cayman" },
+    facts: [
+      { icon: "🚤", text: "A TENDER port — small boats take you to one of three tender terminals on Harbour Drive, George Town. Allow extra time getting back.", src: "https://www.celebritycruises.com/ports/grand-cayman" },
+      { icon: "💵", text: "Cayman dollar (US$1.20 = CI$1); most places show both prices and U.S. dollars are widely accepted.", src: "https://www.celebritycruises.com/ports/grand-cayman" },
+      { icon: "🚕", text: "Taxis wait at the port; there's an efficient minibus network too.", src: "https://www.celebritycruises.com/ports/grand-cayman" },
+      { icon: "🚗", text: "They drive on the LEFT.", src: "https://www.celebritycruises.com/ports/grand-cayman" },
+      { icon: "💲", text: "Tipping: 10–15% at restaurants, $5–10 for a tour guide.", src: "https://www.celebritycruises.com/ports/grand-cayman" },
+    ] },
 };
 const portGuide = name => { const n = String(name || "").toLowerCase(); return Object.values(PORT_GUIDES).find(g => g.keys.some(k => n.includes(k))) || null; };
 function portGuideHtml(pt) {
   const G = pt && portGuide(pt.name); if (!G) return "";
   return `<div class="day-label" style="margin-top:10px">${G.flag} Good to know in ${esc(G.name)}</div>
     ${G.facts.map(f => `<div class="today-line">${f.icon} ${esc(f.text)}</div>`).join("")}
-    <a class="btn sm ghost" style="margin-top:6px" href="${G.advisory}" target="_blank" rel="noopener">🛡️ Current U.S. travel advisory — ${esc(G.country)}</a>
+    ${G.advisory ? `<a class="btn sm ghost" style="margin-top:6px" href="${G.advisory}" target="_blank" rel="noopener">🛡️ Current U.S. travel advisory${G.advisory.endsWith("traveladvisories.html") ? ` — find ${esc(G.country)}` : ` — ${esc(G.country)}`}</a>` : `<div class="today-line sub">🇺🇸 U.S. territory — no foreign travel advisory.</div>`}
     <p class="fine" style="margin-top:6px">From ${Object.entries(G.sources).map(([n, u]) => `<a href="${u}" target="_blank" rel="noopener">${esc(n)}</a>`).join(" · ")} — checked ${prettyDate(G.verified)}, ${G.verified.slice(0, 4)}. The ship's port information wins if it differs.</p>`;
 }
