@@ -320,3 +320,50 @@ function portGuideHtml(pt) {
     ${G.advisory ? `<a class="btn sm ghost" style="margin-top:6px" href="${G.advisory}" target="_blank" rel="noopener">🛡️ Current U.S. travel advisory${G.advisory.endsWith("traveladvisories.html") ? ` — find ${esc(G.country)}` : ` — ${esc(G.country)}`}</a>` : `<div class="today-line sub">🇺🇸 U.S. territory — no foreign travel advisory.</div>`}
     <p class="fine" style="margin-top:6px">From ${Object.entries(G.sources).map(([n, u]) => `<a href="${u}" target="_blank" rel="noopener">${esc(n)}</a>`).join(" · ")} — checked ${prettyDate(G.verified)}, ${G.verified.slice(0, 4)}. The ship's port information wins if it differs.</p>`;
 }
+
+// ------------------------------------------------------------ home (departure) port guides
+// v0.72 (Scott's "GET ME TO MY SHIP" / travel-day plan: parking, terminal, when to arrive). Same rule: a fact
+// shows only when the PORT'S OWN site states it. Parking prices are dated by `verified` - ports change them.
+const HOME_PORTS = {
+  canaveral: { name: "Port Canaveral", place: "Cape Canaveral, FL", verified: "2026-10-05", keys: ["canaveral", "cape canaveral"],
+    sources: { "Port Canaveral": "https://www.portcanaveral.com/cruise/directions-parking/cruise-terminal-guide" },
+    facts: [
+      { icon: "🅿️", text: "Parking is $20 a day plus tax — the day you arrive and the day you leave both count. Oversize vehicles $40 a day.", src: "https://www.portcanaveral.com/cruise/passenger-faqs" },
+      { icon: "💳", text: "Pay when you drive in — cards only (cashless), no reservations needed. You park next to your terminal and walk, no shuttle.", src: "https://www.portcanaveral.com/cruise/directions-parking" },
+      { icon: "🕙", text: "Terminal garages and lots don't open before 10 AM for boarding passengers — arrive at your cruise line's boarding time.", src: "https://www.portcanaveral.com/cruise/directions-parking/cruise-terminal-guide" },
+      { icon: "🧳", text: "The cruise lines have porters to take your checked bags.", src: "https://www.portcanaveral.com/cruise/passenger-faqs" },
+      { icon: "🔢", text: "7 terminals (1, 2, 3, 5, 6, 8, 10) — check which one is on your boarding pass before you drive.", src: "https://www.portcanaveral.com/cruise/directions-parking/cruise-terminal-guide" },
+    ] },
+  everglades: { name: "Port Everglades", place: "Fort Lauderdale, FL", verified: "2026-10-05", keys: ["everglades", "fort lauderdale", "ft. lauderdale", "ft lauderdale"],
+    sources: { "Port Everglades": "https://www.porteverglades.net/cruise/parking/" },
+    facts: [
+      { icon: "🅿️", text: "Port garages (Heron and Palm) are $25 a day max; oversize vehicles $35 per 24 hours. The day starts when you pull the ticket.", src: "https://www.porteverglades.net/cruise/parking/" },
+      { icon: "🚫", text: "The port takes no parking reservations or prepayment — just drive in.", src: "https://www.porteverglades.net/cruise/parking/" },
+      { icon: "🚌", text: "The only shuttle runs between Cruise Terminal 29 and the Palm garage.", src: "https://www.porteverglades.net/cruise/parking/" },
+      { icon: "📞", text: "Parking questions: 954-468-3680.", src: "https://www.porteverglades.net/cruise/parking/" },
+    ] },
+  miami: { name: "PortMiami", place: "Miami, FL", verified: "2026-10-05", keys: ["miami"],
+    sources: { "PortMiami parking": "https://www.miamidade.gov/portmiami/parking-information.page" },
+    facts: [
+      { icon: "🅿️", text: "County garages C, D, F, G and Lot E: $25 a day for overnight (cruise) parking. Royal Caribbean (Garage A) and Norwegian (Garage B) price their own garages.", src: "https://www.miamidade.gov/portmiami/parking-information.page" },
+      { icon: "💳", text: "Cash, Visa, MasterCard, Amex, Discover — DEBIT CARDS ARE NOT ACCEPTED.", src: "https://www.miamidade.gov/portmiami/parking-information.page" },
+      { icon: "🚐", text: "RVs, oversize vans and trailers: Surface Lot E, $25 per space per day.", src: "https://www.miamidade.gov/portmiami/parking-information.page" },
+    ] },
+  galveston: { name: "Port of Galveston", place: "Galveston, TX", verified: "2026-10-05", keys: ["galveston"],
+    sources: { "Port of Galveston parking FAQ": "https://www.portofgalveston.com/cruise-parking/faq/" },
+    facts: [
+      { icon: "📅", text: "Reserve parking ahead — strongly suggested; drive-ups only if there's space. Prices depend on the lot.", src: "https://www.portofgalveston.com/cruise-parking/faq/" },
+      { icon: "💳", text: "Credit cards only.", src: "https://www.portofgalveston.com/cruise-parking/faq/" },
+      { icon: "🕘", text: "Lots open at 9 AM on most sailing days.", src: "https://www.portofgalveston.com/cruise-parking/faq/" },
+      { icon: "🧳", text: "Drop your bags at the terminal first, then go park. Economy-lot shuttles are free, about every 5–7 minutes.", src: "https://www.portofgalveston.com/cruise-parking/faq/" },
+      { icon: "📞", text: "Parking help: 409-766-6163 (8 AM–5 PM daily).", src: "https://www.portofgalveston.com/cruise-parking/faq/" },
+    ] },
+};
+const homePort = name => { const n = String(name || "").toLowerCase(); return Object.values(HOME_PORTS).find(g => g.keys.some(k => n.includes(k))) || null; };
+function homePortHtml(tr, open) {
+  const G = tr && tr.port && homePort(tr.port); if (!G) return "";
+  const body = `${G.facts.map(f => `<div class="today-line">${f.icon} ${esc(f.text)}</div>`).join("")}
+    <p class="fine" style="margin-top:6px">From ${Object.entries(G.sources).map(([n, u]) => `<a href="${u}" target="_blank" rel="noopener">${esc(n)}</a>`).join(" · ")} — checked ${prettyDate(G.verified)}, ${G.verified.slice(0, 4)}. Prices change — your cruise line's boarding pass wins.</p>`;
+  return open ? `<div class="day-label" style="margin-top:10px">⚓ Good to know at ${esc(G.name)}</div>${body}`
+    : `<details class="home-port" style="margin-top:8px"><summary>⚓ <b>${esc(G.name)}</b> — parking + terminal tips</summary>${body}</details>`;
+}

@@ -201,6 +201,7 @@ function showDay(d) {
     ${pt && pt.excursion && pt.excursion.toLowerCase() !== "none" ? `<div class="row"><span class="grow">🤿 <b>${esc(pt.excursion)}</b><span class="sub">${[pt.meet && `meet ${hm(pt.meet)}`, pt.where, pt.walk && `${pt.walk} min walk from the cabin`].filter(Boolean).map(esc).join(" · ")}</span></span></div>` : ""}
     ${pt && (pt.cash || pt.currency) ? `<div class="today-line">💵 ${esc([pt.cash && `bring ${pt.cash}`, pt.currency].filter(Boolean).join(" · "))}</div>` : ""}
     ${pt && typeof portGuideHtml === "function" ? portGuideHtml(pt) : ""}
+    ${!pt && (d === tr.start || d === (tr.end || tr.start)) && typeof homePortHtml === "function" ? homePortHtml(tr, true) : ""}
     <div class="day-label" style="margin-top:10px">The day</div>
     ${items.length ? items.map(x => `<div class="row"><span class="time">${x.t ? hm(x.t) : ""}</span><span class="grow">${x.icon || ""} ${esc(x.title)}${x.sub ? `<span class="sub">${esc(x.sub)}</span>` : ""}</span></div>`).join("") : `<div class="today-line sub">🌊 Nothing planned yet — a good day to relax.</div>`}
     <div class="foot-actions" style="flex-wrap:wrap;margin-top:10px">

@@ -2160,6 +2160,20 @@ def t_v071_bermuda_hmc(b, base):
     a.close()
 
 
+def t_v072_home_ports(b, base):
+    print("\n[v0.72 departure-port guides]")
+    a = App(b, base, path=CRUISE)
+    names = a.js("['Port Canaveral, FL', 'Orlando (Port Canaveral)', 'Fort Lauderdale (Port Everglades)', 'Miami, Florida', 'Galveston, TX', 'Seattle'].map(n => (homePort(n) || {}).name || null)")
+    check("4 home ports match, unknown port = none", names == ["Port Canaveral", "Port Canaveral", "Port Everglades", "PortMiami", "Port of Galveston", None], names)
+    g = a.js("homePortHtml({ port: 'Port Canaveral' }, true)")
+    check("Canaveral: $20/day, cashless, 10 AM", all(x in g for x in ("$20 a day", "cashless", "10 AM")))
+    check("Miami warns debit cards not accepted", "DEBIT CARDS ARE NOT ACCEPTED" in a.js("homePortHtml({ port: 'Miami' }, true)"))
+    check("collapsed form on the sail card", "<details" in a.js("homePortHtml({ port: 'Galveston' }, false)"))
+    check("no port / unknown port -> nothing", a.js("homePortHtml({ port: 'Seattle' }, true) + homePortHtml({}, true)") == "")
+    check("all home-port facts sourced", a.js("Object.values(HOME_PORTS).every(g => g.facts.every(f => /^https:\\/\\//.test(f.src)))"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -2188,7 +2202,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports):
             try:
                 t(b, base)
             except Exception as e:

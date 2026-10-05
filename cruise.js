@@ -286,6 +286,7 @@ function phaseCardHtml(tr) {
       ${tick(pn > 0 && pd === pn, `Bags packed ${pd}/${pn}`, 'data-shellgo="plan" data-planview="packing"')}
       ${tick(!!tr.travel || (tr.costs || []).some(c => c.cat === "parking"), tr.travel ? `Getting there: ${esc(tr.travel)}` : "Getting there + parking planned", 'data-shellgo="wallet"')}
       ${tick(en > 0 && ed === en, `Sail-day plan ${ed}/${en}`, 'data-shellgo="plan" data-triplistgo="embark"')}
+      ${typeof homePortHtml === "function" ? homePortHtml(tr, false) : ""}
       ${tr.port ? `<a class="btn sm ghost" style="margin-top:8px" href="${mapsLink(`${placeName(tr.port)} cruise terminal`)}" target="_blank" rel="noopener">🗺️ Directions to the terminal</a>` : ""}
       ${sd === 0 ? `<button class="btn sm" data-aboard="1" style="margin:8px 0 0 6px">✅ We're on board</button>` : ""}</div></section>`;
   }

@@ -1,6 +1,9 @@
 {
- "version": "0.71",
+ "version": "0.72",
  "notes": {
+  "0.72": [
+   "⚓ Departure-port guides: Port Canaveral, Port Everglades (Fort Lauderdale), PortMiami and Galveston — parking price, how you pay, when lots open, bags and shuttles. On your 'Tomorrow you sail' card and the sail-day screen."
+  ],
   "0.71": [
    "🇧🇲 New guides: Bermuda (Royal Naval Dockyard — ferries, the dollar, tips already on the bill) and RelaxAway, Half Moon Cay. 22 ports now."
   ],
