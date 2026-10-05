@@ -201,6 +201,39 @@ const PORT_GUIDES = {
       { icon: "👟", text: "Bring water shoes — some of the shoreline is rocky.", src: "https://www.princess.com/cruise-destinations/caribbean-cruises/princess-cays" },
       { icon: "⏱️", text: "Calls here average about 7–8 hours.", src: "https://www.princess.com/news/backgrounders-and-fact-sheets/private-beach-paradise-awaits-princess-passengers" },
     ] },
+  "san juan": { name: "San Juan", country: "Puerto Rico", flag: "🇵🇷", verified: "2026-10-05", keys: ["san juan", "puerto rico"], advisory: null,
+    sources: { "Celebrity Cruises port guide": "https://www.celebritycruises.com/ports/san-juan" },
+    facts: [
+      { icon: "🇺🇸", text: "Puerto Rico is a U.S. territory, and the U.S. dollar is the currency.", src: "https://www.celebritycruises.com/ports/san-juan" },
+      { icon: "🚶", text: "The main Old San Juan Cruise Pier is in the heart of the city — walk straight into Old San Juan.", src: "https://www.celebritycruises.com/ports/san-juan" },
+      { icon: "🚋", text: "Old San Juan has a free trolley; there's a stop at the pier.", src: "https://www.celebritycruises.com/ports/san-juan" },
+      { icon: "🚕", text: "Taxis line up outside the cruise terminal.", src: "https://www.celebritycruises.com/ports/san-juan" },
+    ] },
+  "key west": { name: "Key West", country: "Florida, USA", flag: "🇺🇸", verified: "2026-10-05", keys: ["key west"], advisory: null,
+    sources: { "Celebrity Cruises port guide": "https://www.celebritycruises.com/ports/key-west" },
+    facts: [
+      { icon: "🛳️", text: "Three docks: Pier B, Mallory Square and the Navy (Outer) Mole. From the Navy Mole a shuttle trolley takes you into town.", src: "https://www.celebritycruises.com/ports/key-west" },
+      { icon: "🚶", text: "Pier B and Mallory Square are a short walk from the shops — Duval Street is the main strip.", src: "https://www.celebritycruises.com/ports/key-west" },
+      { icon: "🛺", text: "Golf carts, Jeeps and scooters rent near each dock; there's also the Old Town Trolley and the Conch Tour Train.", src: "https://www.celebritycruises.com/ports/key-west" },
+      { icon: "💲", text: "U.S. dollar, ATMs everywhere; tip 15–20% at restaurants and bars.", src: "https://www.celebritycruises.com/ports/key-west" },
+    ] },
+  "ocho rios": { name: "Ocho Rios", country: "Jamaica", flag: "🇯🇲", verified: "2026-10-05", keys: ["ocho rios"],
+    advisory: SG_DOS + "traveladvisories.html",
+    sources: { "Celebrity Cruises port guide": "https://www.celebritycruises.com/ports/ocho-rios" },
+    facts: [
+      { icon: "🛳️", text: "Two piers: Turtle Bay (right by town) and James Bond Pier (about a 15-minute walk to the center).", src: "https://www.celebritycruises.com/ports/ocho-rios" },
+      { icon: "💵", text: "Jamaican dollar (J$); U.S. dollars are often accepted.", src: "https://www.celebritycruises.com/ports/ocho-rios" },
+      { icon: "🚕", text: "Use an OFFICIAL taxi — red license plate and fixed tariffs.", src: "https://www.celebritycruises.com/ports/ocho-rios" },
+    ] },
+  aruba: { name: "Aruba", country: "Aruba", flag: "🇦🇼", verified: "2026-10-05", keys: ["aruba", "oranjestad"],
+    advisory: SG_DOS + "traveladvisories.html",
+    sources: { "Celebrity Cruises port guide": "https://www.celebritycruises.com/ports/aruba" },
+    facts: [
+      { icon: "🚶", text: "Ships dock in Oranjestad, close to the center — shops, restaurants and beaches are within walking distance.", src: "https://www.celebritycruises.com/ports/aruba" },
+      { icon: "💵", text: "Aruban florin; U.S. dollars are commonly accepted.", src: "https://www.celebritycruises.com/ports/aruba" },
+      { icon: "🏧", text: "At the port: ATMs, tourist information and a taxi rank; good buses around the island.", src: "https://www.celebritycruises.com/ports/aruba" },
+      { icon: "👕", text: "'Happy Information Officers' in blue T-shirts greet passengers — ask them anything.", src: "https://www.celebritycruises.com/ports/aruba" },
+    ] },
 };
 const portGuide = name => { const n = String(name || "").toLowerCase(); return Object.values(PORT_GUIDES).find(g => g.keys.some(k => n.includes(k))) || null; };
 function portGuideHtml(pt) {

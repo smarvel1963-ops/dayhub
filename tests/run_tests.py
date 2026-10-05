@@ -2064,7 +2064,7 @@ def t_v065_port_guides(b, base):
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess"})
-    a.js("curTrip().ports = [{ id: 'p1', name: 'Nassau, Bahamas', day: '2026-11-13', allAboard: '17:00' }, { id: 'p2', name: 'Grand Turk', day: '2026-11-15' }, { id: 'p3', name: 'Ocho Rios', day: '2026-11-16' }]; save(); shellGo('explore')")
+    a.js("curTrip().ports = [{ id: 'p1', name: 'Nassau, Bahamas', day: '2026-11-13', allAboard: '17:00' }, { id: 'p2', name: 'Grand Turk', day: '2026-11-15' }, { id: 'p3', name: 'Falmouth', day: '2026-11-16' }]; save(); shellGo('explore')")
     check("port cards show the country flag when there's a guide", "🇧🇸" in a.page.inner_text(".port-card") and a.js("[...document.querySelectorAll('.port-card b')].map(b => b.textContent).join('|')").count("⚓") == 1)
     a.page.click('.port-card[data-tlday="2026-11-13"]'); a.page.wait_for_timeout(200)
     t = a.page.inner_text("#daySheet")
@@ -2112,6 +2112,17 @@ def t_v067_tender(b, base):
     a.close()
 
 
+def t_v068_ports_batch3(b, base):
+    print("\n[v0.68 port guides: San Juan, Key West, Ocho Rios, Aruba]")
+    a = App(b, base, path=CRUISE)
+    names = a.js("['Old San Juan, Puerto Rico', 'Key West, FL', 'Ocho Rios, Jamaica', 'Oranjestad, Aruba'].map(n => (portGuide(n) || {}).name)")
+    check("names match", names == ["San Juan", "Key West", "Ocho Rios", "Aruba"], names)
+    check("U.S. ports have no foreign advisory; Jamaica links the advisory list", "no foreign travel advisory" in a.js("portGuideHtml({ name: 'Key West' })") and "travel.state.gov" in a.js("portGuideHtml({ name: 'Ocho Rios' })"))
+    check("Ocho Rios: official red-plate taxis", "red license plate" in a.js("portGuideHtml({ name: 'Ocho Rios' })"))
+    check("13 ports, all facts sourced", a.js("Object.keys(PORT_GUIDES).length") == 13 and a.js("Object.values(PORT_GUIDES).every(g => g.facts.every(f => /^https:\\/\\//.test(f.src)))"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -2138,7 +2149,8 @@ def main():
                   t_v061_travel_day_offline, t_v062_simple_mode,
                   t_v062_itemized, t_v063_icon_tiles,
                   t_v064_ship_guide, t_v065_port_guides,
-                  t_v066_more_ports, t_v067_tender):
+                  t_v066_more_ports, t_v067_tender,
+                  t_v068_ports_batch3):
             try:
                 t(b, base)
             except Exception as e:
