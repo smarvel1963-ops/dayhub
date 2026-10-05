@@ -555,6 +555,7 @@ function showGuard() {
     <div class="rg-pill big rg-${g.level}">${GUARD_LABEL[g.level]}</div>
     <div class="row"><span class="grow">All aboard</span><b>${hm(aaLocal(pt))}${Number(pt.shipOffset) ? ` <span class="sub" style="display:inline">phone time · ${hm(pt.allAboard)} ship time</span>` : ""}</b></div>
     <div class="row"><span class="grow">Safety margin</span><span class="seg">${GUARD_MARGINS.map(m => `<button class="tab ${m === g.margin ? "on" : ""}" data-rgmargin="${m}">${m} min</button>`).join("")}</span></div>
+    ${isTenderPort(pt) ? `<div class="wx-alert">🚤 Tender port — small boats take you back to the ship and the lines get long late in the day, so the trip back starts at 45 minutes.</div>` : ""}
     <label class="row"><span class="grow">Your trip back to the ship (minutes)</span><input type="number" min="0" max="240" inputmode="numeric" data-rgback="${pt.id}" value="${g.back}" style="width:84px"></label>
     <div class="row"><span class="grow"><b>Head back by</b></span><b style="font-size:20px">${hm(guardBy(pt))}</b></div>
     <p class="fine">${hm(aaLocal(pt))} all aboard − ${g.margin} min safety margin − ${g.back} min trip back = <b>${hm(guardBy(pt))}</b>. You'll get a heads-up 30 minutes before, and again when it's time to leave.</p>

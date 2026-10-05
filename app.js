@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.66";
+const VERSION = "0.67";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -1822,7 +1822,9 @@ const addMinT = (t, m) => { const x = toMin(t) + m; const y = ((x % 1440) + 1440
 // announcements and all-aboard time always win.
 const GUARD_MARGINS = [45, 60, 90];
 const guardMargin = () => GUARD_MARGINS.includes(Number(S.guardMargin)) ? Number(S.guardMargin) : 60;
-const guardBack = pt => Number(pt.backMin) > 0 ? Number(pt.backMin) : pt.indie ? 45 : 20;
+// v0.67: a TENDER port (small boats back to the ship, long lines late in the day) also defaults to 45.
+const isTenderPort = pt => !!(typeof portGuide === "function" && portGuide(pt.name) && portGuide(pt.name).tender);
+const guardBack = pt => Number(pt.backMin) > 0 ? Number(pt.backMin) : pt.indie || isTenderPort(pt) ? 45 : 20;
 const aaLocal = pt => pt.allAboard ? addMinT(pt.allAboard, -(Number(pt.shipOffset) || 0)) : null;    // all aboard on the PHONE's clock
 const guardBy = pt => addMinT(aaLocal(pt), -(guardMargin() + guardBack(pt)));
 // Today's guard for a trip: null outside a port day with an all-aboard time, before

@@ -1,6 +1,10 @@
 {
- "version": "0.66",
+ "version": "0.67",
  "notes": {
+  "0.67": [
+   "🚤 Return Guard knows tender ports (Princess Cays, Grand Cayman): the trip back to the ship starts at 45 minutes, since tender lines get long late in the day.",
+   "🏝️ New guide: Princess Cays — included BBQ lunch, first-come beach chairs, clamshells and bungalows, water sports, bring water shoes."
+  ],
   "0.66": [
    "🏝️ 5 more port guides: St. Thomas, St. Maarten, Costa Maya, Roatán and Grand Cayman (a tender port — Cruise Hub tells you to allow extra time)."
   ],

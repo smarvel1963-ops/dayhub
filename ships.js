@@ -177,7 +177,7 @@ const PORT_GUIDES = {
       { icon: "🚕", text: "Taxis and rental cars are the usual way around.", src: "https://www.celebritycruises.com/ports/roatan" },
       { icon: "🛍️", text: "At Coxen Hole: a shopping mall, restaurants, an ATM and internet access.", src: "https://www.celebritycruises.com/ports/roatan" },
     ] },
-  "grand cayman": { name: "Grand Cayman", country: "Cayman Islands", flag: "🇰🇾", verified: "2026-10-05", keys: ["grand cayman", "george town", "cayman"],
+  "grand cayman": { name: "Grand Cayman", country: "Cayman Islands", flag: "🇰🇾", verified: "2026-10-05", keys: ["grand cayman", "george town", "cayman"], tender: true,
     advisory: SG_DOS + "traveladvisories.html",
     sources: { "Celebrity Cruises port guide": "https://www.celebritycruises.com/ports/grand-cayman" },
     facts: [
@@ -186,6 +186,20 @@ const PORT_GUIDES = {
       { icon: "🚕", text: "Taxis wait at the port; there's an efficient minibus network too.", src: "https://www.celebritycruises.com/ports/grand-cayman" },
       { icon: "🚗", text: "They drive on the LEFT.", src: "https://www.celebritycruises.com/ports/grand-cayman" },
       { icon: "💲", text: "Tipping: 10–15% at restaurants, $5–10 for a tour guide.", src: "https://www.celebritycruises.com/ports/grand-cayman" },
+    ] },
+  "princess cays": { name: "Princess Cays", country: "The Bahamas", flag: "🇧🇸", verified: "2026-10-05", keys: ["princess cays", "eleuthera"], tender: true,
+    advisory: SG_DOS + "bahamas-travel-advisory.html",
+    sources: { "Princess: Princess Cays": "https://www.princess.com/cruise-destinations/caribbean-cruises/princess-cays",
+               "Princess blog": "https://www.princess.com/blog/things-to-do-in-princess-cays",
+               "Princess fact sheet": "https://www.princess.com/news/backgrounders-and-fact-sheets/private-beach-paradise-awaits-princess-passengers" },
+    facts: [
+      { icon: "🚤", text: "A TENDER port — the ship anchors offshore and small boats take you in. Go early for the best spots and shorter tender waits.", src: "https://www.princess.com/cruise-destinations/caribbean-cruises/princess-cays" },
+      { icon: "🍔", text: "A complimentary beachside BBQ lunch is included with most cruises.", src: "https://www.princess.com/cruise-destinations/caribbean-cruises/princess-cays" },
+      { icon: "🏖️", text: "Beach chairs are first-come.", src: "https://www.princess.com/blog/things-to-do-in-princess-cays" },
+      { icon: "🛖", text: "Rent a clamshell (small fee) or a bungalow — $199, or $249 in the adults-only Sanctuary — bungalows include priority tenders.", src: "https://www.princess.com/news/backgrounders-and-fact-sheets/private-beach-paradise-awaits-princess-passengers" },
+      { icon: "🤿", text: "Snorkel gear, kayaks, paddleboards and Hobie Waves to rent from the shore.", src: "https://www.princess.com/blog/things-to-do-in-princess-cays" },
+      { icon: "👟", text: "Bring water shoes — some of the shoreline is rocky.", src: "https://www.princess.com/cruise-destinations/caribbean-cruises/princess-cays" },
+      { icon: "⏱️", text: "Calls here average about 7–8 hours.", src: "https://www.princess.com/news/backgrounders-and-fact-sheets/private-beach-paradise-awaits-princess-passengers" },
     ] },
 };
 const portGuide = name => { const n = String(name || "").toLowerCase(); return Object.values(PORT_GUIDES).find(g => g.keys.some(k => n.includes(k))) || null; };

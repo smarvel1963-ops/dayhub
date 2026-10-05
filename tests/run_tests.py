@@ -2089,7 +2089,26 @@ def t_v066_more_ports(b, base):
     check("names match their guides", names == ["St. Thomas", "St. Maarten", "Costa Maya", "Roatán", "Grand Cayman"], names)
     check("Grand Cayman says TENDER port + drive on the left", a.js("portGuide('Grand Cayman').facts.some(f => /TENDER/.test(f.text)) && portGuide('Grand Cayman').facts.some(f => /LEFT/.test(f.text))"))
     check("St. Thomas: U.S. territory -> no advisory button", "no foreign travel advisory" in a.js("portGuideHtml({ name: 'St. Thomas' })") and "travel.state.gov" not in a.js("portGuideHtml({ name: 'St. Thomas' })"))
-    check("every guide fact has a source link; 8 ports", a.js("Object.values(PORT_GUIDES).every(g => g.facts.every(f => /^https:\\/\\//.test(f.src)))") and a.js("Object.keys(PORT_GUIDES).length") == 8)
+    check("every guide fact has a source link; 8+ ports", a.js("Object.values(PORT_GUIDES).every(g => g.facts.every(f => /^https:\\/\\//.test(f.src)))") and a.js("Object.keys(PORT_GUIDES).length") >= 8)
+    a.close()
+
+
+def t_v067_tender(b, base):
+    print("\n[v0.67 tender ports in Return Guard + Princess Cays guide]")
+    a = App(b, base, path=CRUISE, at="2026-11-14T10:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess"})
+    a.js("curTrip().ports = [{ id: 'p1', name: 'Princess Cays', day: '2026-11-14', allAboard: '16:30' }]; save(); render()")
+    check("Princess Cays = tender: trip back 45 -> head back by 16:30 - 60 - 45 = 2:45 PM", a.js("guardBack(curTrip().ports[0])") == 45 and a.js("guardBy(curTrip().ports[0])") == "14:45")
+    a.page.click("#rgBar"); a.page.wait_for_timeout(150)
+    check("Return Guard sheet explains the tender time", "Tender port" in a.page.inner_text("#rgSheet"))
+    a.js("hideSheet('rgSheet')")
+    check("own number still wins over the tender default", a.js("(() => { const pt = curTrip().ports[0]; pt.backMin = 30; return guardBack(pt); })()") == 30)
+    check("Grand Cayman is a tender port, Nassau isn't", a.js("isTenderPort({ name: 'George Town, Grand Cayman' }) && !isTenderPort({ name: 'Nassau' })"))
+    g = a.js("portGuideHtml({ name: 'Princess Cays' })")
+    check("Princess Cays guide: tender, included BBQ lunch, bungalow $199, water shoes", "TENDER" in g and "BBQ lunch is included" in g and "$199" in g and "water shoes" in g)
     a.close()
 
 
@@ -2119,7 +2138,7 @@ def main():
                   t_v061_travel_day_offline, t_v062_simple_mode,
                   t_v062_itemized, t_v063_icon_tiles,
                   t_v064_ship_guide, t_v065_port_guides,
-                  t_v066_more_ports):
+                  t_v066_more_ports, t_v067_tender):
             try:
                 t(b, base)
             except Exception as e:
