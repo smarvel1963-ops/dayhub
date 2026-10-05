@@ -2030,6 +2030,32 @@ def t_v063_icon_tiles(b, base):
     a.close()
 
 
+def t_v064_ship_guide(b, base):
+    print("\n[v0.64 ship guide: Caribbean Princess from princess.com - deck + included / extra]")
+    a = App(b, base, path=CRUISE, at="2026-10-01T09:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "caribbean  princess"})
+    a.js("shellGo('explore')")
+    t = a.page.inner_text(".my-ship")
+    check("ship matched (any capitals/spaces): facts + category tiles", "Caribbean Princess" in t and "3,140 guests" in t and "19 decks" in t and "built 2004" in t
+          and a.js("document.querySelectorAll('.my-ship [data-shipcat]').length") == 8, t[:300])
+    check("Eat: dining rooms with decks; Crown Grill extra; International Café included 24 hours", "Island Dining Room" in t and "Deck 5" in t and "Open 24 hours a day" in t
+          and a.js("[...document.querySelectorAll('.my-ship .row')].some(r => /Crown Grill/.test(r.textContent) && /Extra cost/.test(r.textContent))"))
+    a.page.click('.my-ship [data-shipcat="free"]'); a.page.wait_for_timeout(150)
+    rows = a.js("[...document.querySelectorAll('.my-ship .row b')].map(b => b.textContent)")
+    check("What's included = only the included venues", "World Fresh Marketplace" in rows and "Crown Grill" not in rows and all(a.js("[...document.querySelectorAll('.my-ship .row')].every(r => /Included/.test(r.textContent))") for _ in [0]), rows)
+    a.page.click('.my-ship [data-shipcat="service"]'); a.page.wait_for_timeout(150)
+    check("Services: Medical Center deck 4, Guest Services deck 6", "Medical Center" in a.page.inner_text(".my-ship") and "Deck 4" in a.page.inner_text(".my-ship"))
+    check("source + checked date shown, links to princess.com", "checked" in a.page.inner_text(".my-ship") and a.js("!!document.querySelector('.my-ship a[href*=\"princess.com\"]')"))
+    ctx = json.loads(a.js("aiContext()"))
+    check("Ask Cruise Hub gets the verified venue list", any("Crown Grill (deck 6) - extra" in v for v in ctx["trip"].get("shipGuide", {}).get("venues", [])))
+    a.js("curTrip().ship = 'Icon of the Seas'; save(); render()")
+    check("a ship not in the guide yet: says so honestly", "isn't in Cruise Hub yet" in a.page.inner_text(".my-ship"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -2054,7 +2080,8 @@ def main():
                   t_v057_crisis, t_v058_shell,
                   t_v059_plan_timeline, t_v060_onboarding,
                   t_v061_travel_day_offline, t_v062_simple_mode,
-                  t_v062_itemized, t_v063_icon_tiles):
+                  t_v062_itemized, t_v063_icon_tiles,
+                  t_v064_ship_guide):
             try:
                 t(b, base)
             except Exception as e:

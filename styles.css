@@ -596,3 +596,8 @@ body.simple .hero .chips, body.simple .hero .cd-pct, body.simple .hero .hero-btn
 .tilenav.compact .tile .tile-ic { font-size: 20px; }
 #setJump { margin-bottom: 4px; }
 
+/* v0.64 ship guide */
+.my-ship .pill.deck { background: rgba(129,140,248,.18); color: var(--text); margin-right: 4px; white-space: nowrap; }
+.my-ship .row .pill { flex: none; }
+.my-ship .fine a { color: var(--accent); }
+

@@ -92,8 +92,7 @@ function exploreHtml(cardHtml) {
       <span class="sub">${dayName(pt.day)} ${prettyDate(pt.day)}${pt.allAboard ? ` · all aboard ${hm(aaLocal(pt))}` : ""}</span>
       ${portWxText(pt) ? `<span class="sub">${portWxText(pt)}</span>` : ""}${pt.excursion && pt.excursion.toLowerCase() !== "none" ? `<span class="sub">🤿 ${esc(pt.excursion)}</span>` : ""}</button>`).join("");
   return `<section class="card"><h3>🏝️ My ports</h3><div class="body">${portCards || `<div class="empty">Add your port days (Plan → your cruise → 🗺️ Ports) and they show up here with weather and all-aboard times.</div>`}</div></section>
-    <section class="card"><h3>🚢 My ship</h3><div class="body">${tr && tr.ship ? `<div class="today-line"><b>${esc(tr.ship)}</b>${tr.line ? ` · ${esc(tr.line)}` : ""}${tr.cabin ? ` · cabin ${esc(tr.cabin)}` : ""}</div>` : ""}
-      <div class="today-line sub">Coming next: what's open now, what's included, shows, and a deck map for your ship.</div>
+    <section class="card my-ship"><h3>🚢 My ship</h3><div class="body">${typeof shipGuideHtml === "function" ? shipGuideHtml(tr) : ""}
       <button class="btn sm ghost" data-shellgo="plan" data-triptabgo="tips">💡 Good to know</button></div></section>
     ${SHELL_CARDS.explore.map(k => cardHtml(k)).join("")}`;
 }
@@ -123,6 +122,7 @@ function paintTabs() {
 }
 // Clicks that move between tabs (data-shellgo), optionally landing on a trips-card tab or list.
 function shellClick(ds) {
+  if (typeof shipClick === "function" && shipClick(ds)) return true;       // v0.64 ship guide tiles
   if (ds.planview && !ds.shellgo) { PLAN_VIEW = ds.planview; render(); return true; }
   if (ds.planview) PLAN_VIEW = ds.planview;                               // a jump into PLAN that lands on a view
   if (ds.tlday) { showDay(ds.tlday); return true; }

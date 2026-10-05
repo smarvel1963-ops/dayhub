@@ -1,6 +1,9 @@
 {
- "version": "0.63",
+ "version": "0.64",
  "notes": {
+  "0.64": [
+   "🚢 Explore → My ship: the Caribbean Princess guide — every restaurant, bar, show, pool, spa and service with its deck, and what's included vs extra cost, straight from princess.com. More ships coming."
+  ],
   "0.63": [
    "🔲 Getting around is now big icon tiles everywhere — your trip's sections, the lists, Plan's views, and a tile menu at the top of ⚙ that jumps to each setting.",
    "Fix: settings that should be hidden (like Profession in Cruise Hub) really are now."
