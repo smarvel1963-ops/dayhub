@@ -88,7 +88,7 @@ function homeHtml() {
 function exploreHtml(cardHtml) {
   const tr = curTrip(), ports = tr ? (tr.ports || []).slice().sort((a, b) => a.day.localeCompare(b.day)) : [];
   if (tr) ensurePortWx(tr);
-  const portCards = ports.map(pt => `<button class="port-card" data-shellgo="plan" data-triptabgo="ports"><b>⚓ ${esc(pt.name)}</b>
+  const portCards = ports.map(pt => `<button class="port-card" data-tlday="${pt.day}"><b>${typeof portGuide === "function" && portGuide(pt.name) ? portGuide(pt.name).flag : "⚓"} ${esc(pt.name)}</b>
       <span class="sub">${dayName(pt.day)} ${prettyDate(pt.day)}${pt.allAboard ? ` · all aboard ${hm(aaLocal(pt))}` : ""}</span>
       ${portWxText(pt) ? `<span class="sub">${portWxText(pt)}</span>` : ""}${pt.excursion && pt.excursion.toLowerCase() !== "none" ? `<span class="sub">🤿 ${esc(pt.excursion)}</span>` : ""}</button>`).join("");
   return `<section class="card"><h3>🏝️ My ports</h3><div class="body">${portCards || `<div class="empty">Add your port days (Plan → your cruise → 🗺️ Ports) and they show up here with weather and all-aboard times.</div>`}</div></section>
@@ -200,6 +200,7 @@ function showDay(d) {
       <div class="row"><span class="grow"><b>Head back by</b><span class="sub">${guardMargin()} min margin + ${guardBack(pt)} min trip back</span></span><b>${hm(guardBy(pt))}</b></div>` : ""}
     ${pt && pt.excursion && pt.excursion.toLowerCase() !== "none" ? `<div class="row"><span class="grow">🤿 <b>${esc(pt.excursion)}</b><span class="sub">${[pt.meet && `meet ${hm(pt.meet)}`, pt.where, pt.walk && `${pt.walk} min walk from the cabin`].filter(Boolean).map(esc).join(" · ")}</span></span></div>` : ""}
     ${pt && (pt.cash || pt.currency) ? `<div class="today-line">💵 ${esc([pt.cash && `bring ${pt.cash}`, pt.currency].filter(Boolean).join(" · "))}</div>` : ""}
+    ${pt && typeof portGuideHtml === "function" ? portGuideHtml(pt) : ""}
     <div class="day-label" style="margin-top:10px">The day</div>
     ${items.length ? items.map(x => `<div class="row"><span class="time">${x.t ? hm(x.t) : ""}</span><span class="grow">${x.icon || ""} ${esc(x.title)}${x.sub ? `<span class="sub">${esc(x.sub)}</span>` : ""}</span></div>`).join("") : `<div class="today-line sub">🌊 Nothing planned yet — a good day to relax.</div>`}
     <div class="foot-actions" style="flex-wrap:wrap;margin-top:10px">

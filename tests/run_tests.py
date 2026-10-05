@@ -1814,7 +1814,8 @@ def t_v058_shell(b, base):
     ex = a.page.inner_text("#cards")
     check("EXPLORE: My ports (Grand Turk + Hummer tour), My ship, weather", "My ports" in ex and "Grand Turk" in ex and "Hummer tour" in ex and "My ship" in ex and a.js("!!document.querySelector('[data-card=\"weather\"]')"))
     a.page.click(".port-card"); a.page.wait_for_timeout(150)
-    check("tap a port -> PLAN on the Ports tab", a.js("TAB") == "plan" and a.js("S.tripTab") == "ports")
+    check("tap a port -> its day screen (v0.65)", not a.js("document.getElementById('daySheet').classList.contains('hidden')") and "Grand Turk" in a.page.inner_text("#daySheet"))
+    a.js("hideSheet('daySheet')")
     a.page.click('#tabbar [data-shellgo="ai"]'); a.page.wait_for_timeout(150)
     check("AI: greeting + questions that fit + Ask anything", "42 days to Caribbean Princess" in a.page.inner_text("#cards") and "Ask anything" in a.page.inner_text("#cards"))
     check("clock + weather only on HOME (other tabs stay compact)", not a.js("document.querySelector('#hero .hero-main').offsetParent"))
@@ -2056,6 +2057,31 @@ def t_v064_ship_guide(b, base):
     a.close()
 
 
+def t_v065_port_guides(b, base):
+    print("\n[v0.65 port guides: Nassau, Grand Turk, Cozumel from official sources + live advisory link]")
+    a = App(b, base, path=CRUISE, at="2026-10-01T09:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess"})
+    a.js("curTrip().ports = [{ id: 'p1', name: 'Nassau, Bahamas', day: '2026-11-13', allAboard: '17:00' }, { id: 'p2', name: 'Grand Turk', day: '2026-11-15' }, { id: 'p3', name: 'Roatan', day: '2026-11-16' }]; save(); shellGo('explore')")
+    check("port cards show the country flag when there's a guide", "🇧🇸" in a.page.inner_text(".port-card") and a.js("[...document.querySelectorAll('.port-card b')].map(b => b.textContent).join('|')").count("⚓") == 1)
+    a.page.click('.port-card[data-tlday="2026-11-13"]'); a.page.wait_for_timeout(200)
+    t = a.page.inner_text("#daySheet")
+    check("Nassau day screen: all aboard + Good to know (USD on par, free Wi-Fi, licensed taxis, pharmacy)", "All aboard" in t and "GOOD TO KNOW IN NASSAU" in t.upper()
+          and "on par with the U.S. dollar" in t and "Free Wi-Fi" in t and "licensed operators" in t and "pharmacy" in t, t[:600])
+    check("live U.S. advisory link (no copied level) + source + checked date", a.js("!!document.querySelector('#daySheet a[href*=\"travel.state.gov\"]')") and "Level" not in t
+          and a.js("!!document.querySelector('#daySheet a[href*=\"nassaucruiseport.com\"]')") and "checked" in t)
+    a.js("hideSheet('daySheet')"); a.page.click('.port-card[data-tlday="2026-11-15"]'); a.page.wait_for_timeout(200)
+    check("Grand Turk: USD + taxis have no meters", "U.S. dollar" in a.page.inner_text("#daySheet") and "no meters" in a.page.inner_text("#daySheet"))
+    a.js("hideSheet('daySheet')"); a.page.click('.port-card[data-tlday="2026-11-16"]'); a.page.wait_for_timeout(200)
+    check("a port without a guide: no made-up info", "GOOD TO KNOW" not in a.page.inner_text("#daySheet").upper())
+    ctx = json.loads(a.js("aiContext()"))
+    check("Ask Cruise Hub gets the official port info", any("on par" in x for x in ctx["trip"]["ports"][0].get("officialPortInfo", [])))
+    check("Cozumel guide matches 'Cozumel, Mexico'", a.js("portGuide('Cozumel, Mexico').name") == "Cozumel")
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -2081,7 +2107,7 @@ def main():
                   t_v059_plan_timeline, t_v060_onboarding,
                   t_v061_travel_day_offline, t_v062_simple_mode,
                   t_v062_itemized, t_v063_icon_tiles,
-                  t_v064_ship_guide):
+                  t_v064_ship_guide, t_v065_port_guides):
             try:
                 t(b, base)
             except Exception as e:

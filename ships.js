@@ -1,5 +1,5 @@
 /* SAVE AS: ships.js · LOCATION: C:/MarvelApps/dayhub/ships.js
- * SHIP GUIDES - Cruise Hub's ship knowledge, ONE verified ship at a time (Scott's plan: "Golden Ship -
+ * SHIP + PORT GUIDES (port guides v0.65, below) - Cruise Hub's ship knowledge, ONE verified ship at a time (Scott's plan: "Golden Ship -
  * Caribbean Princess first ... build depth before breadth" and "facts come from data; every fact gets a
  * source + verified date"). Nothing here is guessed: a deck, cost or note appears only when the cited
  * Princess page states it; otherwise it is left out. Loaded before ui.js by both hubs' pages.
@@ -101,4 +101,50 @@ function shipGuideHtml(tr) {
 function shipClick(ds) {
   if (!ds.shipcat) return false;
   SHIP_CAT = ds.shipcat; render(); return true;
+}
+
+// ------------------------------------------------------------ port guides
+// v0.65 (Scott's "Port Brain": "WELCOME TO NASSAU ... USD accepted, taxi, Wi-Fi ... Safety - current official
+// information ... that updated date matters"). Same rule as the ship guide: a fact appears only when the cited
+// OFFICIAL source states it (the port's own site or a cruise line's port guide). The U.S. travel advisory is a
+// LINK to the live State Department page - never a copied level that could go stale.
+const SG_DOS = "https://travel.state.gov/content/travel/en/traveladvisories/traveladvisories/";
+const PORT_GUIDES = {
+  nassau: { name: "Nassau", country: "The Bahamas", flag: "🇧🇸", verified: "2026-10-05", keys: ["nassau"],
+    advisory: SG_DOS + "bahamas-travel-advisory.html",
+    sources: { "Nassau Cruise Port": "https://nassaucruiseport.com/frequently-asked-questions/" },
+    facts: [
+      { icon: "💵", text: "The Bahamian dollar is on par with the U.S. dollar — both are accepted.", src: "https://nassaucruiseport.com/frequently-asked-questions/" },
+      { icon: "📶", text: "Free Wi-Fi at the cruise port.", src: "https://nassaucruiseport.com/frequently-asked-questions/" },
+      { icon: "🚕", text: "Only take rides from licensed operators — taxis and watercraft.", src: "https://nassaucruiseport.com/destination/special-tips/" },
+      { icon: "💊", text: "At the port: a pharmacy, a First-Aid Center and a Guest Information Center.", src: "https://nassaucruiseport.com/services-home/guest-services/" },
+      { icon: "🚌", text: "Downtown Nassau is the main hub for public transportation.", src: "https://nassaucruiseport.com/transportation/" },
+    ] },
+  "grand turk": { name: "Grand Turk", country: "Turks and Caicos", flag: "🇹🇨", verified: "2026-10-05", keys: ["grand turk"],
+    advisory: "https://travel.state.gov/content/travel/en/international-travel/International-Travel-Country-Information-Pages/TurksandCaicosIslands.html",
+    sources: { "Celebrity Cruises port guide": "https://www.celebritycruises.com/ports/grand-turk-turks-and-caicos" },
+    facts: [
+      { icon: "💵", text: "The currency is the U.S. dollar.", src: "https://www.celebritycruises.com/ports/grand-turk-turks-and-caicos" },
+      { icon: "🏖️", text: "A beach and one of the region's largest free-form swimming pools right at the cruise center.", src: "https://www.celebritycruises.com/ports/grand-turk-turks-and-caicos" },
+      { icon: "🚕", text: "Taxis wait at the terminal but have no meters — agree the fare first.", src: "https://www.celebritycruises.com/ports/grand-turk-turks-and-caicos" },
+      { icon: "📍", text: "The cruise center is at the southern tip of the island.", src: "https://www.celebritycruises.com/ports/grand-turk-turks-and-caicos" },
+    ] },
+  cozumel: { name: "Cozumel", country: "Mexico", flag: "🇲🇽", verified: "2026-10-05", keys: ["cozumel"],
+    advisory: SG_DOS + "mexico-travel-advisory.html",
+    sources: { "Celebrity Cruises port guide": "https://www.celebritycruises.com/au/ports/cozumel-mexico" },
+    facts: [
+      { icon: "🛳️", text: "Three piers — Puerta Maya, Punta Langosta and the International Pier. Check which one your ship uses.", src: "https://www.celebritycruises.com/au/ports/cozumel-mexico" },
+      { icon: "📍", text: "About 3 miles to San Miguel — a long walk or about a 10-minute taxi.", src: "https://www.celebritycruises.com/au/ports/cozumel-mexico" },
+      { icon: "💵", text: "The local currency is the peso; many stores accept U.S. dollars.", src: "https://www.celebritycruises.com/au/ports/cozumel-mexico" },
+      { icon: "🚕", text: "Agree on the taxi fare before you get in.", src: "https://www.celebritycruises.com/au/ports/cozumel-mexico" },
+      { icon: "📶", text: "Free Wi-Fi past the terminal, plus food, shops and souvenir stalls.", src: "https://www.celebritycruises.com/au/ports/cozumel-mexico" },
+    ] },
+};
+const portGuide = name => { const n = String(name || "").toLowerCase(); return Object.values(PORT_GUIDES).find(g => g.keys.some(k => n.includes(k))) || null; };
+function portGuideHtml(pt) {
+  const G = pt && portGuide(pt.name); if (!G) return "";
+  return `<div class="day-label" style="margin-top:10px">${G.flag} Good to know in ${esc(G.name)}</div>
+    ${G.facts.map(f => `<div class="today-line">${f.icon} ${esc(f.text)}</div>`).join("")}
+    <a class="btn sm ghost" style="margin-top:6px" href="${G.advisory}" target="_blank" rel="noopener">🛡️ Current U.S. travel advisory — ${esc(G.country)}</a>
+    <p class="fine" style="margin-top:6px">From ${Object.entries(G.sources).map(([n, u]) => `<a href="${u}" target="_blank" rel="noopener">${esc(n)}</a>`).join(" · ")} — checked ${prettyDate(G.verified)}, ${G.verified.slice(0, 4)}. The ship's port information wins if it differs.</p>`;
 }

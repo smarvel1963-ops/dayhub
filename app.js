@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.64";
+const VERSION = "0.65";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -2525,7 +2525,8 @@ function tripContext(tr) {
   o.ports = (tr.ports || []).map(pt => ({ day: pt.day, port: pt.name, arrive: hmOr(pt.arrive),
     allAboardPhoneTime: pt.allAboard ? hm(aaLocal(pt)) : null, allAboardShipTime: pt.allAboard && Number(pt.shipOffset) ? hm(pt.allAboard) : undefined,
     headBackBy: pt.allAboard ? hm(guardBy(pt)) : null, excursion: pt.excursion || null, meet: hmOr(pt.meet), meetingPoint: pt.where || null,
-    independentTour: !!pt.indie, cash: pt.cash || undefined, currency: pt.currency || undefined, weather: portWxText(pt) || undefined }));
+    independentTour: !!pt.indie, cash: pt.cash || undefined, currency: pt.currency || undefined, weather: portWxText(pt) || undefined,
+    officialPortInfo: (typeof portGuide === "function" && portGuide(pt.name)) ? portGuide(pt.name).facts.map(f => f.text) : undefined }));   // v0.65
   o.perksLeft = perksLeft(tr).map(x => `${x.name}: ${x.unit === "$" ? money(x.total - x.used) : x.total - x.used} left`);
   ensureLists(tr);
   o.notDoneYet = Object.fromEntries(Object.entries(tr.lists).map(([k, l]) => [k, (l || []).filter(i => !i.done).map(i => i.text).slice(0, 30)]).filter(([, v]) => v.length));
