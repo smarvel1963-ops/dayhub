@@ -293,6 +293,24 @@ const PORT_GUIDES = {
       { icon: "🚕", text: "The port's transportation hub has taxis and rental cars; Puerto Plata is a short distance away.", src: "https://www.carnival.com/awaywego/cruising-fun/what-to-expect/the-top-10-things-you-need-to-know-about-amber-cove" },
       { icon: "🛍️", text: "Shops and market stalls in port — Dominican rum, coffee, chocolate and amber.", src: "https://www.carnival.com/awaywego/cruising-fun/what-to-expect/the-top-10-things-you-need-to-know-about-amber-cove" },
     ] },
+  bermuda: { name: "Bermuda (Royal Naval Dockyard)", country: "Bermuda", flag: "🇧🇲", verified: "2026-10-05", keys: ["bermuda", "kings wharf", "king's wharf", "royal naval dockyard", "heritage wharf"],
+    advisory: SG_DOS + "traveladvisories.html",
+    sources: { "Celebrity Cruises port guide": "https://www.celebritycruises.com/ports/royal-naval-dockyard" },
+    facts: [
+      { icon: "🛳️", text: "Ships dock at the Royal Naval Dockyard, at the west end of the island.", src: "https://www.celebritycruises.com/ports/royal-naval-dockyard" },
+      { icon: "⛴️", text: "Right off the ship: taxis, scooter and bike rental, a free shuttle 'train', ferry docks, visitor information, shops and restaurants.", src: "https://www.celebritycruises.com/ports/royal-naval-dockyard" },
+      { icon: "🚌", text: "Shared minibuses, taxis, local buses and ferries run to Hamilton (the capital) and St. George's — all clearly signposted.", src: "https://www.celebritycruises.com/ports/royal-naval-dockyard" },
+      { icon: "💵", text: "The Bermuda dollar equals the U.S. dollar, and U.S. dollars are accepted almost everywhere.", src: "https://www.celebritycruises.com/ports/royal-naval-dockyard" },
+      { icon: "💲", text: "Restaurants often add 15–17% to the bill already — check before you tip. Taxis up to 15%, guides 10%.", src: "https://www.celebritycruises.com/ports/royal-naval-dockyard" },
+    ] },
+  "half moon cay": { name: "RelaxAway, Half Moon Cay", country: "The Bahamas", flag: "🇧🇸", verified: "2026-10-05", keys: ["half moon cay", "relaxaway", "little san salvador"],
+    advisory: SG_DOS + "bahamas-travel-advisory.html",
+    sources: { "Carnival: RelaxAway, Half Moon Cay": "https://www.carnival.com/cruise-to/bahamas-cruises/relaxaway-half-moon-cay-cruises" },
+    facts: [
+      { icon: "🚤", text: "You arrive by pier or water shuttle — if your ship uses the water shuttle, allow extra time getting back.", src: "https://www.carnival.com/cruise-to/bahamas-cruises/relaxaway-half-moon-cay-cruises" },
+      { icon: "🍔", text: "Complimentary lunch spots, plus island bars.", src: "https://www.carnival.com/cruise-to/bahamas-cruises/relaxaway-half-moon-cay-cruises" },
+      { icon: "💲", text: "EXTRA: daybeds, cabanas and villas, horseback riding, stingrays, Aqua Trax and boat snorkeling.", src: "https://www.carnival.com/cruise-to/bahamas-cruises/relaxaway-half-moon-cay-cruises" },
+    ] },
 };
 const portGuide = name => { const n = String(name || "").toLowerCase(); return Object.values(PORT_GUIDES).find(g => g.keys.some(k => n.includes(k))) || null; };
 function portGuideHtml(pt) {

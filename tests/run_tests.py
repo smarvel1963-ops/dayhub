@@ -2144,7 +2144,19 @@ def t_v070_private(b, base):
     check("CocoCay: pier walk + free vs extra", "6-minute" in g and "FREE" in g and "Thrill Waterpark" in g)
     check("CocoCay is not a tender port", not a.js("isTenderPort({ name: 'CocoCay' })"))
     check("Amber Cove: free Aqua Zone pool", "Aqua Zone" in a.js("portGuideHtml({ name: 'Amber Cove' })"))
-    check("20 ports, all sourced", a.js("Object.keys(PORT_GUIDES).length") == 20 and a.js("Object.values(PORT_GUIDES).every(g => g.facts.every(f => /^https:\/\//.test(f.src)))"))
+    check("20+ ports, all sourced", a.js("Object.keys(PORT_GUIDES).length") >= 20 and a.js("Object.values(PORT_GUIDES).every(g => g.facts.every(f => /^https:\\/\\//.test(f.src)))"))
+    a.close()
+
+
+def t_v071_bermuda_hmc(b, base):
+    print("\n[v0.71 port guides: Bermuda, RelaxAway Half Moon Cay]")
+    a = App(b, base, path=CRUISE)
+    names = a.js("['Kings Wharf, Bermuda', 'Half Moon Cay, Bahamas'].map(n => (portGuide(n) || {}).name)")
+    check("Bermuda + Half Moon Cay names match", names == ["Bermuda (Royal Naval Dockyard)", "RelaxAway, Half Moon Cay"], names)
+    g = a.js("portGuideHtml({ name: 'Bermuda' })")
+    check("Bermuda: BMD = USD + tip may be included", "equals the U.S. dollar" in g and "already" in g)
+    check("Half Moon Cay warns about the water shuttle", "water shuttle" in a.js("portGuideHtml({ name: 'Half Moon Cay' })"))
+    check("22 ports, all sourced", a.js("Object.keys(PORT_GUIDES).length") == 22 and a.js("Object.values(PORT_GUIDES).every(g => g.facts.every(f => /^https:\\/\\//.test(f.src)))"))
     a.close()
 
 
@@ -2176,7 +2188,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private):
+                  t_v070_private, t_v071_bermuda_hmc):
             try:
                 t(b, base)
             except Exception as e:
