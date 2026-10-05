@@ -234,6 +234,46 @@ const PORT_GUIDES = {
       { icon: "🏧", text: "At the port: ATMs, tourist information and a taxi rank; good buses around the island.", src: "https://www.celebritycruises.com/ports/aruba" },
       { icon: "👕", text: "'Happy Information Officers' in blue T-shirts greet passengers — ask them anything.", src: "https://www.celebritycruises.com/ports/aruba" },
     ] },
+  juneau: { name: "Juneau", country: "Alaska, USA", flag: "🇺🇸", verified: "2026-10-05", keys: ["juneau"], advisory: null,
+    sources: { "Celebrity Cruises port guide": "https://www.celebritycruises.com/ports/juneau" },
+    facts: [
+      { icon: "🚶", text: "Three cruise terminals run along downtown — you can walk into town from any of them.", src: "https://www.celebritycruises.com/ports/juneau" },
+      { icon: "🚡", text: "The Goldbelt Mount Roberts Tramway is right across from the South Cruise Ship Berth.", src: "https://www.celebritycruises.com/ports/juneau" },
+      { icon: "🧊", text: "Mendenhall Glacier is a short drive from downtown.", src: "https://www.celebritycruises.com/ports/juneau" },
+      { icon: "💲", text: "U.S. dollar, ATMs widely available; tip 15–20% in restaurants, 10–15% in bars and taxis.", src: "https://www.celebritycruises.com/ports/juneau" },
+    ] },
+  ketchikan: { name: "Ketchikan", country: "Alaska, USA", flag: "🇺🇸", verified: "2026-10-05", keys: ["ketchikan"], advisory: null,
+    sources: { "Celebrity Cruises port guide": "https://www.celebritycruises.com/ports/ketchikan" },
+    facts: [
+      { icon: "🚶", text: "Ships dock downtown along Front Street — an easy walk to shops, restaurants and Creek Street.", src: "https://www.celebritycruises.com/ports/ketchikan" },
+      { icon: "🚌", text: "Free shuttles May–September between the cruise terminals and downtown; buses, taxis and rideshare too.", src: "https://www.celebritycruises.com/ports/ketchikan" },
+      { icon: "ℹ️", text: "Visitor information center on the quayside, with restrooms.", src: "https://www.celebritycruises.com/ports/ketchikan" },
+      { icon: "💲", text: "U.S. dollar.", src: "https://www.celebritycruises.com/ports/ketchikan" },
+    ] },
+  skagway: { name: "Skagway", country: "Alaska, USA", flag: "🇺🇸", verified: "2026-10-05", keys: ["skagway"], advisory: null,
+    sources: { "Celebrity Cruises port guide": "https://www.celebritycruises.com/ports/skagway" },
+    facts: [
+      { icon: "🛳️", text: "Two docks: the Railroad Dock just south of town, and the Broadway Dock about a 5-minute walk from Main Street.", src: "https://www.celebritycruises.com/ports/skagway" },
+      { icon: "🚂", text: "The White Pass & Yukon Route Railroad (built 1898) leaves from town.", src: "https://www.celebritycruises.com/ports/skagway" },
+      { icon: "🚌", text: "The SMART bus runs shuttles when ships are in; NO rideshare and only a couple of taxi companies — plan your way back.", src: "https://www.celebritycruises.com/ports/skagway" },
+      { icon: "💲", text: "U.S. dollar; ATM at Wells Fargo, 6th and Broadway; tips around 10%.", src: "https://www.celebritycruises.com/ports/skagway" },
+    ] },
+  sitka: { name: "Sitka", country: "Alaska, USA", flag: "🇺🇸", verified: "2026-10-05", keys: ["sitka"], advisory: null,
+    sources: { "Celebrity Cruises port guide": "https://www.celebritycruises.com/ports/sitka" },
+    facts: [
+      { icon: "📍", text: "Ships dock at Sitka Sound Cruise Terminal (Halibut Point), about 5 miles north of town.", src: "https://www.celebritycruises.com/ports/sitka" },
+      { icon: "🚌", text: "A free shuttle runs to downtown (Harrigan Centennial Hall, with visitor information).", src: "https://www.celebritycruises.com/ports/sitka" },
+      { icon: "🚤", text: "On busy days ships may anchor off Crescent Harbor and TENDER guests ashore — check your ship's plan.", src: "https://www.celebritycruises.com/ports/sitka" },
+      { icon: "💲", text: "U.S. dollar.", src: "https://www.celebritycruises.com/ports/sitka" },
+    ] },
+  victoria: { name: "Victoria", country: "Canada", flag: "🇨🇦", verified: "2026-10-05", keys: ["victoria"],
+    advisory: SG_DOS + "traveladvisories.html",
+    sources: { "Celebrity Cruises port guide": "https://www.celebritycruises.com/ports/victoria-british-columbia" },
+    facts: [
+      { icon: "🛳️", text: "Ships dock at Ogden Point; a shuttle runs to downtown.", src: "https://www.celebritycruises.com/ports/victoria-british-columbia" },
+      { icon: "💳", text: "Canadian dollar; credit and debit cards are accepted almost everywhere.", src: "https://www.celebritycruises.com/ports/victoria-british-columbia" },
+      { icon: "🚲", text: "Taxis are available, and lots of people rent bikes — there are plenty of bike trails.", src: "https://www.celebritycruises.com/ports/victoria-british-columbia" },
+    ] },
 };
 const portGuide = name => { const n = String(name || "").toLowerCase(); return Object.values(PORT_GUIDES).find(g => g.keys.some(k => n.includes(k))) || null; };
 function portGuideHtml(pt) {

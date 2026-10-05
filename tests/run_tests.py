@@ -2119,7 +2119,19 @@ def t_v068_ports_batch3(b, base):
     check("names match", names == ["San Juan", "Key West", "Ocho Rios", "Aruba"], names)
     check("U.S. ports have no foreign advisory; Jamaica links the advisory list", "no foreign travel advisory" in a.js("portGuideHtml({ name: 'Key West' })") and "travel.state.gov" in a.js("portGuideHtml({ name: 'Ocho Rios' })"))
     check("Ocho Rios: official red-plate taxis", "red license plate" in a.js("portGuideHtml({ name: 'Ocho Rios' })"))
-    check("13 ports, all facts sourced", a.js("Object.keys(PORT_GUIDES).length") == 13 and a.js("Object.values(PORT_GUIDES).every(g => g.facts.every(f => /^https:\\/\\//.test(f.src)))"))
+    check("13+ ports, all facts sourced", a.js("Object.keys(PORT_GUIDES).length") >= 13 and a.js("Object.values(PORT_GUIDES).every(g => g.facts.every(f => /^https:\\/\\//.test(f.src)))"))
+    a.close()
+
+
+def t_v069_alaska(b, base):
+    print("\n[v0.69 Alaska port guides: Juneau, Ketchikan, Skagway, Sitka, Victoria]")
+    a = App(b, base, path=CRUISE)
+    names = a.js("['Juneau, Alaska', 'Ketchikan, AK', 'Skagway', 'Sitka, Alaska', 'Victoria, British Columbia'].map(n => (portGuide(n) || {}).name)")
+    check("Alaska + Victoria names match", names == ["Juneau", "Ketchikan", "Skagway", "Sitka", "Victoria"], names)
+    check("Skagway warns: no rideshare", "NO rideshare" in a.js("portGuideHtml({ name: 'Skagway' })"))
+    check("Sitka: 5 miles out + free shuttle + may tender", all(x in a.js("portGuideHtml({ name: 'Sitka' })") for x in ("5 miles", "free shuttle", "TENDER")))
+    check("Victoria (Canada) links the advisory list", "travel.state.gov" in a.js("portGuideHtml({ name: 'Victoria' })"))
+    check("18 ports, all sourced", a.js("Object.keys(PORT_GUIDES).length") == 18 and a.js("Object.values(PORT_GUIDES).every(g => g.facts.every(f => /^https:\\/\\//.test(f.src)))"))
     a.close()
 
 
@@ -2150,7 +2162,7 @@ def main():
                   t_v062_itemized, t_v063_icon_tiles,
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
-                  t_v068_ports_batch3):
+                  t_v068_ports_batch3, t_v069_alaska):
             try:
                 t(b, base)
             except Exception as e:

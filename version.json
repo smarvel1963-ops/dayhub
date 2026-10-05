@@ -1,6 +1,9 @@
 {
- "version": "0.68",
+ "version": "0.69",
  "notes": {
+  "0.69": [
+   "🏔️ Alaska port guides: Juneau, Ketchikan, Skagway, Sitka and Victoria (BC) — 18 ports now."
+  ],
   "0.68": [
    "🏝️ 4 more port guides: San Juan, Key West, Ocho Rios and Aruba — 13 ports now."
   ],
