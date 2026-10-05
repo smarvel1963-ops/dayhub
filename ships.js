@@ -274,6 +274,25 @@ const PORT_GUIDES = {
       { icon: "💳", text: "Canadian dollar; credit and debit cards are accepted almost everywhere.", src: "https://www.celebritycruises.com/ports/victoria-british-columbia" },
       { icon: "🚲", text: "Taxis are available, and lots of people rent bikes — there are plenty of bike trails.", src: "https://www.celebritycruises.com/ports/victoria-british-columbia" },
     ] },
+  cococay: { name: "Perfect Day at CocoCay", country: "The Bahamas", flag: "🇧🇸", verified: "2026-10-05", keys: ["cococay", "coco cay", "perfect day"],
+    advisory: SG_DOS + "bahamas-travel-advisory.html",
+    sources: { "Royal Caribbean: walking times": "https://www.royalcaribbean.com/faq/questions/how-long-does-it-take-to-walk-to-each-part-of-perfect-day-at-cococay", "Royal Caribbean: free things to do": "https://www.royalcaribbean.com/guides/free-things-to-do-at-perfect-day-at-cococay" },
+    facts: [
+      { icon: "🛳️", text: "Ships dock at a pier — about a 6-minute walk to Arrivals Plaza, or ride the free Pier Tram.", src: "https://www.royalcaribbean.com/faq/questions/how-long-does-it-take-to-walk-to-each-part-of-perfect-day-at-cococay" },
+      { icon: "🏖️", text: "FREE: Chill Island, South Beach, Harbor Beach, Breezy Bay and the Oasis Lagoon pool; chairs, umbrellas, hammocks and lockers.", src: "https://www.royalcaribbean.com/guides/free-things-to-do-at-perfect-day-at-cococay" },
+      { icon: "🍔", text: "FREE food at Snack Shack, Chill Grill and Skipper's Grill; water and basic juices.", src: "https://www.royalcaribbean.com/guides/free-things-to-do-at-perfect-day-at-cococay" },
+      { icon: "💲", text: "EXTRA: Thrill Waterpark, Coco Beach Club, cabanas, the Up, Up & Away balloon, zip line, jet skis — book early, they sell out.", src: "https://www.royalcaribbean.com/guides/free-things-to-do-at-perfect-day-at-cococay" },
+      { icon: "👟", text: "Bring reef-safe sunscreen, water shoes and a waterproof phone pouch; towels come from the ship.", src: "https://www.royalcaribbean.com/guides/free-things-to-do-at-perfect-day-at-cococay" },
+    ] },
+  "amber cove": { name: "Amber Cove", country: "Dominican Republic", flag: "🇩🇴", verified: "2026-10-05", keys: ["amber cove", "puerto plata"],
+    advisory: SG_DOS + "traveladvisories.html",
+    sources: { "Carnival: 10 things to know about Amber Cove": "https://www.carnival.com/awaywego/cruising-fun/what-to-expect/the-top-10-things-you-need-to-know-about-amber-cove" },
+    facts: [
+      { icon: "🏊", text: "FREE: the Aqua Zone pool — swim-up bar, waterslides and a lazy river.", src: "https://www.carnival.com/awaywego/cruising-fun/what-to-expect/the-top-10-things-you-need-to-know-about-amber-cove" },
+      { icon: "💲", text: "EXTRA: cabanas (up to 20 people), dolphin swims, zip lines, ATVs and helicopter tours.", src: "https://www.carnival.com/awaywego/cruising-fun/what-to-expect/the-top-10-things-you-need-to-know-about-amber-cove" },
+      { icon: "🚕", text: "The port's transportation hub has taxis and rental cars; Puerto Plata is a short distance away.", src: "https://www.carnival.com/awaywego/cruising-fun/what-to-expect/the-top-10-things-you-need-to-know-about-amber-cove" },
+      { icon: "🛍️", text: "Shops and market stalls in port — Dominican rum, coffee, chocolate and amber.", src: "https://www.carnival.com/awaywego/cruising-fun/what-to-expect/the-top-10-things-you-need-to-know-about-amber-cove" },
+    ] },
 };
 const portGuide = name => { const n = String(name || "").toLowerCase(); return Object.values(PORT_GUIDES).find(g => g.keys.some(k => n.includes(k))) || null; };
 function portGuideHtml(pt) {

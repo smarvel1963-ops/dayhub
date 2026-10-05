@@ -2131,7 +2131,20 @@ def t_v069_alaska(b, base):
     check("Skagway warns: no rideshare", "NO rideshare" in a.js("portGuideHtml({ name: 'Skagway' })"))
     check("Sitka: 5 miles out + free shuttle + may tender", all(x in a.js("portGuideHtml({ name: 'Sitka' })") for x in ("5 miles", "free shuttle", "TENDER")))
     check("Victoria (Canada) links the advisory list", "travel.state.gov" in a.js("portGuideHtml({ name: 'Victoria' })"))
-    check("18 ports, all sourced", a.js("Object.keys(PORT_GUIDES).length") == 18 and a.js("Object.values(PORT_GUIDES).every(g => g.facts.every(f => /^https:\\/\\//.test(f.src)))"))
+    check("18+ ports, all sourced", a.js("Object.keys(PORT_GUIDES).length") >= 18 and a.js("Object.values(PORT_GUIDES).every(g => g.facts.every(f => /^https:\\/\\//.test(f.src)))"))
+    a.close()
+
+
+def t_v070_private(b, base):
+    print("\n[v0.70 port guides: Perfect Day at CocoCay, Amber Cove]")
+    a = App(b, base, path=CRUISE)
+    names = a.js("['Perfect Day at CocoCay, Bahamas', 'Amber Cove (Puerto Plata)'].map(n => (portGuide(n) || {}).name)")
+    check("CocoCay + Amber Cove names match", names == ["Perfect Day at CocoCay", "Amber Cove"], names)
+    g = a.js("portGuideHtml({ name: 'CocoCay' })")
+    check("CocoCay: pier walk + free vs extra", "6-minute" in g and "FREE" in g and "Thrill Waterpark" in g)
+    check("CocoCay is not a tender port", not a.js("isTenderPort({ name: 'CocoCay' })"))
+    check("Amber Cove: free Aqua Zone pool", "Aqua Zone" in a.js("portGuideHtml({ name: 'Amber Cove' })"))
+    check("20 ports, all sourced", a.js("Object.keys(PORT_GUIDES).length") == 20 and a.js("Object.values(PORT_GUIDES).every(g => g.facts.every(f => /^https:\/\//.test(f.src)))"))
     a.close()
 
 
@@ -2162,7 +2175,8 @@ def main():
                   t_v062_itemized, t_v063_icon_tiles,
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
-                  t_v068_ports_batch3, t_v069_alaska):
+                  t_v068_ports_batch3, t_v069_alaska,
+                  t_v070_private):
             try:
                 t(b, base)
             except Exception as e:
