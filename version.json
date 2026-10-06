@@ -1,6 +1,9 @@
 {
- "version": "0.74",
+ "version": "0.75",
  "notes": {
+  "0.75": [
+   "⚓ 4 more departure-port guides: Mobile, Charleston, Jacksonville and Norfolk — 15 home ports now. (Charleston and Jacksonville: no cash. Norfolk: last shuttle from the lot is 2:30 PM.)"
+  ],
   "0.74": [
    "✨ Ask Cruise Hub now knows your departure port's parking + terminal facts — ask 'where do we park?' or 'how do we pay for parking?'."
   ],

@@ -2186,7 +2186,19 @@ def t_v073_more_home_ports(b, base):
     check("San Diego: no long-term parking at the terminal", "NO long-term parking" in a.js("homePortHtml({ port: 'San Diego' }, true)"))
     ctx = a.js("JSON.stringify(tripContext({ name: 'C', type: 'cruise', port: 'Port Canaveral', start: '2026-12-01', end: '2026-12-08', ports: [] }).departurePortInfo)")
     check("v0.74 Ask Cruise Hub gets the departure-port facts", "$20 a day" in ctx and "Port Canaveral" in ctx, ctx[:200])
-    check("11 home ports, all sourced", a.js("Object.keys(HOME_PORTS).length") == 11 and a.js("Object.values(HOME_PORTS).every(g => g.facts.every(f => /^https:\\/\\//.test(f.src)))"))
+    check("11+ home ports, all sourced", a.js("Object.keys(HOME_PORTS).length") >= 11 and a.js("Object.values(HOME_PORTS).every(g => g.facts.every(f => /^https:\\/\\//.test(f.src)))"))
+    a.close()
+
+
+def t_v075_se_home_ports(b, base):
+    print("\n[v0.75 departure ports: Mobile, Charleston, Jacksonville, Norfolk]")
+    a = App(b, base, path=CRUISE)
+    names = a.js("['Mobile, Alabama', 'Charleston, SC', 'Jacksonville, FL', 'Norfolk, VA'].map(n => (homePort(n) || {}).name || null)")
+    check("4 more home ports match", names == ["Alabama Cruise Terminal (Mobile)", "Charleston (Union Pier)", "JAXPORT Cruise Terminal", "Norfolk (Half Moone Cruise Center)"], names)
+    check("'Mobile' alone is not a port (no false match)", a.js("homePort('Automobile drop-off')") is None)
+    check("Charleston: no cash", "NO CASH" in a.js("homePortHtml({ port: 'Charleston' }, true)"))
+    check("Norfolk: last shuttle 2:30 PM", "2:30 PM" in a.js("homePortHtml({ port: 'Norfolk' }, true)"))
+    check("15 home ports, all sourced", a.js("Object.keys(HOME_PORTS).length") == 15 and a.js("Object.values(HOME_PORTS).every(g => g.facts.every(f => /^https:\\/\\//.test(f.src)))"))
     a.close()
 
 
@@ -2218,7 +2230,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports):
             try:
                 t(b, base)
             except Exception as e:

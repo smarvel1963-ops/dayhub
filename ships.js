@@ -410,6 +410,38 @@ const HOME_PORTS = {
       { icon: "🚗", text: "Drop-off and pick-up areas are right at the terminals.", src: "https://www.portofsandiego.org/coming-and-going/parking/long-term-cruise-parking" },
       { icon: "📞", text: "Port parking questions: 619-686-6464 (weekdays 8–5).", src: "https://www.portofsandiego.org/coming-and-going/parking/long-term-cruise-parking" },
     ] },
+  mobile: { name: "Alabama Cruise Terminal (Mobile)", place: "Mobile, AL", verified: "2026-10-05", keys: ["mobile, al", "mobile, alabama", "mobile al", "alabama cruise terminal", "port of mobile"],
+    sources: { "Alabama Cruise Terminal": "https://www.shipmobile.com/parking/" },
+    facts: [
+      { icon: "🅿️", text: "The parking deck is attached to the terminal: $23 a day; RVs/campers $46, buses $69.", src: "https://www.shipmobile.com/parking/" },
+      { icon: "📏", text: "A regular spot fits 8'6\" tall × 8'6\" wide × 16' long — bigger than that pays the RV rate.", src: "https://www.shipmobile.com/parking/" },
+      { icon: "📱", text: "Pay by text (P2603 to 504-504), at the kiosk by the elevators, or in the Premium Parking app.", src: "https://www.shipmobile.com/parking/" },
+      { icon: "🎖️", text: "Disabled veterans park free — no DV plate? Check in with parking staff after you park.", src: "https://www.shipmobile.com/parking/" },
+      { icon: "➡️", text: "When the deck fills, overflow is the 5th floor of 100 Canal St.", src: "https://www.shipmobile.com/parking/" },
+    ] },
+  charleston: { name: "Charleston (Union Pier)", place: "Charleston, SC", verified: "2026-10-05", keys: ["charleston", "union pier"],
+    sources: { "SC Ports cruise FAQ (PDF)": "https://scspa.com/wp-content/uploads/cruise-faqs.pdf" },
+    facts: [
+      { icon: "🅿️", text: "On-site parking on port property, about $17–21 a day (SC Ports' own documents differ); oversize/RVs $50. Pay when you arrive.", src: "https://scspa.com/wp-content/uploads/cruise-faqs.pdf" },
+      { icon: "💳", text: "Debit or credit card, traveler's check, personal check or money order — NO CASH.", src: "https://scspa.com/wp-content/uploads/cruise-faqs.pdf" },
+      { icon: "♿", text: "Vehicles with a handicap permit park free.", src: "https://scspa.com/wp-content/uploads/cruise-faqs.pdf" },
+      { icon: "🧳", text: "Big bags go to the luggage tent first — only small carry-ons ride the shuttle from the lot.", src: "https://scspa.com/wp-content/uploads/cruise-faqs.pdf" },
+    ] },
+  jacksonville: { name: "JAXPORT Cruise Terminal", place: "Jacksonville, FL", verified: "2026-10-05", keys: ["jacksonville", "jaxport"],
+    sources: { "JAXPORT parking": "https://www.jaxport.com/cruise/parking-directions/" },
+    facts: [
+      { icon: "🅿️", text: "$17 a day, tax included ($85 for a 5-day cruise); oversize RVs $34 a day.", src: "https://www.jaxport.com/cruise/parking-directions/" },
+      { icon: "💳", text: "Credit cards only — no cash. No reservations: just pay when you drive in.", src: "https://www.jaxport.com/cruise/parking-directions/" },
+      { icon: "📍", text: "9810 August Drive, Jacksonville, FL 32226.", src: "https://www.jaxport.com/cruise/parking-directions/" },
+    ] },
+  norfolk: { name: "Norfolk (Half Moone Cruise Center)", place: "Norfolk, VA", verified: "2026-10-05", keys: ["norfolk", "half moone"],
+    sources: { "Cruise Norfolk FAQ (VisitNorfolk)": "https://www.visitnorfolk.com/cruisenorfolk-frequently-asked-questions/" },
+    facts: [
+      { icon: "🅿️", text: "Cruise parking is the Cedar Grove lot (1000 Monticello Ave, 1.5 miles away): $15 a day, cash or card, paid on entry.", src: "https://www.visitnorfolk.com/cruisenorfolk-frequently-asked-questions/" },
+      { icon: "🧳", text: "Check your bags AT the lot — they go straight to the ship — then ride the free shuttle to the terminal curb.", src: "https://www.visitnorfolk.com/cruisenorfolk-frequently-asked-questions/" },
+      { icon: "🕤", text: "The lot opens 9:30 AM, shuttles start about 9:45 — the LAST shuttle is 2:30 PM.", src: "https://www.visitnorfolk.com/cruisenorfolk-frequently-asked-questions/" },
+      { icon: "📍", text: "The terminal: 1 Waterside Drive, downtown Norfolk.", src: "https://www.visitnorfolk.com/cruisenorfolk-frequently-asked-questions/" },
+    ] },
 };
 const homePort = name => { const n = String(name || "").toLowerCase(); return Object.values(HOME_PORTS).find(g => g.keys.some(k => n.includes(k))) || null; };
 function homePortHtml(tr, open) {
