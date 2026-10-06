@@ -78,6 +78,75 @@ const SHIP_GUIDES = {
       { cat: "service", name: "Wedding Chapel", deck: "16", cost: null },
     ],
   },
+  "emerald princess": {
+    name: "Emerald Princess", line: "Princess", verified: "2026-10-05",
+    sources: {
+      ship: "https://www.princess.com/ships-and-experience/ships/ep-emerald-princess",
+      decks: "https://gb-www.princess.com/html/global/book/ships/deck-plans/ep-accessible-route-text.html",
+    },
+    facts: { guests: 3080, crew: 1200, tonnage: 113561, lengthFt: 951, decks: 19, built: 2007 },
+    venues: [
+      // ---- eat (princess.com "Included" / specialty)
+      { cat: "eat", name: "Michelangelo Dining Room", deck: "5", cost: "included", note: "Main dining room" },
+      { cat: "eat", name: "Da Vinci Dining Room", deck: "6", cost: "included", note: "Main dining room" },
+      { cat: "eat", name: "Botticelli Dining Room", deck: "6", cost: "included", note: "Main dining room" },
+      { cat: "eat", name: "International Café", deck: "5", cost: "included", note: "Open 24 hours a day" },
+      { cat: "eat", name: "World Fresh Marketplace", deck: "15", cost: "included", note: "Buffet" },
+      { cat: "eat", name: "Slice Pizzeria", deck: "15", cost: "included" },
+      { cat: "eat", name: "Salty Dog Grill", deck: "15", cost: "included", note: "Gourmet burgers" },
+      { cat: "eat", name: "Coffee & Cones", deck: "15", cost: "included", note: "Complimentary ice cream + espresso drinks" },
+      { cat: "eat", name: "Afternoon Tea", deck: null, cost: "included" },
+      { cat: "eat", name: "Crown Grill", deck: "7", cost: "extra", note: "Premium steakhouse" },
+      { cat: "eat", name: "Sabatini's Italian Trattoria", deck: "16", cost: "extra" },
+      { cat: "eat", name: "O'Malley's Irish Pub", deck: null, cost: "extra", note: "Irish fare" },
+      { cat: "eat", name: "Steamers Seafood", deck: "15", cost: "extra", note: "Pop-up venue" },
+      { cat: "eat", name: "Planks BBQ", deck: "15", cost: "extra", note: "Pop-up venue" },
+      { cat: "eat", name: "Chef's Table Experience", deck: null, cost: "extra", note: "Multi-course dinner hosted by the executive chef" },
+      { cat: "eat", name: "Ultimate Balcony Dining", deck: null, cost: "extra", note: "On your balcony" },
+      { cat: "eat", name: "Reserve Collection Dining", deck: null, cost: "extra", note: "Its own area, dedicated service" },
+      { cat: "eat", name: "OceanNow® delivery", deck: null, cost: null, note: "Order to your cabin or the pool from your phone" },
+      // ---- drink
+      { cat: "drink", name: "Vines Wine Bar", deck: "5", cost: null, note: "Wine flights" },
+      { cat: "drink", name: "Good Spirits® At Sea", deck: null, cost: null, note: "Cocktail experiences" },
+      { cat: "drink", name: "Speakeasy Cigar Lounge", deck: "6", cost: null },
+      { cat: "drink", name: "Casino Bar", deck: "6", cost: null },
+      { cat: "drink", name: "Crooners", deck: "7", cost: null, note: "Sinatra-era piano bar" },
+      { cat: "drink", name: "Wheelhouse Bar", deck: "7", cost: null },
+      { cat: "drink", name: "Explorers Lounge", deck: "7", cost: null },
+      { cat: "drink", name: "Club Fusion", deck: "7", cost: null, note: "Nightclub — karaoke, theme parties" },
+      { cat: "drink", name: "Calypso Bar · Outrigger Bar", deck: "15", cost: null, note: "Pool bars" },
+      { cat: "drink", name: "Tradewinds", deck: "16", cost: null },
+      { cat: "drink", name: "Skywalkers Nightclub", deck: "18", cost: null, note: "15 decks above the sea" },
+      // ---- shows & fun
+      { cat: "fun", name: "Princess Theater", deck: "6 · 7", cost: null, note: "Original musicals and stage shows" },
+      { cat: "fun", name: "Gatsby's Casino", deck: "6", cost: null },
+      { cat: "fun", name: "The Piazza", deck: "5", cost: null, note: "Street performers, shops" },
+      { cat: "fun", name: "Movies Under the Stars®", deck: "16", cost: null, note: "Poolside outdoor movies" },
+      { cat: "fun", name: "Fine Arts Gallery", deck: "5", cost: null, note: "Art exhibits + auctions" },
+      { cat: "fun", name: "Library", deck: "7", cost: null },
+      { cat: "fun", name: "Princess Links", deck: "19", cost: null, note: "Putting course" },
+      // ---- pools
+      { cat: "pool", name: "Terrace Pool", deck: "14", cost: null },
+      { cat: "pool", name: "Neptune's Reef & Pool", deck: "15", cost: null },
+      { cat: "pool", name: "Calypso Reef & Pool", deck: "15", cost: null },
+      // ---- spa & fitness
+      { cat: "spa", name: "Lotus Spa®", deck: "15 · 16", cost: null },
+      { cat: "spa", name: "Fitness Center", deck: "16", cost: null },
+      { cat: "spa", name: "Beauty Salon", deck: "16", cost: null },
+      { cat: "spa", name: "The Sanctuary", deck: "17", cost: null, note: "Adults-only retreat" },
+      // ---- kids
+      { cat: "kids", name: "Youth Centre · Teen Centre", deck: "17", cost: null, note: "Kids 3-7, 8-12 and teens 13-17" },
+      // ---- services
+      { cat: "service", name: "Guest Services", deck: "6", cost: null },
+      { cat: "service", name: "Captain's Circle desk", deck: "6", cost: null },
+      { cat: "service", name: "Shore Excursions", deck: "7", cost: null },
+      { cat: "service", name: "Medical Center", deck: "4", cost: null },
+      { cat: "service", name: "Future Cruise Sales", deck: "5", cost: null },
+      { cat: "service", name: "The Shops of Princess", deck: "7", cost: null, note: "Promenade Galleria, Facets by Effy, Essence" },
+      { cat: "service", name: "Photo Gallery", deck: "7", cost: null },
+      { cat: "service", name: "Wedding Chapel", deck: "16", cost: null },
+    ],
+  },
 };
 const SHIP_CATS = [["eat", "🍽️", "Eat"], ["drink", "🍹", "Drink"], ["fun", "🎭", "Shows & fun"], ["pool", "🏊", "Pools"], ["spa", "💆", "Spa & fitness"],
   ["kids", "🧒", "Kids"], ["service", "🛎️", "Services"], ["free", "✅", "What's included"]];
@@ -87,7 +156,7 @@ function shipGuideHtml(tr) {
   const G = tr && shipGuide(tr.ship);
   if (!tr || !tr.ship) return `<div class="today-line sub">Add your ship (Plan → your cruise → Edit) to see its guide.</div>`;
   if (!G) return `<div class="today-line"><b>${esc(tr.ship)}</b>${tr.line ? ` · ${esc(tr.line)}` : ""}</div>
-    <div class="today-line sub">The ship guide for ${esc(tr.ship)} isn't in Cruise Hub yet — Caribbean Princess is the first, more ships are coming. Until then your cruise line's app has the venues.</div>`;
+    <div class="today-line sub">The ship guide for ${esc(tr.ship)} isn't in Cruise Hub yet — so far: ${Object.values(SHIP_GUIDES).map(g => g.name).join(", ")}; more ships are coming. Until then your cruise line's app has the venues.</div>`;
   const f = G.facts, list = SHIP_CAT === "free" ? G.venues.filter(v => v.cost === "included") : G.venues.filter(v => v.cat === SHIP_CAT);
   const pill = v => v.cost === "included" ? `<span class="pill">Included</span>` : v.cost === "extra" ? `<span class="pill soon">Extra cost</span>` : "";
   return `<div class="today-line"><b>${esc(G.name)}</b> · ${G.line}${tr.cabin ? ` · cabin ${esc(tr.cabin)}` : ""}</div>

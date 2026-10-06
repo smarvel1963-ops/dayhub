@@ -2202,6 +2202,18 @@ def t_v075_se_home_ports(b, base):
     a.close()
 
 
+def t_v076_emerald(b, base):
+    print("\n[v0.76 ship guide: Emerald Princess]")
+    a = App(b, base, path=CRUISE)
+    check("Emerald Princess guide found (any case/spaces)", a.js("(shipGuide('  emerald   PRINCESS ') || {}).name") == "Emerald Princess")
+    g = a.js("shipGuideHtml({ ship: 'Emerald Princess' })")
+    check("Emerald: 3,080 guests, built 2007, buffet", "3,080 guests" in g and "built 2007" in g)
+    check("Emerald: Sabatini's is extra cost on deck 16", a.js("shipGuide('Emerald Princess').venues.some(v => v.name.startsWith('Sabatini') && v.cost === 'extra' && v.deck === '16')"))
+    check("unknown ship lists the ships we have", "Emerald Princess" in a.js("shipGuideHtml({ ship: 'Sun Princess' })"))
+    check("2 ships, every venue has a category", a.js("Object.keys(SHIP_GUIDES).length") == 2 and a.js("Object.values(SHIP_GUIDES).every(g => g.venues.every(v => SHIP_CATS.some(c => c[0] === v.cat)))"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -2230,7 +2242,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald):
             try:
                 t(b, base)
             except Exception as e:
