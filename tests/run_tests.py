@@ -2184,6 +2184,8 @@ def t_v073_more_home_ports(b, base):
     names = a.js("['San Pedro (Los Angeles)', 'Boston, MA', 'San Diego, CA'].map(n => (homePort(n) || {}).name || null)")
     check("LA, Boston, San Diego match", names == ["Port of Los Angeles (San Pedro)", "Flynn Cruiseport Boston", "Port of San Diego"], names)
     check("San Diego: no long-term parking at the terminal", "NO long-term parking" in a.js("homePortHtml({ port: 'San Diego' }, true)"))
+    ctx = a.js("JSON.stringify(tripContext({ name: 'C', type: 'cruise', port: 'Port Canaveral', start: '2026-12-01', end: '2026-12-08', ports: [] }).departurePortInfo)")
+    check("v0.74 Ask Cruise Hub gets the departure-port facts", "$20 a day" in ctx and "Port Canaveral" in ctx, ctx[:200])
     check("11 home ports, all sourced", a.js("Object.keys(HOME_PORTS).length") == 11 and a.js("Object.values(HOME_PORTS).every(g => g.facts.every(f => /^https:\\/\\//.test(f.src)))"))
     a.close()
 

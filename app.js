@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.73";
+const VERSION = "0.74";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -2537,6 +2537,8 @@ function tripContext(tr) {
   o.returnGuardSafetyMarginMin = guardMargin();
   { const G = typeof shipGuide === "function" && shipGuide(tr.ship);       // v0.64 verified ship guide -> "where can we eat for free?"
     if (G) o.shipGuide = { source: `princess.com, checked ${G.verified}`, venues: G.venues.map(v => `${v.name}${v.deck ? ` (deck ${v.deck})` : ""}${v.cost ? ` - ${v.cost}` : ""}${v.note ? ` - ${v.note}` : ""}`) }; }
+  { const H = typeof homePort === "function" && tr.port && homePort(tr.port);   // v0.74 departure port -> "where do we park?"
+    if (H) o.departurePortInfo = { port: H.name, checked: H.verified, facts: H.facts.map(f => f.text) }; }
   return o;
 }
 let ASK_BUSY = false, ASK_LOG = [];

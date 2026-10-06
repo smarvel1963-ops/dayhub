@@ -1,6 +1,9 @@
 {
- "version": "0.73",
+ "version": "0.74",
  "notes": {
+  "0.74": [
+   "✨ Ask Cruise Hub now knows your departure port's parking + terminal facts — ask 'where do we park?' or 'how do we pay for parking?'."
+  ],
   "0.73": [
    "⚓ 7 more departure-port guides: Seattle, New Orleans, Tampa, Baltimore, Los Angeles, Boston and San Diego — 11 home ports now. (New Orleans: low garage ceilings. San Diego: no long-term parking at the terminal.)"
   ],
