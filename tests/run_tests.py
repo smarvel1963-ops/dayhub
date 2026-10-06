@@ -2223,7 +2223,18 @@ def t_v077_royal(b, base):
     by = {x["name"]: x for x in v}
     check("Prego (included) vs Alfredo's (extra)", by["Prego Pizzeria"]["cost"] == "included" and by["Alfredo's Pizzeria"]["cost"] == "extra")
     check("buffet rename is explained", "Horizon Court" in by["World Fresh Marketplace"]["note"])
-    check("3 ships", a.js("Object.keys(SHIP_GUIDES).length") == 3)
+    check("3+ ships", a.js("Object.keys(SHIP_GUIDES).length") >= 3)
+    a.close()
+
+
+def t_v078_ruby(b, base):
+    print("\n[v0.78 ship guide: Ruby Princess]")
+    a = App(b, base, path=CRUISE)
+    g = a.js("shipGuideHtml({ ship: 'Ruby Princess' })")
+    check("Ruby Princess: 3,080 guests, built 2008", "3,080 guests" in g and "built 2008" in g)
+    by = {x["name"]: x for x in a.js("shipGuide('Ruby Princess').venues")}
+    check("Salty Dog Grill free, Gastropub extra", by["The Salty Dog Grill"]["cost"] == "included" and by["The Salty Dog Gastropub"]["cost"] == "extra")
+    check("4 ships, all with princess.com sources", a.js("Object.keys(SHIP_GUIDES).length") == 4 and a.js("Object.values(SHIP_GUIDES).every(g => /princess\\.com/.test(g.sources.ship) && /princess\\.com/.test(g.sources.decks))"))
     a.close()
 
 
@@ -2255,7 +2266,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby):
             try:
                 t(b, base)
             except Exception as e:
