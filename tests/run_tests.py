@@ -2210,7 +2210,20 @@ def t_v076_emerald(b, base):
     check("Emerald: 3,080 guests, built 2007, buffet", "3,080 guests" in g and "built 2007" in g)
     check("Emerald: Sabatini's is extra cost on deck 16", a.js("shipGuide('Emerald Princess').venues.some(v => v.name.startsWith('Sabatini') && v.cost === 'extra' && v.deck === '16')"))
     check("unknown ship lists the ships we have", "Emerald Princess" in a.js("shipGuideHtml({ ship: 'Sun Princess' })"))
-    check("2 ships, every venue has a category", a.js("Object.keys(SHIP_GUIDES).length") == 2 and a.js("Object.values(SHIP_GUIDES).every(g => g.venues.every(v => SHIP_CATS.some(c => c[0] === v.cat)))"))
+    check("2+ ships, every venue has a category", a.js("Object.keys(SHIP_GUIDES).length") >= 2 and a.js("Object.values(SHIP_GUIDES).every(g => g.venues.every(v => SHIP_CATS.some(c => c[0] === v.cat)))"))
+    a.close()
+
+
+def t_v077_royal(b, base):
+    print("\n[v0.77 ship guide: Royal Princess]")
+    a = App(b, base, path=CRUISE)
+    g = a.js("shipGuideHtml({ ship: 'Royal Princess' })")
+    check("Royal Princess: 3,560 guests, built 2013", "3,560 guests" in g and "built 2013" in g)
+    v = a.js("shipGuide('Royal Princess').venues")
+    by = {x["name"]: x for x in v}
+    check("Prego (included) vs Alfredo's (extra)", by["Prego Pizzeria"]["cost"] == "included" and by["Alfredo's Pizzeria"]["cost"] == "extra")
+    check("buffet rename is explained", "Horizon Court" in by["World Fresh Marketplace"]["note"])
+    check("3 ships", a.js("Object.keys(SHIP_GUIDES).length") == 3)
     a.close()
 
 
@@ -2242,7 +2255,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal):
             try:
                 t(b, base)
             except Exception as e:
