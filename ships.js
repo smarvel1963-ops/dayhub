@@ -358,6 +358,58 @@ const HOME_PORTS = {
       { icon: "🧳", text: "Drop your bags at the terminal first, then go park. Economy-lot shuttles are free, about every 5–7 minutes.", src: "https://www.portofgalveston.com/cruise-parking/faq/" },
       { icon: "📞", text: "Parking help: 409-766-6163 (8 AM–5 PM daily).", src: "https://www.portofgalveston.com/cruise-parking/faq/" },
     ] },
+  seattle: { name: "Port of Seattle", place: "Seattle, WA", verified: "2026-10-05", keys: ["seattle", "smith cove", "pier 91", "bell street", "pier 66"],
+    sources: { "Port of Seattle cruise FAQ": "https://www.portseattle.org/node/17501" },
+    facts: [
+      { icon: "🔢", text: "Two terminals: Smith Cove (Pier 91) and Bell Street (Pier 66) — the port's 'Find My Ship and Terminal' page tells you which.", src: "https://www.portseattle.org/node/17501" },
+      { icon: "🅿️", text: "Smith Cove (Pier 91): from $27 a day, taxes, fees and the shuttle to the ship included — reserve on the Pier 91 parking site.", src: "https://www.portseattle.org/node/17501" },
+      { icon: "🅿️", text: "Bell Street (Pier 66): Republic Parking garage across the street, $30 a day plus tax — book online or call 206-443-1793.", src: "https://www.portseattle.org/node/17501" },
+      { icon: "✈️", text: "From SEA airport: rideshare/taxi (3rd floor of the parking garage), cruise-line bus, or Link light rail to Westlake then a ride.", src: "https://www.portseattle.org/node/17501" },
+      { icon: "🧳", text: "Port Valet (free): flying home after noon on Alaska, American, Delta, JetBlue, Southwest or United? Check bags to your flight right from the ship.", src: "https://www.portseattle.org/node/17501" },
+    ] },
+  "new orleans": { name: "Port of New Orleans", place: "New Orleans, LA", verified: "2026-10-05", keys: ["new orleans", "nola", "erato", "julia street"],
+    sources: { "Port NOLA parking": "https://portnola.com/cruise/parking-directions" },
+    facts: [
+      { icon: "🔢", text: "Carnival sails from Erato Street; Norwegian and Royal Caribbean from Julia Street.", src: "https://portnola.com/cruise/parking-directions" },
+      { icon: "🅿️", text: "Both garages: 7 days is $180; booking ahead adds $1 a day. Garages open at 9 AM.", src: "https://portnola.com/cruise/parking-directions" },
+      { icon: "📏", text: "LOW ceilings — Erato 7'6\" (a few 3rd-floor spots take 8'4\"), Julia Street's 100 Poydras garage 6'6\". Tall vans/roof boxes check first.", src: "https://portnola.com/cruise/parking-directions" },
+      { icon: "💳", text: "Credit or debit cards.", src: "https://portnola.com/cruise/parking-directions" },
+      { icon: "🧳", text: "Erato: SeaCaps take your checked bags straight to the ship. Julia Street: a shuttle runs from the garage to the terminal.", src: "https://portnola.com/cruise/parking-directions" },
+    ] },
+  tampa: { name: "Port Tampa Bay", place: "Tampa, FL", verified: "2026-10-05", keys: ["tampa"],
+    sources: { "Port Tampa Bay parking": "https://www.porttb.com/cruise/cruise-parking/" },
+    facts: [
+      { icon: "🅿️", text: "The port garage (810 Channelside Dr) is across the street from the central cruise terminal; overflow at 1331 McKay St when space allows.", src: "https://www.porttb.com/cruise/cruise-parking/" },
+      { icon: "📅", text: "Prepay online — pick your cruise line on the port's parking page. Valet is a $20 upgrade.", src: "https://www.porttb.com/cruise/cruise-parking/" },
+      { icon: "📞", text: "Parking questions: 813-905-7678.", src: "https://www.porttb.com/cruise/cruise-parking/" },
+    ] },
+  baltimore: { name: "Cruise Maryland (Baltimore)", place: "Baltimore, MD", verified: "2026-10-05", keys: ["baltimore", "cruise maryland"],
+    sources: { "Cruise Maryland": "https://cruise.maryland.gov/pages/default.aspx" },
+    facts: [
+      { icon: "🅿️", text: "Terminal parking is $25 a day per vehicle (since April 1, 2026).", src: "https://cruise.maryland.gov/pages/default.aspx" },
+      { icon: "📍", text: "The terminal: 2001 East McComas Street, Baltimore, MD 21230.", src: "https://cruise.maryland.gov/pages/default.aspx" },
+    ] },
+  "los angeles": { name: "Port of Los Angeles (San Pedro)", place: "San Pedro, CA", verified: "2026-10-05", keys: ["los angeles", "san pedro", "world cruise center"],
+    sources: { "Port of Los Angeles": "https://portoflosangeles.org/business/terminals/passenger/cruise", "LA Waterfront cruise FAQ": "https://www.lawaterfront.org/cruise/cruise-faqs" },
+    facts: [
+      { icon: "🅿️", text: "Parking at the terminal: first hour free, then $2 an hour up to a daily max of about $22–24 (the port's own pages differ). Oversize vehicles $40 max a day.", src: "https://portoflosangeles.org/business/terminals/passenger/cruise" },
+      { icon: "✅", text: "No reservations needed; lots are open 24/7.", src: "https://www.lawaterfront.org/cruise/cruise-faqs" },
+      { icon: "💳", text: "Cash, debit or credit cards.", src: "https://www.lawaterfront.org/cruise/cruise-faqs" },
+      { icon: "📍", text: "Berth 93, 100 Swinford Street, San Pedro. Parking help: (949) 978-0665.", src: "https://www.lawaterfront.org/cruise/cruise-faqs" },
+    ] },
+  boston: { name: "Flynn Cruiseport Boston", place: "Boston, MA", verified: "2026-10-05", keys: ["boston", "flynn"],
+    sources: { "Massport parking": "https://www.massport.com/flynn-cruiseport/to-from-flynn-cruiseport/parking-directions" },
+    facts: [
+      { icon: "📅", text: "Cruise parking is at 93 Fargo Street and MUST be booked online before you arrive.", src: "https://www.massport.com/flynn-cruiseport/to-from-flynn-cruiseport/parking-directions" },
+      { icon: "🚌", text: "A free shuttle runs to the terminal every 10–15 minutes (wheelchair + scooter friendly) — or it's about a 10-minute walk.", src: "https://www.massport.com/flynn-cruiseport/to-from-flynn-cruiseport/parking-directions" },
+    ] },
+  "san diego": { name: "Port of San Diego", place: "San Diego, CA", verified: "2026-10-05", keys: ["san diego"],
+    sources: { "Port of San Diego": "https://www.portofsandiego.org/coming-and-going/parking/long-term-cruise-parking" },
+    facts: [
+      { icon: "🚫", text: "NO long-term parking at the cruise terminals — the port doesn't run cruise parking. Book an off-site lot (the port lists Ace, ABM, Park Shuttle & Fly, the airport and Aladdin).", src: "https://www.portofsandiego.org/coming-and-going/parking/long-term-cruise-parking" },
+      { icon: "🚗", text: "Drop-off and pick-up areas are right at the terminals.", src: "https://www.portofsandiego.org/coming-and-going/parking/long-term-cruise-parking" },
+      { icon: "📞", text: "Port parking questions: 619-686-6464 (weekdays 8–5).", src: "https://www.portofsandiego.org/coming-and-going/parking/long-term-cruise-parking" },
+    ] },
 };
 const homePort = name => { const n = String(name || "").toLowerCase(); return Object.values(HOME_PORTS).find(g => g.keys.some(k => n.includes(k))) || null; };
 function homePortHtml(tr, open) {
