@@ -1,6 +1,12 @@
 {
- "version": "0.90",
+ "version": "0.92",
  "notes": {
+  "0.92": [
+   "🚢 Island Princess — every Princess ship now has its guide (17 ships), from princess.com."
+  ],
+  "0.91": [
+   "🚢 Sixteenth ship guide: Coral Princess — the Universe Lounge, the Conservatory, every deck, from princess.com."
+  ],
   "0.90": [
    "🚢 Fifteenth ship guide: Sapphire Princess — Churrascaria, Makoto Ocean, the Conservatory, every deck, from princess.com."
   ],

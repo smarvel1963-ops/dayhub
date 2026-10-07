@@ -1009,6 +1009,126 @@ const SHIP_GUIDES = {
       { cat: "service", name: "Photo Gallery", deck: "7", cost: null },
     ],
   },
+  "coral princess": {
+    name: "Coral Princess", line: "Princess", verified: "2026-10-07",
+    sources: {
+      ship: "https://www.princess.com/ships-and-experience/ships/co-coral-princess",
+      decks: "https://gb-www.princess.com/html/global/book/ships/deck-plans/co-accessible-route-text.html",
+    },
+    // built: null - the ship page gives no build or inaugural year, so the guide shows none. A deck shows only
+    // when both pages name the venue (the deck page calls the buffet "Horizon Court" and the Piazza "Atrium").
+    facts: { guests: 2000, crew: 895, tonnage: 91627, lengthFt: 965, decks: 16, built: null },
+    venues: [
+      // ---- eat (princess.com "Included" / specialty); deck null = the deck page doesn't name it
+      { cat: "eat", name: "Bordeaux Dining Room", deck: "5", cost: "included", note: "Main dining room" },
+      { cat: "eat", name: "Provence Dining Room", deck: "6", cost: "included", note: "Main dining room" },
+      { cat: "eat", name: "International Café", deck: "6", cost: "included" },
+      { cat: "eat", name: "World Fresh Marketplace", deck: null, cost: "included", note: "Buffet" },
+      { cat: "eat", name: "Princess Pizzeria", deck: "14", cost: "included" },
+      { cat: "eat", name: "The Bar & Grill", deck: null, cost: "included" },
+      { cat: "eat", name: "Swirls Ice Cream Bar", deck: "14", cost: "included" },
+      { cat: "eat", name: "Afternoon Tea", deck: null, cost: "included" },
+      { cat: "eat", name: "OceanNow® delivery", deck: null, cost: "included", note: "Order in the app, brought to you" },
+      { cat: "eat", name: "Crown Grill", deck: "7", cost: "extra", note: "Steakhouse" },
+      { cat: "eat", name: "Sabatini's Italian Trattoria", deck: "7", cost: "extra" },
+      { cat: "eat", name: "Chef's Table Experience", deck: null, cost: "extra" },
+      { cat: "eat", name: "Crab Shack", deck: null, cost: "extra", note: "Pop-up seafood" },
+      { cat: "eat", name: "Ultimate Balcony Dining", deck: null, cost: "extra", note: "On your balcony" },
+      // ---- drink
+      { cat: "drink", name: "Good Spirits® At Sea", deck: "5", cost: null },
+      { cat: "drink", name: "Crooners", deck: "7", cost: null },
+      { cat: "drink", name: "Wheelhouse Bar", deck: "7", cost: null },
+      { cat: "drink", name: "Explorer's Lounge", deck: "6", cost: null },
+      { cat: "drink", name: "Lido Bar · Lotus Bar", deck: "14", cost: null, note: "Pool bars" },
+      { cat: "drink", name: "Vines", deck: null, cost: null, note: "Wine bar" },
+      // ---- shows & fun
+      { cat: "fun", name: "Princess Theater", deck: "6 · 7", cost: null },
+      { cat: "fun", name: "Universe Lounge", deck: "6 · 7", cost: null },
+      { cat: "fun", name: "Casino", deck: "6", cost: null, note: "Vegas-style" },
+      { cat: "fun", name: "The Piazza", deck: null, cost: null },
+      { cat: "fun", name: "Movies Under the Stars®", deck: "15", cost: null },
+      { cat: "fun", name: "Fine Arts Gallery", deck: "7", cost: null },
+      { cat: "fun", name: "The Library · The Card Room", deck: "8", cost: null },
+      // ---- pools
+      { cat: "pool", name: "Lido Pool", deck: "14", cost: null },
+      { cat: "pool", name: "Lotus Pool", deck: "14", cost: null },
+      { cat: "pool", name: "The Conservatory", deck: "15", cost: null, note: "Covered pool, hot tubs, bar, ping pong" },
+      { cat: "pool", name: "Splash Pool", deck: "16", cost: null },
+      // ---- spa & fitness
+      { cat: "spa", name: "Lotus Spa®", deck: "14", cost: null, note: "Massage, facials, salon" },
+      { cat: "spa", name: "Fitness Center", deck: "14", cost: null },
+      { cat: "spa", name: "The Sanctuary", deck: "12 · 14 · 15", cost: null, note: "Adults-only retreat" },
+      // ---- kids
+      { cat: "kids", name: "Youth Center", deck: "12", cost: null, note: "Kids 3-7, 8-12 and teens 13-17" },
+      // ---- services
+      { cat: "service", name: "Guest Services", deck: "5", cost: null },
+      { cat: "service", name: "Shore Excursions", deck: "5", cost: null },
+      { cat: "service", name: "Medical Center", deck: "4", cost: null },
+      { cat: "service", name: "The Shops of Princess", deck: "6", cost: null },
+      { cat: "service", name: "Photo Gallery", deck: "6", cost: null },
+      { cat: "service", name: "Wedding Chapel", deck: "7", cost: null },
+    ],
+  },
+  "island princess": {
+    name: "Island Princess", line: "Princess", verified: "2026-10-07",
+    sources: {
+      ship: "https://www.princess.com/ships-and-experience/ships/ip-island-princess",
+      decks: "https://gb-www.princess.com/html/global/book/ships/deck-plans/ip-accessible-route-text.html",
+    },
+    // Coral Princess's sister. built: null - the ship page gives no build or inaugural year. A deck shows only
+    // when both pages name the venue (the deck page calls the buffet "Horizon Court", the Piazza "Princess Plaza").
+    facts: { guests: 2200, crew: 900, tonnage: 92822, lengthFt: 964, decks: 16, built: null },
+    venues: [
+      // ---- eat (princess.com "Included" / specialty); deck null = the deck page doesn't name it
+      { cat: "eat", name: "Bordeaux Dining Room", deck: "5", cost: "included", note: "Main dining room" },
+      { cat: "eat", name: "Provence Dining Room", deck: "6", cost: "included", note: "Main dining room" },
+      { cat: "eat", name: "World Fresh Marketplace", deck: null, cost: "included", note: "Buffet" },
+      { cat: "eat", name: "La Patisserie", deck: null, cost: "included", note: "Coffee + pastries" },
+      { cat: "eat", name: "Princess Pizzeria", deck: "14", cost: "included", note: "Poolside" },
+      { cat: "eat", name: "The Bar & Grill", deck: null, cost: "included", note: "Burgers, hot dogs" },
+      { cat: "eat", name: "Swirls Ice Cream Bar", deck: "14", cost: "included" },
+      { cat: "eat", name: "Afternoon Tea", deck: null, cost: "included" },
+      { cat: "eat", name: "OceanNow® delivery", deck: null, cost: "included", note: "Order poolside in the app" },
+      { cat: "eat", name: "Crown Grill", deck: "7", cost: "extra", note: "Steakhouse" },
+      { cat: "eat", name: "Sabatini's Italian Trattoria", deck: "7", cost: "extra" },
+      { cat: "eat", name: "Chef's Table Experience", deck: null, cost: "extra" },
+      { cat: "eat", name: "Crab Shack", deck: null, cost: "extra", note: "Pop-up seafood" },
+      { cat: "eat", name: "Ultimate Balcony Dining", deck: null, cost: "extra", note: "On your balcony" },
+      // ---- drink
+      { cat: "drink", name: "Good Spirits® At Sea", deck: "5", cost: null, note: "Craft cocktails" },
+      { cat: "drink", name: "Crooners Bar", deck: "7", cost: null, note: "Martinis, classic drinks" },
+      { cat: "drink", name: "Wheelhouse Bar", deck: "7", cost: null },
+      { cat: "drink", name: "Explorer's Lounge", deck: "6", cost: null },
+      { cat: "drink", name: "Lido Bar · Lotus Bar", deck: "14", cost: null, note: "Pool bars" },
+      // ---- shows & fun
+      { cat: "fun", name: "Princess Theater", deck: "6 · 7", cost: null, note: "Musicals and shows" },
+      { cat: "fun", name: "Casino", deck: "6", cost: null, note: "Vegas-style" },
+      { cat: "fun", name: "The Piazza", deck: null, cost: null },
+      { cat: "fun", name: "Movies Under the Stars®", deck: "15", cost: null, note: "Poolside" },
+      { cat: "fun", name: "Fine Arts Gallery", deck: "7", cost: null },
+      { cat: "fun", name: "The Library", deck: "8", cost: null },
+      // ---- pools
+      { cat: "pool", name: "Lido Pool", deck: "14", cost: null },
+      { cat: "pool", name: "Lotus Pool", deck: "14", cost: null },
+      { cat: "pool", name: "The Conservatory", deck: "15", cost: null, note: "Pool, hot tubs, ping pong" },
+      { cat: "pool", name: "Splash Pool", deck: "16", cost: null },
+      // ---- spa & fitness
+      { cat: "spa", name: "Lotus Spa®", deck: "14", cost: null, note: "Facials, massages, salon" },
+      { cat: "spa", name: "Beauty Salon", deck: "14", cost: null },
+      { cat: "spa", name: "Fitness Center", deck: "6", cost: null, note: "Yoga, Pilates, boot camp, TRX" },
+      { cat: "spa", name: "The Sanctuary", deck: "14 · 15", cost: null, note: "Adults-only" },
+      // ---- kids
+      { cat: "kids", name: "Princess Youth and Teen Club", deck: "12", cost: null, note: "Kids 3-7, 8-12 and teens 13-17" },
+      { cat: "kids", name: "Beach House Teen Lounge", deck: "14", cost: null, note: "Teens 13-17" },
+      // ---- services
+      { cat: "service", name: "Guest Services", deck: "5", cost: null },
+      { cat: "service", name: "Shore Excursions", deck: "8", cost: null },
+      { cat: "service", name: "Medical Center", deck: "4", cost: null },
+      { cat: "service", name: "The Shops of Princess", deck: "6", cost: null },
+      { cat: "service", name: "Photo Gallery", deck: "6", cost: null },
+      { cat: "service", name: "Wedding Chapel", deck: "7", cost: null },
+    ],
+  },
 };
 const SHIP_CATS = [["eat", "🍽️", "Eat"], ["drink", "🍹", "Drink"], ["fun", "🎭", "Shows & fun"], ["pool", "🏊", "Pools"], ["spa", "💆", "Spa & fitness"],
   ["kids", "🧒", "Kids"], ["service", "🛎️", "Services"], ["free", "✅", "What's included"]];
