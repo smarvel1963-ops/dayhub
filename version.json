@@ -1,6 +1,9 @@
 {
- "version": "0.85",
+ "version": "0.86",
  "notes": {
+  "0.86": [
+   "🚢 Eleventh ship guide: Star Princess — Princess's newest: the Dome, the Arena, the biggest casino in the fleet, from princess.com's fact sheet."
+  ],
   "0.85": [
    "🫧 New home layout for every hub: the clock up top, \"What's going on\" in the middle, and one-tap action bubbles at the bottom."
   ],

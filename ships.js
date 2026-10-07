@@ -688,6 +688,72 @@ const SHIP_GUIDES = {
       { cat: "service", name: "The Shops of Princess", deck: "8", cost: null, note: "Breitling, Fine Timepieces, Beauty & Wellness boutiques" },
     ],
   },
+  "star princess": {
+    name: "Star Princess", line: "Princess", verified: "2026-10-06",
+    sources: {
+      ship: "https://www.princess.com/ships-and-experience/ships/st-star-princess",
+      decks: "https://www.princess.com/news/backgrounders-and-fact-sheets/star-princess-fact-sheet",
+    },
+    // Sun Princess's sister - same source plan: no accessible-route page, so facts + the few decks come from
+    // princess.com's fact sheet. built = inaugural voyage (the sheet: "October 4, 2025 ... from Barcelona").
+    facts: { guests: 4300, crew: 1600, tonnage: 177800, lengthFt: 1133, decks: 21, built: 2025 },
+    venues: [
+      // ---- eat (ship page "Complimentary" / specialty); deck null = neither page names it
+      { cat: "eat", name: "Aurora Dining Room", deck: "6", cost: "included", note: "Main dining room — traditional dining" },
+      { cat: "eat", name: "Celestial Dining Room", deck: "7", cost: "included", note: "Main dining room — anytime dining" },
+      { cat: "eat", name: "Americana Diner", deck: "9", cost: "included", note: "Classic American favorites" },
+      { cat: "eat", name: "The Eatery", deck: null, cost: "included", note: "Regional specialties, comfort food" },
+      { cat: "eat", name: "Lido Greens · Grill · Slice · Tacos", deck: null, cost: "included" },
+      { cat: "eat", name: "The Promenade", deck: null, cost: "included", note: "Grill, ice cream, pizza slices" },
+      { cat: "eat", name: "Coffee & Cones", deck: null, cost: "included", note: "Ice cream + specialty coffee" },
+      { cat: "eat", name: "International Café", deck: null, cost: "included", note: "Open 24 hours" },
+      { cat: "eat", name: "Crown Grill", deck: null, cost: "extra", note: "Steakhouse, aged hand-cut steaks" },
+      { cat: "eat", name: "Sabatini's Italian Trattoria", deck: null, cost: "extra", note: "Handmade pasta" },
+      { cat: "eat", name: "The Catch by Rudi", deck: null, cost: "extra", note: "Seafood" },
+      { cat: "eat", name: "The Butcher's Block by Dario", deck: null, cost: "extra", note: "Premium beef" },
+      { cat: "eat", name: "Umai Teppanyaki", deck: null, cost: "extra" },
+      { cat: "eat", name: "Umai Hot Pot", deck: null, cost: "extra", note: "Japanese hot pot" },
+      { cat: "eat", name: "Makoto Ocean", deck: null, cost: "extra", note: "Chef Makoto Okuwa's Japanese dishes" },
+      { cat: "eat", name: "Love by Britto", deck: null, cost: "extra", note: "Romero Britto's art, Rudi Sodamin's menu" },
+      { cat: "eat", name: "Alfredo's Pizzeria", deck: null, cost: "extra" },
+      { cat: "eat", name: "O'Malley's Irish Pub", deck: null, cost: "extra" },
+      { cat: "eat", name: "Room service", deck: null, cost: null, note: "24 hours" },
+      // ---- drink
+      { cat: "drink", name: "Spellbound by Magic Castle™", deck: null, cost: null, note: "Magic + mixology" },
+      { cat: "drink", name: "Crooners", deck: null, cost: null },
+      { cat: "drink", name: "Bellini's Cocktail Bar", deck: null, cost: null },
+      { cat: "drink", name: "Wheelhouse Bar", deck: null, cost: null },
+      { cat: "drink", name: "Good Spirits® At Sea", deck: null, cost: null },
+      { cat: "drink", name: "The MIX · Star Bar · Lido Bar · Sea View Bar · Cascade Bar", deck: null, cost: null },
+      { cat: "drink", name: "Coffee Currents", deck: null, cost: null },
+      // ---- shows & fun
+      { cat: "fun", name: "Princess Arena", deck: null, cost: null, note: "Theater that changes shape for each production" },
+      { cat: "fun", name: "The Dome", deck: null, cost: null, note: "Glass-enclosed indoor/outdoor venue" },
+      { cat: "fun", name: "The Piazza", deck: null, cost: null, note: "Inside the glass sphere" },
+      { cat: "fun", name: "Princess Live!", deck: null, cost: null },
+      { cat: "fun", name: "Princess Casino", deck: null, cost: null, note: "Princess's largest casino, expanded non-smoking area" },
+      { cat: "fun", name: "Movies Under the Stars®", deck: null, cost: null },
+      { cat: "fun", name: "SkyDeck Sports Court & Track", deck: null, cost: null },
+      // ---- pools
+      { cat: "pool", name: "Lido Deck Pools (2)", deck: null, cost: null },
+      { cat: "pool", name: "Dome Pool", deck: null, cost: null, note: "Indoor/outdoor" },
+      { cat: "pool", name: "Wake View Pool", deck: null, cost: null },
+      { cat: "pool", name: "Sanctuary Pool", deck: null, cost: null, note: "Sanctuary Collection guests" },
+      { cat: "pool", name: "Splash Pad", deck: null, cost: null },
+      // ---- spa & fitness
+      { cat: "spa", name: "Lotus Spa®", deck: null, cost: null },
+      { cat: "spa", name: "Lotus Salon", deck: null, cost: null },
+      { cat: "spa", name: "Fitness Center · Fitness Studio · Wellness Studio", deck: null, cost: null },
+      { cat: "spa", name: "The Sanctuary Club", deck: null, cost: null, note: "Sanctuary Collection guests" },
+      // ---- kids
+      { cat: "kids", name: "Firefly Park Kids Club", deck: null, cost: null, note: "Kids 3-7" },
+      { cat: "kids", name: "Neon Grove Tweens Club", deck: null, cost: null, note: "Kids 8-12" },
+      { cat: "kids", name: "The Underground Teen Lounge", deck: null, cost: null, note: "Teens 13-17" },
+      // ---- services
+      { cat: "service", name: "The Shops of Princess", deck: "8", cost: null, note: "Breitling, Fine Timepieces, Beauty & Wellness boutiques" },
+      { cat: "service", name: "Effy Boutique", deck: null, cost: null },
+    ],
+  },
 };
 const SHIP_CATS = [["eat", "🍽️", "Eat"], ["drink", "🍹", "Drink"], ["fun", "🎭", "Shows & fun"], ["pool", "🏊", "Pools"], ["spa", "💆", "Spa & fitness"],
   ["kids", "🧒", "Kids"], ["service", "🛎️", "Services"], ["free", "✅", "What's included"]];

@@ -2209,7 +2209,7 @@ def t_v076_emerald(b, base):
     g = a.js("shipGuideHtml({ ship: 'Emerald Princess' })")
     check("Emerald: 3,080 guests, built 2007, buffet", "3,080 guests" in g and "built 2007" in g)
     check("Emerald: Sabatini's is extra cost on deck 16", a.js("shipGuide('Emerald Princess').venues.some(v => v.name.startsWith('Sabatini') && v.cost === 'extra' && v.deck === '16')"))
-    check("unknown ship lists the ships we have", "Emerald Princess" in a.js("shipGuideHtml({ ship: 'Star Princess' })"))
+    check("unknown ship lists the ships we have", "Emerald Princess" in a.js("shipGuideHtml({ ship: 'Grand Princess' })"))
     check("2+ ships, every venue has a category", a.js("Object.keys(SHIP_GUIDES).length") >= 2 and a.js("Object.values(SHIP_GUIDES).every(g => g.venues.every(v => SHIP_CATS.some(c => c[0] === v.cat)))"))
     a.close()
 
@@ -2301,7 +2301,7 @@ def t_v084_sun(b, base):
     check("older ships still show their year", "built 2014" in a.js("shipGuideHtml({ ship: 'Regal Princess' })"))
     by = {x["name"]: x for x in a.js("shipGuide('Sun Princess').venues")}
     check("Soleil deck 6, Crown Grill extra with no guessed deck", by["Soleil Dining Room"]["deck"] == "6" and by["Crown Grill"]["cost"] == "extra" and by["Crown Grill"]["deck"] is None)
-    check("10 ships", a.js("Object.keys(SHIP_GUIDES).length") == 10)
+    check("10+ ships", a.js("Object.keys(SHIP_GUIDES).length") >= 10)
     a.close()
 
 
@@ -2335,6 +2335,17 @@ def t_v085_home_layout(b, base):
     a.close()
 
 
+def t_v086_star(b, base):
+    print("\n[v0.86 ship guide: Star Princess]")
+    a = App(b, base, path=CRUISE)
+    g = a.js("shipGuideHtml({ ship: 'Star Princess' })")
+    check("Star Princess: 4,300 guests, 21 decks, built 2025", "4,300 guests" in g and "21 decks" in g and "built 2025" in g)
+    by = {x["name"]: x for x in a.js("shipGuide('Star Princess').venues")}
+    check("Aurora deck 6, Americana Diner deck 9, Umai Hot Pot extra", by["Aurora Dining Room"]["deck"] == "6" and by["Americana Diner"]["deck"] == "9" and by["Umai Hot Pot"]["cost"] == "extra")
+    check("11 ships", a.js("Object.keys(SHIP_GUIDES).length") == 11)
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -2363,7 +2374,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star):
             try:
                 t(b, base)
             except Exception as e:
