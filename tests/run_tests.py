@@ -2278,7 +2278,18 @@ def t_v082_enchanted(b, base):
     check("Enchanted Princess: 3,660 guests, built 2021", "3,660 guests" in g and "built 2021" in g)
     by = {x["name"]: x for x in a.js("shipGuide('Enchanted Princess').venues")}
     check("360 deck 5 extra, Gigi's no guessed deck", by["360: An Extraordinary Experience"]["deck"] == "5" and by["360: An Extraordinary Experience"]["cost"] == "extra" and by["Gigi's Pizzeria by Alfredo"]["deck"] is None)
-    check("8 ships", a.js("Object.keys(SHIP_GUIDES).length") == 8)
+    check("8+ ships", a.js("Object.keys(SHIP_GUIDES).length") >= 8)
+    a.close()
+
+
+def t_v083_discovery(b, base):
+    print("\n[v0.83 ship guide: Discovery Princess]")
+    a = App(b, base, path=CRUISE)
+    g = a.js("shipGuideHtml({ ship: 'Discovery Princess' })")
+    check("Discovery Princess: 3,660 guests, built 2022", "3,660 guests" in g and "built 2022" in g)
+    by = {x["name"]: x for x in a.js("shipGuide('Discovery Princess').venues")}
+    check("Bellini's deck 7, Gigi's no guessed deck", by["Bellini's"]["deck"] == "7" and by["Gigi's Pizzeria by Alfredo"]["deck"] is None)
+    check("9 ships", a.js("Object.keys(SHIP_GUIDES).length") == 9)
     a.close()
 
 
@@ -2310,7 +2321,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery):
             try:
                 t(b, base)
             except Exception as e:
