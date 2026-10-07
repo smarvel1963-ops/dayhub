@@ -883,6 +883,68 @@ const SHIP_GUIDES = {
       { cat: "service", name: "Wedding Chapel", deck: "16", cost: null },
     ],
   },
+  "diamond princess": {
+    name: "Diamond Princess", line: "Princess", verified: "2026-10-06",
+    sources: {
+      ship: "https://www.princess.com/ships-and-experience/ships/di-diamond-princess",
+      decks: "https://gb-www.princess.com/html/global/book/ships/deck-plans/di-accessible-route-text.html",
+    },
+    // built = inaugural cruise (March 13, 2004). The deck page is an old one (Sterling Steakhouse, Kai Sushi,
+    // Horizon Court) - same rule as Majestic: a deck shows only when both pages name the venue.
+    facts: { guests: 2706, crew: 1100, tonnage: 115875, lengthFt: 952, decks: 18, built: 2004 },
+    venues: [
+      // ---- eat (princess.com "Included" / specialty); deck null = the deck page doesn't name it
+      { cat: "eat", name: "Main Dining Room", deck: "6", cost: "included" },
+      { cat: "eat", name: "World Fresh Marketplace", deck: null, cost: "included", note: "Buffet" },
+      { cat: "eat", name: "Prego Pizzeria", deck: "14", cost: "included" },
+      { cat: "eat", name: "Trident Grill", deck: "14", cost: "included" },
+      { cat: "eat", name: "Swirls Ice Cream Bar", deck: "14", cost: "included" },
+      { cat: "eat", name: "International Café", deck: null, cost: "included", note: "In the Piazza" },
+      { cat: "eat", name: "La Patisserie", deck: null, cost: "included" },
+      { cat: "eat", name: "Afternoon Tea", deck: null, cost: "included" },
+      { cat: "eat", name: "OceanNow® delivery", deck: null, cost: "included", note: "Order in the app, brought to you" },
+      { cat: "eat", name: "Sabatini's Italian Trattoria", deck: "7", cost: "extra" },
+      { cat: "eat", name: "Churrascaria Brazilian Grill", deck: null, cost: "extra" },
+      { cat: "eat", name: "Makoto Ocean", deck: null, cost: "extra" },
+      { cat: "eat", name: "Chef's Table Experience", deck: null, cost: "extra" },
+      { cat: "eat", name: "Crab Shack", deck: null, cost: "extra", note: "Pop-up seafood" },
+      { cat: "eat", name: "Reserve Collection Dining", deck: null, cost: "extra" },
+      { cat: "eat", name: "Ultimate Balcony Dining", deck: null, cost: "extra", note: "On your balcony" },
+      // ---- drink
+      { cat: "drink", name: "Vines Wine Bar", deck: null, cost: null, note: "In the Piazza" },
+      { cat: "drink", name: "Crooners", deck: "7", cost: null },
+      { cat: "drink", name: "Wheelhouse Bar", deck: "7", cost: null },
+      { cat: "drink", name: "Explorers Lounge", deck: "7", cost: null },
+      { cat: "drink", name: "Calypso Bar", deck: "14", cost: null, note: "Pool bar" },
+      { cat: "drink", name: "Good Spirits® At Sea", deck: null, cost: null },
+      // ---- shows & fun
+      { cat: "fun", name: "Princess Theater", deck: "6 · 7", cost: null },
+      { cat: "fun", name: "Casino", deck: "6", cost: null, note: "Vegas-style" },
+      { cat: "fun", name: "The Piazza", deck: null, cost: null, note: "Street performers" },
+      { cat: "fun", name: "Club Fusion", deck: null, cost: null },
+      { cat: "fun", name: "Skywalkers Nightclub", deck: "17", cost: null },
+      { cat: "fun", name: "Movies Under the Stars®", deck: "15", cost: null },
+      { cat: "fun", name: "Fine Arts Gallery", deck: null, cost: null },
+      // ---- pools
+      { cat: "pool", name: "Neptune's Reef & Pool", deck: "14", cost: null },
+      { cat: "pool", name: "Calypso Reef & Pool", deck: "14", cost: null },
+      { cat: "pool", name: "The Conservatory", deck: "15", cost: null, note: "Covered pool, hot tubs, ping pong" },
+      // ---- spa & fitness
+      { cat: "spa", name: "Izumi Japanese Bath", deck: "15", cost: null, note: "Largest Japanese bath at sea — only on Diamond" },
+      { cat: "spa", name: "Lotus Spa®", deck: "15", cost: null, note: "Massages, facials, thermal suite" },
+      { cat: "spa", name: "Beauty Salon", deck: "15", cost: null },
+      { cat: "spa", name: "Fitness Center", deck: "15", cost: null },
+      { cat: "spa", name: "The Sanctuary", deck: null, cost: null, note: "Adults-only retreat" },
+      // ---- kids
+      { cat: "kids", name: "Youth Center", deck: "15", cost: null, note: "Kids 3-7 and 8-12" },
+      { cat: "kids", name: "Teen Lounge", deck: "15", cost: null, note: "Teens 13-17" },
+      // ---- services
+      { cat: "service", name: "Guest Services", deck: "6", cost: null },
+      { cat: "service", name: "Medical Center", deck: "4", cost: null },
+      { cat: "service", name: "Photo Gallery", deck: "7", cost: null },
+      { cat: "service", name: "Wedding Chapel", deck: "6", cost: null },
+    ],
+  },
 };
 const SHIP_CATS = [["eat", "🍽️", "Eat"], ["drink", "🍹", "Drink"], ["fun", "🎭", "Shows & fun"], ["pool", "🏊", "Pools"], ["spa", "💆", "Spa & fitness"],
   ["kids", "🧒", "Kids"], ["service", "🛎️", "Services"], ["free", "✅", "What's included"]];
