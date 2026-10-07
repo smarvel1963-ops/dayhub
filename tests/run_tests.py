@@ -2353,7 +2353,18 @@ def t_v087_grand(b, base):
     check("Grand Princess: 2,600 guests, 17 decks, built 1998", "2,600 guests" in g and "17 decks" in g and "built 1998" in g)
     by = {x["name"]: x for x in a.js("shipGuide('Grand Princess').venues")}
     check("Conservatory deck 15, buffet has no guessed deck", by["The Conservatory"]["deck"] == "15" and by["World Fresh Marketplace"]["deck"] is None)
-    check("12 ships", a.js("Object.keys(SHIP_GUIDES).length") == 12)
+    check("12+ ships", a.js("Object.keys(SHIP_GUIDES).length") >= 12)
+    a.close()
+
+
+def t_v088_crown(b, base):
+    print("\n[v0.88 ship guide: Crown Princess]")
+    a = App(b, base, path=CRUISE)
+    g = a.js("shipGuideHtml({ ship: 'Crown Princess' })")
+    check("Crown Princess: 3,080 guests, 19 decks, built 2006", "3,080 guests" in g and "19 decks" in g and "built 2006" in g)
+    by = {x["name"]: x for x in a.js("shipGuide('Crown Princess').venues")}
+    check("Skywalkers deck 18, Gastropub extra with no guessed deck", by["Skywalkers Nightclub"]["deck"] == "18" and by["The Salty Dog Gastropub"]["cost"] == "extra" and by["The Salty Dog Gastropub"]["deck"] is None)
+    check("13 ships", a.js("Object.keys(SHIP_GUIDES).length") == 13)
     a.close()
 
 
@@ -2385,7 +2396,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown):
             try:
                 t(b, base)
             except Exception as e:

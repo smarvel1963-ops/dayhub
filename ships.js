@@ -818,6 +818,71 @@ const SHIP_GUIDES = {
       { cat: "service", name: "Wedding Chapel", deck: "15", cost: null },
     ],
   },
+  "crown princess": {
+    name: "Crown Princess", line: "Princess", verified: "2026-10-06",
+    sources: {
+      ship: "https://www.princess.com/ships-and-experience/ships/kp-crown-princess",
+      decks: "https://gb-www.princess.com/html/global/book/ships/deck-plans/kp-accessible-route-text.html",
+    },
+    // built = inaugural cruise (June 14, 2006). Same deck rule as Majestic: a deck shows only when both pages
+    // name the venue. The deck page still calls the buffet "Horizon Court" and lists no Salty Dog Gastropub.
+    facts: { guests: 3080, crew: 1200, tonnage: 113561, lengthFt: 952, decks: 19, built: 2006 },
+    venues: [
+      // ---- eat (princess.com "Included" / specialty); deck null = the deck page doesn't name it
+      { cat: "eat", name: "Michelangelo Dining Room", deck: "5", cost: "included", note: "Main dining room" },
+      { cat: "eat", name: "Da Vinci Dining Room", deck: "6", cost: "included", note: "Main dining room" },
+      { cat: "eat", name: "Botticelli Dining Room", deck: "6", cost: "included", note: "Main dining room" },
+      { cat: "eat", name: "International Café", deck: "5", cost: "included", note: "Open 24 hours a day" },
+      { cat: "eat", name: "World Fresh Marketplace", deck: null, cost: "included", note: "Buffet" },
+      { cat: "eat", name: "Slice Pizzeria", deck: "15", cost: "included", note: "Neapolitan-style pizza" },
+      { cat: "eat", name: "The Salty Dog Grill", deck: "15", cost: "included", note: "Handmade burgers, top deck" },
+      { cat: "eat", name: "Coffee & Cones", deck: "15", cost: "included", note: "Ice cream + espresso" },
+      { cat: "eat", name: "Afternoon Tea", deck: null, cost: "included" },
+      { cat: "eat", name: "OceanNow® delivery", deck: null, cost: "included", note: "Order in the app, brought to you" },
+      { cat: "eat", name: "Crown Grill", deck: "7", cost: "extra", note: "Premium steakhouse" },
+      { cat: "eat", name: "Sabatini's Italian Trattoria", deck: "16", cost: "extra" },
+      { cat: "eat", name: "The Salty Dog Gastropub", deck: null, cost: "extra", note: "Burgers + pub fare, live music" },
+      { cat: "eat", name: "Chef's Table", deck: null, cost: "extra", note: "Hosted by the executive chef" },
+      { cat: "eat", name: "Crab Shack", deck: null, cost: "extra", note: "Pop-up seafood" },
+      { cat: "eat", name: "Ultimate Balcony Dining", deck: null, cost: "extra", note: "On your balcony" },
+      // ---- drink
+      { cat: "drink", name: "Vines Wine Bar", deck: "5", cost: null, note: "One of USA TODAY's Best Wine Bars at Sea" },
+      { cat: "drink", name: "Crooners", deck: "7", cost: null, note: "Sinatra-era martinis" },
+      { cat: "drink", name: "Wheelhouse Bar", deck: "7", cost: null },
+      { cat: "drink", name: "Explorers Lounge", deck: "7", cost: null },
+      { cat: "drink", name: "Calypso Bar", deck: "15", cost: null, note: "Pool bar" },
+      { cat: "drink", name: "Good Spirits® At Sea", deck: null, cost: null, note: "Cocktail experiences" },
+      // ---- shows & fun
+      { cat: "fun", name: "Princess Theater", deck: "6 · 7", cost: null, note: "Original productions" },
+      { cat: "fun", name: "Casino", deck: "6", cost: null, note: "Vegas-style" },
+      { cat: "fun", name: "The Piazza", deck: "5", cost: null, note: "Street performers, shops" },
+      { cat: "fun", name: "Club Fusion", deck: "7", cost: null, note: "Karaoke, live shows, theme parties" },
+      { cat: "fun", name: "Skywalkers Nightclub", deck: "18", cost: null, note: "Panoramic views, 15 decks above the sea" },
+      { cat: "fun", name: "Movies Under the Stars®", deck: "16", cost: null, note: "Poolside, films + sports" },
+      { cat: "fun", name: "Fine Arts Gallery", deck: "5", cost: null, note: "Art, lectures, Champagne auctions" },
+      { cat: "fun", name: "Library", deck: "7", cost: null },
+      // ---- pools
+      { cat: "pool", name: "Neptune's Reef & Pool", deck: "15", cost: null },
+      { cat: "pool", name: "Calypso Reef & Pool", deck: "15", cost: null },
+      { cat: "pool", name: "Terrace Pool", deck: "14", cost: null },
+      // ---- spa & fitness
+      { cat: "spa", name: "Lotus Spa®", deck: "15 · 16", cost: null },
+      { cat: "spa", name: "Beauty Salon", deck: "16", cost: null },
+      { cat: "spa", name: "Fitness Center", deck: "16", cost: null, note: "Cycling, Pilates, yoga" },
+      { cat: "spa", name: "The Sanctuary", deck: "17", cost: null, note: "Adults-only retreat" },
+      // ---- kids
+      { cat: "kids", name: "Youth Center", deck: "17", cost: null, note: "Kids 3-7 and 8-12" },
+      { cat: "kids", name: "Teen Center", deck: "17", cost: null, note: "Teens 13-17" },
+      // ---- services
+      { cat: "service", name: "Guest Services", deck: "6", cost: null },
+      { cat: "service", name: "Shore Excursions", deck: "6", cost: null },
+      { cat: "service", name: "Medical Center", deck: "4", cost: null },
+      { cat: "service", name: "Captain's Circle", deck: "7", cost: null },
+      { cat: "service", name: "The Shops of Princess", deck: "6 · 7", cost: null },
+      { cat: "service", name: "Photo Gallery", deck: "7", cost: null },
+      { cat: "service", name: "Wedding Chapel", deck: "16", cost: null },
+    ],
+  },
 };
 const SHIP_CATS = [["eat", "🍽️", "Eat"], ["drink", "🍹", "Drink"], ["fun", "🎭", "Shows & fun"], ["pool", "🏊", "Pools"], ["spa", "💆", "Spa & fitness"],
   ["kids", "🧒", "Kids"], ["service", "🛎️", "Services"], ["free", "✅", "What's included"]];
