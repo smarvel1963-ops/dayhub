@@ -622,6 +622,72 @@ const SHIP_GUIDES = {
       { cat: "service", name: "Photo & Video Gallery", deck: "6", cost: null },
     ],
   },
+  "sun princess": {
+    name: "Sun Princess", line: "Princess", verified: "2026-10-06",
+    sources: {
+      ship: "https://www.princess.com/ships-and-experience/ships/su-sun-princess",
+      decks: "https://www.princess.com/news/backgrounders-and-fact-sheets/sun-princess-fact-sheet",
+    },
+    // Sun Princess has no accessible-route deck page yet ("coming soon"), so the facts and the few deck numbers
+    // come from princess.com's own fact sheet. built: null - neither page states a build or inaugural year
+    // (the sheet's Oct. 14, 2024 is the Sanctuary Collection debut), so the guide shows no year.
+    // Names follow the ship page where the two differ (Butcher's Block, not the sheet's Butcher's Table).
+    facts: { guests: 4300, crew: 1600, tonnage: 177882, lengthFt: 1133, decks: 21, built: null },
+    venues: [
+      // ---- eat (ship page "Complimentary" / specialty); deck null = neither page names it
+      { cat: "eat", name: "Soleil Dining Room", deck: "6", cost: "included", note: "Main dining room — traditional dining" },
+      { cat: "eat", name: "Eclipse Dining Room", deck: "7", cost: "included", note: "Main dining room — anytime dining" },
+      { cat: "eat", name: "Horizons Dining Room", deck: null, cost: "included", note: "Main dining room" },
+      { cat: "eat", name: "The Eatery", deck: null, cost: "included" },
+      { cat: "eat", name: "Americana Diner", deck: null, cost: "included" },
+      { cat: "eat", name: "The Lido", deck: null, cost: "included", note: "Grill, ice cream, pizza, tacos, coffee bar" },
+      { cat: "eat", name: "The Promenade", deck: null, cost: "included", note: "Grill, ice cream, pizza" },
+      { cat: "eat", name: "Coffee & Cones", deck: null, cost: "included", note: "Top deck" },
+      { cat: "eat", name: "International Café", deck: null, cost: "included" },
+      { cat: "eat", name: "Crown Grill", deck: null, cost: "extra" },
+      { cat: "eat", name: "Sabatini's Italian Trattoria", deck: null, cost: "extra" },
+      { cat: "eat", name: "The Catch by Rudi", deck: null, cost: "extra" },
+      { cat: "eat", name: "The Butcher's Block by Dario", deck: null, cost: "extra" },
+      { cat: "eat", name: "Umai Teppanyaki", deck: null, cost: "extra", note: "Interactive, cooked in front of you" },
+      { cat: "eat", name: "Umai Hot Pot", deck: null, cost: "extra" },
+      { cat: "eat", name: "Makoto Ocean", deck: null, cost: "extra", note: "Edomae-style sushi" },
+      { cat: "eat", name: "Love by Britto", deck: null, cost: "extra", note: "Dining with Romero Britto's art" },
+      { cat: "eat", name: "Alfredo's Pizzeria", deck: null, cost: "extra" },
+      { cat: "eat", name: "O'Malley's Irish Pub", deck: null, cost: "extra" },
+      { cat: "eat", name: "Room service", deck: null, cost: null, note: "24 hours — delivery fee, or included with the Premier package" },
+      // ---- drink
+      { cat: "drink", name: "Spellbound by Magic Castle", deck: null, cost: null, note: "Magic + mixology" },
+      { cat: "drink", name: "Crooners", deck: null, cost: null },
+      { cat: "drink", name: "Bellini's Cocktail Bar", deck: null, cost: null },
+      { cat: "drink", name: "Wheelhouse Bar", deck: null, cost: null },
+      { cat: "drink", name: "Good Spirits® At Sea", deck: null, cost: null, note: "Rob Floyd mixology bar" },
+      { cat: "drink", name: "The MIX · Sun Bar · Lido Bar · Sea View Bar · Cascade Bar", deck: null, cost: null },
+      { cat: "drink", name: "Coffee Currents", deck: null, cost: null },
+      // ---- shows & fun
+      { cat: "fun", name: "Princess Arena", deck: null, cost: null, note: "Theater that changes shape for each production" },
+      { cat: "fun", name: "The Dome", deck: null, cost: null, note: "Glass-enclosed, indoor/outdoor acrobatic shows" },
+      { cat: "fun", name: "The Piazza", deck: null, cost: null, note: "Central hub" },
+      { cat: "fun", name: "Princess Live!", deck: null, cost: null },
+      { cat: "fun", name: "Princess Casino", deck: null, cost: null },
+      { cat: "fun", name: "Movies Under the Stars®", deck: null, cost: null },
+      // ---- pools
+      { cat: "pool", name: "Lido Deck Pools (2)", deck: null, cost: null },
+      { cat: "pool", name: "Dome Pool", deck: null, cost: null, note: "Indoor/outdoor" },
+      { cat: "pool", name: "Wake View Pool", deck: null, cost: null, note: "Infinity pool on the Wake View Terrace" },
+      { cat: "pool", name: "Sanctuary Pool", deck: null, cost: null, note: "Sanctuary Collection guests" },
+      // ---- spa & fitness
+      { cat: "spa", name: "Lotus Spa®", deck: null, cost: null, note: "Two stories" },
+      { cat: "spa", name: "Lotus Salon", deck: null, cost: null },
+      { cat: "spa", name: "Fitness Center · Fitness Studio · Wellness Studio", deck: null, cost: null },
+      { cat: "spa", name: "The Sanctuary", deck: null, cost: null, note: "Top-deck retreat for Sanctuary Collection guests" },
+      // ---- kids
+      { cat: "kids", name: "Firefly Park Kids Club", deck: null, cost: null, note: "Kids 3-7" },
+      { cat: "kids", name: "Neon Grove Tweens Club", deck: null, cost: null, note: "Kids 8-12" },
+      { cat: "kids", name: "The Underground Teen Lounge", deck: null, cost: null, note: "Teens 13-17" },
+      // ---- services
+      { cat: "service", name: "The Shops of Princess", deck: "8", cost: null, note: "Breitling, Fine Timepieces, Beauty & Wellness boutiques" },
+    ],
+  },
 };
 const SHIP_CATS = [["eat", "🍽️", "Eat"], ["drink", "🍹", "Drink"], ["fun", "🎭", "Shows & fun"], ["pool", "🏊", "Pools"], ["spa", "💆", "Spa & fitness"],
   ["kids", "🧒", "Kids"], ["service", "🛎️", "Services"], ["free", "✅", "What's included"]];
@@ -635,7 +701,7 @@ function shipGuideHtml(tr) {
   const f = G.facts, list = SHIP_CAT === "free" ? G.venues.filter(v => v.cost === "included") : G.venues.filter(v => v.cat === SHIP_CAT);
   const pill = v => v.cost === "included" ? `<span class="pill">Included</span>` : v.cost === "extra" ? `<span class="pill soon">Extra cost</span>` : "";
   return `<div class="today-line"><b>${esc(G.name)}</b> · ${G.line}${tr.cabin ? ` · cabin ${esc(tr.cabin)}` : ""}</div>
-    <div class="today-line sub">${f.guests.toLocaleString()} guests · ${f.decks} decks · ${f.lengthFt} ft · built ${f.built}</div>
+    <div class="today-line sub">${f.guests.toLocaleString()} guests · ${f.decks} decks · ${f.lengthFt} ft${f.built ? ` · built ${f.built}` : ""}</div>
     ${tileNav(SHIP_CATS.map(([k, ic, l]) => ({ icon: ic, label: l, attrs: `data-shipcat="${k}"`, on: k === SHIP_CAT })), 4, "compact")}
     ${list.map(v => `<div class="row"><span class="grow"><b>${esc(v.name)}</b>${v.note ? `<span class="sub">${esc(v.note)}</span>` : ""}</span>
       ${v.deck ? `<span class="pill deck">Deck ${esc(v.deck)}</span>` : ""}${pill(v)}</div>`).join("")}
