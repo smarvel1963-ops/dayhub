@@ -2375,7 +2375,18 @@ def t_v089_diamond(b, base):
     check("Diamond Princess: 2,706 guests, 18 decks, built 2004", "2,706 guests" in g and "18 decks" in g and "built 2004" in g)
     by = {x["name"]: x for x in a.js("shipGuide('Diamond Princess').venues")}
     check("Izumi deck 15, Churrascaria extra with no guessed deck", by["Izumi Japanese Bath"]["deck"] == "15" and by["Churrascaria Brazilian Grill"]["cost"] == "extra" and by["Churrascaria Brazilian Grill"]["deck"] is None)
-    check("14 ships", a.js("Object.keys(SHIP_GUIDES).length") == 14)
+    check("14+ ships", a.js("Object.keys(SHIP_GUIDES).length") >= 14)
+    a.close()
+
+
+def t_v090_sapphire(b, base):
+    print("\n[v0.90 ship guide: Sapphire Princess]")
+    a = App(b, base, path=CRUISE)
+    g = a.js("shipGuideHtml({ ship: 'Sapphire Princess' })")
+    check("Sapphire Princess: 2,670 guests, 18 decks, built 2004", "2,670 guests" in g and "18 decks" in g and "built 2004" in g)
+    by = {x["name"]: x for x in a.js("shipGuide('Sapphire Princess').venues")}
+    check("Alfredo's deck 5 extra, Crown Grill no guessed deck", by["Alfredo's Pizzeria"]["deck"] == "5" and by["Alfredo's Pizzeria"]["cost"] == "extra" and by["Crown Grill"]["deck"] is None)
+    check("15 ships", a.js("Object.keys(SHIP_GUIDES).length") == 15)
     a.close()
 
 
@@ -2407,7 +2418,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire):
             try:
                 t(b, base)
             except Exception as e:
