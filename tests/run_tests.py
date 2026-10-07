@@ -2234,7 +2234,7 @@ def t_v078_ruby(b, base):
     check("Ruby Princess: 3,080 guests, built 2008", "3,080 guests" in g and "built 2008" in g)
     by = {x["name"]: x for x in a.js("shipGuide('Ruby Princess').venues")}
     check("Salty Dog Grill free, Gastropub extra", by["The Salty Dog Grill"]["cost"] == "included" and by["The Salty Dog Gastropub"]["cost"] == "extra")
-    check("4+ ships, all with princess.com sources", a.js("Object.keys(SHIP_GUIDES).length") >= 4 and a.js("Object.values(SHIP_GUIDES).every(g => /princess\\.com/.test(g.sources.ship) && /princess\\.com/.test(g.sources.decks))"))
+    check("4+ ships, every Princess guide sourced from princess.com", a.js("Object.keys(SHIP_GUIDES).length") >= 4 and a.js("Object.values(SHIP_GUIDES).filter(g => g.line === 'Princess').every(g => /princess\\.com/.test(g.sources.ship) && /princess\\.com/.test(g.sources.decks))"))
     a.close()
 
 
@@ -2408,7 +2408,19 @@ def t_v092_island(b, base):
     check("Island Princess: 2,200 guests, 16 decks, no made-up year", "2,200 guests" in g and "16 decks" in g and "built" not in g)
     by = {x["name"]: x for x in a.js("shipGuide('Island Princess').venues")}
     check("Fitness deck 6, Shore Excursions deck 8", by["Fitness Center"]["deck"] == "6" and by["Shore Excursions"]["deck"] == "8")
-    check("17 ships = every Princess ship on princess.com", a.js("Object.keys(SHIP_GUIDES).length") == 17)
+    check("17 Princess ships = every one on princess.com", a.js("Object.values(SHIP_GUIDES).filter(g => g.line === 'Princess').length") == 17)
+    a.close()
+
+
+def t_v093_carnival(b, base):
+    print("\n[v0.93 first Carnival ship guide: Carnival Jubilee]")
+    a = App(b, base, path=CRUISE)
+    g = a.js("shipGuideHtml({ ship: 'Carnival Jubilee' })")
+    check("Jubilee: 5,362 guests, built 2023, no made-up length or deck count", "5,362 guests" in g and "built 2023" in g and " ft" not in g and "decks ·" not in g and "null" not in g and "undefined" not in g)
+    check("source line names carnival.com + the fact sheet, not princess.com", "carnival.com" in g and "fact sheet" in g and "princess.com" not in g)
+    check("Princess guides still credit princess.com", "princess.com" in a.js("shipGuideHtml({ ship: 'Regal Princess' })"))
+    by = {x["name"]: x for x in a.js("shipGuide('Carnival Jubilee').venues")}
+    check("Guy's Burger Joint included, Fahrenheit 555 extra, no guessed decks", by["Guy's Burger Joint"]["cost"] == "included" and by["Fahrenheit 555 Steakhouse"]["cost"] == "extra" and all(v["deck"] is None for v in by.values()))
     a.close()
 
 
@@ -2440,7 +2452,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival):
             try:
                 t(b, base)
             except Exception as e:

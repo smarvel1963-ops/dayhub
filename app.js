@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.92";
+const VERSION = "0.93";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -2536,7 +2536,7 @@ function tripContext(tr) {
     return w && !w.loading && !w.none ? { day: x.day, place: x.name, hi: Math.round(w.hi), lo: Math.round(w.lo), rainChance: w.rain, uv: w.uv, alerts: cruiseWxAlerts(w, x.kind).map(a => a.text) } : null; }).filter(Boolean);
   o.returnGuardSafetyMarginMin = guardMargin();
   { const G = typeof shipGuide === "function" && shipGuide(tr.ship);       // v0.64 verified ship guide -> "where can we eat for free?"
-    if (G) o.shipGuide = { source: `princess.com, checked ${G.verified}`, venues: G.venues.map(v => `${v.name}${v.deck ? ` (deck ${v.deck})` : ""}${v.cost ? ` - ${v.cost}` : ""}${v.note ? ` - ${v.note}` : ""}`) }; }
+    if (G) o.shipGuide = { source: `${siteName(G.sources.ship)}, checked ${G.verified}`, venues: G.venues.map(v => `${v.name}${v.deck ? ` (deck ${v.deck})` : ""}${v.cost ? ` - ${v.cost}` : ""}${v.note ? ` - ${v.note}` : ""}`) }; }
   { const H = typeof homePort === "function" && tr.port && homePort(tr.port);   // v0.74 departure port -> "where do we park?"
     if (H) o.departurePortInfo = { port: H.name, checked: H.verified, facts: H.facts.map(f => f.text) }; }
   return o;

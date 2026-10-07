@@ -1129,9 +1129,67 @@ const SHIP_GUIDES = {
       { cat: "service", name: "Wedding Chapel", deck: "7", cost: null },
     ],
   },
+  // ======================================================== CARNIVAL (v0.93) - first ship outside Princess
+  "carnival jubilee": {
+    name: "Carnival Jubilee", line: "Carnival", verified: "2026-10-07",
+    sources: {
+      ship: "https://www.carnival.com/cruise-ships/carnival-jubilee",
+      facts: "https://www.carnival-news.com/ship/carnival-jubilee-fact-sheet",
+    },
+    // Carnival publishes no text deck page (its deck plans load inside an app), and its fact sheet gives no
+    // length or deck count - so every deck is null and the guide shows only what the sheet states.
+    // cost = carnival.com's own wording next to each venue ("This feature is included in cost" / "has an
+    // additional cost"); null where the page puts no price wording.
+    facts: { guests: 5362, crew: 1735, tonnage: 183521, lengthFt: null, decks: null, built: 2023 },
+    venues: [
+      // ---- eat
+      { cat: "eat", name: "Bonsai Sushi", deck: null, cost: "included", note: "Sit-down sushi, soups, sides, desserts" },
+      { cat: "eat", name: "Guy's Burger Joint", deck: null, cost: "included" },
+      { cat: "eat", name: "Big Chicken", deck: null, cost: "included", note: "Chicken sandwiches, strips, breakfast" },
+      { cat: "eat", name: "Cucina del Capitano", deck: null, cost: "included", note: "Family-style Italian — first meal included, $8 after" },
+      { cat: "eat", name: "Swirls", deck: null, cost: "included", note: "Free soft-serve, two spots" },
+      { cat: "eat", name: "JavaBlue Café", deck: null, cost: null },
+      { cat: "eat", name: "Coastal Slice", deck: null, cost: null },
+      { cat: "eat", name: "Beach Buns", deck: null, cost: null },
+      { cat: "eat", name: "BlueIguana Cantina", deck: null, cost: null },
+      { cat: "eat", name: "Street Eats", deck: null, cost: null },
+      { cat: "eat", name: "Emeril's Bistro 717", deck: null, cost: "extra", note: "New Orleans Creole + seafood, beignets" },
+      { cat: "eat", name: "Rudi's Seagrill", deck: null, cost: "extra", note: "Seafood" },
+      { cat: "eat", name: "Bonsai Teppanyaki", deck: null, cost: "extra", note: "Chef cooks at your table" },
+      { cat: "eat", name: "Guy's Pig & Anchor Smokehouse | Brewhouse", deck: null, cost: "extra", note: "Brisket, ribs, its own craft beer" },
+      { cat: "eat", name: "Fahrenheit 555 Steakhouse", deck: null, cost: "extra" },
+      { cat: "eat", name: "Seafood Shack", deck: null, cost: "extra", note: "Crab cake sliders, lobster BLT" },
+      // ---- drink
+      { cat: "drink", name: "RedFrog Tiki Bar", deck: null, cost: null, note: "Two decks" },
+      { cat: "drink", name: "Grand View Bar", deck: null, cost: null },
+      { cat: "drink", name: "Marina Bar", deck: null, cost: null, note: "Indoor/outdoor" },
+      { cat: "drink", name: "Piano Bar 88", deck: null, cost: null },
+      { cat: "drink", name: "The Watering Hole", deck: null, cost: null, note: "Poolside" },
+      { cat: "drink", name: "The Golden Mermaid", deck: null, cost: "extra" },
+      { cat: "drink", name: "Dr. Inks, Ph.D.", deck: null, cost: "extra" },
+      // ---- shows & fun
+      { cat: "fun", name: "Center Stage", deck: null, cost: null, note: "Rotating live entertainment" },
+      { cat: "fun", name: "Playlist Productions shows", deck: null, cost: "included", note: "Soulbound, Visual Symphony, Dear Future Husband, Celestial Strings, We Are One" },
+      { cat: "fun", name: "Family Feud Live", deck: null, cost: "included" },
+      { cat: "fun", name: "The Punchliner Comedy Club", deck: null, cost: "included" },
+      { cat: "fun", name: "SportSquare", deck: null, cost: "included", note: "Mini-golf, basketball, ropes course" },
+      { cat: "fun", name: "BOLT roller coaster", deck: null, cost: "extra", note: "All-electric coaster at sea" },
+      // ---- pools
+      { cat: "pool", name: "Carnival WaterWorks", deck: null, cost: null, note: "Slides: Blue Lightning, Orange Thunder, Twister" },
+      { cat: "pool", name: "Havana Pool", deck: null, cost: null, note: "Havana stateroom guests only" },
+      { cat: "pool", name: "Loft 19 infinity whirlpool", deck: null, cost: null },
+      // ---- spa & fitness
+      { cat: "spa", name: "Cloud 9 Spa", deck: null, cost: "extra", note: "Massages, facials, thermal suite" },
+      // ---- kids
+      { cat: "kids", name: "Seuss at Sea", deck: null, cost: null },
+      { cat: "kids", name: "Night Owls babysitting", deck: null, cost: null, note: "Free for Family Harbor guests" },
+    ],
+  },
 };
 const SHIP_CATS = [["eat", "🍽️", "Eat"], ["drink", "🍹", "Drink"], ["fun", "🎭", "Shows & fun"], ["pool", "🏊", "Pools"], ["spa", "💆", "Spa & fitness"],
   ["kids", "🧒", "Kids"], ["service", "🛎️", "Services"], ["free", "✅", "What's included"]];
+// "https://gb-www.princess.com/..." -> "princess.com" (the guide names the site each fact came from)
+const siteName = u => { try { return new URL(u).hostname.replace(/^(www|gb-www|origin-www)\./, ""); } catch (e) { return "the cruise line"; } };
 const shipGuide = name => SHIP_GUIDES[String(name || "").toLowerCase().replace(/\s+/g, " ").trim()] || null;
 let SHIP_CAT = "eat";
 function shipGuideHtml(tr) {
@@ -1142,12 +1200,13 @@ function shipGuideHtml(tr) {
   const f = G.facts, list = SHIP_CAT === "free" ? G.venues.filter(v => v.cost === "included") : G.venues.filter(v => v.cat === SHIP_CAT);
   const pill = v => v.cost === "included" ? `<span class="pill">Included</span>` : v.cost === "extra" ? `<span class="pill soon">Extra cost</span>` : "";
   return `<div class="today-line"><b>${esc(G.name)}</b> · ${G.line}${tr.cabin ? ` · cabin ${esc(tr.cabin)}` : ""}</div>
-    <div class="today-line sub">${f.guests.toLocaleString()} guests · ${f.decks} decks · ${f.lengthFt} ft${f.built ? ` · built ${f.built}` : ""}</div>
+    <div class="today-line sub">${[f.guests && `${f.guests.toLocaleString()} guests`, f.decks && `${f.decks} decks`, f.lengthFt && `${f.lengthFt} ft`, f.built && `built ${f.built}`].filter(Boolean).join(" · ")}</div>
     ${tileNav(SHIP_CATS.map(([k, ic, l]) => ({ icon: ic, label: l, attrs: `data-shipcat="${k}"`, on: k === SHIP_CAT })), 4, "compact")}
     ${list.map(v => `<div class="row"><span class="grow"><b>${esc(v.name)}</b>${v.note ? `<span class="sub">${esc(v.note)}</span>` : ""}</span>
       ${v.deck ? `<span class="pill deck">Deck ${esc(v.deck)}</span>` : ""}${pill(v)}</div>`).join("")}
-    <p class="fine" style="margin-top:8px">From <a href="${G.sources.ship}" target="_blank" rel="noopener">princess.com</a> (venues, included vs extra) and Princess's
-      <a href="${G.sources.decks}" target="_blank" rel="noopener">deck-by-deck page</a> — checked ${prettyDate(G.verified)}, ${G.verified.slice(0, 4)}. Your ship's daily planner wins if it differs.</p>`;
+    <p class="fine" style="margin-top:8px">From <a href="${G.sources.ship}" target="_blank" rel="noopener">${siteName(G.sources.ship)}</a> (venues, included vs extra)${G.sources.decks
+      ? ` and ${G.line}'s <a href="${G.sources.decks}" target="_blank" rel="noopener">deck-by-deck page</a>`
+      : G.sources.facts ? ` and ${G.line}'s <a href="${G.sources.facts}" target="_blank" rel="noopener">fact sheet</a> (no deck numbers published as text)` : ""} — checked ${prettyDate(G.verified)}, ${G.verified.slice(0, 4)}. Your ship's daily planner wins if it differs.</p>`;
 }
 function shipClick(ds) {
   if (!ds.shipcat) return false;
