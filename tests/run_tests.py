@@ -2256,7 +2256,18 @@ def t_v080_majestic(b, base):
     check("Majestic Princess: 3,560 guests, built 2017", "3,560 guests" in g and "built 2017" in g)
     by = {x["name"]: x for x in a.js("shipGuide('Majestic Princess').venues")}
     check("no China-era venue, Sabatini's has no guessed deck", "Harmony Chinese Restaurant" not in by and by["Sabatini's Italian Trattoria"]["deck"] is None)
-    check("6 ships", a.js("Object.keys(SHIP_GUIDES).length") == 6)
+    check("6+ ships", a.js("Object.keys(SHIP_GUIDES).length") >= 6)
+    a.close()
+
+
+def t_v081_sky(b, base):
+    print("\n[v0.81 ship guide: Sky Princess]")
+    a = App(b, base, path=CRUISE)
+    g = a.js("shipGuideHtml({ ship: 'Sky Princess' })")
+    check("Sky Princess: 3,660 guests, built 2019", "3,660 guests" in g and "built 2019" in g)
+    by = {x["name"]: x for x in a.js("shipGuide('Sky Princess').venues")}
+    check("Sabatini's deck 5, Catch by Rudi no guessed deck", by["Sabatini's Italian Trattoria"]["deck"] == "5" and by["The Catch by Rudi"]["deck"] is None)
+    check("7 ships", a.js("Object.keys(SHIP_GUIDES).length") == 7)
     a.close()
 
 
@@ -2288,7 +2299,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky):
             try:
                 t(b, base)
             except Exception as e:
