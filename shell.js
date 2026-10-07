@@ -75,15 +75,48 @@ function nextUp() {
     if (it.length) { const x = it[0]; return `${x.icon || "📅"} ${i === 0 ? "Today" : i === 1 ? "Tomorrow" : `${dayName(d)} ${prettyDate(d)}`}${x.t ? ` · ${hm(x.t)}` : ""} — ${esc(x.title)}`; } }
   return "";
 }
+// ---- THE HOME LAYOUT - every hub, same three bands (Scott 10/6: "i want all apps to be built close to same
+// layout i want top third as it is middle 3rd whats going on and bottom rows be mini bubbles of actions").
+//   top    - the hero (clock, weather, scene) - untouched
+//   middle - goingOnHtml(): what's going on now + the next thing coming
+//   bottom - bubblesHtml(): rows of small round one-tap actions; `hot` = the moment's action, two bubbles wide
+// rows: [{ icon, text, sub, act }]
+function goingOnHtml(rows, next, empty = "Nothing needs you right now.") {
+  return `<section class="card going-on"><h3>📍 What's going on</h3><div class="body">
+    ${rows.length ? rows.map(x => `<button class="rn-row" ${x.act || ""}>${x.icon ? `<span>${x.icon}</span>` : ""}<span class="grow">${esc(x.text)}${x.sub ? `<span class="sub">${esc(x.sub)}</span>` : ""}</span>${x.act ? `<span class="chev">›</span>` : ""}</button>`).join("")
+      : `<div class="today-line">✅ ${esc(empty)}</div>`}
+    ${next ? `<div class="next-up"><span>NEXT</span>${next}</div>` : ""}</div></section>`;
+}
+// items: [{ icon, label, attrs, hot }]
+function bubblesHtml(items) {
+  return `<nav class="bubbles" aria-label="Actions">${items.map(i => `<button class="bubble ${i.hot ? "hot" : ""}" ${i.attrs}><span class="b-ic">${i.icon}</span><b>${esc(i.label)}</b></button>`).join("")}</nav>`;
+}
 function homeHtml() {
   if (S.simple) return simpleHomeHtml();                                    // v0.62 simple mode
   const tr = curTrip(), items = rightNow(tr), nx = nextUp(), bb = bigButton(tr);
   if (!tr) return addCruiseHtml();                                          // v0.60 no cruise yet: the ways in
-  return prefsCardHtml() + phaseCardHtml(tr) + `<section class="card shell-home"><h3>🔥 Right now</h3><div class="body">
-      ${items.length ? items.map(x => `<button class="rn-row" ${x.act}>${x.icon ? `<span>${x.icon}</span>` : ""}<span class="grow">${esc(x.text)}</span><span class="chev">›</span></button>`).join("")
-        : `<div class="today-line">✅ Nothing needs you right now.</div>`}</div></section>
-    ${nx ? `<section class="card shell-home"><h3>⏭ Next up</h3><div class="body"><div class="today-line">${nx}</div></div></section>` : ""}
-    <button class="big-btn" ${bb.act}>${bb.label}</button>`;
+  const [bi, bl] = splitIcon(bb.label);                                     // the big button's job = the hot bubble
+  const nxWhat = (nx.split(" — ")[1] || "").toLowerCase();                 // NEXT that only repeats a row above = left out
+  return prefsCardHtml() + phaseCardHtml(tr) + goingOnHtml(items, nxWhat && items.some(r => r.text.toLowerCase().includes(nxWhat)) ? "" : nx) + bubblesHtml([
+    { icon: bi, label: bl, attrs: bb.act, hot: true },
+    { icon: "📅", label: "My day", attrs: 'data-shellgo="plan" data-planview="today"' },
+    { icon: "🗺️", label: "My cruise", attrs: 'data-shellgo="plan" data-planview="trip"' },
+    { icon: "🧳", label: "Packing", attrs: 'data-shellgo="plan" data-planview="packing"' },
+    { icon: "🏝️", label: "Ports & ship", attrs: 'data-shellgo="explore"' },
+    { icon: "👛", label: "Money", attrs: 'data-shellgo="wallet"' },
+    { icon: "🛟", label: "Help", attrs: 'data-help="home"' }]);
+}
+// Day Hub (no tab bar): the same bands above its cards. Middle = the rest of today's schedule; bubbles = one per
+// card on the screen, in the user's order - a tap opens that card and scrolls to it.
+function dayHubHomeHtml(order) {
+  const t = today(), now = nowT();
+  const rows = dayItems(t).filter(i => i.kind !== "sun" && !i.done && (!i.t || i.t >= now)).slice(0, 3)
+    .map(i => ({ icon: i.icon, text: i.title, sub: i.t ? hm(i.t) + (i.end ? ` – ${hm(i.end)}` : "") : "All day", act: 'data-bubble="schedule"' }));
+  let nx = "";
+  for (let n = 1; n <= 30 && !nx; n++) { const d = addDays(t, n), x = dayItems(d).filter(isPlan)[0];
+    if (x) nx = `${x.icon || "📅"} ${n === 1 ? "Tomorrow" : `${dayName(d)} ${prettyDate(d)}`}${x.t ? ` · ${hm(x.t)}` : ""} — ${esc(x.title)}`; }
+  return goingOnHtml(rows, nx, "Nothing else on today's schedule.")
+    + bubblesHtml(order.filter(k => CARDS[k]).slice(0, 12).map(k => ({ icon: CARDS[k].icon, label: CARDS[k].title, attrs: `data-bubble="${k}"` })));
 }
 function exploreHtml(cardHtml) {
   const tr = curTrip(), ports = tr ? (tr.ports || []).slice().sort((a, b) => a.day.localeCompare(b.day)) : [];
@@ -123,6 +156,11 @@ function paintTabs() {
 // Clicks that move between tabs (data-shellgo), optionally landing on a trips-card tab or list.
 function shellClick(ds) {
   if (typeof shipClick === "function" && shipClick(ds)) return true;       // v0.64 ship guide tiles
+  if (ds.bubble) { const k = ds.bubble;                                    // v0.85 Day Hub bubble: open that card + go to it
+    if (S.collapsed.includes(k)) { S.collapsed = S.collapsed.filter(x => x !== k); save(); }
+    if (MINI[k]) MINI_OPEN.add(k);
+    render(); const el = document.querySelector(`#cards [data-card="${k}"]`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); return true; }
   if (ds.planview && !ds.shellgo) { PLAN_VIEW = ds.planview; render(); return true; }
   if (ds.planview) PLAN_VIEW = ds.planview;                               // a jump into PLAN that lands on a view
   if (ds.tlday) { showDay(ds.tlday); return true; }

@@ -725,7 +725,7 @@ function render() {
     document.getElementById("cards").innerHTML = (TAB === "home" ? futureBanner() + whatsNewHtml() : "") + shellHtml(cardHtml);
     tick(); return;
   }
-  document.getElementById("cards").innerHTML = futureBanner() + whatsNewHtml() + (!S.city && !S.name ? welcomeHtml() : "") + cards +
+  document.getElementById("cards").innerHTML = futureBanner() + whatsNewHtml() + (!S.city && !S.name ? welcomeHtml() : dayHubHomeHtml(order)) + cards +
     `<button class="add-link arrange-link" data-arrange="1">↕ Arrange my screen</button>`;
   tick();
 }

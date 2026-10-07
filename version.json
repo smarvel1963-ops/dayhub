@@ -1,6 +1,9 @@
 {
- "version": "0.84",
+ "version": "0.85",
  "notes": {
+  "0.85": [
+   "🫧 New home layout for every hub: the clock up top, \"What's going on\" in the middle, and one-tap action bubbles at the bottom."
+  ],
   "0.84": [
    "🚢 Tenth ship guide: Sun Princess — The Dome, the Princess Arena, Umai Teppanyaki, Spellbound by Magic Castle, from princess.com's fact sheet."
   ],

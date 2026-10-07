@@ -607,3 +607,23 @@ body.simple .hero .chips, body.simple .hero .cd-pct, body.simple .hero .hero-btn
 
 /* v0.65 links inside sheets read on dark */
 .sheet .fine a, .sheet .today-line a { color: var(--accent); }
+
+/* v0.85 THE HOME LAYOUT (every hub): top = hero, middle = what's going on, bottom = mini action bubbles */
+.going-on .next-up { display: flex; gap: 10px; align-items: baseline; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 14px; }
+.going-on .next-up span { flex: none; font-size: 10.5px; font-weight: 800; letter-spacing: 1px; color: var(--accent); }
+.bubbles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 6px; margin: 14px 0 16px; }
+.bubble { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; padding: 0; border: 0; background: none;
+  color: var(--text); font: inherit; cursor: pointer; }
+.bubble .b-ic { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; font-size: 23px; line-height: 1;
+  background: var(--card-solid); border: 1px solid var(--line); box-shadow: 0 6px 16px rgba(0,0,0,.28); transition: transform .12s ease; }
+.bubble:active .b-ic { transform: scale(.92); }
+.bubble b { max-width: 100%; font-size: 10.5px; font-weight: 700; line-height: 1.15; text-align: center; color: var(--dim); overflow-wrap: anywhere; }
+.bubble.hot { grid-column: span 2; flex-direction: row; justify-content: center; gap: 8px; height: 52px; padding: 0 14px; border-radius: 26px;
+  background: linear-gradient(135deg, #5eead4, #818cf8); box-shadow: 0 10px 24px rgba(94,234,212,.25); }
+.bubble.hot .b-ic { width: auto; height: auto; background: none; border: 0; box-shadow: none; font-size: 20px; }
+.bubble.hot b { color: #06102a; font-size: 11.5px; font-weight: 800; letter-spacing: .3px; text-align: left; }
+.bubble.hot:active { transform: scale(.97); }
+.going-on h3 { margin-bottom: 2px; }
+.going-on .rn-row { padding: 8px 2px; font-size: 14.5px; }
+.going-on .next-up { margin-top: 4px; padding-top: 8px; font-size: 13.5px; }
+body.shell .bubbles { margin: 10px 0 12px; gap: 8px 6px; }
