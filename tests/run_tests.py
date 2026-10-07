@@ -2209,7 +2209,7 @@ def t_v076_emerald(b, base):
     g = a.js("shipGuideHtml({ ship: 'Emerald Princess' })")
     check("Emerald: 3,080 guests, built 2007, buffet", "3,080 guests" in g and "built 2007" in g)
     check("Emerald: Sabatini's is extra cost on deck 16", a.js("shipGuide('Emerald Princess').venues.some(v => v.name.startsWith('Sabatini') && v.cost === 'extra' && v.deck === '16')"))
-    check("unknown ship lists the ships we have", "Emerald Princess" in a.js("shipGuideHtml({ ship: 'Grand Princess' })"))
+    check("unknown ship lists the ships we have", "Emerald Princess" in a.js("shipGuideHtml({ ship: 'Island Princess' })"))
     check("2+ ships, every venue has a category", a.js("Object.keys(SHIP_GUIDES).length") >= 2 and a.js("Object.values(SHIP_GUIDES).every(g => g.venues.every(v => SHIP_CATS.some(c => c[0] === v.cat)))"))
     a.close()
 
@@ -2342,7 +2342,18 @@ def t_v086_star(b, base):
     check("Star Princess: 4,300 guests, 21 decks, built 2025", "4,300 guests" in g and "21 decks" in g and "built 2025" in g)
     by = {x["name"]: x for x in a.js("shipGuide('Star Princess').venues")}
     check("Aurora deck 6, Americana Diner deck 9, Umai Hot Pot extra", by["Aurora Dining Room"]["deck"] == "6" and by["Americana Diner"]["deck"] == "9" and by["Umai Hot Pot"]["cost"] == "extra")
-    check("11 ships", a.js("Object.keys(SHIP_GUIDES).length") == 11)
+    check("11+ ships", a.js("Object.keys(SHIP_GUIDES).length") >= 11)
+    a.close()
+
+
+def t_v087_grand(b, base):
+    print("\n[v0.87 ship guide: Grand Princess]")
+    a = App(b, base, path=CRUISE)
+    g = a.js("shipGuideHtml({ ship: 'Grand Princess' })")
+    check("Grand Princess: 2,600 guests, 17 decks, built 1998", "2,600 guests" in g and "17 decks" in g and "built 1998" in g)
+    by = {x["name"]: x for x in a.js("shipGuide('Grand Princess').venues")}
+    check("Conservatory deck 15, buffet has no guessed deck", by["The Conservatory"]["deck"] == "15" and by["World Fresh Marketplace"]["deck"] is None)
+    check("12 ships", a.js("Object.keys(SHIP_GUIDES).length") == 12)
     a.close()
 
 
@@ -2374,7 +2385,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand):
             try:
                 t(b, base)
             except Exception as e:
