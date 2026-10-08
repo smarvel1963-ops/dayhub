@@ -2569,6 +2569,97 @@ def t_v099_map(b, base):
     a.close()
 
 
+PASTE_FLIGHT = """Your trip confirmation
+Confirmation code: QXR7LM
+Flight 1 of 2
+American Airlines flight AA 1234
+Tue, Oct 20, 2026
+Little Rock (LIT) to Orlando (MCO)
+Depart 7:05 AM   Arrive 10:40 AM
+Flight 2 of 2
+American Airlines flight AA 2210
+Sun, Oct 25, 2026
+Orlando (MCO) to Little Rock (LIT)
+Depart 6:15 PM   Arrive 7:55 PM
+Total paid: $412.60
+"""
+PASTE_HOTEL = """Reservation Confirmed
+Disney's Coronado Springs Resort
+1000 W Buena Vista Drive, Lake Buena Vista, FL 32830
+(407) 939-1000
+Confirmation number: 4419920031
+Check-in: Tuesday, October 20, 2026 3:00 PM
+Check-out: Sunday, October 25, 2026 11:00 AM
+Total: $1,148.32
+"""
+PASTE_CAR = """Your Hertz reservation is confirmed
+Confirmation Number: K4421987265
+Pick-up
+Orlando International Airport (MCO)
+Tue, Oct 20, 2026 at 11:30 AM
+Return
+Sun, Oct 25, 2026 at 3:30 PM
+Estimated total: $286.40
+"""
+PASTE_ARROW = """Confirmation #: HGT4R2
+Wednesday, November 4, 2026
+DL 2381   ATL 8:30 AM → MCO 10:05 AM
+Trip total: $318.20
+"""
+PASTE_TWOLINE = """Southwest Airlines - Your trip is booked
+Confirmation # NV7QPZ
+Flight 1872
+Thursday, December 3, 2026
+Depart: Dallas (Love Field), TX (DAL) 9:10 AM
+Arrive: Las Vegas, NV (LAS) 10:25 AM
+"""
+
+
+def t_v100_paste(b, base):
+    print("\n[v1.00 paste a confirmation: flights / hotel / car read on the phone, filled in, checked, then added]")
+    a = App(b, base, path=TRIP)
+    X = lambda t: a.js("t => extractBookings(t)", t)
+    f = X(PASTE_FLIGHT)
+    check("flight email: both legs, numbers, times, the record locator, the total on the booking",
+          [(x["a"], x["b"], x["day"], x["t"], x["endT"], x["num"]) for x in f] == [("LIT", "MCO", "2026-10-20", "07:05", "10:40", "AA 1234"), ("MCO", "LIT", "2026-10-25", "18:15", "19:55", "AA 2210")]
+          and all(x["note"] == "Confirmation QXR7LM" for x in f) and f[0].get("cost") == 412.6 and not f[1].get("cost"), f)
+    h = X(PASTE_HOTEL)[0]
+    check("hotel email: name, address, check-in/out + times, number, phone, total",
+          (h["kind"], h["a"], h["b"], h["day"], h["t"], h["endDay"], h["endT"], h["num"], h["phone"], h["cost"]) ==
+          ("hotel", "Disney's Coronado Springs Resort", "1000 W Buena Vista Drive, Lake Buena Vista, FL 32830", "2026-10-20", "15:00", "2026-10-25", "11:00", "4419920031", "(407) 939-1000", 1148.32), h)
+    c = X(PASTE_CAR)[0]
+    check("car email: company, pick-up place, both times, number, total",
+          (c["kind"], c["a"], c["b"], c["day"], c["t"], c["endDay"], c["endT"], c["num"], c["cost"]) ==
+          ("car", "Hertz", "Orlando International Airport (MCO)", "2026-10-20", "11:30", "2026-10-25", "15:30", "K4421987265", 286.4), c)
+    both = X(PASTE_FLIGHT + "\n" + PASTE_HOTEL)
+    check("flight + hotel in one paste: each keeps its own number and total",
+          [x["kind"] for x in both] == ["flight", "flight", "hotel"] and both[2]["num"] == "4419920031" and both[2]["cost"] == 1148.32 and both[1]["note"] == "Confirmation QXR7LM", both)
+    ar = X(PASTE_ARROW); tw = X(PASTE_TWOLINE)
+    check("other layouts: 'ATL 8:30 AM → MCO' and Depart (DAL) / Arrive (LAS) lines",
+          (ar[0]["a"], ar[0]["b"], ar[0]["num"], ar[0]["t"]) == ("ATL", "MCO", "DL 2381", "08:30") and (tw[0]["a"], tw[0]["b"], tw[0]["num"], tw[0]["t"], tw[0]["endT"]) == ("DAL", "LAS", "Flight 1872", "09:10", "10:25"), [ar, tw])
+    check("'Reservation Confirmed' is not a confirmation number", X("Reservation Confirmed\nCheck-in: Oct 20, 2026\nHotel Luna")[0]["num"] == "")
+    check("nothing travel-like = nothing found", X("Hi Pat, lunch Tuesday? Love, Mom") == [])
+    # the flow: paste -> Found 3 -> check + add each, nothing saved before Add
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    a.qa("trip", {"tname": "Florida trip", "start": "2026-10-20", "end": "2026-10-25", "port": "Orlando, FL"})
+    a.page.wait_for_timeout(150)
+    a.js("shellGo('plan'); PLAN_VIEW = 'reservations'; render()")
+    a.page.click('[data-bkpasteopen="1"]')
+    a.page.fill('[data-bkpaste] textarea', PASTE_FLIGHT + "\n" + PASTE_HOTEL)
+    a.page.click('[data-bkpaste] button'); a.page.wait_for_timeout(150)
+    check("Found 3, nothing saved yet", "Found 3" in a.page.inner_text("#bookSheet") and a.js("(S.trips[0].bookings || []).length") == 0)
+    a.page.click('[data-bkdraft="2"]'); a.page.wait_for_timeout(100)
+    check("the form opens filled in", a.page.input_value('[data-bkform] [name=a]') == "Disney's Coronado Springs Resort" and a.page.input_value('[data-bkform] [name=endDay]') == "2026-10-25")
+    a.page.click('[data-bkform] button.btn'); a.page.wait_for_timeout(200)
+    check("Add saves it and shows the 2 still to check", a.js("S.trips[0].bookings.length") == 1 and "Found 2" in a.page.inner_text("#bookSheet"))
+    a.page.click('[data-bkdraft="0"]'); a.page.click('[data-bkform] button.btn'); a.page.wait_for_timeout(150)
+    a.page.click('[data-bkdraft="0"]'); a.page.click('[data-bkform] button.btn'); a.page.wait_for_timeout(200)
+    check("all 3 added, sheet closes, costs in the money", a.js("S.trips[0].bookings.map(b => b.kind).sort().join()") == "flight,flight,hotel"
+          and a.js("document.getElementById('bookSheet').classList.contains('hidden')") and a.js("S.trips[0].costs.map(c => c.amt).sort().join()") == "1148.32,412.6")
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -2597,7 +2688,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste):
             try:
                 t(b, base)
             except Exception as e:

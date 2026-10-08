@@ -73,6 +73,7 @@ function bookingsHtml(tr) {
     const when = b.day ? `${dayName(b.day)} ${prettyDate(b.day)}${b.t ? ` · ${hm(b.t)}` : ""}${K.end && ed ? ` → ${ed !== b.day ? prettyDate(ed) + " " : ""}${b.endT ? hm(b.endT) : ""}` : ""}` : "No date yet";
     return `<button class="rn-row" data-bkopen="${b.id}"><span>${K.icon}</span><span class="grow">${esc(bookTitle(b))}<span class="sub">${esc(K.label)} · ${esc(when)}${Number(b.cost) > 0 ? ` · ${money(Number(b.cost))}${b.paid ? " paid ✓" : ""}` : ""}</span></span><span class="chev">›</span></button>`; }).join("");
   return `<div class="day-label">Your bookings</div>${rows || `<div class="today-line sub">Flights, hotels, cars, tickets — add them below and they land on the right day.</div>`}
+    <button class="rn-row" data-bkpasteopen="1"><span>📋</span><span class="grow">Paste a confirmation email<span class="sub">Flights, hotels, rental cars — filled in for you to check</span></span><span class="chev">›</span></button>
     ${tileNav(Object.entries(BOOK_KINDS).map(([k, K]) => ({ icon: K.icon, label: `＋ ${K.label}`, attrs: `data-bkadd="${k}"` })), 3, "bk-add")}`;
 }
 
@@ -103,11 +104,12 @@ function showBooking(id) {
       <button class="btn sm ghost" data-bkdel="${b.id}">Delete</button></div></div>`;
   el.classList.remove("hidden");
 }
-function showBookingForm(kind, id) {
+let BK_DRAFT = null;                                                       // the pasted find being checked (v1.00)
+function showBookingForm(kind, id, draft) {
   const [tr0, b0] = id ? bkFind(id) : [curTrip(), null], tr = tr0 || curTrip();
   if (!tr) { toast(`Add your ${TW} first`); return; }
-  BK_TRIP = tr.id;
-  const b = b0 || { kind, day: tr.start || "", endDay: kind === "hotel" ? (tr.end || "") : "" }, K = bookKind(b), v = k => esc(b[k] ?? "");
+  BK_TRIP = tr.id; BK_DRAFT = draft || null;
+  const b = b0 || (draft ? { ...draft } : { kind, day: tr.start || "", endDay: kind === "hotel" ? (tr.end || "") : "" }), K = bookKind(b), v = k => esc(b[k] ?? "");
   const el = bkSheet();
   el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
     <div class="sheet-head"><h2>${K.icon} ${b0 ? "Edit" : "Add"} ${esc(K.label.toLowerCase())}</h2><button class="icon-btn" data-bkclose="1" aria-label="Close">✕</button></div>
@@ -132,6 +134,7 @@ function saveBooking(f, d) {
   let b = tr.bookings.find(x => x.id === f.dataset.bkid);
   if (b) Object.assign(b, fields); else { b = { id: uid(), ...fields }; tr.bookings.push(b); }
   syncBookingCost(tr, b); save(); hideSheet("bookSheet"); render(); buzz(); toast(`${bookKind(b).icon} Saved ✓`, true);
+  if (BK_DRAFT) { PASTE_FOUND = PASTE_FOUND.filter(x => x !== BK_DRAFT); BK_DRAFT = null; if (PASTE_FOUND.length) showPasteFound(); }   // next pasted find
 }
 function deleteBooking(id) {
   const [tr, b] = bkFind(id); if (!b) return;
@@ -146,9 +149,12 @@ function tripClick(ds) {
   if (ds.bkedit) { showBookingForm(null, ds.bkedit); return true; }
   if (ds.bkdel) { deleteBooking(ds.bkdel); return true; }
   if (ds.bkclose) { hideSheet("bookSheet"); return true; }
+  if (ds.bkpasteopen) { showPasteBooking(); return true; }                   // v1.00 paste a confirmation
+  if (ds.bkdraft) { const d = PASTE_FOUND[Number(ds.bkdraft)]; if (d) showBookingForm(null, null, d); return true; }
   return false;
 }
 function tripSubmit(f, data) {
+  if (f.dataset.bkpaste) { pasteBookings(data.text || ""); return true; }
   if (!f.dataset.bkform) return false;
   saveBooking(f, data); return true;
 }
@@ -238,4 +244,121 @@ async function drawTripMap() {
   }
   GEO_BUSY = false;
   if (document.body.contains(el) && todo.some(p => geoCache()[p.q] === 0)) render();   // show "not found" in the list
+}
+
+// ------------------------------------------------------------ PASTE A CONFIRMATION (v1.00)
+// Scott's blueprint: "Confirmation Intelligence - Forward an email, import a PDF or scan a screenshot. AI
+// extracts travel details, asks for confirmation and adds them." V1 = paste: the email is read ON THIS PHONE
+// (no AI, nothing sent), each flight leg / hotel / rental car found opens the booking form filled in, and
+// nothing is saved until the traveler taps Add. What can't be read stays blank - never guessed.
+const CAR_COS = ["Hertz", "Avis", "Enterprise", "Budget", "National", "Alamo", "Thrifty", "Dollar", "Sixt", "Fox Rent A Car", "Payless", "Turo"];
+const ADDR_RE = /\b\d{1,6}\s+[A-Za-z0-9.' ]{2,40}\b(?:St|Street|Ave|Avenue|Dr|Drive|Rd|Road|Blvd|Boulevard|Hwy|Highway|Way|Pkwy|Parkway|Ln|Lane|Ct|Court|Pl|Place|Cir|Circle|Trl|Trail)\b\.?[A-Za-z0-9 ,.'-]{0,60}/;
+const PHONE_RE = /(?:\+?1[\s.-]?)?\(?\b\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}\b/;
+const NUM_RE = /\b(?:confirmation|booking|reservation|record locator|itinerary|pnr)\s*(?:#|number|no\.?|code)?\s*:?\s*([A-Za-z0-9]{5,14})\b/gi;
+const MONEY_RE = /\b(?:total|grand total|amount charged|total charged|estimated total|trip total)[^$\n]{0,30}\$\s?([\d,]+(?:\.\d{2})?)/i;
+const pasteLines = text => String(text || "").replace(/\r/g, "").split(/\n+/).map(l => l.replace(/\s+/g, " ").trim()).filter(Boolean);
+const timesIn = l => [...l.matchAll(TIME_RE)].map(m => t24(m[1], m[2], m[3]));
+const dateIn = l => { const d = parseDateTime(l.replace(TIME_RE, "")); return d ? d.day : ""; };
+// A confirmation number has a digit, or is a code in capitals (QXRMLM) - never a word like "Confirmed".
+const numOk = v => /\d/.test(v) || (/^[A-Z]{5,8}$/.test(v) && !/^(CONFIRMED|NUMBER|BOOKING|DETAILS|SUMMARY)$/.test(v));
+// The line index of each confirmation number, total and phone, so each booking takes the one nearest to it.
+function pasteMarks(L) {
+  const M = { num: [], money: [], phone: [] };
+  L.forEach((l, i) => {
+    for (const m of l.matchAll(NUM_RE)) if (numOk(m[1])) M.num.push([i, m[1].toUpperCase()]);
+    const mm = l.match(MONEY_RE); if (mm) M.money.push([i, Number(mm[1].replace(/,/g, ""))]);
+    const pp = l.match(PHONE_RE); if (pp) M.phone.push([i, pp[0]]);
+  });
+  return M;
+}
+// nearest mark at or after `from` but before `upto`; else the nearest one before `from` (within `back` lines)
+function markNear(list, from, upto = 1e9, back = 12) {
+  const after = list.find(([i]) => i >= from && i < upto); if (after) return after[1];
+  const before = list.filter(([i]) => i < from && i >= from - back).pop(); return before ? before[1] : (list.length === 1 ? list[0][1] : "");
+}
+// "Check-in: Tue, Oct 20, 2026 at 3:00 PM" - or the label alone with the date on one of the next 2 lines.
+function labeled(L, re, from = 0) {
+  for (let i = from; i < L.length; i++) { const m = L[i].match(re); if (!m) continue;
+    const look = [(m[1] || "").trim(), L[i + 1] || "", L[i + 2] || ""];
+    const day = look.map(dateIn).find(Boolean) || "", t = look.flatMap(timesIn)[0] || "";
+    return { i, day, t, raw: look[0] || look[1] }; }
+  return null;
+}
+function extractBookings(text) {
+  const L = pasteLines(text), all = L.join("\n"), out = [], M = pasteMarks(L);
+  // FLIGHTS: each line with two airport codes is a leg - "LIT → MCO", "Little Rock (LIT) to Orlando (MCO)"
+  // Three layouts: "Little Rock (LIT) to Orlando (MCO)" · "LIT → MCO" / "LIT 7:05 AM → MCO 10:40 AM" ·
+  // "Depart: Little Rock (LIT)" with "Arrive: Orlando (MCO)" on one of the next 3 lines.
+  const legRe = /\(?\b([A-Z]{3})\b\)?[^\n]{0,40}?(?:→|->|–|—|\s-\s|\bto\b)[^\n]{0,40}?\(\s*([A-Z]{3})\s*\)|\b([A-Z]{3})\s*(?:→|->|–|—|-|\bto\b)\s*([A-Z]{3})\b|\b([A-Z]{3})\b[^\n]{0,25}?(?:→|->)[^\n]{0,25}?\b([A-Z]{3})\b/;
+  const STOP = new Set(["THE", "AND", "FOR", "YOU", "USD", "PDT", "PST", "EST", "EDT", "CST", "CDT", "MST", "MDT", "GMT", "UTC", "TSA", "ETA", "ETD", "MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]);
+  const legs = [], used = new Set();
+  if (/\b(flight|airline|depart|boarding|seat)/i.test(all) || /\b[A-Z]{3}\b[^\n]{0,25}(?:→|->)/.test(all)) L.forEach((l, i) => {   // a word, or "ATL … → MCO"
+    if (used.has(i)) return;
+    let A, B; const m = l.match(legRe);
+    if (m) { A = m[1] || m[3] || m[5]; B = m[2] || m[4] || m[6]; }
+    else { const d = l.match(/\b(?:depart(?:s|ing|ure)?|from|leaving)\b[^\n]*\(\s*([A-Z]{3})\s*\)/i);
+      if (d) for (let k = i + 1; k <= i + 3 && k < L.length; k++) { const a = L[k].match(/\b(?:arriv(?:e|es|ing|al)|to)\b[^\n]*\(\s*([A-Z]{3})\s*\)/i);
+        if (a) { A = d[1]; B = a[1]; used.add(k); break; } } }
+    if (!A || !B || STOP.has(A) || STOP.has(B) || A === B) return;
+    legs.push({ i, A, B });
+  });
+  // one record locator for the flight booking: the code above the first leg (usually the top), else just below it
+  const firstOther = Math.min(...[/check[- ]?in/i, /^pick[- ]?up/i].map(re => { const i = L.findIndex(l => re.test(l)); return i < 0 ? 1e9 : i; }));
+  const flightConf = legs.length ? ((M.num.filter(([i]) => i < legs[0].i).pop() || M.num.find(([i]) => i > legs[0].i && i < firstOther) || [])[1] || "") : "";
+  legs.forEach((g, k) => {
+    const next = legs[k + 1] ? legs[k + 1].i : L.length, win = L.slice(Math.max(k ? legs[k - 1].i + 1 : 0, g.i - 3), Math.min(next, g.i + 5)), w = win.join(" ");
+    // AA 1234, B6 120 - the airline code has at least one letter
+    const fn = w.match(/\bflight\b[^\n]{0,40}?\b([A-Z]{2}|[A-Z]\d|\d[A-Z])\s?(\d{1,4})\b/) || w.match(/\b([A-Z]{2}|[A-Z]\d|\d[A-Z])\s?(\d{2,4})\b/)
+      || ((x => x ? [x[0], "Flight", x[1]] : null)(w.match(/\bflight\s*(?:#|number|no\.?)?\s*:?\s*(\d{1,4})\b/i))) || [];   // "Flight 1872" (no airline letters)
+    const times = win.flatMap(timesIn), day = win.map(dateIn).find(Boolean) || "";
+    const num = flightConf;
+    out.push({ kind: "flight", a: g.A, b: g.B, day, t: times[0] || "", endT: times[1] || "", num: fn[1] ? `${fn[1] === "Flight" ? fn[1] : fn[1].toUpperCase()} ${fn[2]}` : "", note: num ? `Confirmation ${num}` : "" });
+  });
+  if (legs.length) { const c = markNear(M.money, legs[legs.length - 1].i); if (c) out[0].cost = c; }   // one total for the whole flight booking
+  // HOTEL: a check-in date is the signal
+  const ci = labeled(L, /check[- ]?in(?: date)?(?: time)?\s*:?\s*(.*)$/i), co = ci && labeled(L, /check[- ]?out(?: date)?(?: time)?\s*:?\s*(.*)$/i, ci.i);
+  if (ci && ci.day) {
+    const top = Math.max(0, ...legs.map(g => g.i + 1).filter(x => x <= ci.i)), sect = L.slice(top, ci.i + 12);
+    const nameL = labeled(sect, /^(?:hotel|property|hotel name|resort|your stay at|staying at)\s*:?\s*(.*)$/i);
+    const name = (nameL && nameL.raw && !dateIn(nameL.raw) ? nameL.raw
+      : (sect.find(l => /\b(hotel|resort|inn|suites|lodge|motel|marriott|hilton|hyatt|holiday inn|hampton|sheraton|westin|disney's|embassy)\b/i.test(l) && l.length <= 60 && !/check|cancel|policy|thank|confirm/i.test(l)) || "")).replace(/^(?:hotel|property|resort)\s*:\s*/i, "");
+    out.push({ kind: "hotel", a: name.slice(0, 60), b: ((sect.join("\n").match(ADDR_RE) || [])[0] || "").trim().slice(0, 90), day: ci.day, t: ci.t, endDay: co ? co.day : "", endT: co ? co.t : "",
+      num: markNear(M.num, top, ci.i + 12), phone: markNear(M.phone, top, ci.i + 12), cost: markNear(M.money, ci.i) || null });
+  }
+  // RENTAL CAR: a pick-up date + a rental company (or the word rental)
+  const coName = CAR_COS.find(c => new RegExp(`\\b${c}\\b`, "i").test(all));
+  const pu = (coName || /\brental|rent a car|car hire\b/i.test(all)) && labeled(L, /^pick[- ]?up(?! location)(?: date| time| date & time| date and time)?\s*:?\s*(.*)$/i);
+  if (pu && pu.day) {
+    const dr = labeled(L, /^(?:drop[- ]?off|return)(?! location)(?: date| time| date & time| date and time)?\s*:?\s*(.*)$/i, pu.i + 1);
+    const loc = labeled(L, /pick[- ]?up location\s*:?\s*(.*)$/i);
+    const where = loc && loc.raw && !dateIn(loc.raw) ? loc.raw : (!dateIn(L[pu.i + 1] || "") ? L[pu.i + 1] || "" : "");
+    out.push({ kind: "car", a: coName || "Rental car", b: where.slice(0, 80), day: pu.day, t: pu.t, endDay: dr ? dr.day : "", endT: dr ? dr.t : "",
+      num: markNear(M.num, Math.max(0, pu.i - 6), pu.i + 12), phone: markNear(M.phone, pu.i, L.length, 8), cost: markNear(M.money, pu.i) || null });
+  }
+  return out;
+}
+let PASTE_FOUND = [];
+function showPasteBooking() {
+  const el = bkSheet();
+  el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
+    <div class="sheet-head"><h2>📋 Paste a confirmation</h2><button class="icon-btn" data-bkclose="1" aria-label="Close">✕</button></div>
+    <ol class="steps"><li>Open the flight, hotel or rental car confirmation email.</li><li>Press and hold → <b>Select all</b> → <b>Copy</b>.</li><li>Paste it below and tap <b>Read it</b>.</li></ol>
+    <form class="qa-form" data-bkpaste="1"><textarea name="text" rows="7" placeholder="Paste the whole email here…" required></textarea><button class="btn">Read it</button></form>
+    <p class="fine">Read on this phone — nothing is sent anywhere. You check each one before it's added.</p></div>`;
+  el.classList.remove("hidden");
+}
+function showPasteFound() {
+  const el = bkSheet();
+  if (!PASTE_FOUND.length) { hideSheet("bookSheet"); return; }
+  el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
+    <div class="sheet-head"><h2>📋 Found ${PASTE_FOUND.length}</h2><button class="icon-btn" data-bkclose="1" aria-label="Close">✕</button></div>
+    ${PASTE_FOUND.map((d, i) => { const K = bookKind(d);
+      return `<button class="rn-row" data-bkdraft="${i}"><span>${K.icon}</span><span class="grow">${esc(bookTitle(d))}<span class="sub">${esc(K.label)}${d.day ? ` · ${dayName(d.day)} ${prettyDate(d.day)}${d.t ? " " + hm(d.t) : ""}` : " · no date found"}</span></span><span class="chev">Check & add ›</span></button>`; }).join("")}
+    <p class="fine" style="margin-top:8px">Tap each one to check it — anything left blank wasn't in the email.</p></div>`;
+  el.classList.remove("hidden");
+}
+function pasteBookings(text) {
+  PASTE_FOUND = extractBookings(text);
+  if (!PASTE_FOUND.length) { toast("Couldn't find a flight, hotel or rental car in that — add it with the buttons instead"); return; }
+  if (PASTE_FOUND.length === 1) showBookingForm(null, null, PASTE_FOUND[0]); else showPasteFound();
 }

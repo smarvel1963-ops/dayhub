@@ -1,6 +1,9 @@
 {
- "version": "0.99",
+ "version": "1.00",
  "notes": {
+  "1.00": [
+   "📋 Paste a confirmation: in Plan → Bookings, paste a flight, hotel or rental car email and it fills in the booking for you to check — read on your phone, nothing sent anywhere."
+  ],
   "0.99": [
    "📍 Trip map: Plan → Map shows where you're going, your hotels, airports and bookings as numbered pins in date order, on free OpenStreetMap maps. Tap a place to open its booking."
   ],
