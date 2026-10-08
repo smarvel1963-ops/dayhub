@@ -81,6 +81,7 @@ function cruiseReminders(add, inWin) {
 }
 // Click / submit handlers (called from ui.js's listeners; return true when handled).
 function cruiseClick(ds) {
+  if (typeof tripClick === "function" && tripClick(ds)) return true;      // v0.98 bookings (trip.js)
   if (helpClick(ds)) return true;                                          // v0.57 crisis mode
   if (onboardClick(ds)) return true;                                        // v0.60 onboarding
   if (phaseClick(ds)) return true;                                          // v0.61 on board
@@ -102,6 +103,7 @@ function cruiseChange(ds, t) {
   save(); setTimeout(() => { render(); showGoHome(); }, 0); return true;
 }
 function cruiseSubmit(f, data) {
+  if (typeof tripSubmit === "function" && tripSubmit(f, data)) return true;   // v0.98 bookings (trip.js)
   if (helpSubmit(f, data)) return true;                                     // v0.57 crisis mode
   if (onboardSubmit(f, data)) return true;                                  // v0.60 paste my confirmation
   if (!f.dataset.car) return false;

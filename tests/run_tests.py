@@ -2487,6 +2487,48 @@ def t_v097_trip_hub(b, base):
     c.close()
 
 
+def t_v098_bookings(b, base):
+    print("\n[v0.98 Trip Hub bookings: flights, hotels, cars land on their days, one detail screen, cost in the money]")
+    a = App(b, base, path=TRIP)
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    a.qa("trip", {"tname": "Florida road trip", "start": "2026-10-20", "end": "2026-10-25", "port": "Orlando, FL"})
+    a.page.wait_for_timeout(150)
+    def book(kind, vals):
+        a.js(f"showBookingForm('{kind}')")
+        a.page.evaluate("""v => { const f = document.querySelector('[data-bkform]'); for (const [k, x] of Object.entries(v)) {
+            const el = f.querySelector(`[name=${k}]`); if (el.type === 'checkbox') el.checked = !!x; else el.value = x; } f.requestSubmit(); }""", vals)
+        a.page.wait_for_timeout(150)
+    book("flight", {"a": "LIT", "b": "MCO", "day": "2026-10-20", "t": "07:05", "endT": "10:40", "num": "AA 1234", "cost": "420", "paid": True})
+    hd = a.js("(showBookingForm('hotel'), [...document.querySelectorAll('[data-bkform] input[type=date]')].map(i => i.value))")
+    check("a new hotel starts on the trip's dates", hd == ["2026-10-20", "2026-10-25"], hd)
+    a.js("hideSheet('bookSheet')")
+    book("hotel", {"a": "Coronado Springs", "b": "1000 W Buena Vista Dr, Orlando", "t": "15:00", "endT": "11:00", "num": "H-88812", "cost": "1150"})
+    d20 = a.js("dayItems('2026-10-20').filter(x => x.kind === 'book').map(x => x.t + ' ' + x.title)")
+    check("travel day: departs, lands, check-in, in time order", d20 == ["07:05 Departs — AA 1234 · LIT → MCO", "10:40 Lands — AA 1234 · LIT → MCO", "15:00 Check-in — Coronado Springs"], d20)
+    check("check-out on the last day", a.js("dayItems('2026-10-25').filter(x => x.kind === 'book').map(x => x.title)") == ["Check-out — Coronado Springs"])
+    costs = a.js("S.trips[0].costs.map(c => [c.cat, c.amt, c.paid])")
+    check("each booking's cost is one linked money row", costs == [["travel", 420, True], ["hotel", 1150, False]], costs)
+    r = a.js("readiness(S.trips[0]).items.filter(i => /staying|Getting there/.test(i.label)).map(i => i.label + ':' + i.score)")
+    check("readiness: hotel + flight count as where you stay / getting there", r == ["Where you're staying:1", "Getting there planned:1"], r)
+    a.js("shellGo('plan'); PLAN_VIEW = 'reservations'; render()")
+    res = a.page.inner_text("#cards")
+    check("PLAN → Reservations lists them once, with add tiles", res.count("Coronado Springs") == 1 and "＋ Rental car" in res and "AA 1234 · LIT → MCO" in res, res[:300])
+    a.page.click('[data-bkopen]')
+    det = a.page.inner_text("#bookSheet")
+    check("one detail screen: times, number, cost, map", "Departs" in det and "Lands" in det and "AA 1234" in det and "$420.00 · paid ✓" in det and a.js("!!document.querySelector('#bookSheet a[href*=\"google.com/maps\"]')"), det[:200])
+    bid = a.js("S.trips[0].bookings[0].id")
+    a.js(f"showBookingForm(null, '{bid}')")
+    a.page.fill('[data-bkform] [name=cost]', "380"); a.page.evaluate("document.querySelector('[data-bkform]').requestSubmit()"); a.page.wait_for_timeout(150)
+    check("editing keeps one money row, new amount", a.js("S.trips[0].costs.filter(c => c.bk).map(c => c.amt)") == [380, 1150])
+    a.js(f"deleteBooking('{bid}')")
+    check("deleting removes its money row too", a.js("S.trips[0].bookings.length") == 1 and a.js("S.trips[0].costs.length") == 1)
+    a.close()
+    c = App(b, base, path=CRUISE)
+    check("Cruise Hub has bookings too (hotel the night before)", c.js("typeof showBookingForm") == "function" and c.js("typeof bookingItems") == "function")
+    c.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -2515,7 +2557,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings):
             try:
                 t(b, base)
             except Exception as e:

@@ -73,7 +73,7 @@ function nextUp() {
   const now = nowT();
   for (let i = 0; i <= 60; i++) { const d = addDays(today(), i);
     // plans + the cruise's own days (sail day, ports, all aboard, excursions) + bills / final payment
-    const it = dayItems(d).filter(x => (isPlan(x) || ["trip", "aboard", "exc", "bill"].includes(x.kind)) && (i > 0 || !x.t || x.t >= now));
+    const it = dayItems(d).filter(x => (isPlan(x) || ["trip", "aboard", "exc", "bill", "book"].includes(x.kind)) && (i > 0 || !x.t || x.t >= now));
     if (it.length) { const x = it[0]; return `${x.icon || "📅"} ${i === 0 ? "Today" : i === 1 ? "Tomorrow" : `${dayName(d)} ${prettyDate(d)}`}${x.t ? ` · ${hm(x.t)}` : ""} — ${esc(x.title)}`; } }
   return "";
 }
@@ -203,6 +203,7 @@ function timelineHtml() {
     const k = dayKind(tr, d), pt = k.pt, past = d < today(), now = d === today();
     const bits = pt ? [pt.arrive && `in ${hm(pt.arrive)}`, pt.allAboard && `all aboard ${hm(aaLocal(pt))}`, pt.excursion && pt.excursion.toLowerCase() !== "none" && `🤿 ${esc(pt.excursion)}`, portWxText(pt)].filter(Boolean)
       : d === tr.start ? [trCruise(tr) && tr.ship && `board ${esc(tr.ship)}`].filter(Boolean) : d === end ? ["getting home"] : [];
+    if (typeof bookingBits === "function") bits.push(...bookingBits(tr, d).map(esc));   // v0.98 ✈️ 7:05 AM · 🏨 check-in
     rows.push(`<button class="tl-row ${past ? "past" : ""} ${now ? "now" : ""}" data-tlday="${d}"><span class="tl-ic">${k.icon}</span><span class="grow">
         <b>${esc(k.title)}</b>${now ? ` <span class="pill">TODAY</span>` : ""}<span class="sub">Day ${n} · ${dayName(d)} ${prettyDate(d)}${bits.length ? " · " + bits.join(" · ") : ""}</span></span><span class="chev">›</span></button>`);
   }
@@ -213,9 +214,10 @@ function reservationsHtml() {
   const ex = (tr.ports || []).filter(p => p.excursion && p.excursion.toLowerCase() !== "none").sort((a, b) => a.day.localeCompare(b.day));
   const plans = []; if (tr.start) for (let d = addDays(tr.start, -3); d <= addDays(tr.end || tr.start, 1); d = addDays(d, 1))
     dayItems(d).filter(x => ["event", "g"].includes(x.kind)).forEach(x => plans.push({ d, x }));
-  const books = (tr.costs || []).filter(c => ["hotel", "parking", "travel", "excursion", "package"].includes(c.cat));
+  const books = (tr.costs || []).filter(c => !c.bk && ["hotel", "parking", "travel", "excursion", "package"].includes(c.cat));   // v0.98 a booking's own cost is listed with it above
   const row = (ic, title, sub) => `<div class="row"><span class="grow">${ic} <b>${esc(title)}</b><span class="sub">${sub}</span></span></div>`;
   return `<section class="card"><h3>🎟️ Reservations</h3><div class="body">
+      ${typeof bookingsHtml === "function" ? bookingsHtml(tr) + `<div style="margin-top:10px"></div>` : ""}
       ${trCruise(tr) ? `<div class="day-label">Excursions</div>${ex.length ? ex.map(p => row("🤿", p.excursion, `${dayName(p.day)} ${prettyDate(p.day)} · ${esc(p.name)}${p.meet ? ` · meet ${hm(p.meet)}` : ""}${p.where ? ` at ${esc(p.where)}` : ""}`)).join("") : `<div class="today-line sub">None yet — add one on a port day (tap the day in Trip).</div>`}` : ""}
       <div class="day-label" style="margin-top:10px">Plans around the trip</div>${plans.length ? plans.map(({ d, x }) => row("📅", x.title, `${dayName(d)} ${prettyDate(d)}${x.t ? ` · ${hm(x.t)}` : ""}${x.sub ? ` · ${esc(x.sub)}` : ""}`)).join("") : `<div class="today-line sub">Dinner, shows, spa — add them with ＋ and they show here.</div>`}
       <div class="day-label" style="margin-top:10px">Booked around the ${trCruise(tr) ? "cruise" : "trip"}</div>${books.length ? books.map(c => row(costLabel(c.cat).split(" ")[0], c.what || costLabel(c.cat).replace(/^\S+\s/, ""), `${money(c.amt)} · ${c.paid ? "paid ✓" : "not paid yet"}`)).join("") : `<div class="today-line sub">Hotel, parking, flights — add them in Wallet → Money.</div>`}
@@ -248,7 +250,7 @@ function showDay(d) {
     ${pt && typeof portGuideHtml === "function" ? portGuideHtml(pt) : ""}
     ${!pt && (d === tr.start || d === (tr.end || tr.start)) && typeof homePortHtml === "function" ? homePortHtml(tr, true) : ""}
     <div class="day-label" style="margin-top:10px">The day</div>
-    ${items.length ? items.map(x => `<div class="row"><span class="time">${x.t ? hm(x.t) : ""}</span><span class="grow">${x.icon || ""} ${esc(x.title)}${x.sub ? `<span class="sub">${esc(x.sub)}</span>` : ""}</span></div>`).join("") : `<div class="today-line sub">${trCruise(tr) ? "🌊" : "😎"} Nothing planned yet — a good day to relax.</div>`}
+    ${items.length ? items.map(x => `<${x.bk ? `button class="row rn-row" data-bkopen="${x.bk}"` : `div class="row"`}><span class="time">${x.t ? hm(x.t) : ""}</span><span class="grow">${x.icon || ""} ${esc(x.title)}${x.sub ? `<span class="sub">${esc(x.sub)}</span>` : ""}</span>${x.bk ? `<span class="chev">›</span></button>` : "</div>"}`).join("") : `<div class="today-line sub">${trCruise(tr) ? "🌊" : "😎"} Nothing planned yet — a good day to relax.</div>`}
     <div class="foot-actions" style="flex-wrap:wrap;margin-top:10px">
       ${!trCruise(tr) ? "" : pt ? `<button class="btn sm ghost" data-portedit="${pt.id}">✏️ Edit this port</button>` : d !== tr.start && d !== (tr.end || tr.start) ? `<button class="btn sm ghost" data-portadd="${d}">⚓ It's a port day</button>` : ""}
       <button class="btn sm ghost" data-dayplan="${d}">＋ Add a plan this day</button>

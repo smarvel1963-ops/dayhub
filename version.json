@@ -1,6 +1,9 @@
 {
- "version": "0.97",
+ "version": "0.98",
  "notes": {
+  "0.98": [
+   "🎟️ Bookings on your trip: add flights, hotels, rental cars, trains, tickets and dinner reservations (Plan → Reservations). Each lands on its day, opens with one tap and its cost goes into the trip money."
+  ],
   "0.97": [
    "✈️ Trip Hub, the third Hub app, is on the way — flights, hotels and road trips. Day Hub and Cruise Hub got ready for it; nothing changes for you."
   ],

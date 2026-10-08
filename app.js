@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.97";
+const VERSION = "0.98";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -1784,7 +1784,8 @@ function readiness(tr) {
     add(left === 0 ? "Paid in full" : `Paid ${money(tripPaid(tr))} of ${money(tr.total)}`, left === 0 ? 1 : 0,
         fd !== null ? sd - fd + 30 : 90, `Make the final payment — ${money(left)}${tr.finalDue ? ` by ${prettyDate(tr.finalDue)}` : ""}`);
   }
-  add("Booking number saved", tr.booking ? 1 : 0, 9999, "Add your booking number (Edit)");
+  if (!cruise && typeof tripReady === "function") tripReady(tr, add);      // v0.98 a regular trip: where you're staying
+  else add("Booking number saved", tr.booking ? 1 : 0, 9999, "Add your booking number (Edit)");
   if (cruise) add("Travel insurance decided", tr.insurance && tr.insurance !== "undecided" ? 1 : 0, 120, "Decide on travel insurance (Edit)");
   add("Documents", frac("docs"), 90, firstOpen("docs") ? `Documents: ${firstOpen("docs").text}` : "");
   if (cruise) add("Port days entered", tr.ports.length ? 1 : 0, 90, "Add your port days — the 🗺️ Ports tab");
@@ -1795,7 +1796,7 @@ function readiness(tr) {
   if (cruise && tr.ports.length) { const noAA = tr.ports.filter(pt => !pt.allAboard);
     add("All-aboard times", noAA.length ? 1 - noAA.length / tr.ports.length : 1, 7, noAA.length ? `Add the all-aboard time for ${noAA[0].name} (Ports tab ✏️ — from the ship's daily planner)` : ""); }
   if (cruise) add("Cabin number", tr.cabin ? 1 : 0, 60, "Add your cabin number (Edit)");
-  add("Getting there planned", tr.travel ? 1 : 0, 60, `Plan how you get to ${tr.port || "the start"} (Edit)`);
+  add("Getting there planned", tr.travel || (typeof tripGettingThere === "function" && tripGettingThere(tr)) ? 1 : 0, 60, `Plan how you get to ${tr.port || "the start"} (Edit)`);
   add("Before you go", frac("before"), 60, firstOpen("before") ? firstOpen("before").text : "");
   add("Packing", frac("packing"), 30, firstOpen("packing") ? `Pack: ${firstOpen("packing").text}` : "");
   add(cruise ? "Sail-day plan" : "Travel-day plan", frac("embark"), 7, firstOpen("embark") ? firstOpen("embark").text : "");
@@ -2017,6 +2018,7 @@ function dayItems(day) {
     }
     if (tr.finalDue === day && tripLeft(tr) !== 0)
       it.push({ t: null, title: `Final payment — ${tr.name}`, sub: tripLeft(tr) ? money(tripLeft(tr)) + " left" : "", kind: "bill", icon: "💳" });
+    if (typeof bookingItems === "function") it.push(...bookingItems(tr, day));          // v0.98 flights, hotels, cars (trip.js)
   });
   S.packages.filter(p => !p.delivered && p.eta === day).forEach(p => it.push({ t: null, title: `${p.name} arriving`, sub: (CARRIERS[p.carrier] || CARRIERS.other)[0], kind: "pkg", icon: "📦" }));
   const w = WXDATA && WXDATA.here;
