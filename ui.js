@@ -128,7 +128,7 @@ const CARDS = {
         <span class="bar"><span style="left:${(d.lo - mn) / span * 100}%;width:${Math.max(6, (d.hi - d.lo) / span * 100)}%"></span></span>
         <span class="hi">${Math.round(d.hi)}°${d.rain >= 30 ? `<span class="rn"> ${d.rain}%</span>` : ""}</span></div>`).join("");
       const al = wxAlerts(today());
-      return cruiseWxBlock() + `${MODE === "cruise" ? `<div class="wx-where">📍 Where you are — ${esc(w.label)}</div>` : ""}${al.length ? `<div class="wx-alerts">${wxAlertHtml(al)}</div>` : ""}<div class="hours">${hours}</div>
+      return cruiseWxBlock() + `${TRAVEL ? `<div class="wx-where">📍 Where you are — ${esc(w.label)}</div>` : ""}${al.length ? `<div class="wx-alerts">${wxAlertHtml(al)}</div>` : ""}<div class="hours">${hours}</div>
         <div class="wx-facts"><div class="fact">Feels like<b>${Math.round(w.cur.apparent_temperature)}°</b></div>
           <div class="fact">Wind<b>${Math.round(w.cur.wind_speed_10m)} mph</b></div>
           <div class="fact">Sunrise<b>${fmtTime(w.day.sunrise)}</b></div><div class="fact">Sunset<b>${fmtTime(w.day.sunset)}</b></div></div>
@@ -189,11 +189,12 @@ const CARDS = {
         <button class="btn sm" data-addfound="${esc(x.key)}">Add</button><button class="x" data-dropfound="${esc(x.key)}" aria-label="Dismiss">✕</button></div>`).join("");
     } },
 
-  trips: { icon: "🚢", title: "Trips",
+  trips: { icon: MODE === "trip" ? "✈️" : "🚢", title: "Trips",
     meta: () => { const tr = curTrip(); return tr ? `${readiness(tr).pct}% ready` : ""; },
     body: () => {
       const tr = curTrip();
-      if (!tr) return `<div class="empty">Got a cruise or trip coming? Day Hub counts down, reminds you about the final payment, tracks onboard spending and hands you ready-made packing and document lists.</div>
+      if (!tr) return `<div class="empty">${MODE === "trip" ? "Got a trip coming? Trip Hub counts down, lays it out day by day, keeps your payments and spending and hands you ready-made packing and document lists."
+        : `Got a cruise or trip coming? ${APP_NAME} counts down, reminds you about the final payment, tracks onboard spending and hands you ready-made packing and document lists.`}</div>
         ${gmailAllowed() ? `<div class="today-line" style="margin-top:8px">✨ <b>Zero effort:</b> connect the email you booked with (⚙ → Connect Gmail) and the ship, dates, booking number, cabin and ports fill in by themselves.</div>` : ""}
         <button class="btn sm" data-qa="trip" style="margin-top:10px">🚢 Plan a trip</button>`;
       const all = upcomingTrips();
@@ -205,7 +206,7 @@ const CARDS = {
           <span class="sub">${lab}${tr.start ? ` · ${prettyDate(tr.start)}${tr.end ? ` – ${prettyDate(tr.end)}` : ""}${nights ? ` · ${nights} nights` : ""}` : ""}</span>
           <span class="sub">${[tr.line, tr.ship, tr.port].filter(Boolean).map(esc).join(" · ")}</span></div>
           <button class="btn sm ghost" data-tripedit="${tr.id}">Edit</button></div>
-        <button class="btn" data-forget="1" style="width:100%;margin-top:10px">🛳️ What am I forgetting?</button>`;
+        <button class="btn" data-forget="1" style="width:100%;margin-top:10px">${isCruise(tr) ? "🛳️" : "🧳"} What am I forgetting?</button>`;
       const tabs = ["ready", "money"].concat(isCruise(tr) ? ["ports"] : [], ["onboard"], isCruise(tr) ? ["perks"] : [], ["lists"], isCruise(tr) ? ["tips"] : []);
       const TL = { ready: "✅ Ready", money: "💳 Money", ports: "🗺️ Ports", onboard: isCruise(tr) ? "🍹 Onboard" : "💵 Spending", lists: "📋 Lists", perks: "🎁 Perks", tips: "💡 Good to know" };
       const tabsAll = tabs.slice(); tabs.splice(0, tabs.length, ...tabsAll.filter(k => typeof shellTripTabOk !== "function" || shellTripTabOk(k)));   // v0.58 shell
@@ -253,7 +254,7 @@ const CARDS = {
           <div class="paygrid"><div class="fact">Total vacation<b>${money(W.total)}</b></div><div class="fact">Paid<b>${money(W.paid)}</b></div>
             <div class="fact ${W.left ? "" : "take"}">Left<b>${money(W.left)}</b></div></div>
           ${W.total ? `<div class="bar" style="margin-top:10px"><span style="left:0;width:${Math.min(100, W.paid / W.total * 100)}%"></span></div>` : ""}
-          <div class="today-line sub" style="margin-top:6px">Cruise ${W.fare ? money(W.fare) : "— (Edit to add)"}${W.extras ? ` + everything around it ${money(W.extras)}` : ""}</div>
+          <div class="today-line sub" style="margin-top:6px">${isCruise(tr) ? "Cruise" : "Trip"} ${W.fare ? money(W.fare) : "— (Edit to add)"}${W.extras ? ` + everything around it ${money(W.extras)}` : ""}</div>
           ${W.credit ? `<div class="today-line">💵 Onboard credit: <b>${money(W.credit)}</b></div>` : ""}
           ${W.unused ? `<button class="today-line linkish" data-triptab="perks">🎁 ${W.unused} benefit${W.unused === 1 ? "" : "s"} not used yet — see Perks</button>` : ""}` +
           W.costs.map(c => `<div class="row"><span class="grow">${costLabel(c.cat)}${c.what ? ` — ${esc(c.what)}` : ""}</span><b>${money(c.amt)}</b>
@@ -466,11 +467,11 @@ function listCard(key, word) {
 
 function welcomeHtml() {
   // v0.45: Cruise Hub greets as itself and has no profession packs.
-  return `<section class="card welcome"><h2>${MODE === "cruise" ? "Welcome to Cruise Hub 🚢" : "Welcome to Day Hub 👋"}</h2>
-    <p>${MODE === "cruise" ? "Two quick things, then plan your cruise." : "Two quick things and your day is set."}</p>
+  return `<section class="card welcome"><h2>${TRAVEL ? `Welcome to ${APP_NAME} ${MODE === "cruise" ? "🚢" : "✈️"}` : "Welcome to Day Hub 👋"}</h2>
+    <p>${TRAVEL ? `Two quick things, then plan your ${TW}.` : "Two quick things and your day is set."}</p>
     <form class="qa-form" data-setup="1"><input name="name" placeholder="Your first name" autocomplete="given-name">
-      <input name="city" placeholder="${MODE === "cruise" ? "Your home city or ZIP (e.g. 72032)" : "City or ZIP for weather (e.g. 72032)"}" required>
-      ${MODE === "cruise" ? `<input type="hidden" name="pack" value="general">`
+      <input name="city" placeholder="${TRAVEL ? "Your home city or ZIP (e.g. 72032)" : "City or ZIP for weather (e.g. 72032)"}" required>
+      ${TRAVEL ? `<input type="hidden" name="pack" value="general">`
         : `<select name="pack">${Object.entries(PACKS).map(([k, p]) => `<option value="${k}">${p.label}</option>`).join("")}</select>`}
       <button class="btn">Let's go</button></form></section>`;
 }
@@ -516,9 +517,9 @@ function cruiseCountdown(tr) {
   const R = readiness(tr), who = esc(tr.ship || tr.name);
   let big, lab, line;
   if (sd > 0) { big = sd; lab = sd === 1 ? "DAY" : "DAYS"; line = `until ${who}`; }
-  else if (sd === 0) { big = "⚓"; lab = "SAIL DAY"; line = `Welcome aboard ${who}`; }
+  else if (sd === 0) { const c = isCruise(tr); big = c ? "⚓" : "✈️"; lab = c ? "SAIL DAY" : "TRAVEL DAY"; line = c ? `Welcome aboard ${who}` : `${who} starts today`; }
   else { const n = -sd + 1, all = Math.round((parseDay(end) - parseDay(tr.start)) / 86400000) + 1, pt = portOn(tr, today());
-    big = n; lab = `DAY ${n} OF ${all}`; line = pt ? `⚓ ${esc(pt.name)}${pt.allAboard ? ` · all aboard ${hm(pt.allAboard)}` : ""}` : today() === end ? "Getting home today" : `🌊 At sea on ${who}`; }
+    big = n; lab = `DAY ${n} OF ${all}`; line = pt ? `⚓ ${esc(pt.name)}${pt.allAboard ? ` · all aboard ${hm(pt.allAboard)}` : ""}` : today() === end ? "Getting home today" : isCruise(tr) ? `🌊 At sea on ${who}` : `📍 Enjoy ${who}`; }
   const pctTxt = R.pct >= 100 ? "100% READY 🎉" : `${R.pct}% READY`;
   return `<button class="cd" data-cd="open" aria-label="${esc(String(big))} ${esc(lab)} ${esc(line.replace(/<[^>]+>/g, ""))}. ${R.pct}% ready. Tap for the checklist.">
     <span class="cd-n" ${typeof big === "number" && sd > 0 ? `data-count="${big}"` : ""}>${big}</span>
@@ -538,7 +539,7 @@ function guardHtml(g) {
 }
 // The always-there BACK TO SHIP bar while a guard is running (Cruise Hub).
 function paintGuardBar() {
-  const tr = MODE === "cruise" ? curTrip() : null, g = tr && guardFor(tr);
+  const tr = TRAVEL ? curTrip() : null, g = tr && guardFor(tr);
   let el = document.getElementById("rgBar");
   if (!g) { if (el) el.remove(); return; }
   if (!el) { el = document.createElement("button"); el.id = "rgBar"; el.dataset.rg = "open"; document.body.appendChild(el); }
@@ -576,7 +577,7 @@ function afterHero(hero) {
       const step = t => { const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
         if (n.isConnected) n.textContent = Math.round(to * e); if (k < 1) requestAnimationFrame(step); };
       n.textContent = "0"; requestAnimationFrame(step); } }
-  const tr = MODE === "cruise" ? curTrip() : null;
+  const tr = TRAVEL ? curTrip() : null;
   if (tr && hero.querySelector(".cd") && !tr.ready100 && readiness(tr).pct >= 100) {
     tr.ready100 = true; save(); celebrate(`${tr.ship || tr.name}: 100% ready — you're all set! 🎉`); }
 }
@@ -614,7 +615,7 @@ function showReady() {
 const HUBS = [
   { id: "dayhub", name: "Day Hub", icon: "☀️", what: "Your whole day on one screen — schedule, weather, to-dos, bills.", url: BASE_URL },
   { id: "cruisehub", name: "Cruise Hub", icon: "🚢", what: "Countdown, payments, port days and all-aboard alarms.", url: CRUISE_URL },
-  { id: "triphub", name: "Trip Hub", icon: "✈️", what: "Flights, hotels and road trips.", soon: true },
+  { id: "triphub", name: "Trip Hub", icon: "✈️", what: "Flights, hotels and road trips.", url: TRIP_URL, soon: true },   // soon: until Trip Hub V1 is ready to show
 ];
 function hubRows() {
   const sd = sibData();
@@ -627,27 +628,28 @@ CARDS.family = { icon: "🌐", title: "Hub family",
 
 // v0.51 Cruise Hub's second weather: where the cruise is (app.js cruiseWxDays).
 function cruiseWxBlock() {
-  if (MODE !== "cruise") return "";
+  if (!TRAVEL) return "";
   const tr = curTrip(); if (!tr || !tr.start || daysUntil(tr.end || tr.start) < 0) return "";
   ensurePortWx(tr);
   const sd = daysUntil(tr.start), hn = hurricaneNote(tr);
   const days = cruiseWxDays(tr);
-  const head = `<div class="wx-where">🚢 Where your cruise is${tr.ship ? ` — ${esc(tr.ship)}` : ""}</div>`;
-  if (sd > 15) return `<div class="cruise-wx">${head}<div class="today-line">${tr.port ? `⚓ ${esc(tr.port)} on sail day` : "⚓ Sail day"}: the forecast shows up 16 days before you sail — ${sd - 15} day${sd - 15 === 1 ? "" : "s"} from now.</div>
-    ${!tr.port ? `<div class="fine">Add your departure port (Edit trip) and your port days (🗺️ Ports) to see their weather.</div>` : ""}${hn ? `<div class="wx-alert">${hn}</div>` : ""}</div>`;
+  const cr = isCruise(tr);                                                    // v0.97: a regular trip = where you're going
+  const head = cr ? `<div class="wx-where">🚢 Where your cruise is${tr.ship ? ` — ${esc(tr.ship)}` : ""}</div>` : `<div class="wx-where">✈️ Where you're going${tr.port ? ` — ${esc(placeName(tr.port))}` : ""}</div>`;
+  if (sd > 15) return `<div class="cruise-wx">${head}<div class="today-line">${cr ? (tr.port ? `⚓ ${esc(tr.port)} on sail day` : "⚓ Sail day") : (tr.port ? `📍 ${esc(tr.port)}` : "📍 Your trip")}: the forecast shows up 16 days before you ${cr ? "sail" : "go"} — ${sd - 15} day${sd - 15 === 1 ? "" : "s"} from now.</div>
+    ${!tr.port ? `<div class="fine">${cr ? "Add your departure port (Edit trip) and your port days (🗺️ Ports) to see their weather." : "Add where you're going (Edit trip) to see its weather."}</div>` : ""}${hn ? `<div class="wx-alert">${hn}</div>` : ""}</div>`;
   const rows = days.map(x => { const w = PORTWX[`${x.name}|${x.day}`], when = x.day === today() ? "Today" : x.day === addDays(today(), 1) ? "Tomorrow" : `${dayName(x.day)} ${prettyDate(x.day)}`;
-    const tag = x.kind === "sail" ? "boarding" : "port day";
+    const tag = x.kind === "sail" ? (cr ? "boarding" : "arrive") : "port day";
     const wx = !w || w.loading ? `<span class="sub">loading…</span>` : w.none ? `<span class="sub">no forecast for this place</span>`
       : `<span class="sub">${wmo(w.code)[0]} ${Math.round(w.hi)}°/${Math.round(w.lo)}°${w.rain >= 20 ? ` · rain ${w.rain}%` : ""}${w.uv != null ? ` · UV ${Math.round(w.uv)}` : ""}${w.gust != null ? ` · gusts ${Math.round(w.gust)} mph` : ""}</span>`;
     const al = cruiseWxAlerts(w, x.kind);
     return `<div class="cwx-day"><div><b>${when} · ${esc(x.name)}</b> <span class="tag">${tag}</span>${x.pt && x.pt.allAboard ? ` <span class="tag">all aboard ${hm(x.pt.allAboard)}</span>` : ""}</div>${wx}
       ${al.length ? `<div class="wx-alerts">${al.map(a => `<div class="wx-alert">${a.icon} ${esc(a.text)}</div>`).join("")}</div>` : x.kind && w && !w.loading && !w.none ? `<div class="sub">✅ Nothing to watch for.</div>` : ""}</div>`; }).join("");
-  const none = !days.length ? `<div class="today-line">🌊 ${sd > 0 ? "Add your departure port and port days to see their weather." : "At sea — the next port day shows here once it's within 16 days."}</div>` : "";
+  const none = !days.length ? `<div class="today-line">${!cr ? `📍 ${sd > 0 ? "Add where you're going (Edit trip) to see its weather." : "Enjoy the trip!"}` : `🌊 ${sd > 0 ? "Add your departure port and port days to see their weather." : "At sea — the next port day shows here once it's within 16 days."}`}</div>` : "";
   return `<div class="cruise-wx">${head}${rows}${none}${hn ? `<div class="wx-alert">${hn}</div>` : ""}</div>`;
 }
 // The first cruise-area alert for today or tomorrow, for a hero chip.
 function cruiseWxChip() {
-  const tr = MODE === "cruise" ? curTrip() : null; if (!tr) return "";
+  const tr = TRAVEL ? curTrip() : null; if (!tr) return "";
   for (const x of cruiseWxDays(tr)) {
     if (x.day > addDays(today(), 1)) break;
     const a = cruiseWxAlerts(PORTWX[`${x.name}|${x.day}`], x.kind)[0];
@@ -666,7 +668,7 @@ function packExtrasHtml(tr) {
 }
 
 const MINI = {
-  trips:      [() => MODE !== "cruise" && !curTrip() && !famUpcoming().length, 'data-qa="trip"', "Plan a trip"],
+  trips:      [() => !TRAVEL && !curTrip() && !famUpcoming().length, 'data-qa="trip"', "Plan a trip"],
   top3:       [() => !TOP3_BUSY && !(S.top3.day === today() && S.top3.items.length), 'data-top3="pick"', "Pick my top 3"],
   payday:     [() => !S.payday.freq, "open", "Set up payday"],
   budget:     [() => !budget().income, 'data-qa="pay"', "Set income"],
@@ -995,21 +997,23 @@ function qaFields(type) {
       <input name="day" type="number" min="1" max="31" inputmode="numeric" placeholder="Due day (1-31)" required></div>
       <div class="hint">Repeats every month. Tap Paid and it moves to next month.</div>`,
     trip: (() => { const tr = S.trips.find(x => x.id === TRIP_EDIT) || {}; const v = k => esc(tr[k] ?? "");
-      return `<div class="two"><select name="ttype"><option value="cruise" ${tr.type !== "trip" ? "selected" : ""}>🚢 Cruise</option><option value="trip" ${tr.type === "trip" ? "selected" : ""}>✈️ Other trip</option></select>
-        <input name="tname" placeholder="Name (e.g. Caribbean cruise)" value="${v("name")}" required autocomplete="off"></div>
+      // v0.97 Trip Hub: a new trip there is a regular trip; cruise-only boxes are hidden (still sent, so nothing is lost).
+      const tt = tr.type || (MODE === "trip" ? "trip" : "cruise"), co = `data-cruiseonly ${tt === "cruise" ? "" : "hidden"}`;
+      return `<div class="two"><select name="ttype" onchange="this.form.querySelectorAll('[data-cruiseonly]').forEach(e => e.hidden = this.value !== 'cruise')"><option value="cruise" ${tt !== "trip" ? "selected" : ""}>🚢 Cruise</option><option value="trip" ${tt === "trip" ? "selected" : ""}>✈️ ${MODE === "trip" ? "Trip" : "Other trip"}</option></select>
+        <input name="tname" placeholder="${MODE === "trip" ? "Name (e.g. Florida road trip)" : "Name (e.g. Caribbean cruise)"}" value="${v("name")}" required autocomplete="off"></div>
       <div class="two"><label class="field" style="margin:0">Leave<input name="start" type="date" value="${v("start")}" required></label>
         <label class="field" style="margin:0">Back<input name="end" type="date" value="${v("end")}"></label></div>
-      <div class="two"><input name="line" list="lineList" placeholder="Cruise line / airline" value="${v("line")}" autocomplete="off"><input name="ship" placeholder="Ship (optional)" value="${v("ship")}"></div>
+      <div class="two"><input name="line" list="lineList" placeholder="Cruise line / airline" value="${v("line")}" autocomplete="off"><input name="ship" placeholder="Ship (optional)" value="${v("ship")}" ${co}></div>
       <datalist id="lineList">${CRUISE_LINE_LIST.map(n => `<option value="${esc(n)}">`).join("")}</datalist>
-      <div class="two"><input name="port" placeholder="Leaving from (port / city)" value="${v("port")}"><input name="travelers" type="number" min="1" inputmode="numeric" placeholder="People" value="${v("travelers")}"></div>
+      <div class="two"><input name="port" placeholder="${tt === "cruise" ? "Leaving from (port / city)" : "Going to (city)"}" value="${v("port")}"><input name="travelers" type="number" min="1" inputmode="numeric" placeholder="People" value="${v("travelers")}"></div>
       <div class="two"><input name="total" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Total price $" value="${v("total")}">
         <label class="field" style="margin:0">Final payment due<input name="finalDue" type="date" value="${v("finalDue")}"></label></div>
-      <div class="two"><input name="onboardBudget" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Onboard budget $" value="${v("onboardBudget")}">
+      <div class="two" ${co}><input name="onboardBudget" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Onboard budget $" value="${v("onboardBudget")}">
         <input name="credit" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Onboard credit $" value="${v("credit")}"></div>
-      <div class="two"><input name="booking" placeholder="Booking number" value="${v("booking")}" autocomplete="off"><input name="cabin" placeholder="Cabin (e.g. D-512)" value="${v("cabin")}" autocomplete="off"></div>
+      <div class="two"><input name="booking" placeholder="Booking number" value="${v("booking")}" autocomplete="off"><input name="cabin" placeholder="Cabin (e.g. D-512)" value="${v("cabin")}" autocomplete="off" ${co}></div>
       <label class="field" style="margin:0">Travel insurance<select name="insurance">${["undecided", "bought", "declined"].map(o => `<option value="${o}" ${(tr.insurance || "undecided") === o ? "selected" : ""}>${{ undecided: "Not decided yet", bought: "Bought", declined: "Decided not to" }[o]}</option>`).join("")}</select></label>
       <input name="travel" placeholder="Getting there (drive / flight + hotel night before…)" value="${v("travel")}" autocomplete="off">
-      <label class="field" style="margin:0">Package<select name="pkg"><option value="">Custom package (add your own perks)</option>${linePkgs(tr.line).concat(tr.pkg && PACKAGES[tr.pkg] && !linePkgs(tr.line).includes(tr.pkg) ? [tr.pkg] : []).map(k => `<option value="${k}" ${tr.pkg === k ? "selected" : ""}>${esc(PACKAGES[k].name)}</option>`).join("")}</select></label>
+      <label class="field" style="margin:0" ${co}>Package<select name="pkg"><option value="">Custom package (add your own perks)</option>${linePkgs(tr.line).concat(tr.pkg && PACKAGES[tr.pkg] && !linePkgs(tr.line).includes(tr.pkg) ? [tr.pkg] : []).map(k => `<option value="${k}" ${tr.pkg === k ? "selected" : ""}>${esc(PACKAGES[k].name)}</option>`).join("")}</select></label>
       <div class="hint">Day Hub never asks for passport or ID numbers — only whether they're ready.</div>
       <div class="hint">${TRIP_EDIT ? "Changing a trip keeps its payments, spending and lists." : "Packing, documents and before-you-go lists are filled in for you."}</div>
       ${TRIP_EDIT ? `<button type="button" class="btn sm ghost" data-tripremove="${TRIP_EDIT}">Delete this trip</button>` : ""}`; })(),
@@ -1567,7 +1571,7 @@ function drawSetJump() {
 function drawSettings() {
   document.getElementById("setName").value = S.name;
   document.getElementById("setCity").value = S.city;
-  document.getElementById("setPack").closest("label").hidden = MODE === "cruise";   // v0.45: no profession packs in Cruise Hub
+  document.getElementById("setPack").closest("label").hidden = TRAVEL;   // v0.45: no profession packs in Cruise Hub
   document.getElementById("setPack").innerHTML = Object.entries(PACKS).map(([k, p]) => `<option value="${k}" ${k === S.pack ? "selected" : ""}>${p.label}</option>`).join("");
   drawCardList();
   let db = document.getElementById("dataBox");
@@ -1636,7 +1640,13 @@ function drawProBox() {
   const p = proState(), who = p.buyer ? esc(p.buyer) : "";
   // v0.45: Cruise Hub lists only what Cruise Hub has; it is included with Day Hub Pro (one Whop purchase).
   // v0.48: with CRUISE_PASS on, Cruise Hub sells its own Cruise Hub Pass ($9.99/year, every cruise that year).
-  const what = MODE === "cruise"
+  // v0.97: Trip Hub has no product of its own yet - Day Hub Pro unlocks it (the relay checks Day Hub Pro for any app but Cruise Hub).
+  const what = MODE === "trip"
+    ? `<p class="fine" style="margin-top:0">Trip Hub's extras come with ${PLAN.NAME} — one purchase unlocks Day Hub, Cruise Hub and Trip Hub.</p>
+       <ul class="pro-list"><li>🤖 Trip Hub AI — things to do, plan tonight, ask about your trip</li><li>🗓️ Your trip and plans on your phone's calendar</li>
+       <li>☁️ Backup to your own Google Drive</li></ul>
+       <p class="fine" style="margin-top:4px">Everything else — countdown, timeline, payments, packing and documents lists, reservations — is free forever. No ads, ever.</p>`
+    : TRAVEL
     ? (cruisePass() ? `<p class="fine" style="margin-top:0"><b>One price for the whole year — plan as many cruises as you like.</b> Already have ${PLAN.NAME}? It includes Cruise Hub: enter that email below.</p>`
       : `<p class="fine" style="margin-top:0">Cruise Hub's extras come with ${PLAN.NAME} — one purchase unlocks Day Hub and Cruise Hub.</p>`) + `
        <ul class="pro-list"><li>🗓️ Your trip, payments and port days on your phone's calendar</li>

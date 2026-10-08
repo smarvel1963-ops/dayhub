@@ -3,7 +3,8 @@
  * HOME | PLAN | EXPLORE | WALLET | AI. Those five never move." + "One giant button
  * ... its position never changes. Only its job changes.").
  *
- * On for Cruise Hub (SHELL_MODES). Day Hub keeps its cards for now.
+ * On for Cruise Hub and Trip Hub (SHELL_MODES, Trip Hub v0.97). Day Hub keeps its cards for now.
+ * A regular (non-cruise) trip gets trip words - no ship, ports or all aboard.
  *   HOME    - what matters right now: the hero, at most 3 RIGHT NOW items, NEXT UP,
  *             and the big contextual button.
  *   PLAN    - the trip (Ready / Ports / Lists / Tips...), schedule, to-dos, lists.
@@ -15,7 +16,8 @@
  */
 "use strict";
 
-const SHELL_MODES = ["cruise"];
+const SHELL_MODES = ["cruise", "trip"];
+const trCruise = tr => !!tr && isCruise(tr);                              // ship / port wording only for a cruise
 
 // THE HUB NAVIGATION (Scott 10/5: "the little drop down logos you did on cruise hub like on the life
 // preserver needs to be how our navigation in our app functions on almost every thing"). Big icon tiles -
@@ -42,16 +44,16 @@ function shellGo(tab) {
 // ---- the big button: one place, its job changes with the moment
 function bigButton(tr) {
   const h = new Date().getHours();
-  if (!tr || !tr.start) return { label: "🚢 PLAN MY CRUISE", act: 'data-qa="trip"' };
+  if (!tr || !tr.start) return MODE === "trip" ? { label: "✈️ BUILD MY TRIP", act: 'data-qa="trip"' } : { label: "🚢 PLAN MY CRUISE", act: 'data-qa="trip"' };
   const sd = daysUntil(tr.start), end = tr.end || tr.start;
   const gh = typeof goHomeState === "function" && goHomeState(tr);
   if (gh === "final") return { label: "🌙 GET ME HOME READY", act: 'data-gohome="open"' };
   if (gh === "leave") return { label: "🏠 GET ME HOME", act: 'data-gohome="open"' };
   if (guardFor(tr)) return { label: "🚢 BACK TO SHIP", act: 'data-rg="open"' };
   if (daysUntil(end) < 0) return { label: "🏠 AFTER THE TRIP", act: 'data-shellgo="plan" data-triplistgo="after"' };
-  if (sd === 1 || (sd === 0 && !tr.aboard)) return { label: "🚗 GET ME TO MY SHIP", act: 'data-help="get"' };
-  if (sd > 1) return { label: "🛳️ WHAT AM I FORGETTING?", act: 'data-forget="1"' };
-  return h >= 16 && h < 23 ? { label: "🌙 PLAN TONIGHT", act: `data-askq="Plan tonight for us on the ship."` }
+  if (trCruise(tr) && (sd === 1 || (sd === 0 && !tr.aboard))) return { label: "🚗 GET ME TO MY SHIP", act: 'data-help="get"' };
+  if (sd >= 1) return { label: `${trCruise(tr) ? "🛳️" : "🧳"} WHAT AM I FORGETTING?`, act: 'data-forget="1"' };
+  return h >= 16 && h < 23 ? { label: "🌙 PLAN TONIGHT", act: `data-askq="${trCruise(tr) ? "Plan tonight for us on the ship." : "Plan tonight for us."}"` }
     : { label: "✨ WHAT SHOULD WE DO NOW?", act: `data-askq="What should we do now?"` };
 }
 // ---- RIGHT NOW: at most 3 things that need the traveler (Scott: "Home = maximum 3 priorities")
@@ -94,15 +96,15 @@ function bubblesHtml(items) {
 function homeHtml() {
   if (S.simple) return simpleHomeHtml();                                    // v0.62 simple mode
   const tr = curTrip(), items = rightNow(tr), nx = nextUp(), bb = bigButton(tr);
-  if (!tr) return addCruiseHtml();                                          // v0.60 no cruise yet: the ways in
+  if (!tr) return MODE === "trip" ? addTripHtml() : addCruiseHtml();       // v0.60 no cruise / trip yet: the ways in
   const [bi, bl] = splitIcon(bb.label);                                     // the big button's job = the hot bubble
   const nxWhat = (nx.split(" — ")[1] || "").toLowerCase();                 // NEXT that only repeats a row above = left out
   return prefsCardHtml() + phaseCardHtml(tr) + goingOnHtml(items, nxWhat && items.some(r => r.text.toLowerCase().includes(nxWhat)) ? "" : nx) + bubblesHtml([
     { icon: bi, label: bl, attrs: bb.act, hot: true },
     { icon: "📅", label: "My day", attrs: 'data-shellgo="plan" data-planview="today"' },
-    { icon: "🗺️", label: "My cruise", attrs: 'data-shellgo="plan" data-planview="trip"' },
+    { icon: "🗺️", label: trCruise(tr) ? "My cruise" : "My trip", attrs: 'data-shellgo="plan" data-planview="trip"' },
     { icon: "🧳", label: "Packing", attrs: 'data-shellgo="plan" data-planview="packing"' },
-    { icon: "🏝️", label: "Ports & ship", attrs: 'data-shellgo="explore"' },
+    trCruise(tr) ? { icon: "🏝️", label: "Ports & ship", attrs: 'data-shellgo="explore"' } : { icon: "🌎", label: "Things to do", attrs: 'data-shellgo="explore"' },
     { icon: "👛", label: "Money", attrs: 'data-shellgo="wallet"' },
     { icon: "🛟", label: "Help", attrs: 'data-help="home"' }]);
 }
@@ -119,6 +121,7 @@ function dayHubHomeHtml(order) {
     + bubblesHtml(order.filter(k => CARDS[k]).slice(0, 12).map(k => ({ icon: CARDS[k].icon, label: CARDS[k].title, attrs: `data-bubble="${k}"` })));
 }
 function exploreHtml(cardHtml) {
+  if (!trCruise(curTrip())) return tripExploreHtml() + SHELL_CARDS.explore.map(k => cardHtml(k)).join("");   // v0.97 Trip Hub
   const tr = curTrip(), ports = tr ? (tr.ports || []).slice().sort((a, b) => a.day.localeCompare(b.day)) : [];
   if (tr) ensurePortWx(tr);
   const portCards = ports.map(pt => `<button class="port-card" data-tlday="${pt.day}"><b>${typeof portGuide === "function" && portGuide(pt.name) ? portGuide(pt.name).flag : "⚓"} ${esc(pt.name)}</b>
@@ -131,7 +134,9 @@ function exploreHtml(cardHtml) {
 }
 function aiTabHtml() {
   const tr = curTrip(), away = tr && tr.start && daysUntil(tr.start) <= 0;
-  const qs = away ? ["What should we do now?", "Plan tonight for us on the ship.", "When do we need to be back on the ship?", "What should I bring ashore tomorrow?", "Which perks haven't we used?"]
+  const qs = !trCruise(tr) ? (away ? ["What should we do now?", "Plan tonight for us.", "We have 2 hours free — what's worth it nearby?", "What's on tomorrow?", "How much have we spent so far?"]
+      : ["What am I forgetting?", "How much do I still owe, and when?", "What's left to pack?", "What should I do this week for my trip?"])
+    : away ? ["What should we do now?", "Plan tonight for us on the ship.", "When do we need to be back on the ship?", "What should I bring ashore tomorrow?", "Which perks haven't we used?"]
     : ["What am I forgetting?", "How much do I still owe, and when?", "What's left to pack?", "What should I do this week for my cruise?"];
   return `<section class="card ai-home"><h3>✨ ${esc(APP_NAME)} AI</h3><div class="body">
       <div class="today-line">${esc(greet())}.${tr && tr.start && daysUntil(tr.start) > 0 ? ` ${daysUntil(tr.start)} days to ${esc(tr.ship || tr.name)}.` : ""} What do you need?</div>
@@ -181,6 +186,8 @@ const PLAN_VIEWS = [["today", "Today"], ["trip", "Trip"], ["packing", "Packing"]
 let PLAN_VIEW = "trip";
 function dayKind(tr, d) {
   const pt = portOn(tr, d), end = tr.end || tr.start;
+  if (!trCruise(tr)) return d === tr.start ? { icon: "✈️", title: `Travel day${tr.port ? ` — ${placeName(tr.port)}` : ""}` }
+    : d === end ? { icon: "🏠", title: "Going home" } : { icon: "📍", title: tr.port ? placeName(tr.port) : "On the trip" };
   if (pt) return { icon: "⚓", title: pt.name, pt };
   if (d === tr.start) return { icon: "🚢", title: `Sail day${tr.port ? ` — ${placeName(tr.port)}` : ""}` };
   if (d === end) return { icon: "🏠", title: `Back in port${tr.port ? ` — ${placeName(tr.port)}` : ""}` };
@@ -190,28 +197,28 @@ function timelineHtml() {
   const tr = curTrip(); if (!tr || !tr.start) return "";
   ensurePortWx(tr);
   const sd = daysUntil(tr.start), R = readiness(tr), end = tr.end || tr.start, rows = [];
-  if (sd > 0) rows.push(`<button class="tl-row before" data-cd="open"><span class="tl-ic">🧳</span><span class="grow"><b>Before you sail</b>
+  if (sd > 0) rows.push(`<button class="tl-row before" data-cd="open"><span class="tl-ic">🧳</span><span class="grow"><b>Before you ${trCruise(tr) ? "sail" : "go"}</b>
       <span class="sub">${sd} day${sd === 1 ? "" : "s"} to go · ${R.pct}% ready${R.next ? ` · next: ${esc(R.next.action.replace(/\s*\([^)]*\)/g, ""))}` : ""}</span></span><span class="chev">›</span></button>`);
   for (let d = tr.start, n = 1; d <= end; d = addDays(d, 1), n++) {
     const k = dayKind(tr, d), pt = k.pt, past = d < today(), now = d === today();
     const bits = pt ? [pt.arrive && `in ${hm(pt.arrive)}`, pt.allAboard && `all aboard ${hm(aaLocal(pt))}`, pt.excursion && pt.excursion.toLowerCase() !== "none" && `🤿 ${esc(pt.excursion)}`, portWxText(pt)].filter(Boolean)
-      : d === tr.start ? [tr.ship && `board ${esc(tr.ship)}`] : d === end ? ["getting home"] : [];
+      : d === tr.start ? [trCruise(tr) && tr.ship && `board ${esc(tr.ship)}`].filter(Boolean) : d === end ? ["getting home"] : [];
     rows.push(`<button class="tl-row ${past ? "past" : ""} ${now ? "now" : ""}" data-tlday="${d}"><span class="tl-ic">${k.icon}</span><span class="grow">
         <b>${esc(k.title)}</b>${now ? ` <span class="pill">TODAY</span>` : ""}<span class="sub">Day ${n} · ${dayName(d)} ${prettyDate(d)}${bits.length ? " · " + bits.join(" · ") : ""}</span></span><span class="chev">›</span></button>`);
   }
-  return `<section class="card timeline"><h3>🗺️ Your cruise, day by day</h3><div class="body">${rows.join("")}</div></section>`;
+  return `<section class="card timeline"><h3>🗺️ Your ${trCruise(tr) ? "cruise" : "trip"}, day by day</h3><div class="body">${rows.join("")}</div></section>`;
 }
 function reservationsHtml() {
-  const tr = curTrip(); if (!tr) return `<div class="empty">Plan a cruise first.</div>`;
+  const tr = curTrip(); if (!tr) return `<div class="empty">Plan a ${TW} first.</div>`;
   const ex = (tr.ports || []).filter(p => p.excursion && p.excursion.toLowerCase() !== "none").sort((a, b) => a.day.localeCompare(b.day));
   const plans = []; if (tr.start) for (let d = addDays(tr.start, -3); d <= addDays(tr.end || tr.start, 1); d = addDays(d, 1))
     dayItems(d).filter(x => ["event", "g"].includes(x.kind)).forEach(x => plans.push({ d, x }));
   const books = (tr.costs || []).filter(c => ["hotel", "parking", "travel", "excursion", "package"].includes(c.cat));
   const row = (ic, title, sub) => `<div class="row"><span class="grow">${ic} <b>${esc(title)}</b><span class="sub">${sub}</span></span></div>`;
   return `<section class="card"><h3>🎟️ Reservations</h3><div class="body">
-      <div class="day-label">Excursions</div>${ex.length ? ex.map(p => row("🤿", p.excursion, `${dayName(p.day)} ${prettyDate(p.day)} · ${esc(p.name)}${p.meet ? ` · meet ${hm(p.meet)}` : ""}${p.where ? ` at ${esc(p.where)}` : ""}`)).join("") : `<div class="today-line sub">None yet — add one on a port day (tap the day in Trip).</div>`}
+      ${trCruise(tr) ? `<div class="day-label">Excursions</div>${ex.length ? ex.map(p => row("🤿", p.excursion, `${dayName(p.day)} ${prettyDate(p.day)} · ${esc(p.name)}${p.meet ? ` · meet ${hm(p.meet)}` : ""}${p.where ? ` at ${esc(p.where)}` : ""}`)).join("") : `<div class="today-line sub">None yet — add one on a port day (tap the day in Trip).</div>`}` : ""}
       <div class="day-label" style="margin-top:10px">Plans around the trip</div>${plans.length ? plans.map(({ d, x }) => row("📅", x.title, `${dayName(d)} ${prettyDate(d)}${x.t ? ` · ${hm(x.t)}` : ""}${x.sub ? ` · ${esc(x.sub)}` : ""}`)).join("") : `<div class="today-line sub">Dinner, shows, spa — add them with ＋ and they show here.</div>`}
-      <div class="day-label" style="margin-top:10px">Booked around the cruise</div>${books.length ? books.map(c => row(costLabel(c.cat).split(" ")[0], c.what || costLabel(c.cat).replace(/^\S+\s/, ""), `${money(c.amt)} · ${c.paid ? "paid ✓" : "not paid yet"}`)).join("") : `<div class="today-line sub">Hotel, parking, flights — add them in Wallet → Money.</div>`}
+      <div class="day-label" style="margin-top:10px">Booked around the ${trCruise(tr) ? "cruise" : "trip"}</div>${books.length ? books.map(c => row(costLabel(c.cat).split(" ")[0], c.what || costLabel(c.cat).replace(/^\S+\s/, ""), `${money(c.amt)} · ${c.paid ? "paid ✓" : "not paid yet"}`)).join("") : `<div class="today-line sub">Hotel, parking, flights — add them in Wallet → Money.</div>`}
       <button class="add-link" data-qa="event">＋ Add a plan (dinner, show, spa…)</button></div></section>`;
 }
 function planHtml(cardHtml) {
@@ -241,9 +248,9 @@ function showDay(d) {
     ${pt && typeof portGuideHtml === "function" ? portGuideHtml(pt) : ""}
     ${!pt && (d === tr.start || d === (tr.end || tr.start)) && typeof homePortHtml === "function" ? homePortHtml(tr, true) : ""}
     <div class="day-label" style="margin-top:10px">The day</div>
-    ${items.length ? items.map(x => `<div class="row"><span class="time">${x.t ? hm(x.t) : ""}</span><span class="grow">${x.icon || ""} ${esc(x.title)}${x.sub ? `<span class="sub">${esc(x.sub)}</span>` : ""}</span></div>`).join("") : `<div class="today-line sub">🌊 Nothing planned yet — a good day to relax.</div>`}
+    ${items.length ? items.map(x => `<div class="row"><span class="time">${x.t ? hm(x.t) : ""}</span><span class="grow">${x.icon || ""} ${esc(x.title)}${x.sub ? `<span class="sub">${esc(x.sub)}</span>` : ""}</span></div>`).join("") : `<div class="today-line sub">${trCruise(tr) ? "🌊" : "😎"} Nothing planned yet — a good day to relax.</div>`}
     <div class="foot-actions" style="flex-wrap:wrap;margin-top:10px">
-      ${pt ? `<button class="btn sm ghost" data-portedit="${pt.id}">✏️ Edit this port</button>` : d !== tr.start && d !== (tr.end || tr.start) ? `<button class="btn sm ghost" data-portadd="${d}">⚓ It's a port day</button>` : ""}
+      ${!trCruise(tr) ? "" : pt ? `<button class="btn sm ghost" data-portedit="${pt.id}">✏️ Edit this port</button>` : d !== tr.start && d !== (tr.end || tr.start) ? `<button class="btn sm ghost" data-portadd="${d}">⚓ It's a port day</button>` : ""}
       <button class="btn sm ghost" data-dayplan="${d}">＋ Add a plan this day</button>
       ${d === today() && guardFor(tr) ? `<button class="btn sm" data-rg="open">🚢 Return Guard</button>` : ""}</div></div>`;
   el.classList.remove("hidden");
@@ -255,8 +262,10 @@ function showDay(d) {
 // Minimal choices. Same intelligence underneath."). A per-phone display choice (S.simple).
 function simpleHomeHtml() {
   const tr = curTrip(), bb = bigButton(tr), nx = nextUp();
-  let today = "🗓️ No cruise yet";
-  if (tr && tr.start) { const sd = daysUntil(tr.start), pt = portOn(tr, today_()), end = tr.end || tr.start;
+  let today = `🗓️ No ${TW} yet`;
+  if (tr && tr.start && !trCruise(tr)) { const sd = daysUntil(tr.start), end = tr.end || tr.start;
+    today = sd > 0 ? `✈️ ${sd} day${sd === 1 ? "" : "s"} to your trip` : sd === 0 ? "✈️ Today you go" : daysUntil(end) < 0 ? "🏠 Welcome home" : today_() === end ? "🏠 Going home today" : `📍 Enjoy ${esc(tr.name)}`; }
+  else if (tr && tr.start) { const sd = daysUntil(tr.start), pt = portOn(tr, today_()), end = tr.end || tr.start;
     today = sd > 0 ? `🚢 ${sd} day${sd === 1 ? "" : "s"} to your cruise` : sd === 0 ? "🚢 Today you sail" : daysUntil(end) < 0 ? "🏠 Welcome home"
       : pt ? `⚓ ${esc(pt.name)}${pt.allAboard ? ` — back by ${hm(guardBy(pt))}` : ""}` : today_() === end ? "🏠 Going home today" : "🌊 Sea day"; }
   return `<section class="card simple-home"><div class="simple-big">${esc(greet())}</div><div class="simple-now">${today}</div>
@@ -264,7 +273,7 @@ function simpleHomeHtml() {
     <button class="big-btn simple" ${bb.act}>${bb.label}</button>
     <div class="simple-grid">
       <button class="simple-btn" data-shellgo="plan" data-planview="today">📅<b>MY DAY</b></button>
-      <button class="simple-btn" data-shellgo="plan" data-planview="trip">🚢<b>MY CRUISE</b></button>
+      <button class="simple-btn" data-shellgo="plan" data-planview="trip">${trCruise(tr) || (!tr && MODE === "cruise") ? "🚢<b>MY CRUISE</b>" : "✈️<b>MY TRIP</b>"}</button>
       <button class="simple-btn" data-ask="open">💡<b>ASK</b></button>
       <button class="simple-btn red" data-help="home">🛟<b>HELP</b></button></div>`;
 }

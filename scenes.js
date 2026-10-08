@@ -19,7 +19,7 @@
  */
 "use strict";
 
-const SCENE_FOR = { day: "weather", cruise: "ocean" };
+const SCENE_FOR = { day: "weather", cruise: "ocean", trip: "travel" };   // v0.97 Trip Hub: skyline + plane
 let SCENE_KEY = null;
 
 // What the sky is doing: clear | cloudy | rain | snow | storm | fog (WMO codes, Open-Meteo).
@@ -51,6 +51,8 @@ const SC_STYLE = `<style>
 @keyframes wave{from{transform:translateX(-18px)}to{transform:translateX(18px)}}
 .bob{animation:bob 5s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center}
 @keyframes bob{from{transform:translateY(0)}to{transform:translateY(2px)}}
+.lane{animation:lane 1.6s linear infinite}
+@keyframes lane{from{transform:translateX(0)}to{transform:translateX(-28px)}}
 .sway{animation:sway 7s ease-in-out infinite alternate;transform-origin:380px 240px}
 @keyframes sway{from{transform:rotate(-1.5deg)}to{transform:rotate(1.5deg)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
@@ -103,6 +105,19 @@ const SCENES = {
      <g class="sway" opacity=".34" fill="#fff" transform="translate(196 92) scale(.5)">
        <path d="M372 240c-2-30 2-58 12-84l4 1c-9 26-12 53-10 83z"/>
        <path d="M386 156c-20-10-40-6-52 6 16-4 30-4 44 2zm0 0c-8-16-24-24-42-22 14 6 26 14 34 26zm0 0c14-14 30-16 44-10-14 0-28 4-38 14zm0 0c4-18 18-28 32-30-10 8-18 18-24 32z"/></g>`,
+  // Trip Hub (Scott 10/7: "would like to use car sceen as faint background"): a road trip - rolling hills,
+  // a sunset glow on the horizon, the road with moving lane lines and a car driving along it, weather on top.
+  travel: (kind, night) => weatherLayer(kind, night) +
+    `<path d="M0 196c50-22 100-26 150-12s90 10 140-6 80-8 110 2V240H0z" fill="#fff" opacity=".06"/>
+     <path d="M0 204c90-14 200-14 290-4s80 2 110-4v8H0z" fill="#fcd34d" opacity=".07"/>
+     <rect x="0" y="212" width="400" height="28" fill="#fff" opacity=".07"/>
+     <g class="lane" fill="#fff" opacity=".16">${Array.from({ length: 16 }, (_, i) => `<rect x="${i * 28}" y="225" width="14" height="2.2" rx="1"/>`).join("")}</g>
+     <g transform="translate(170 195) scale(.8)"><g class="bob" opacity=".3" fill="#fff">
+       <path d="M4 18c0-5 3-8 8-8l9-1 10-7c3-2 6-2 9-2h19c4 0 7 1 10 4l8 6 9 1c5 1 8 4 8 9v3H4z"/>
+       <path d="M34 4h11v7H27zm15 0h10c2 0 4 1 6 3l4 4H49z" fill="#1e3a8a" opacity=".55"/>
+       <circle cx="22" cy="21" r="6"/><circle cx="74" cy="21" r="6"/>
+       <circle cx="22" cy="21" r="2.4" fill="#1e3a8a" opacity=".6"/><circle cx="74" cy="21" r="2.4" fill="#1e3a8a" opacity=".6"/>
+       <rect x="93" y="12" width="5" height="3" rx="1.5" fill="#fde68a"/></g></g>`,
 };
 
 // Called from paintHero(): sets --scene on the hero only when the scene changes.

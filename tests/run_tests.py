@@ -32,6 +32,7 @@ def check(name, cond, extra=""):
 
 
 CRUISE = "/../cruisehub/"     # Cruise Hub's own address, next to /dayhub/ (v0.47)
+TRIP = "/../triphub/"         # Trip Hub's own address (v0.97, app #3)
 
 
 # ------------------------------------------------------------------ server
@@ -2444,6 +2445,48 @@ def t_v095_dream(b, base):
     a.close()
 
 
+def t_v097_trip_hub(b, base):
+    print("\n[v0.97 Trip Hub: app #3 at /triphub/ - same engine, trip words, car scene, Day Hub Pro unlocks it]")
+    a = App(b, base, path=TRIP)
+    check("Trip Hub: its own name, id and data", a.js("[MODE, APP_NAME, APP_ID, STORE, TRAVEL]") == ["trip", "Trip Hub", "triphub", "triphub.v1", True] and a.page.title() == "Trip Hub")
+    w = a.page.inner_text("#cards")
+    check("trip welcome, no profession picker, no cruise", "Welcome to Trip Hub" in w and "plan your trip" in w and "cruise" not in w.lower().split("hub family")[0]
+          and not a.js("!!document.querySelector('form[data-setup] select')"), w[:200])
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    a.js("shellGo('home')")
+    check("5-tab shell on, no trip yet = Add my trip", a.js("shellOn()") and "Add my trip" in a.page.inner_text("#cards"))
+    check("car scene behind the clock", a.js("document.getElementById('hero').dataset.scene").startswith("travel|"))
+    a.qa("trip", {"tname": "Florida road trip", "start": "2026-10-20", "end": "2026-10-25", "port": "Orlando, FL", "travelers": "2"})
+    a.page.wait_for_timeout(200)
+    check("a new trip here is a regular trip (not a cruise)", a.js("S.trips.map(t => t.type).join()") == "trip")
+    texts = {}
+    for t in ("home", "plan", "explore", "wallet", "ai"):
+        a.js(f"shellGo('{t}')"); texts[t] = a.page.inner_text("#cards") + a.page.inner_text("#hero")
+        if t == "explore": asks = a.js("document.querySelectorAll('[data-askq*=\"Orlando\"]').length")
+    import re
+    leak = [m for t, x in texts.items() for m in re.findall(r"[^\n]{0,30}(?:cruise|ship\b|all aboard|onboard|port day|🚢|🛳)[^\n]{0,30}", x.split("Hub family")[0], re.I)]
+    check("no cruise words on any tab (hub family list aside)", not leak, leak[:4])
+    check("countdown + trip big button", "until Florida road trip" in texts["home"] and "WHAT AM I FORGETTING?" in texts["home"] and "Things to do" in texts["home"])
+    check("PLAN: trip day by day, travel day + going home", "Your trip, day by day" in texts["plan"] and "Travel day" in texts["plan"] and "Going home" in texts["plan"])
+    check("EXPLORE: things-to-do tiles ask the AI about the destination", "Things to do — Orlando, FL" in texts["explore"]
+          and asks >= 6, asks)
+    a.js("showHelp()")
+    hp = a.page.inner_text("#helpSheet")
+    check("help: no ship buttons on a regular trip", "BACK TO SHIP" not in hp and "GET TO THE SHIP" not in hp and "MEDICAL" in hp)
+    a.js("hideSheet('helpSheet')")
+    a.page.click("#settingsBtn")
+    pro = a.page.inner_text("#proBox")
+    check("Pro box: Day Hub Pro unlocks Trip Hub, no Cruise Hub Pass", "Trip Hub's extras come with Day Hub Pro" in pro and "Cruise Hub Pass" not in pro and "$9.99" not in pro, pro[:200])
+    check("Day Hub's data untouched, family = Day Hub", a.js("localStorage.getItem('dayhub.v1')") is None and a.js("SIB.id") == "dayhub")
+    a.page.click('[data-close="sheet"]')
+    a.close()
+    # Cruise Hub must not change: a new trip there is still a cruise
+    c = App(b, base, path=CRUISE)
+    check("Cruise Hub still Cruise Hub", c.js("[MODE, APP_NAME, APP_ID]") == ["cruise", "Cruise Hub", "cruisehub"] and c.js("SCENE_FOR[MODE]") == "ocean")
+    c.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -2472,7 +2515,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub):
             try:
                 t(b, base)
             except Exception as e:

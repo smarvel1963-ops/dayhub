@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "0.96";
+const VERSION = "0.97";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -25,12 +25,18 @@ const VERSION = "0.96";
 // of apps"): each hub keeps its OWN data (STORE) and its OWN Drive backup
 // (DFILE). The HUB FAMILY link (below, "hub family") lets each one SEE the
 // other's trips - read only - when both are on the phone or both back up.
-const MODE = window.DH_MODE === "cruise" ? "cruise" : "day";
-const APP_NAME = MODE === "cruise" ? "Cruise Hub" : "Day Hub";
+// TRIP HUB (Scott 10/7, app #3): window.DH_MODE = "trip" at /triphub/. Cruise Hub
+// and Trip Hub are the TRAVEL hubs - same trip-first screen; cruise-only parts
+// (ports, ships, the Cruise Hub Pass, taking over Day Hub's cruises) stay "cruise".
+const MODE = ["cruise", "trip"].includes(window.DH_MODE) ? window.DH_MODE : "day";
+const TRAVEL = MODE !== "day";
+const TW = MODE === "cruise" ? "cruise" : "trip";                // the word this hub uses for its trips
+const APP_NAME = { cruise: "Cruise Hub", trip: "Trip Hub" }[MODE] || "Day Hub";
 const BASE_URL = new URL(".", (document.currentScript && document.currentScript.src) || location.href).href;   // where app.js lives
-const APP_ID = MODE === "cruise" ? "cruisehub" : "dayhub";
+const APP_ID = { cruise: "cruisehub", trip: "triphub" }[MODE] || "dayhub";
 const CRUISE_URL = new URL("../cruisehub/", BASE_URL).href;    // Cruise Hub's own address (repo smarvel1963-ops/cruisehub)
-const HOME_URL = MODE === "cruise" ? CRUISE_URL : BASE_URL;     // this app's own folder (its sw.js lives here)
+const TRIP_URL = new URL("../triphub/", BASE_URL).href;        // Trip Hub's own address (repo smarvel1963-ops/triphub)
+const HOME_URL = { cruise: CRUISE_URL, trip: TRIP_URL }[MODE] || BASE_URL;     // this app's own folder (its sw.js lives here)
 
 const STORE = APP_ID + ".v1";
 const WX = "https://api.open-meteo.com/v1/forecast";
@@ -78,7 +84,7 @@ function deviceId() {
 // passphrase (or with the OWNER owner-switch) counts as Pro.
 const ownerPhone = () => !!aiPass() || !!ownerSwitches().OWNER;
 const proGood = p => !!(p.buyer && p.ok && Date.now() < (p.checked || 0) + (PLAN.RECHECK_DAYS + PLAN.GRACE_DAYS) * DAY_MS);
-const proViaDayHub = () => MODE === "cruise" && !proGood(proState()) && proGood(readPro(DAY_PRO_KEY));
+const proViaDayHub = () => TRAVEL && !proGood(proState()) && proGood(readPro(DAY_PRO_KEY));
 function isPro() {
   return ownerPhone() || proGood(proState()) || proViaDayHub();
 }
@@ -113,7 +119,7 @@ const gmailAllowed = () => switchOn("GMAIL") || S.mail.on || !!S.mail.found.leng
 // reminders and bills, and in the Trips card as a row with an Open button.
 // A cruise Cruise Hub took over from Day Hub (S.adopted) is shown from Cruise
 // Hub in both, so there is one live copy. Off: Settings -> Hub family.
-const SIB = MODE === "cruise"
+const SIB = TRAVEL
   ? { id: "dayhub", name: "Day Hub", store: "dayhub.v1", file: "dayhub.json", url: BASE_URL, icon: "☀️" }
   : { id: "cruisehub", name: "Cruise Hub", store: "cruisehub.v1", file: "cruisehub.json", url: CRUISE_URL, icon: "🚢" };
 const FAM_KEY = APP_ID + ".family";              // the other hub's trips from its Drive backup (a cache)
@@ -172,7 +178,7 @@ async function famDriveRefresh() {
 }
 
 // ---------------------------------------------------------------- packs
-const BASE = MODE === "cruise" ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "top3", "schedule", "errands", "leave", "routines", "reset", "tomorrow", "work", "payday", "budget", "weather", "todos", "notes", "future", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
+const BASE = TRAVEL ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : ["inbox", "trips", "top3", "schedule", "errands", "leave", "routines", "reset", "tomorrow", "work", "payday", "budget", "weather", "todos", "notes", "future", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
 const PACKS = {
   general:  { label: "General",              cards: [] },
   trucker:  { label: "Trucker / Dispatcher", cards: ["route", "loads"] },
@@ -322,7 +328,7 @@ const money = n => "$" + Number(n || 0).toLocaleString("en-US", { minimumFractio
 const buzz = () => { try { navigator.vibrate && navigator.vibrate(8); } catch (e) { /* no haptics */ } };
 
 function cardOrder() {
-  const want = [...BASE, ...(MODE === "cruise" ? [] : PACKS[S.pack].cards), "family"];   // v0.50 Hub family card: always last
+  const want = [...BASE, ...(TRAVEL ? [] : PACKS[S.pack].cards), "family"];   // v0.50 Hub family card: always last
   let order = (S.order || []).filter(k => want.includes(k));
   // A card new in this version goes to its DEFAULT place, not to the bottom
   // of someone's saved order.
@@ -593,7 +599,7 @@ async function syncOnOpen(force) {
   if (S.gcal.connected && gReady()) { await gcalFetch(true); await gcalPush(); gcalDates(); }
   if (S.sync.on && dReady()) { await syncDrive(); famDriveRefresh(); }
   if (S.mail.on && mReady() && can("mail")) scanMail();
-  if (MODE !== "cruise" && S.top3.day !== today() && new Date().getHours() >= 4 && (S.name || hasData(S)) && !S.hidden.includes("top3")) top3Pick();
+  if (!TRAVEL && S.top3.day !== today() && new Date().getHours() >= 4 && (S.name || hasData(S)) && !S.hidden.includes("top3")) top3Pick();
   render();
 }
 // ZERO-TAP renew (Scott 10/2: "still need calendar to auto sync on open").
@@ -742,7 +748,7 @@ function closeBrief() {
 }
 function maybeBrief() {
   const h = new Date().getHours();
-  if (MODE === "cruise" || S.briefAuto === false || !(S.name || hasData(S)) || h < 4 || h >= 11 || S.briefDay === today()) return;
+  if (TRAVEL || S.briefAuto === false || !(S.name || hasData(S)) || h < 4 || h >= 11 || S.briefDay === today()) return;
   S.briefDay = today(); saveLocal(); showBrief();
 }
 function speakBrief() {
@@ -970,7 +976,7 @@ function reminderList() {
   // Freeze tonight: one heads-up at 6 PM (drip faucets, plants, pets).
   const fz = wxAlerts(today()).find(a => a.key === "freeze");
   if (fz) add(`fz:${today()}`, atMs(today(), "23:59"), atMs(today(), "18:00"), "🥶 Freeze tonight", fz.text.split(" — ")[1] || fz.text);
-  if (R.night >= 0 && MODE !== "cruise" && S.resetDay !== today()) {
+  if (R.night >= 0 && !TRAVEL && S.resetDay !== today()) {
     const at = atMs(today(), `${pad(Math.floor(R.night / 60))}:${pad(R.night % 60)}`);
     add(`nr:${today()}`, atMs(today(), "23:59"), at, "🛏️ Nightly reset", resetSummary());
   }
@@ -1714,7 +1720,8 @@ function hurricaneNote(tr) {
   const w = Object.values(PORTWX).find(x => x && x.lat != null && x.lat >= 5 && x.lat <= 36 && x.lon >= -100 && x.lon <= -50);
   const words = /caribbean|bahama|nassau|cozumel|key west|miami|lauderdale|canaveral|galveston|tampa|orleans|san juan|grand turk|st\.? (thomas|maarten|kitts|lucia)|jamaica|cayman|roat|belize|costa maya|aruba|cura|barbados|antigua|cococay|amber cove|labadee|half moon/i;
   const named = words.test([tr.name, tr.port, tr.ship, ...(tr.ports || []).map(p => p.name)].join(" "));
-  return w || named ? "🌀 Atlantic hurricane season (June–November): the cruise line can change ports or times. Watch for its emails, check its travel alerts, and think about travel insurance." : "";
+  return !(w || named) ? "" : isCruise(tr) ? "🌀 Atlantic hurricane season (June–November): the cruise line can change ports or times. Watch for its emails, check its travel alerts, and think about travel insurance."
+    : "🌀 Atlantic hurricane season (June–November): storms can change flights and plans. Watch for emails from your airline and hotel, check their travel alerts, and think about travel insurance.";
 }
 const portWxText = pt => { const w = PORTWX[`${pt.name}|${pt.day}`];
   return w && !w.loading && !w.none ? `${wmo(w.code)[0]} ${Math.round(w.hi)}°/${Math.round(w.lo)}°${w.rain >= 20 ? ` · rain ${w.rain}%` : ""}` : ""; };
@@ -1924,7 +1931,7 @@ function exportData() {
   const body = JSON.stringify({ app: APP_ID, v: VERSION, savedAt: new Date().toISOString(), data }, null, 1);
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([body], { type: "application/json" }));
-  a.download = `${MODE === "cruise" ? "cruise" : "day"}-hub-backup-${today()}.json`;
+  a.download = `${MODE}-hub-backup-${today()}.json`;
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
   toast("Backup file saved ✓");
 }
@@ -2545,17 +2552,17 @@ let ASK_BUSY = false, ASK_LOG = [];
 function showAsk() {
   let el = document.getElementById("askSheet");
   if (!el) { el = document.createElement("div"); el.id = "askSheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); document.body.appendChild(el); }
-  const tr = MODE === "cruise" ? curTrip() : null, away = tr && tr.start && daysUntil(tr.start) <= 0;
-  const ex = MODE !== "cruise" ? ["What's happening tomorrow?", "When is my next oil change?", "What haven't I finished this week?", "What bills are due before payday?"]
+  const tr = TRAVEL ? curTrip() : null, away = tr && tr.start && daysUntil(tr.start) <= 0;
+  const ex = !TRAVEL ? ["What's happening tomorrow?", "When is my next oil change?", "What haven't I finished this week?", "What bills are due before payday?"]
     : away ? ["When do we need to be back on the ship?", "What's the plan tomorrow?", "What should I bring ashore tomorrow?", "Which perks haven't we used?"]
     : ["What am I forgetting?", "How much do I still owe, and when?", "What's left to pack?", "What should I do this week for my cruise?"];
   el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
     <div class="sheet-head"><h2>💡 Ask ${APP_NAME}</h2><button class="icon-btn" data-askclose="1" aria-label="Close">✕</button></div>
-    ${aiOn() ? `<form class="ask-form" data-ask="1"><input name="q" placeholder="${MODE === "cruise" ? "Ask anything about your cruise…" : "Ask anything about your day…"}" autocomplete="off" required>
+    ${aiOn() ? `<form class="ask-form" data-ask="1"><input name="q" placeholder="${TRAVEL ? `Ask anything about your ${TW}…` : "Ask anything about your day…"}" autocomplete="off" required>
         <button type="button" class="btn sm ghost" data-askmic="1" aria-label="Talk">🎤</button><button class="btn sm">Ask</button></form>
       <div class="chips up-chips">${ex.map(q => `<button class="chip" data-askq="${esc(q)}">${esc(q)}</button>`).join("")}</div>
       <div id="askOut">${ASK_LOG.map(a => `<div class="ask-q">${esc(a.q)}</div><div class="ask-a">${esc(a.a)}</div>`).join("")}</div>`
-    : `<p class="fine" style="margin-top:4px">${MODE === "cruise" ? `Ask in plain words — "When do we need to be back on the ship?" — and Cruise Hub answers from your own cruise.` : `Ask in plain words — "When's my next oil change?" — and Day Hub answers from your own planner.`}</p>
+    : `<p class="fine" style="margin-top:4px">${TRAVEL ? `Ask in plain words — ${MODE === "cruise" ? `"When do we need to be back on the ship?"` : `"What time is our hotel check-in?"`} — and ${APP_NAME} answers from your own ${TW}.` : `Ask in plain words — "When's my next oil change?" — and Day Hub answers from your own planner.`}</p>
        <ol class="steps"><li>Tap ⚙ (top right).</li><li>Find <b>🤖 AI helper</b>, type your passphrase, tap <b>Turn on</b>.</li></ol>
        <button class="btn sm" data-askclose="1" data-open="sheet">Open ⚙</button>`}
   </div>`;
@@ -2566,8 +2573,8 @@ async function askDayHub(q) {
   q = String(q || "").trim(); if (!q || ASK_BUSY) return;
   ASK_BUSY = true; ASK_LOG.unshift({ q, a: "…thinking" }); showAsk();
   // Cruise Hub: the relay's "ask" job answers only from the JSON; the trip block holds the cruise facts.
-  const lead = MODE === "cruise" ? "(Asked in Cruise Hub - answer about my cruise, using the \"trip\" section first.) " : "";
-  try { ASK_LOG[0].a = String((await aiCall("ask", `QUESTION: ${lead}${q}\n\nMY PLANNER (JSON):\n${aiContext()}`)).text || "").trim() || `I couldn't find that in your ${MODE === "cruise" ? "cruise" : "planner"}.`; }
+  const lead = TRAVEL ? `(Asked in ${APP_NAME} - answer about my ${TW}, using the "trip" section first.) ` : "";
+  try { ASK_LOG[0].a = String((await aiCall("ask", `QUESTION: ${lead}${q}\n\nMY PLANNER (JSON):\n${aiContext()}`)).text || "").trim() || `I couldn't find that in your ${TRAVEL ? TW : "planner"}.`; }
   catch (e) { ASK_LOG[0].a = `⚠️ ${/passphrase/.test(e.message) ? "The AI helper's passphrase changed — set it again in ⚙" : "Couldn't reach the AI helper right now. Try again in a minute."}`; }
   ASK_LOG = ASK_LOG.slice(0, 6); ASK_BUSY = false; showAsk();
 }
@@ -2781,30 +2788,30 @@ function heroHtml() {
     verdict = n ? `Tomorrow: ${n} thing${n === 1 ? "" : "s"} planned.` : "Nothing planned tomorrow. Rest up."; }
   else { const busy = left + open;
     verdict = busy === 0 ? "A clear day ahead." : busy <= 3 ? "A light day." : busy <= 7 ? "A full day — you've got this." : "A busy one. Pace yourself."; }
-  if (MODE === "cruise") { const tr = curTrip();
-    verdict = !tr ? "Plan your next cruise ⛴️" : !tr.start ? `🚢 ${esc(tr.name)}` : daysUntil(tr.start) > 0
-      ? `🚢 ${isCruise(tr) ? "Cruise" : "Trip"} in ${daysUntil(tr.start)} day${daysUntil(tr.start) === 1 ? "" : "s"} · ${readiness(tr).pct}% ready`
-      : daysUntil(tr.end || tr.start) >= 0 ? `🚢 Enjoy ${esc(tr.name)}!` : `🏠 Welcome home from ${esc(tr.name)}`; }
+  if (TRAVEL) { const tr = curTrip(), ic = tr && !isCruise(tr) ? "✈️" : "🚢";
+    verdict = !tr ? (MODE === "cruise" ? "Plan your next cruise ⛴️" : "Plan your next trip ✈️") : !tr.start ? `${ic} ${esc(tr.name)}` : daysUntil(tr.start) > 0
+      ? `${ic} ${isCruise(tr) ? "Cruise" : "Trip"} in ${daysUntil(tr.start)} day${daysUntil(tr.start) === 1 ? "" : "s"} · ${readiness(tr).pct}% ready`
+      : daysUntil(tr.end || tr.start) >= 0 ? `${ic} Enjoy ${esc(tr.name)}!` : `🏠 Welcome home from ${esc(tr.name)}`; }
   // v0.50 (Scott 10/4 "build the countdown next"): Cruise Hub's hero is the big countdown (ui.js cruiseCountdown).
-  const CD = MODE === "cruise" ? cruiseCountdown(curTrip()) : "";
+  const CD = TRAVEL ? cruiseCountdown(curTrip()) : "";
 
   const chips = [];
   { const rn = routineNow(); if (rn) chips.unshift(`<button class="chip good" data-ropen="${rn.id}">🔁 ${esc(rn.name.replace(/^\S+\s/, ""))}: ${rDone(rn).length}/${rn.steps.length}</button>`); }
   { const nx = payNext(); if (nx === today()) { const c = dueBetween(nx, payAfter(nx));
       chips.unshift(`<span class="chip good">💵 Payday! ${c.length} bill${c.length === 1 ? "" : "s"} before the next check — ${money(c.reduce((x, o) => x + o.amt, 0))}</span>`); } }
-  { const es = errandStops(); if (MODE !== "cruise" && es.length >= 2 && h < 18 && !S.hidden.includes("errands"))
+  { const es = errandStops(); if (!TRAVEL && es.length >= 2 && h < 18 && !S.hidden.includes("errands"))
       chips.push(`<button class="chip" data-errands="1">🛍️ Errand run: ${es.length} stops</button>`); }
   openReturns().filter(r => daysUntil(r.by) <= 2).slice(0, 2).forEach(r => chips.push(`<span class="chip warn">↩️ Return ${esc(r.what)}: ${retWhen(r)}</span>`));
   upkeepDue(null, 1).filter(({ x, day }) => x.auto ? (daysUntil(day) === 0 || (daysUntil(day) === 1 && h >= 15)) : daysUntil(day) <= 0)
     .slice(0, 2).forEach(({ x, day }) => chips.push(`<span class="chip ${daysUntil(day) < 0 ? "warn" : ""}">${esc(x.name)} ${x.auto && daysUntil(day) === 1 ? "tomorrow — out tonight" : upkeepWhen(x, day)}</span>`));
   upcomingPeople(3).forEach(({ p, day }) => { const n = daysUntil(day);
     chips.push(`<span class="chip ${n === 0 ? "good" : ""}">${PKIND[p.kind] || "⭐"} ${esc(n === 0 ? personLabel(p, day) + " — today!" : `${p.name} ${inDays(n)}`)}</span>`); });
-  if (MODE !== "cruise" && h >= 5 && h < 11 && leaveLeft() && leaveDone().length < leaveAll().length && S.hidden.indexOf("leave") < 0)
+  if (!TRAVEL && h >= 5 && h < 11 && leaveLeft() && leaveDone().length < leaveAll().length && S.hidden.indexOf("leave") < 0)
     chips.push(`<button class="chip" data-leave="1">🚪 Don't forget: ${leaveLeft()} to check</button>`);
   const wa = wxAlerts(today());
   wa.slice(0, 2).forEach(a => chips.push(`<span class="chip warn">${a.icon} ${esc(a.text.split(" — ")[0])}</span>`));
-  if (MODE === "cruise") { const cw = cruiseWxChip(); if (cw) chips.unshift(cw); }   // v0.51 cruise-area weather alert
-  if (MODE === "cruise" && typeof carChip === "function") { const cc = carChip(curTrip()); if (cc) chips.push(cc); }   // v0.56
+  if (TRAVEL) { const cw = cruiseWxChip(); if (cw) chips.unshift(cw); }   // v0.51 cruise-area weather alert
+  if (TRAVEL && typeof carChip === "function") { const cc = carChip(curTrip()); if (cc) chips.push(cc); }   // v0.56
   if (w && w.day.rainFrom && !wa.some(a => a.key === "rain-plan")) chips.push(`<span class="chip warn">☔ Rain from ${fmtTime(w.day.rainFrom)}</span>`);
   else if (w && w.day.rain < 20) chips.push(`<span class="chip good">☀ No rain today</span>`);
   const nx = nextPlan();
@@ -2824,15 +2831,15 @@ function heroHtml() {
     if (CD) { /* the countdown already says it */ }
     else if (sd > 0 && sd <= 365) chips.push(`<span class="chip">${isCruise(nt) ? "🚢" : "✈️"} ${esc(nt.name)} in ${sd} day${sd === 1 ? "" : "s"}</span>`);
     else if (sd <= 0 && daysUntil(nt.end || nt.start) >= 0) chips.push(`<span class="chip good">${isCruise(nt) ? "🚢" : "✈️"} Enjoy ${esc(nt.name)}!</span>`);
-    if (sd <= 2 && daysUntil(nt.end || nt.start) >= -2) chips.unshift(`<button class="chip good" data-forget="1">🛳️ What am I forgetting?</button>`);
+    if (sd <= 2 && daysUntil(nt.end || nt.start) >= -2) chips.unshift(`<button class="chip good" data-forget="1">${isCruise(nt) ? "🛳️" : "🧳"} What am I forgetting?</button>`);
   }
   const pkToday = S.packages.filter(p => !p.delivered && p.eta === today()).length;
   if (pkToday) chips.push(`<span class="chip">📦 ${pkToday} arriving today</span>`);
   const cd = liveCountdowns()[0];
   if (cd) chips.push(`<span class="chip">⏳ ${esc(cd.title)} ${daysUntil(cd.date) === 0 ? "today!" : inDays(daysUntil(cd.date))}</span>`);
-  if (MODE !== "cruise" && !S.sync.on && hasData(S) && can("sync")) chips.unshift(`<button class="chip warn" data-sync="on">☁️ Not backed up — tap to turn on</button>`);
+  if (!TRAVEL && !S.sync.on && hasData(S) && can("sync")) chips.unshift(`<button class="chip warn" data-sync="on">☁️ Not backed up — tap to turn on</button>`);
   if (needTap().length) chips.push(`<button class="chip" data-syncall="1">🔄 Tap to sync${S.gcal.dirty || S.sync.dirty ? " · changes waiting" : ""}</button>`);
-  if (MODE !== "cruise" && h >= 4 && h < 12 && (S.name || hasData(S))) chips.push(`<button class="chip" data-brief="open">☀️ Morning brief</button>`);
+  if (!TRAVEL && h >= 4 && h < 12 && (S.name || hasData(S))) chips.push(`<button class="chip" data-brief="open">☀️ Morning brief</button>`);
   if (UPDATE) chips.unshift(`<button class="chip good" data-update="1">✨ New version ready — tap to update</button>`);
   if (INSTALL_EVT && !standalone()) chips.push(`<button class="chip" data-install="1">📲 Install ${APP_NAME}</button>`);
 
@@ -2842,14 +2849,14 @@ function heroHtml() {
               <div class="hl">H ${Math.round(w.day.hi)}° · L ${Math.round(w.day.lo)}°</div></div>`; })()
     : S.city && !WXDATA ? `<div class="hero-wx"><div class="skel" style="width:84px;height:74px"></div></div>` : "";
   // Cruise Hub's top line is about the cruise only (Day Hub's chips stay in Day Hub).
-  const keep = MODE !== "cruise" ? chips : chips.filter(c => /forgetting|Final payment|🚢|✈️|[Rr]ain|New version|Install|⚓|data-cwx|data-gohome/.test(c));
+  const keep = !TRAVEL ? chips : chips.filter(c => /forgetting|Final payment|🚢|✈️|[Rr]ain|New version|Install|⚓|data-cwx|data-gohome/.test(c));
   // v0.54 (Scott 10/4: "across the top of the apps to signify app you're on - DAY HUB, CRUISE HUB"):
   // every hub shows its own name + icon at the top.
   return `<div class="hero-top"><div class="brand"><img src="icon-192.png" alt="" width="24" height="24"><span>${esc(APP_NAME.toUpperCase())}</span>${navigator.onLine === false ? `<span class="offline-pill" title="No connection - your plans still work; weather may be old">🟠 Offline</span>` : ""}</div>
-      <span class="hero-btns">${MODE !== "cruise" ? `<button class="icon-btn" data-ask="open" aria-label="Ask Day Hub">💡</button><button class="icon-btn" data-leave="1" aria-label="Don't forget">🚪</button><button class="icon-btn" data-dump="1" aria-label="Brain dump">🧠</button>` : `<button class="icon-btn help-icon" data-help="home" aria-label="Need help">🛟</button><button class="icon-btn" data-ask="open" aria-label="Ask Cruise Hub">💡</button>`}<button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button></span></div>
+      <span class="hero-btns">${!TRAVEL ? `<button class="icon-btn" data-ask="open" aria-label="Ask Day Hub">💡</button><button class="icon-btn" data-leave="1" aria-label="Don't forget">🚪</button><button class="icon-btn" data-dump="1" aria-label="Brain dump">🧠</button>` : `<button class="icon-btn help-icon" data-help="home" aria-label="Need help">🛟</button><button class="icon-btn" data-ask="open" aria-label="Ask ${APP_NAME}">💡</button>`}<button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button></span></div>
     <div class="greet">${greet()}</div>
     <div class="hero-main"><div><div class="hero-clock" id="clockNow"></div><div class="hero-date">${longDate(today())}</div></div>${wx}</div>
-    ${CD || `<div class="verdict-row">${MODE !== "cruise" && (S.name || hasData(S)) ? pulseRing() : ""}<div class="verdict">${verdict}</div></div>`}
+    ${CD || `<div class="verdict-row">${!TRAVEL && (S.name || hasData(S)) ? pulseRing() : ""}<div class="verdict">${verdict}</div></div>`}
     <div class="chips">${chipsShown(keep).join("")}</div>`;
 }
 // v0.39 (Scott 10/3 "do 1 2"): at most 3 chips up top, in the order above (= priority);

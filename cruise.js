@@ -116,7 +116,7 @@ function cruiseSubmit(f, data) {
 // MEDICAL/SAFETY, TRAVEL PROBLEM, MY DOCUMENTS. No ads, no recommendations, no clutter."). Everything
 // shown comes from what the traveler saved on the trip (tr.help + the port's agent phone) - Cruise Hub
 // never invents a phone number. Phone numbers are tap-to-call.
-const HELP_FIELDS = [["line", "Cruise line phone"], ["agent", "Travel agent (name + phone)"], ["ins", "Travel insurance (company + phone)"],
+const HELP_FIELDS = [["line", "Cruise line / airline phone"], ["agent", "Travel agent (name + phone)"], ["ins", "Travel insurance (company + phone)"],
   ["policy", "Insurance policy #"], ["contact", "Emergency contact at home (name + phone)"]];
 const telLinks = s => esc(s || "").replace(/(\+?\d[\d\s().-]{6,}\d)/g, m => `<a href="tel:${m.replace(/[^\d+]/g, "")}">${m}</a>`);
 const helpVal = (tr, k) => ((tr.help || {})[k] || "").trim();
@@ -124,14 +124,15 @@ const mapsLink = q => `https://www.google.com/maps/search/?api=1&query=${encodeU
 let HELP_VIEW = null;
 function showHelp(view) {
   const tr = curTrip(); HELP_VIEW = view || null;
+  const cr = !tr || isCruise(tr), carrier = cr ? "Cruise line" : "Airline / hotel";   // v0.97: a regular trip has no ship
   let el = document.getElementById("helpSheet");
   if (!el) { el = document.createElement("div"); el.id = "helpSheet"; el.className = "sheet help"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Need help"); document.body.appendChild(el); }
   const pt = tr && portOn(tr, today()), line = (k, label) => helpVal(tr || {}, k) ? `<div class="row"><span class="grow"><b>${label}</b><span class="sub">${telLinks(helpVal(tr, k))}</span></span></div>` : "";
   const missing = tr ? HELP_FIELDS.filter(([k]) => !helpVal(tr, k) && k !== "policy").length : 0;
   let body;
   if (!view) body = `<div class="help-grid">
-      <button class="help-btn" data-help="back">🚢<b>BACK TO SHIP</b></button>
-      <button class="help-btn" data-help="get">🚗<b>GET TO THE SHIP</b></button>
+      ${cr ? `<button class="help-btn" data-help="back">🚢<b>BACK TO SHIP</b></button>
+      <button class="help-btn" data-help="get">🚗<b>GET TO THE SHIP</b></button>` : ""}
       <button class="help-btn red" data-help="medical">🩺<b>MEDICAL / SAFETY</b></button>
       <button class="help-btn" data-help="travel">✈️<b>TRAVEL PROBLEM</b></button>
       <button class="help-btn" data-help="docs">📄<b>MY DOCUMENTS</b></button>
@@ -148,12 +149,12 @@ function showHelp(view) {
       ${line("line", "Cruise line")}${line("agent", "Travel agent")}
       <p class="fine">Running late? Call the cruise line first. Don't book anything else until they tell you what's possible.</p>
       ${tr.start && daysUntil(tr.start) === 0 && !tr.aboard ? `<button class="btn" data-aboard="1" style="width:100%;margin-top:8px">✅ We're on board</button>` : ""}` : `<p class="fine">Plan a cruise first.</p>`;
-  else if (view === "medical") body = `<div class="today-line"><b>On the ship:</b> use your cabin phone to call the ship's medical center or emergency number (it's printed on or by the phone).</div>
-      <div class="today-line"><b>Ashore:</b> ${pt && pt.emergency ? `local emergency number ${telLinks(pt.emergency)}` : "ask port staff or the ship's port agent for local emergency help"}${pt && pt.agent ? ` · port agent ${telLinks(pt.agent)}` : ""}.</div>
+  else if (view === "medical") body = `${cr ? `<div class="today-line"><b>On the ship:</b> use your cabin phone to call the ship's medical center or emergency number (it's printed on or by the phone).</div>` : ""}
+      ${!cr ? `<div class="today-line"><b>Where you are:</b> call the local emergency number, or ask your hotel front desk for help.</div>` : ""}${cr ? `<div class="today-line"><b>Ashore:</b> ${pt && pt.emergency ? `local emergency number ${telLinks(pt.emergency)}` : "ask port staff or the ship's port agent for local emergency help"}${pt && pt.agent ? ` · port agent ${telLinks(pt.agent)}` : ""}.</div>` : ""}
       <div class="today-line"><b>In the US:</b> <a href="tel:911">911</a></div>` + (tr ? line("ins", "Travel insurance") + line("policy", "Policy #") + line("contact", "Emergency contact") : "");
-  else if (view === "travel") body = (tr ? line("line", "Cruise line") + line("agent", "Travel agent") + line("ins", "Travel insurance") + line("policy", "Policy #") +
+  else if (view === "travel") body = (tr ? line("line", carrier) + line("agent", "Travel agent") + line("ins", "Travel insurance") + line("policy", "Policy #") +
       (tr.booking ? `<div class="row"><span class="grow"><b>Booking #</b><span class="sub">${esc(tr.booking)}</span></span></div>` : "") : "") +
-      `<ol class="steps"><li>Call the cruise line (or your travel agent) first.</li><li>Don't cancel or book anything until they tell you what's possible.</li>
+      `<ol class="steps"><li>Call ${cr ? "the cruise line" : "the airline, hotel or rental company"} (or your travel agent) first.</li><li>Don't cancel or book anything until they tell you what's possible.</li>
        <li>Keep every receipt and screenshot — insurance claims need them.</li><li>Write down times: when it happened, who you spoke to.</li></ol>`;
   else if (view === "docs") { ensureLists(tr || { lists: {} }); const D = tr ? (tr.lists.docs || []) : [];
     body = (tr && tr.booking ? `<div class="row"><span class="grow"><b>Booking #</b><span class="sub">${esc(tr.booking)}</span></span></div>` : "") +
@@ -218,7 +219,7 @@ function pasteCruise(text) {
 }
 // Called when a NEW cruise is added (by hand or from an email): the magic moment, once per phone.
 function cruiseAdded(tr) {
-  if (MODE !== "cruise" || !tr || !isCruise(tr) || S.magicSeen || typeof TAB === "undefined" || TAB !== "home") return;
+  if (!TRAVEL || !tr || !isCruise(tr) || S.magicSeen || typeof TAB === "undefined" || TAB !== "home") return;
   S.magicSeen = true; save(); showMagic(tr);
 }
 function showMagic(tr) {
@@ -238,14 +239,14 @@ function showMagic(tr) {
 }
 // "Make it yours" on HOME after the first cruise, until saved or skipped (Scott: don't demand 30 preferences up front).
 function prefsCardHtml() {
-  if (MODE !== "cruise" || S.prefs || !curTrip()) return "";
+  if (!TRAVEL || S.prefs || !curTrip() || !isCruise(curTrip())) return "";   // v0.97: the cruise loves list - cruises only
   const D = PREF_DRAFT || (PREF_DRAFT = { with: "", loves: [] });
   return `<section class="card prefs-card"><h3>❤️ Make it yours <span class="meta">optional</span></h3><div class="body">
       <div class="day-label">Who's going?</div><div class="chips">${WITH.map(([k, l]) => `<button class="chip ${D.with === k ? "good" : ""}" data-prefwith="${k}">${l}</button>`).join("")}</div>
       <div class="day-label" style="margin-top:10px">What makes a great cruise for you? <span class="sub" style="display:inline">pick your top 3</span></div>
       <div class="love-grid">${LOVES.map(([k, l]) => `<button class="love ${D.loves.includes(k) ? "on" : ""}" data-preflove="${k}">${l}${D.loves.indexOf(k) >= 0 && D.loves.indexOf(k) < 3 ? `<i>${D.loves.indexOf(k) + 1}</i>` : ""}</button>`).join("")}</div>
       <div class="foot-actions" style="margin-top:10px"><button class="btn sm" data-prefsave="1">Save</button><button class="btn sm ghost" data-prefskip="1">Not now</button></div>
-      <p class="fine">Ask Cruise Hub uses this to suggest what fits you. Change it any time in ⚙.</p></div></section>`;
+      <p class="fine">Ask ${APP_NAME} uses this to suggest what fits you. Change it any time in ⚙.</p></div></section>`;
 }
 function onboardClick(ds) {
   if (ds.pasteopen) { showPaste(); return true; }
@@ -315,7 +316,7 @@ function phaseChange(ds, t) {
 // excursions, packages, insurance), every onboard charge as it happens, and the gratuity estimate.
 function tripItems(tr) {
   const out = [];
-  if (Number(tr.total) > 0) out.push({ day: null, what: `🚢 ${isCruise(tr) ? "Cruise fare" : "Trip price"}`, amt: Number(tr.total), status: tripLeft(tr) ? `${money(tripPaid(tr))} paid` : "paid ✓" });
+  if (Number(tr.total) > 0) out.push({ day: null, what: `${isCruise(tr) ? "🚢 Cruise fare" : "✈️ Trip price"}`, amt: Number(tr.total), status: tripLeft(tr) ? `${money(tripPaid(tr))} paid` : "paid ✓" });
   (tr.costs || []).filter(c => Number(c.amt) > 0).forEach(c => out.push({ day: null, what: `${costLabel(c.cat)}${c.what ? ` — ${c.what}` : ""}`, amt: Number(c.amt), status: c.paid ? "paid ✓" : "not paid" }));
   (tr.spends || []).slice().sort((a, b) => String(a.day || "").localeCompare(String(b.day || ""))).forEach(x =>
     out.push({ day: x.day || null, what: `${isCruise(tr) ? "🍹" : "💵"} ${x.note || x.cat || "Spending"}`, amt: Number(x.amt) || 0, status: isCruise(tr) ? "ship account" : "spent" }));
@@ -330,4 +331,28 @@ function itemizedHtml(tr) {
     <div class="itemized">${L.map(i => `<div class="it-row"><span class="grow">${esc(i.what)}<span class="sub">${i.day ? `${prettyDate(i.day)} · ` : ""}${esc(i.status)}</span></span>
       <span class="it-amt">${money(i.amt)}</span><span class="it-run">${money(i.run)}</span></div>`).join("")}
       <div class="it-row it-total"><span class="grow"><b>Trip so far</b></span><span class="it-amt"></span><span class="it-run"><b>${money(total)}</b></span></div></div>`;
+}
+
+// ------------------------------------------------------------ Trip Hub (v0.97)
+// Scott 10/7 (Trip Hub blueprint, docs/TRIP_HUB_PLANS paste 4): app #3 runs this
+// same engine at /triphub/ (DH_MODE "trip"). A regular trip has no ship or ports,
+// so HOME's "no trip yet" and EXPLORE are trip-shaped. EXPLORE has no places data
+// yet (a paid source waits on Scott's OK), so it asks the AI from the traveler's
+// own trip - and says to check hours and prices.
+function addTripHtml() {
+  return `<section class="card add-cruise"><h3>✈️ Add my trip</h3><div class="body">
+      <button class="rn-row" data-qa="trip"><span>✍️</span><span class="grow">Enter my trip<span class="sub">Where, when, who's going — 30 seconds</span></span><span class="chev">›</span></button>
+      ${gmailAllowed() ? `<button class="rn-row" data-mail="scan"><span>📬</span><span class="grow">Find it in my email<span class="sub">Read-only, on this phone</span></span><span class="chev">›</span></button>` : ""}
+      <div class="today-line sub" style="margin-top:6px">Then add flights, hotels and plans day by day — Trip Hub builds the countdown, packing list and documents list for you.</div>
+    </div></section>`;
+}
+function tripExploreHtml() {
+  const tr = curTrip(), where = tr && tr.port ? placeName(tr.port) : "", at = where ? ` in ${where}` : " where we're going";
+  const qs = [["🌟", "Top things to do", `What are the top things to do${at}?`], ["🆓", "Free things", `What's free to do${at}?`],
+    ["🍽️", "Where to eat", `Where should we eat${at}?`], ["💕", "Something romantic", `Something romantic to do${at}?`],
+    ["☔", "Rainy-day ideas", `Rainy-day ideas${at}?`], ["⏱️", "I have 2 hours", `We have 2 hours free${at} — what's worth it?`]];
+  return `<section class="card"><h3>🌎 Things to do${where ? ` — ${esc(where)}` : ""}</h3><div class="body">
+      ${tr ? "" : `<div class="today-line sub">Add your trip first, then ideas fit where you're going.</div>`}
+      ${tileNav(qs.map(([ic, l, q]) => ({ icon: ic, label: l, attrs: `data-askq="${esc(q)}"` })), 3)}
+      <p class="fine" style="margin-top:8px">Ideas come from ${esc(APP_NAME)} AI using your own trip. Check opening hours and prices before you go.</p></div></section>`;
 }
