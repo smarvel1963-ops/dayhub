@@ -1,6 +1,9 @@
 {
- "version": "1.00",
+ "version": "1.01",
  "notes": {
+  "1.01": [
+   "📔 Trip diary: each day of your trip gets a page — tap how the day was, write a few lines and the best moment. Plan → Diary reads the whole trip back, and 📤 Share sends it to the family as text. In the evening, Home asks \"How was today?\". Stays on your phone."
+  ],
   "1.00": [
    "📋 Paste a confirmation: in Plan → Bookings, paste a flight, hotel or rental car email and it fills in the booking for you to check — read on your phone, nothing sent anywhere."
   ],

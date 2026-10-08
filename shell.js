@@ -66,6 +66,7 @@ function rightNow(tr) {
   const W = tripWallet(tr), fd = tr.finalDue ? daysUntil(tr.finalDue) : null;
   if (fd !== null && fd >= 0 && fd <= 30 && tripLeft(tr) && !out.some(o => /final payment/i.test(o.text))) out.push({ icon: "💳", text: `Final payment ${inDays(fd)} — ${money(tripLeft(tr))}`, act: 'data-shellgo="wallet"' });
   if (W.unused && tr.end && daysUntil(tr.end) <= 2 && daysUntil(tr.end) >= 0) out.push({ icon: "🎁", text: `${W.unused} benefit${W.unused === 1 ? "" : "s"} not used yet`, act: 'data-shellgo="wallet"' });
+  const dn = typeof diaryNudge === "function" ? diaryNudge(tr) : null; if (dn) out.push(dn);   // v1.01 trip diary
   return out.slice(0, 3);
 }
 // ---- NEXT UP: the next thing with a day (port, all aboard, excursion, final payment, events)
@@ -182,7 +183,7 @@ function shellClick(ds) {
 // v0.59 (V1 step 8, Scott's map: "PLAN - TODAY | TRIP | PACKING | RESERVATIONS ... chronological, that's how
 // humans think about vacations" + "Tap any day -> Day screen"). TRIP = the whole cruise day by day, then the
 // full trip card, schedule, to-dos and lists underneath. Nothing new is stored - it's a view of the trip.
-const PLAN_VIEWS = [["today", "Today"], ["trip", "Trip"], ["map", "Map"], ["packing", "Packing"], ["reservations", "Bookings"]];   // v0.99 Map (trip.js)
+const PLAN_VIEWS = [["today", "Today"], ["trip", "Trip"], ["map", "Map"], ["packing", "Packing"], ["reservations", "Bookings"], ["diary", "Diary"]];   // v0.99 Map, v1.01 Diary (trip.js)
 let PLAN_VIEW = "trip";
 function dayKind(tr, d) {
   const pt = portOn(tr, d), end = tr.end || tr.start;
@@ -204,6 +205,7 @@ function timelineHtml() {
     const bits = pt ? [pt.arrive && `in ${hm(pt.arrive)}`, pt.allAboard && `all aboard ${hm(aaLocal(pt))}`, pt.excursion && pt.excursion.toLowerCase() !== "none" && `🤿 ${esc(pt.excursion)}`, portWxText(pt)].filter(Boolean)
       : d === tr.start ? [trCruise(tr) && tr.ship && `board ${esc(tr.ship)}`].filter(Boolean) : d === end ? ["getting home"] : [];
     if (typeof bookingBits === "function") bits.push(...bookingBits(tr, d).map(esc));   // v0.98 ✈️ 7:05 AM · 🏨 check-in
+    if (typeof tripDiary === "function" && diaryHas(tripDiary(tr)[d])) bits.push(`📔 ${esc(tripDiary(tr)[d].mood || "written")}`);   // v1.01
     rows.push(`<button class="tl-row ${past ? "past" : ""} ${now ? "now" : ""}" data-tlday="${d}"><span class="tl-ic">${k.icon}</span><span class="grow">
         <b>${esc(k.title)}</b>${now ? ` <span class="pill">TODAY</span>` : ""}<span class="sub">Day ${n} · ${dayName(d)} ${prettyDate(d)}${bits.length ? " · " + bits.join(" · ") : ""}</span></span><span class="chev">›</span></button>`);
   }
@@ -224,13 +226,14 @@ function reservationsHtml() {
       <button class="add-link" data-qa="event">＋ Add a plan (dinner, show, spa…)</button></div></section>`;
 }
 function planHtml(cardHtml) {
-  const PV_IC = { today: "📅", trip: "🗺️", map: "📍", packing: "🧳", reservations: "🎟️" };
-  const nav = tileNav(PLAN_VIEWS.map(([k, l]) => ({ icon: PV_IC[k], label: l, attrs: `data-planview="${k}"`, on: k === PLAN_VIEW })), 5, "planview compact");
+  const PV_IC = { today: "📅", trip: "🗺️", map: "📍", packing: "🧳", reservations: "🎟️", diary: "📔" };
+  const nav = tileNav(PLAN_VIEWS.map(([k, l]) => ({ icon: PV_IC[k], label: l, attrs: `data-planview="${k}"`, on: k === PLAN_VIEW })), 6, "planview compact");
   const cards = ks => ks.filter(k => k !== "inbox" || S.mail.on || S.mail.found.length).map(k => cardHtml(k)).join("");
   if (PLAN_VIEW === "today") return nav + cards(["schedule", "todos"]);
   if (PLAN_VIEW === "packing") { S.tripTab = "lists"; if (!["packing", "final"].includes(S.tripList)) S.tripList = "packing"; return nav + cards(["trips"]); }
   if (PLAN_VIEW === "reservations") return nav + reservationsHtml();
   if (PLAN_VIEW === "map") return nav + (typeof tripMapHtml === "function" ? tripMapHtml() : "");
+  if (PLAN_VIEW === "diary") return nav + (typeof tripDiaryHtml === "function" ? tripDiaryHtml() : "");   // v1.01
   return nav + timelineHtml() + cards(SHELL_CARDS.plan);
 }
 // Day screen: everything about one day, then what to do next (Scott: "There should almost never be a dead end").
@@ -252,6 +255,7 @@ function showDay(d) {
     ${!pt && (d === tr.start || d === (tr.end || tr.start)) && typeof homePortHtml === "function" ? homePortHtml(tr, true) : ""}
     <div class="day-label" style="margin-top:10px">The day</div>
     ${items.length ? items.map(x => `<${x.bk ? `button class="row rn-row" data-bkopen="${x.bk}"` : `div class="row"`}><span class="time">${x.t ? hm(x.t) : ""}</span><span class="grow">${x.icon || ""} ${esc(x.title)}${x.sub ? `<span class="sub">${esc(x.sub)}</span>` : ""}</span>${x.bk ? `<span class="chev">›</span></button>` : "</div>"}`).join("") : `<div class="today-line sub">${trCruise(tr) ? "🌊" : "😎"} Nothing planned yet — a good day to relax.</div>`}
+    ${typeof diaryDayHtml === "function" ? diaryDayHtml(tr, d) : ""}
     <div class="foot-actions" style="flex-wrap:wrap;margin-top:10px">
       ${!trCruise(tr) ? "" : pt ? `<button class="btn sm ghost" data-portedit="${pt.id}">✏️ Edit this port</button>` : d !== tr.start && d !== (tr.end || tr.start) ? `<button class="btn sm ghost" data-portadd="${d}">⚓ It's a port day</button>` : ""}
       <button class="btn sm ghost" data-dayplan="${d}">＋ Add a plan this day</button>

@@ -144,6 +144,7 @@ function deleteBooking(id) {
 
 // ---- clicks / submits (called from cruise.js cruiseClick / cruiseSubmit)
 function tripClick(ds) {
+  if (diaryClick(ds)) return true;                                         // v1.01 trip diary
   if (ds.bkadd) { showBookingForm(ds.bkadd); return true; }
   if (ds.bkopen) { hideSheet("daySheet"); showBooking(ds.bkopen); return true; }
   if (ds.bkedit) { showBookingForm(null, ds.bkedit); return true; }
@@ -154,6 +155,7 @@ function tripClick(ds) {
   return false;
 }
 function tripSubmit(f, data) {
+  if (diarySubmit(f, data)) return true;                                   // v1.01 trip diary
   if (f.dataset.bkpaste) { pasteBookings(data.text || ""); return true; }
   if (!f.dataset.bkform) return false;
   saveBooking(f, data); return true;
@@ -361,4 +363,93 @@ function pasteBookings(text) {
   PASTE_FOUND = extractBookings(text);
   if (!PASTE_FOUND.length) { toast("Couldn't find a flight, hotel or rental car in that — add it with the buttons instead"); return; }
   if (PASTE_FOUND.length === 1) showBookingForm(null, null, PASTE_FOUND[0]); else showPasteFound();
+}
+
+// ------------------------------------------------------------ TRIP DIARY (v1.01)
+// HUB LIFE master list: Trip Hub = "... AI trip planning and memories"; Cruise Hub plan: "Cruise Diary". One
+// diary for every travel hub. Each day of the trip keeps a mood, a few lines and the best moment
+// (tr.diary["YYYY-MM-DD"] = { mood, text, best }), written from that day's screen. Plan → Diary reads the whole
+// trip back and shares it as plain text. Only days that have happened can be written. Stays on this phone (and
+// in the traveler's own backup, like the rest of the trip) - nothing is sent anywhere.
+const DIARY_MOODS = [["😍", "Best day"], ["😀", "Great"], ["🙂", "Good"], ["😐", "Meh"], ["😩", "Rough"]];
+const tripDiary = tr => (tr && tr.diary && typeof tr.diary === "object" && !Array.isArray(tr.diary) ? tr.diary : {});
+const diaryHas = e => !!(e && (e.mood || e.text || e.best));
+const diaryDays = tr => Object.keys(tripDiary(tr)).filter(d => diaryHas(tripDiary(tr)[d])).sort();
+const tripLen = tr => { let n = 0; if (tr && tr.start) for (let d = tr.start; d <= (tr.end || tr.start) && n < 400; d = addDays(d, 1)) n++; return n; };
+const diaryOwn = id => S.trips.find(t => t.id === id) || null;
+// the "Our day" block on a day screen (shell.js showDay)
+function diaryDayHtml(tr, d) {
+  if (!tr || !tr.start || d < tr.start || d > (tr.end || tr.start)) return "";
+  if (d > today()) return `<div class="day-label" style="margin-top:10px">📔 Our day</div><div class="today-line sub">Write about this day once it's happened.</div>`;
+  const e = tripDiary(tr)[d] || {};
+  return `<div class="day-label" style="margin-top:10px">📔 Our day</div>
+    <div class="diary-moods" role="group" aria-label="How was the day?">${DIARY_MOODS.map(([m, l]) => `<button class="mood ${e.mood === m ? "on" : ""}" data-diarymood="${tr.id}|${d}|${m}" aria-label="${l}" title="${l}">${m}</button>`).join("")}</div>
+    <form class="qa-form" data-diary="${tr.id}|${d}">
+      <textarea name="text" rows="3" placeholder="What did we do? Who did we meet? What did we eat?">${esc(e.text || "")}</textarea>
+      <input name="best" placeholder="Best moment of the day" value="${esc(e.best || "")}" autocomplete="off">
+      <button class="btn sm">${diaryHas(e) ? "Save" : "Save to the diary"}</button></form>`;
+}
+function diarySet(id, d, patch) {
+  const tr = diaryOwn(id); if (!tr) return null;
+  snap(); tr.diary = { ...tripDiary(tr) };
+  const e = { ...(tr.diary[d] || {}), ...patch };
+  if (diaryHas(e)) tr.diary[d] = e; else delete tr.diary[d];
+  save(); return tr;
+}
+const diaryDayNo = (tr, d) => tripLen({ start: tr.start, end: d });
+// the whole trip, day by day, as text (Share / Copy)
+function diaryText(tr) {
+  const L = [`📔 ${tr.name}${tr.start ? ` — ${prettyDate(tr.start)}${tr.end && tr.end !== tr.start ? ` to ${prettyDate(tr.end)}` : ""}` : ""}`];
+  diaryDays(tr).forEach(d => { const e = tripDiary(tr)[d];
+    L.push("", `${e.mood ? e.mood + " " : ""}Day ${diaryDayNo(tr, d)} · ${dayName(d)} ${prettyDate(d)} — ${dayKind(tr, d).title}`);
+    if (e.text) L.push(e.text);
+    if (e.best) L.push(`⭐ Best moment: ${e.best}`); });
+  return L.join("\n");
+}
+// Plan → Diary
+function tripDiaryHtml() {
+  const tr = curTrip(); if (!tr) return `<div class="empty">Plan a ${TW} first.</div>`;
+  const head = `<h3>📔 ${trCruise(tr) ? "Cruise" : "Trip"} diary</h3>`;
+  if (!tr.start) return `<section class="card">${head}<div class="body"><div class="today-line sub">Add your dates first — then each day gets a page.</div></div></section>`;
+  const D = tripDiary(tr), days = diaryDays(tr), len = tripLen(tr), started = tr.start <= today(), fav = days.filter(d => D[d].mood === "😍").length;
+  const rows = days.map(d => { const e = D[d], k = dayKind(tr, d);
+    return `<button class="rn-row diary-row" data-tlday="${d}"><span class="tl-ic">${e.mood || k.icon}</span><span class="grow"><b>Day ${diaryDayNo(tr, d)} · ${esc(k.title)}</b>
+      <span class="sub">${dayName(d)} ${prettyDate(d)}</span>${e.text ? `<span class="diary-text">${esc(e.text)}</span>` : ""}${e.best ? `<span class="sub">⭐ ${esc(e.best)}</span>` : ""}</span><span class="chev">›</span></button>`; });
+  const todayOpen = started && today() <= (tr.end || tr.start) && !diaryHas(D[today()]);
+  return `<section class="card">${head}<div class="body">
+      <div class="today-line">${days.length} of ${len} day${len === 1 ? "" : "s"} written${fav ? ` · 😍 ${fav} best day${fav === 1 ? "" : "s"}` : ""}</div>
+      ${todayOpen ? `<button class="add-link" data-tlday="${today()}">＋ Write about today</button>` : ""}
+      ${rows.length ? rows.join("") : `<div class="today-line sub">${started ? "Tap a day in Trip and write a few lines — what you did, the best moment." : `Your diary opens ${prettyDate(tr.start)}. Each night, a few lines about the day — you'll be glad you did.`}</div>`}
+      ${days.length ? `<div class="foot-actions" style="margin-top:10px"><button class="btn sm" data-diaryshare="${tr.id}">📤 Share my diary</button></div>
+        <p class="fine">Shares as text — send it to the family, or keep it in your notes.</p>` : ""}</div></section>`;
+}
+function diaryShare(id) {
+  const tr = diaryOwn(id); if (!tr) return;
+  const text = diaryText(tr);
+  if (navigator.share) { navigator.share({ title: `${tr.name} diary`, text }).catch(() => {}); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => toast("📋 Diary copied — paste it anywhere"), () => toast("Couldn't copy on this phone"));
+  else toast("Couldn't copy on this phone");
+}
+// Home "What's going on": the evening of a trip day with nothing written yet, and the week after with something to read
+function diaryNudge(tr) {
+  if (!tr || !tr.start) return null;
+  const t = today(), end = tr.end || tr.start;
+  if (t >= tr.start && t <= end && nowT() >= "17:00" && !diaryHas(tripDiary(tr)[t])) return { icon: "📔", text: "How was today? Add it to your diary", act: `data-tlday="${t}"` };
+  const n = diaryDays(tr).length;
+  if (t > end && n) return { icon: "📔", text: `Your ${trCruise(tr) ? "cruise" : "trip"} diary — ${n} day${n === 1 ? "" : "s"}`, act: 'data-shellgo="plan" data-planview="diary"' };
+  return null;
+}
+function diaryClick(ds) {
+  if (ds.diarymood) { const [id, d, m] = ds.diarymood.split("|"), e = tripDiary(diaryOwn(id))[d] || {};
+    if (diarySet(id, d, { mood: e.mood === m ? "" : m })) { render(); showDay(d); }
+    return true; }
+  if (ds.diaryshare) { diaryShare(ds.diaryshare); return true; }
+  return false;
+}
+function diarySubmit(f, data) {
+  if (!f.dataset.diary) return false;
+  const [id, d] = f.dataset.diary.split("|");
+  if (diarySet(id, d, { text: (data.text || "").trim(), best: (data.best || "").trim() })) { hideSheet("daySheet"); render(); buzz(); toast("📔 Saved to the diary", true); }
+  else toast(`Open this ${TW} in the app it was planned in to write its diary`);
+  return true;
 }

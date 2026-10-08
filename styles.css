@@ -586,6 +586,14 @@ body.simple .hero .chips, body.simple .hero .cd-pct, body.simple .hero .hero-btn
 .tilenav.cols4 { grid-template-columns: repeat(4, 1fr); }
 .tilenav.cols5 { grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .tilenav.cols5 .tile b { font-size: 10.5px; }
+.tilenav.cols6 { grid-template-columns: repeat(6, 1fr); gap: 5px; }   /* v1.01 Plan views + Diary */
+.tilenav.cols6 .tile { padding: 8px 2px; border-radius: 14px; }
+.tilenav.cols6 .tile b { font-size: 10px; letter-spacing: 0; }
+/* v1.01 trip diary */
+.diary-moods { display: flex; gap: 8px; margin: 6px 0 8px; }
+.diary-moods .mood { flex: 1; font-size: 24px; line-height: 1; padding: 8px 0; border-radius: 14px; border: 1px solid var(--line); background: var(--card-solid); cursor: pointer; }
+.diary-moods .mood.on { border-color: var(--accent); background: rgba(94,234,212,.18); box-shadow: 0 0 0 1px rgba(94,234,212,.35) inset; }
+.diary-text { display: block; margin-top: 3px; font-size: 13px; color: var(--text); white-space: pre-wrap; line-height: 1.35; }
 .tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 72px; padding: 8px 4px;
   border-radius: 16px; border: 1px solid var(--line); background: var(--card-solid); color: var(--text); font: inherit; cursor: pointer;
   transition: transform .12s ease, border-color .2s ease; }

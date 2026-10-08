@@ -1868,7 +1868,7 @@ def t_v059_plan_timeline(b, base):
     a.js("""curTrip().ports = [{ id: 'p1', name: 'Grand Turk', day: '2026-11-14', arrive: '08:00', allAboard: '16:30', excursion: 'Hummer tour', meet: '08:30', where: 'Pier gate' }];
             curTrip().costs = [{ id: 'c1', cat: 'hotel', what: 'Westgate', amt: 336, paid: true }]; save(); shellGo('plan')""")
     views = a.js("[...document.querySelectorAll('.planview [data-planview] b')].map(b => b.textContent)")
-    check("PLAN views: Today | Trip | Map | Packing | Bookings (Trip first shown)", views == ["Today", "Trip", "Map", "Packing", "Bookings"] and a.js("PLAN_VIEW") == "trip", views)   # v0.99 + Map
+    check("PLAN views: Today | Trip | Map | Packing | Bookings | Diary (Trip first shown)", views == ["Today", "Trip", "Map", "Packing", "Bookings", "Diary"] and a.js("PLAN_VIEW") == "trip", views)   # v0.99 + Map, v1.01 + Diary
     tl = a.page.inner_text(".timeline")
     check("timeline: every day in order - sail day, at sea (TODAY), Grand Turk, at sea, back in port", tl.index("Sail day") < tl.index("At sea") < tl.index("Grand Turk") < tl.index("Back in port") and "TODAY" in tl and a.js("document.querySelectorAll('.tl-row').length") == 5, tl[:500])
     check("port row: all aboard + excursion", "all aboard 4:30 PM" in tl and "Hummer tour" in tl)
@@ -2032,7 +2032,7 @@ def t_v063_icon_tiles(b, base):
     a.js("shellGo('plan')")
     tt = a.js("[...document.querySelectorAll('.triptabs .tile')].map(t => t.querySelector('.tile-ic').textContent + '|' + t.querySelector('b').textContent)")
     check("trip sections are icon tiles (icon + label)", len(tt) >= 6 and "✅|Ready" in tt and "💳|Money" in tt, tt)
-    check("plan views are icon tiles (5 since v0.99 Map)", a.js("document.querySelectorAll('.planview .tile').length") == 5)
+    check("plan views are icon tiles (6 since v1.01 Diary)", a.js("document.querySelectorAll('.planview .tile').length") == 6)
     a.page.click('.triptabs [data-triptab="lists"]'); a.page.wait_for_timeout(150)
     check("tap a tile = that section, tile lit", a.js("S.tripTab") == "lists" and a.js("document.querySelector('.triptabs .tile.on').dataset.triptab") == "lists")
     check("lists are icon tiles with done counts", a.js("document.querySelectorAll('.tilenav.compact [data-triplist]').length") >= 7 and "/" in a.js("document.querySelector('[data-triplist=\"packing\"] small').textContent"))
@@ -2660,6 +2660,62 @@ def t_v100_paste(b, base):
     a.close()
 
 
+def t_v101_diary(b, base):
+    print("\n[v1.01 trip diary: a mood, a few lines and the best moment per day - Trip Hub and Cruise Hub]")
+    a = App(b, base, path=TRIP, width=360, at="2026-10-01T19:00:00")      # day 3 of the trip, evening
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    a.qa("trip", {"tname": "Florida trip", "start": "2026-09-29", "end": "2026-10-03", "port": "Orlando, FL"})
+    a.page.wait_for_timeout(150)
+    a.js("shellGo('home')")
+    check("evening of a trip day, nothing written: Home asks 'How was today?'", "How was today?" in a.page.inner_text(".going-on"))
+    a.js("showDay('2026-10-01')")
+    s = a.page.inner_text("#daySheet")
+    check("the day screen has 'Our day' with 5 moods and a form", "our day" in s.lower() and a.js("document.querySelectorAll('#daySheet .mood').length") == 5
+          and a.js("!!document.querySelector('#daySheet form[data-diary]')"))
+    a.page.click('#daySheet .mood[aria-label="Great"]'); a.page.wait_for_timeout(100)
+    check("a mood tap saves at once and stays on the day", a.js("S.trips[0].diary['2026-10-01'].mood") == "😀"
+          and not a.js("document.getElementById('daySheet').classList.contains('hidden')") and a.js("document.querySelector('#daySheet .mood.on').textContent") == "😀")
+    a.page.fill('#daySheet form[data-diary] textarea', "Magic Kingdom all day.\n<b>fireworks</b> at 9")
+    a.page.fill('#daySheet form[data-diary] [name=best]', "Kids on Space Mountain")
+    a.page.click('#daySheet form[data-diary] button'); a.page.wait_for_timeout(150)
+    e = a.js("S.trips[0].diary['2026-10-01']")
+    check("Save keeps the mood and adds the lines + best moment, sheet closes",
+          e == {"mood": "😀", "text": "Magic Kingdom all day.\n<b>fireworks</b> at 9", "best": "Kids on Space Mountain"}
+          and a.js("document.getElementById('daySheet').classList.contains('hidden')"))
+    a.js("shellGo('home')")
+    check("written: the Home nudge goes away", "How was today?" not in a.page.inner_text(".going-on"))
+    a.js("showDay('2026-10-02')")
+    check("a day that hasn't happened can't be written yet", "once it's happened" in a.page.inner_text("#daySheet") and not a.js("!!document.querySelector('#daySheet form[data-diary]')"))
+    a.js("hideSheet('daySheet'); shellGo('plan'); PLAN_VIEW = 'trip'; render()")
+    check("the timeline marks the written day", "📔 😀" in a.page.inner_text(".timeline"))
+    check("Plan has 6 view tiles that fit a small phone", a.js("document.querySelectorAll('.planview .tile').length") == 6
+          and a.js("document.documentElement.scrollWidth") <= 360)
+    a.page.click('.planview [data-planview="diary"]'); a.page.wait_for_timeout(100)
+    d = a.page.inner_text("main") if a.js("!!document.querySelector('main')") else a.page.inner_text("body")
+    check("Plan -> Diary: count, the day, the lines, the best moment, Share", "Trip diary" in d and "1 of 5 days written" in d and "Day 3" in d
+          and "Space Mountain" in d and "📤 Share my diary" in d, d[:600])
+    check("diary text is shown as text, never as HTML", a.js("[...document.querySelectorAll('.diary-text')].some(x => x.textContent.includes('<b>fireworks</b>') && !x.querySelector('b'))"))
+    t = a.js("diaryText(S.trips[0])")
+    check("Share text: trip name, the day line, lines, best moment",
+          t.startswith("📔 Florida trip") and "😀 Day 3 · " in t and "Magic Kingdom all day." in t and "⭐ Best moment: Kids on Space Mountain" in t, t)
+    a.js("showDay('2026-10-01')"); a.page.click('#daySheet .mood[aria-label="Great"]'); a.page.wait_for_timeout(100)
+    check("tapping the same mood again clears just the mood", a.js("S.trips[0].diary['2026-10-01'].mood") == "" and a.js("S.trips[0].diary['2026-10-01'].text").startswith("Magic"))
+    a.close()
+    # Cruise Hub: the same diary, cruise words; the week after the trip, Home points back to it
+    c = App(b, base, path=CRUISE, at="2026-10-06T09:00:00")
+    c.page.fill('form[data-setup] [name=name]', "Pat"); c.page.fill('form[data-setup] [name=city]', "72032")
+    c.page.click('form[data-setup] button'); c.page.wait_for_function("WXDATA && WXDATA.here")
+    c.qa("trip", {"ttype": "cruise", "tname": "Bahamas", "start": "2026-09-30", "end": "2026-10-03", "line": "Carnival"})
+    c.page.wait_for_timeout(150)
+    c.js("S.trips[0].diary = { '2026-10-01': { mood: '😍', text: 'Snorkeled at Nassau', best: '' } }; save(); shellGo('home')")
+    check("after the cruise: Home shows 'Your cruise diary — 1 day'", "Your cruise diary — 1 day" in c.page.inner_text(".going-on"))
+    c.js("shellGo('plan'); PLAN_VIEW = 'diary'; render()")
+    d = c.page.inner_text("body")
+    check("Cruise Hub: 'Cruise diary', 1 of 4 days, 1 best day", "Cruise diary" in d and "1 of 4 days written" in d and "😍 1 best day" in d, d[:400])
+    c.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -2688,7 +2744,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary):
             try:
                 t(b, base)
             except Exception as e:
