@@ -182,7 +182,7 @@ function shellClick(ds) {
 // v0.59 (V1 step 8, Scott's map: "PLAN - TODAY | TRIP | PACKING | RESERVATIONS ... chronological, that's how
 // humans think about vacations" + "Tap any day -> Day screen"). TRIP = the whole cruise day by day, then the
 // full trip card, schedule, to-dos and lists underneath. Nothing new is stored - it's a view of the trip.
-const PLAN_VIEWS = [["today", "Today"], ["trip", "Trip"], ["packing", "Packing"], ["reservations", "Reservations"]];
+const PLAN_VIEWS = [["today", "Today"], ["trip", "Trip"], ["map", "Map"], ["packing", "Packing"], ["reservations", "Bookings"]];   // v0.99 Map (trip.js)
 let PLAN_VIEW = "trip";
 function dayKind(tr, d) {
   const pt = portOn(tr, d), end = tr.end || tr.start;
@@ -224,12 +224,13 @@ function reservationsHtml() {
       <button class="add-link" data-qa="event">＋ Add a plan (dinner, show, spa…)</button></div></section>`;
 }
 function planHtml(cardHtml) {
-  const PV_IC = { today: "📅", trip: "🗺️", packing: "🧳", reservations: "🎟️" };
-  const nav = tileNav(PLAN_VIEWS.map(([k, l]) => ({ icon: PV_IC[k], label: l, attrs: `data-planview="${k}"`, on: k === PLAN_VIEW })), 4, "planview");
+  const PV_IC = { today: "📅", trip: "🗺️", map: "📍", packing: "🧳", reservations: "🎟️" };
+  const nav = tileNav(PLAN_VIEWS.map(([k, l]) => ({ icon: PV_IC[k], label: l, attrs: `data-planview="${k}"`, on: k === PLAN_VIEW })), 5, "planview compact");
   const cards = ks => ks.filter(k => k !== "inbox" || S.mail.on || S.mail.found.length).map(k => cardHtml(k)).join("");
   if (PLAN_VIEW === "today") return nav + cards(["schedule", "todos"]);
   if (PLAN_VIEW === "packing") { S.tripTab = "lists"; if (!["packing", "final"].includes(S.tripList)) S.tripList = "packing"; return nav + cards(["trips"]); }
   if (PLAN_VIEW === "reservations") return nav + reservationsHtml();
+  if (PLAN_VIEW === "map") return nav + (typeof tripMapHtml === "function" ? tripMapHtml() : "");
   return nav + timelineHtml() + cards(SHELL_CARDS.plan);
 }
 // Day screen: everything about one day, then what to do next (Scott: "There should almost never be a dead end").

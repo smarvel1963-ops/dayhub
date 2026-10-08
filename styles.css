@@ -584,6 +584,8 @@ body.simple .hero .chips, body.simple .hero .cd-pct, body.simple .hero .hero-btn
 .tilenav.cols2 { grid-template-columns: repeat(2, 1fr); }
 .tilenav.cols3 { grid-template-columns: repeat(3, 1fr); }
 .tilenav.cols4 { grid-template-columns: repeat(4, 1fr); }
+.tilenav.cols5 { grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.tilenav.cols5 .tile b { font-size: 10.5px; }
 .tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 72px; padding: 8px 4px;
   border-radius: 16px; border: 1px solid var(--line); background: var(--card-solid); color: var(--text); font: inherit; cursor: pointer;
   transition: transform .12s ease, border-color .2s ease; }
@@ -627,3 +629,11 @@ body.simple .hero .chips, body.simple .hero .cd-pct, body.simple .hero .hero-btn
 .going-on .rn-row { padding: 8px 2px; font-size: 14.5px; }
 .going-on .next-up { margin-top: 4px; padding-top: 8px; font-size: 13.5px; }
 body.shell .bubbles { margin: 10px 0 12px; gap: 8px 6px; }
+
+/* v0.99 trip map (trip.js) */
+.trip-map { height: 340px; border-radius: 14px; overflow: hidden; margin: 4px 0 10px; background: rgba(255,255,255,.04); border: 1px solid var(--line); }
+.trip-map .map-msg { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--dim); font-size: 13px; padding: 16px; text-align: center; }
+.map-n { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; border-radius: 12px; background: var(--accent); color: #06102a; font-weight: 800; font-size: 12px; }
+.map-pin span { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 13px; background: #5eead4; color: #06102a;
+  font: 800 12px Inter, sans-serif; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35); }
+.leaflet-popup-content { color: #0b1530; font: 13px Inter, sans-serif; }

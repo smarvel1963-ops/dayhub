@@ -31,7 +31,7 @@ function bookTitle(b) {
   return b.a || K.label;
 }
 // Sorted by when they start (undated last).
-const bookingsSorted = tr => tripBookings(tr).slice().sort((x, y) => `${x.day || "9"}${x.t || ""}`.localeCompare(`${y.day || "9"}${y.t || ""}`));
+const bookingsSorted = tr => tripBookings(tr).slice().sort((x, y) => `${x.day || "9"}${x.t || "99"}`.localeCompare(`${y.day || "9"}${y.t || "99"}`));   // untimed after timed, same day
 
 // ---- the day list (called from app.js dayItems for every trip)
 function bookingItems(tr, day) {
@@ -151,4 +151,91 @@ function tripClick(ds) {
 function tripSubmit(f, data) {
   if (!f.dataset.bkform) return false;
   saveBooking(f, data); return true;
+}
+
+// ------------------------------------------------------------ TRIP MAP (v0.99)
+// Scott's blueprint: "PLAN — TODAY / TRIP / MAP / RESERVATIONS". Free and only when opened (Scott: no paid data
+// until the free path works): map pictures from OpenStreetMap, the Leaflet map code from cdnjs, place search from
+// OpenStreetMap's Nominatim (1 request a second, results remembered on this phone in "hub.geo"). The places are
+// the trip's own: where you're going, each hotel, the airports of each flight, the car pick-up, stations, tickets,
+// dinners and (cruise) the port days - numbered in date order. A place that can't be found is listed, not guessed.
+const GEO_KEY = "hub.geo", LEAFLET = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/";
+let MAP = null, MAP_LOADING = null, GEO_BUSY = false;
+const geoCache = () => { try { return JSON.parse(localStorage.getItem(GEO_KEY) || "{}") || {}; } catch (e) { return {}; } };
+function geoPut(q, v) { const c = geoCache(); c[q] = v; try { localStorage.setItem(GEO_KEY, JSON.stringify(c)); } catch (e) { /* full / private */ } }
+function mapPlaces(tr) {
+  if (!tr) return [];
+  const city = placeName(tr.port || "");
+  // alts: what to try when the first search finds nothing (OpenStreetMap is strict - a resort's street address may
+  // sit in a different town than the one typed), e.g. "Hotel name, Orlando" then the name alone.
+  const P = [], put = (label, q, day, icon, bk, alts) => { q = String(q || "").trim();
+    if (q) P.push({ label, q, day: day || "", icon, bk: bk || "", alts: (alts || []).map(x => String(x || "").trim()).filter(x => x && x !== q) }); };
+  if (!isCruise(tr)) put(placeName(tr.port || "") || tr.name, tr.port, tr.start, "📍");
+  else put(`${placeName(tr.port || "")} — sail day`, tr.port, tr.start, "🚢");
+  bookingsSorted(tr).forEach(b => { const K = bookKind(b);
+    if (b.kind === "flight" || b.kind === "train") { const s = b.kind === "flight" ? " airport" : " station";
+      put(`${K.icon} ${b.a}`, b.a && b.a + s, b.day, K.icon, b.id); put(`${K.icon} ${b.b}`, b.b && b.b + s, b.endDay || b.day, K.icon, b.id); }
+    else put(`${K.icon} ${b.a}`, b.kind === "car" ? [b.b, b.a].filter(Boolean).join(" ") : (b.b || b.a), b.day, K.icon, b.id,
+      [b.a && city && `${b.a}, ${city}`, b.a]); });
+  if (isCruise(tr)) (tr.ports || []).forEach(pt => put(`⚓ ${pt.name}`, pt.name, pt.day, "⚓"));
+  const seen = new Set();                                                   // one pin per place
+  return P.filter(p => { const k = p.q.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; })
+    .sort((x, y) => (x.day || "9").localeCompare(y.day || "9")).map((p, i) => ({ ...p, n: i + 1 }));
+}
+async function mapGeocode(q, alts = []) {   // NOT "geocode" - app.js owns that name (weather city lookup)
+  const c = geoCache(); if (q in c) return c[q];
+  let v = 0;
+  for (const [i, x] of [q, ...alts].entries()) {
+    if (i) await new Promise(r => setTimeout(r, 1100));                     // one a second - OpenStreetMap's rule
+    try { const j = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(x)}`)).json();
+      if (j && j[0]) { v = [Number(j[0].lat), Number(j[0].lon)]; break; } } catch (e) { return null; }   // offline: try again next time
+  }
+  geoPut(q, v); return v;                                                   // remembered under the first name
+}
+function loadLeaflet() {
+  if (window.L) return Promise.resolve(window.L);
+  if (MAP_LOADING) return MAP_LOADING;
+  MAP_LOADING = new Promise((ok, bad) => {
+    const css = document.createElement("link"); css.rel = "stylesheet"; css.href = LEAFLET + "leaflet.min.css"; document.head.appendChild(css);
+    const s = document.createElement("script"); s.src = LEAFLET + "leaflet.min.js"; s.onload = () => ok(window.L); s.onerror = () => { MAP_LOADING = null; bad(new Error("map code")); };
+    document.head.appendChild(s); });
+  return MAP_LOADING;
+}
+function tripMapHtml() {
+  const tr = curTrip(); if (!tr) return `<div class="empty">Plan a ${TW} first.</div>`;
+  const P = mapPlaces(tr), c = geoCache();
+  setTimeout(drawTripMap, 0);
+  return `<section class="card trip-map-card"><h3>📍 Your ${isCruise(tr) ? "cruise" : "trip"} on the map</h3><div class="body">
+      ${P.length ? `<div id="tripMap" class="trip-map" role="img" aria-label="Map of your ${TW}"><div class="map-msg">Loading the map…</div></div>` : ""}
+      ${P.map(p => `<${p.bk ? `button class="rn-row" data-bkopen="${p.bk}"` : `div class="rn-row"`}><span class="map-n">${p.n}</span><span class="grow">${esc(p.label)}<span class="sub">${p.day ? `${dayName(p.day)} ${prettyDate(p.day)}` : ""}${c[p.q] === 0 ? " · not found on the map" : ""}</span></span>${p.bk ? `<span class="chev">›</span></button>` : "</div>"}`).join("")
+        || `<div class="today-line sub">Add where you're going (Edit) and your bookings (Reservations) — they show up here as pins.</div>`}
+      <p class="fine" style="margin-top:8px">Map © OpenStreetMap contributors. Opening the map looks up these places on OpenStreetMap.</p></div></section>`;
+}
+async function drawTripMap() {
+  const el = document.getElementById("tripMap"); if (!el) return;
+  const tr = curTrip(), P = mapPlaces(tr);
+  let L; try { L = await loadLeaflet(); } catch (e) { el.innerHTML = `<div class="map-msg">The map needs a connection — your places are listed below.</div>`; return; }
+  if (!document.body.contains(el)) return;                                 // the view changed while loading
+  if (MAP) { try { MAP.remove(); } catch (e) { /* old map */ } MAP = null; }
+  el.innerHTML = "";
+  MAP = L.map(el, { zoomControl: true, attributionControl: true });
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap contributors" }).addTo(MAP);
+  MAP.setView([39.5, -98.35], 3);                                           // the US until the pins arrive
+  const pts = [], c = geoCache();
+  const pin = (p, ll) => { pts.push(ll);
+    L.marker(ll, { icon: L.divIcon({ className: "map-pin", html: `<span>${p.n}</span>`, iconSize: [26, 26] }) }).addTo(MAP)
+      .bindPopup(`<b>${esc(p.label)}</b>${p.day ? `<br>${dayName(p.day)} ${prettyDate(p.day)}` : ""}${p.bk ? `<br><button class="btn sm ghost" data-bkopen="${p.bk}">Open</button>` : ""}`);
+    if (pts.length > 1) { L.polyline(pts, { color: "#5eead4", weight: 2, opacity: .6, dashArray: "4 6" }).addTo(MAP); MAP.fitBounds(pts, { padding: [28, 28], maxZoom: 13 }); }
+    else MAP.setView(ll, 11); };
+  P.filter(p => Array.isArray(c[p.q])).forEach(p => pin(p, c[p.q]));
+  const todo = P.filter(p => !(p.q in c));
+  if (!todo.length || GEO_BUSY) return;
+  GEO_BUSY = true;
+  for (const p of todo) {                                                   // one a second - OpenStreetMap's rule
+    const ll = await mapGeocode(p.q, p.alts);
+    if (MAP && Array.isArray(ll) && document.body.contains(el)) pin(p, ll);
+    await new Promise(r => setTimeout(r, 1100));
+  }
+  GEO_BUSY = false;
+  if (document.body.contains(el) && todo.some(p => geoCache()[p.q] === 0)) render();   // show "not found" in the list
 }

@@ -1,6 +1,9 @@
 {
- "version": "0.98",
+ "version": "0.99",
  "notes": {
+  "0.99": [
+   "📍 Trip map: Plan → Map shows where you're going, your hotels, airports and bookings as numbered pins in date order, on free OpenStreetMap maps. Tap a place to open its booking."
+  ],
   "0.98": [
    "🎟️ Bookings on your trip: add flights, hotels, rental cars, trains, tickets and dinner reservations (Plan → Reservations). Each lands on its day, opens with one tap and its cost goes into the trip money."
   ],

@@ -77,6 +77,18 @@ def route(ctx):
             return r.fulfill(json=forecast_fixture(q))
         if u.path.endswith("/version.json") and getattr(ctx, "_version", None):
             return r.fulfill(json=ctx._version)
+        if u.netloc == "nominatim.openstreetmap.org":                 # v0.99 trip map place search
+            ctx._geo = getattr(ctx, "_geo", []) + [(q.get("q") or [""])[0]]
+            if "nowhere" in (q.get("q") or [""])[0].lower():
+                return r.fulfill(json=[])
+            return r.fulfill(json=[{"lat": "28.43", "lon": "-81.30"}])
+        if u.netloc == "cdnjs.cloudflare.com" and "/leaflet/" in u.path:   # v0.99 a tiny fake Leaflet (no tiles fetched)
+            if u.path.endswith(".css"):
+                return r.fulfill(body="", content_type="text/css")
+            return r.fulfill(content_type="application/javascript", body="""window.L = (() => { const log = window.__map = { markers: 0, lines: 0, views: 0 };
+              const chain = o => Object.assign(o, { addTo() { return o; }, bindPopup() { return o; } });
+              return { map: el => (log.markers = 0, log.lines = 0, { setView() { log.views++; return this; }, fitBounds() { log.fit = true; return this; }, remove() {} }),
+                tileLayer: () => chain({}), divIcon: o => o, marker: () => { log.markers++; return chain({}); }, polyline: () => { log.lines++; return chain({}); } }; })();""")
         if "zippopotam.us" in u.netloc:
             if u.path.endswith("/00000"):
                 return r.fulfill(status=404, body="{}")
@@ -1856,7 +1868,7 @@ def t_v059_plan_timeline(b, base):
     a.js("""curTrip().ports = [{ id: 'p1', name: 'Grand Turk', day: '2026-11-14', arrive: '08:00', allAboard: '16:30', excursion: 'Hummer tour', meet: '08:30', where: 'Pier gate' }];
             curTrip().costs = [{ id: 'c1', cat: 'hotel', what: 'Westgate', amt: 336, paid: true }]; save(); shellGo('plan')""")
     views = a.js("[...document.querySelectorAll('.planview [data-planview] b')].map(b => b.textContent)")
-    check("PLAN views: Today | Trip | Packing | Reservations (Trip first shown)", views == ["Today", "Trip", "Packing", "Reservations"] and a.js("PLAN_VIEW") == "trip", views)
+    check("PLAN views: Today | Trip | Map | Packing | Bookings (Trip first shown)", views == ["Today", "Trip", "Map", "Packing", "Bookings"] and a.js("PLAN_VIEW") == "trip", views)   # v0.99 + Map
     tl = a.page.inner_text(".timeline")
     check("timeline: every day in order - sail day, at sea (TODAY), Grand Turk, at sea, back in port", tl.index("Sail day") < tl.index("At sea") < tl.index("Grand Turk") < tl.index("Back in port") and "TODAY" in tl and a.js("document.querySelectorAll('.tl-row').length") == 5, tl[:500])
     check("port row: all aboard + excursion", "all aboard 4:30 PM" in tl and "Hummer tour" in tl)
@@ -2020,7 +2032,7 @@ def t_v063_icon_tiles(b, base):
     a.js("shellGo('plan')")
     tt = a.js("[...document.querySelectorAll('.triptabs .tile')].map(t => t.querySelector('.tile-ic').textContent + '|' + t.querySelector('b').textContent)")
     check("trip sections are icon tiles (icon + label)", len(tt) >= 6 and "✅|Ready" in tt and "💳|Money" in tt, tt)
-    check("plan views are icon tiles", a.js("document.querySelectorAll('.planview .tile').length") == 4)
+    check("plan views are icon tiles (5 since v0.99 Map)", a.js("document.querySelectorAll('.planview .tile').length") == 5)
     a.page.click('.triptabs [data-triptab="lists"]'); a.page.wait_for_timeout(150)
     check("tap a tile = that section, tile lit", a.js("S.tripTab") == "lists" and a.js("document.querySelector('.triptabs .tile.on').dataset.triptab") == "lists")
     check("lists are icon tiles with done counts", a.js("document.querySelectorAll('.tilenav.compact [data-triplist]').length") >= 7 and "/" in a.js("document.querySelector('[data-triplist=\"packing\"] small').textContent"))
@@ -2529,6 +2541,34 @@ def t_v098_bookings(b, base):
     c.close()
 
 
+def t_v099_map(b, base):
+    print("\n[v0.99 trip map: free OpenStreetMap, numbered pins in date order, looked up once, not-found listed]")
+    a = App(b, base, path=TRIP)
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    a.qa("trip", {"tname": "Florida road trip", "start": "2026-10-20", "end": "2026-10-25", "port": "Orlando, FL"})
+    a.page.wait_for_timeout(150)
+    a.js("""(() => { const tr = S.trips[0]; tr.bookings = [
+        { id: 'f1', kind: 'flight', a: 'LIT', b: 'MCO', day: '2026-10-20', t: '07:05' },
+        { id: 'h1', kind: 'hotel', a: 'Coronado Springs', b: '1000 W Buena Vista Dr, Orlando', day: '2026-10-20', endDay: '2026-10-25' },
+        { id: 'd1', kind: 'dinner', a: 'Nowhere Diner', b: 'Nowhere Street 99', day: '2026-10-22' }]; save(); })()""")
+    P = a.js("mapPlaces(S.trips[0]).map(p => p.n + ' ' + p.q)")
+    check("places in date order, one each: destination, airports, hotel, dinner", P == ["1 Orlando, FL", "2 LIT airport", "3 MCO airport", "4 1000 W Buena Vista Dr, Orlando", "5 Nowhere Street 99"], P)
+    a.js("shellGo('plan'); PLAN_VIEW = 'map'; render()")
+    a.page.wait_for_function("window.__map && window.__map.markers >= 4 && geoCache()['Nowhere Street 99'] === 0", timeout=30000)
+    a.page.wait_for_timeout(1500)                                         # one lookup a second (OpenStreetMap's rule)
+    m = a.js("window.__map")
+    check("map drawn: a pin per found place + the route line", m["markers"] == 4 and m["lines"] >= 1 and m.get("fit"), m)
+    check("not found is listed, never guessed", "not found on the map" in a.page.inner_text("#cards") and a.js("geoCache()['Nowhere Street 99']") == 0)
+    check("OpenStreetMap credit shown", "© OpenStreetMap contributors" in a.page.inner_text("#cards"))
+    n = len(a.ctx._geo)
+    a.js("render()"); a.page.wait_for_timeout(800)
+    check("looked up once each, with 2 fallbacks for the one not found, then remembered", len(a.ctx._geo) == n == 7 and a.ctx._geo[-2:] == ["Nowhere Diner, Orlando, FL", "Nowhere Diner"], a.ctx._geo)
+    a.page.click('[data-bkopen="h1"]')
+    check("a booking in the list opens its detail screen", "Coronado Springs" in a.page.inner_text("#bookSheet"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -2557,7 +2597,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map):
             try:
                 t(b, base)
             except Exception as e:
