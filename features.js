@@ -44,7 +44,8 @@ const PLAN = Object.freeze({
   // A second Whop product; Cruise Hub only. Day Hub Pro ALSO unlocks Cruise Hub. Shown while CRUISE_PASS is on.
   CRUISE_NAME: "Cruise Hub Pass",
   CRUISE_YEARLY: "$9.99/year",
-  CRUISE_CHECKOUT_URL: "",   // the Whop checkout link, once the product exists
+  // Whop product "Cruise Hub Pass" prod_D1Rb57NYoYxR5 (Marvel Corp), created 10/7, hidden until CRUISE_PASS is on.
+  CRUISE_CHECKOUT_URL: "https://whop.com/commander-marvel-por-picks/cruise-hub-pass",
 });
 
 const OWNER_KEY = "dayhub.owner";
