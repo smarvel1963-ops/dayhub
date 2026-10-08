@@ -20,7 +20,7 @@ const SWITCHES = Object.freeze({
   AI_PUBLIC: true,    // ON 2026-10-03 (Scott: "turn it on"). Relay also needs Script Property AI_PUBLIC=true. OFF = only the owner passphrase works.
   GMAIL: false,       // Gmail -> plans. Waits on Google's restricted-scope verification.
   STORE: false,       // "Get it on Google Play" link. Waits on the Play listing going live.
-  CRUISE_PASS: false, // Cruise Hub sells its own Cruise Hub Pass. Waits on the Whop product + relay v5 (docs/LAUNCH_SWITCHES.md).
+  CRUISE_PASS: true,  // ON 2026-10-07 (Scott: "go"). Whop prod_D1Rb57NYoYxR5 + relay v5 (deploy v10) live; unlock tested OK with the 10/7 test buy.
 });
 
 // Scott approved 10/3: $4.99/mo or $29.99/yr, contact smarvel1963@gmail.com.

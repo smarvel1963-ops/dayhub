@@ -1152,7 +1152,7 @@ def t_v039_short_home(b, base):
 def t_v040_switches(b, base):
     print("\n[v0.40 switchboard: everything OFF by default, owner switches, Pro key, legal pages, manifest]")
     a = App(b, base); setup(a)
-    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3 go-live), GMAIL + STORE + CRUISE_PASS OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && !SWITCHES.CRUISE_PASS && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS'"))
+    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), GMAIL + STORE OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS'"))
     check("plan: approved price, contact, Whop checkout", a.js("PLAN.MONTHLY") == "$4.99/month" and a.js("PLAN.YEARLY") == "$29.99/year" and a.js("PLAN.CONTACT_EMAIL") == "smarvel1963@gmail.com" and a.js("PLAN.WHOP_CHECKOUT_URL") == "https://whop.com/commander-marvel-por-picks/day-hub-pro")
     check("PRO_GATE on, free phone: Pro features locked, free ones open", a.js("!['ai','gcal','mail','sync'].some(can) && ['reminders','budget'].every(can)"))
     a.page.click("#settingsBtn")
@@ -1266,7 +1266,7 @@ def t_v045_cruise_hub(b, base):
     a.page.click("#settingsBtn")
     check("settings: no Profession in Cruise Hub (really invisible)", a.js("document.getElementById('setPack').closest('label').hidden") and not a.js("document.getElementById('setPack').offsetParent"))
     pro = a.page.inner_text("#proBox")
-    check("Pro box: included with Day Hub Pro, only Cruise Hub features", "one purchase unlocks Day Hub and Cruise Hub" in pro and "Brain dump" not in pro and "Top 3" not in pro and "calendar" in pro and "Backup" in pro, pro[:300])
+    check("Pro box: Day Hub Pro still works here, only Cruise Hub features", "It includes Cruise Hub" in pro and "Brain dump" not in pro and "Top 3" not in pro and "calendar" in pro and "Backup" in pro, pro[:300])
     check("fine print: Not affiliated with any cruise line", "Not affiliated with any cruise line." in a.page.inner_text("#sheet"))
     a.page.click('[data-close="sheet"]')
     # Carnival: custom package by default, generic card section + Carnival tip
@@ -1379,12 +1379,12 @@ def t_v048_cruise_pass(b, base):
         if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.page.click("#settingsBtn")
     pro = a.page.inner_text("#proBox")
-    check("CRUISE_PASS off (default): Cruise Hub still offers Day Hub Pro, no $9.99", a.js("SWITCHES.CRUISE_PASS") is False and "Day Hub Pro" in pro and "$9.99" not in pro, pro[:200])
+    check("CRUISE_PASS on for everyone (10/7): Cruise Hub sells the Pass, $9.99", a.js("SWITCHES.CRUISE_PASS") is True and "Cruise Hub Pass" in pro and "$9.99" in pro and "$4.99" not in pro, pro[:200])
     a.js("setOwnerSwitch('CRUISE_PASS', true); drawSettings()")
     pro = a.page.inner_text("#proBox")
     check("CRUISE_PASS on: Cruise Hub Pass, $9.99/year, every cruise that year, Day Hub Pro mentioned", "Cruise Hub Pass" in pro and "$9.99/year" in pro and "every cruise you take that year" in pro
           and "as many cruises as you like" in pro and "Already have Day Hub Pro" in pro and "$4.99" not in pro, pro[:400])
-    check("no checkout link yet: says Coming soon", "Coming soon" in pro and not a.js("!!document.querySelector('#proBox a.btn[href*=whop]')"))
+    check("checkout link live (10/7): buy button goes to the Cruise Hub Pass on Whop, no Coming soon", "Coming soon" not in pro and a.js("!!document.querySelector('#proBox a.btn[href*=\"whop.com/commander-marvel-por-picks/cruise-hub-pass\"]')"))
     a.page.fill('form[data-proform] [name=key]', "cruiser@example.com"); a.page.click('form[data-proform] button'); a.page.wait_for_timeout(300)
     check("Cruise Hub Pass buyer: Cruise Hub unlocked", a.js("isPro() && can('sync')") and "Cruise Hub Pass is on" in a.page.inner_text("#proBox"), a.page.inner_text("#proBox")[:200])
     check("verify tells the relay it's Cruise Hub asking", any(x.get("task") == "verify" and x.get("app") == "cruisehub" for x in a.ctx._relay))
