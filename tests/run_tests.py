@@ -2424,6 +2424,26 @@ def t_v093_carnival(b, base):
     a.close()
 
 
+def t_v094_breeze(b, base):
+    print("\n[v0.95 ship guide: Carnival Breeze]")
+    a = App(b, base, path=CRUISE)
+    g = a.js("shipGuideHtml({ ship: 'Carnival Breeze' })")
+    check("Breeze: 3,690 guests, built 2012", "3,690 guests" in g and "built 2012" in g)
+    by = {x["name"]: x for x in a.js("shipGuide('Carnival Breeze').venues")}
+    check("each ship says its own price: Bonsai Sushi extra on Breeze, included on Jubilee", by["Bonsai Sushi"]["cost"] == "extra" and a.js("shipGuide('Carnival Jubilee').venues.find(v => v.name === 'Bonsai Sushi').cost") == "included")
+    a.close()
+
+
+def t_v095_dream(b, base):
+    print("\n[v0.96 ship guide: Carnival Dream]")
+    a = App(b, base, path=CRUISE)
+    g = a.js("shipGuideHtml({ ship: 'Carnival Dream' })")
+    check("Dream: 3,646 guests, built 2009", "3,646 guests" in g and "built 2009" in g)
+    by = {x["name"]: x for x in a.js("shipGuide('Carnival Dream').venues")}
+    check("Pizzeria del Capitano included, Seafood Shack extra", by["Pizzeria del Capitano"]["cost"] == "included" and by["Seafood Shack"]["cost"] == "extra")
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -2452,7 +2472,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream):
             try:
                 t(b, base)
             except Exception as e:

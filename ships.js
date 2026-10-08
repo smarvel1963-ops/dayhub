@@ -1185,6 +1185,83 @@ const SHIP_GUIDES = {
       { cat: "kids", name: "Night Owls babysitting", deck: null, cost: null, note: "Free for Family Harbor guests" },
     ],
   },
+  "carnival breeze": {
+    name: "Carnival Breeze", line: "Carnival", verified: "2026-10-07",
+    sources: {
+      ship: "https://www.carnival.com/cruise-ships/carnival-breeze",
+      facts: "https://www.carnival-news.com/ship/carnival-breeze-fact-sheet",
+    },
+    // Same source plan as Jubilee: no text deck page, no length/deck count on the sheet. Note Bonsai Sushi and
+    // Cucina del Capitano are EXTRA on Breeze (carnival.com) but included on Jubilee - each ship says its own.
+    facts: { guests: 3690, crew: 1386, tonnage: 130000, lengthFt: null, decks: null, built: 2012 },
+    venues: [
+      // ---- eat
+      { cat: "eat", name: "Guy's Burger Joint", deck: null, cost: "included", note: "Burgers designed by Guy Fieri" },
+      { cat: "eat", name: "Guy's Pig & Anchor Bar-B-Que", deck: null, cost: "included", note: "Smokehouse BBQ" },
+      { cat: "eat", name: "BlueIguana Cantina", deck: null, cost: "included", note: "Tacos + burritos" },
+      { cat: "eat", name: "Mongolian Wok", deck: null, cost: "included" },
+      { cat: "eat", name: "Pizza Pirate", deck: null, cost: "included" },
+      { cat: "eat", name: "Seaday Brunch", deck: null, cost: "included" },
+      { cat: "eat", name: "Carnival Deli", deck: null, cost: null },
+      { cat: "eat", name: "Fahrenheit 555 Steakhouse", deck: null, cost: "extra" },
+      { cat: "eat", name: "Cucina del Capitano", deck: null, cost: "extra", note: "Italian" },
+      { cat: "eat", name: "Bonsai Sushi", deck: null, cost: "extra" },
+      // ---- drink
+      { cat: "drink", name: "Alchemy Bar", deck: null, cost: null, note: "Cocktail pharmacy" },
+      { cat: "drink", name: "RedFrog Rum Bar · RedFrog Pub", deck: null, cost: null },
+      { cat: "drink", name: "BlueIguana Tequila Bar", deck: null, cost: null },
+      // ---- shows & fun
+      { cat: "fun", name: "Playlist Productions shows", deck: null, cost: "included" },
+      { cat: "fun", name: "Punchliner Comedy Club", deck: null, cost: null },
+      { cat: "fun", name: "Liquid Nightclub", deck: null, cost: null },
+      { cat: "fun", name: "SportSquare", deck: null, cost: null },
+      // ---- pools
+      { cat: "pool", name: "Carnival WaterWorks", deck: null, cost: "included", note: "320-ft Twister Waterslide" },
+      // ---- spa & fitness
+      { cat: "spa", name: "Cloud 9 Spa", deck: null, cost: "extra", note: "Thermal suites + treatments" },
+      { cat: "spa", name: "Serenity Adults-Only Retreat", deck: null, cost: "included" },
+      // ---- kids
+      { cat: "kids", name: "Camp Ocean", deck: null, cost: "included", note: "Supervised youth programs" },
+      { cat: "kids", name: "Circle 'C' · Club O2", deck: null, cost: null, note: "Tweens + teens" },
+      { cat: "kids", name: "Seuss at Sea", deck: null, cost: "included" },
+    ],
+  },
+  "carnival dream": {
+    name: "Carnival Dream", line: "Carnival", verified: "2026-10-07",
+    sources: {
+      ship: "https://www.carnival.com/cruise-ships/carnival-dream",
+      facts: "https://www.carnival-news.com/ship/carnival-dream-fact-sheet",
+    },
+    // Breeze's sister (Dream class). Same source plan as Jubilee: no decks, no length on the sheet.
+    facts: { guests: 3646, crew: 1367, tonnage: 130000, lengthFt: null, decks: null, built: 2009 },
+    venues: [
+      // ---- eat
+      { cat: "eat", name: "Guy's Burger Joint", deck: null, cost: "included" },
+      { cat: "eat", name: "Guy's Pig & Anchor Bar-B-Que", deck: null, cost: "included", note: "BBQ" },
+      { cat: "eat", name: "Pizzeria del Capitano", deck: null, cost: "included" },
+      { cat: "eat", name: "BlueIguana Cantina", deck: null, cost: "included", note: "Mexican" },
+      { cat: "eat", name: "Mongolian Wok", deck: null, cost: "included", note: "Stir-fry" },
+      { cat: "eat", name: "Seaday Brunch", deck: null, cost: "included" },
+      { cat: "eat", name: "Steakhouse", deck: null, cost: "extra", note: "Gourmet steaks" },
+      { cat: "eat", name: "Bonsai Sushi", deck: null, cost: "extra" },
+      { cat: "eat", name: "Seafood Shack", deck: null, cost: "extra" },
+      { cat: "eat", name: "The Chef's Table", deck: null, cost: "extra" },
+      // ---- drink
+      { cat: "drink", name: "Alchemy Bar", deck: null, cost: null, note: "Craft cocktails" },
+      { cat: "drink", name: "RedFrog Rum Bar", deck: null, cost: null },
+      { cat: "drink", name: "BlueIguana Tequila Bar", deck: null, cost: null },
+      // ---- shows & fun
+      { cat: "fun", name: "The Punchliner Comedy Club", deck: null, cost: "included" },
+      { cat: "fun", name: "Cherry On Top", deck: null, cost: "extra", note: "Candy + gift shop" },
+      // ---- pools
+      { cat: "pool", name: "Carnival WaterWorks", deck: null, cost: "included", note: "Waterslides" },
+      // ---- spa & fitness
+      { cat: "spa", name: "Cloud 9 Spa", deck: null, cost: "extra", note: "Hydrotherapy + treatments" },
+      { cat: "spa", name: "Serenity Adult-Only Retreat", deck: null, cost: "included" },
+      // ---- kids
+      { cat: "kids", name: "Camp Ocean", deck: null, cost: "included" },
+    ],
+  },
 };
 const SHIP_CATS = [["eat", "🍽️", "Eat"], ["drink", "🍹", "Drink"], ["fun", "🎭", "Shows & fun"], ["pool", "🏊", "Pools"], ["spa", "💆", "Spa & fitness"],
   ["kids", "🧒", "Kids"], ["service", "🛎️", "Services"], ["free", "✅", "What's included"]];
