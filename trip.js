@@ -73,6 +73,7 @@ function bookingsHtml(tr) {
     const when = b.day ? `${dayName(b.day)} ${prettyDate(b.day)}${b.t ? ` · ${hm(b.t)}` : ""}${K.end && ed ? ` → ${ed !== b.day ? prettyDate(ed) + " " : ""}${b.endT ? hm(b.endT) : ""}` : ""}` : "No date yet";
     return `<button class="rn-row" data-bkopen="${b.id}"><span>${K.icon}</span><span class="grow">${esc(bookTitle(b))}<span class="sub">${esc(K.label)} · ${esc(when)}${Number(b.cost) > 0 ? ` · ${money(Number(b.cost))}${b.paid ? " paid ✓" : ""}` : ""}</span></span><span class="chev">›</span></button>`; }).join("");
   return `<div class="day-label">Your bookings</div>${rows || `<div class="today-line sub">Flights, hotels, cars, tickets — add them below and they land on the right day.</div>`}
+    ${rows ? `<button class="rn-row" data-fixopen="pick"><span>🔄</span><span class="grow">Fix my trip<span class="sub">${(n => n ? `⚠️ ${n} clash${n === 1 ? "" : "es"} — ` : "")(fixClashes(tr).length)}Late, moved or canceled? See what it knocks out</span></span><span class="chev">›</span></button>` : ""}
     <button class="rn-row" data-bkpasteopen="1"><span>📋</span><span class="grow">Paste a confirmation email<span class="sub">Flights, hotels, rental cars — filled in for you to check</span></span><span class="chev">›</span></button>
     ${tileNav(Object.entries(BOOK_KINDS).map(([k, K]) => ({ icon: K.icon, label: `＋ ${K.label}`, attrs: `data-bkadd="${k}"` })), 3, "bk-add")}`;
 }
@@ -100,6 +101,7 @@ function showBooking(id) {
     ${b.note ? `<div class="today-line">📝 ${esc(b.note)}</div>` : ""}
     <div class="foot-actions" style="flex-wrap:wrap;margin-top:10px">
       ${place.trim() ? `<a class="btn sm ghost" href="${mapsLink(place)}" target="_blank" rel="noopener">🗺️ Map</a>` : ""}
+      ${b.day && b.t ? `<button class="btn sm ghost" data-fixopen="${b.id}">🔄 This changed</button>` : ""}
       <button class="btn sm ghost" data-bkedit="${b.id}">✏️ Edit</button>
       <button class="btn sm ghost" data-bkdel="${b.id}">Delete</button></div></div>`;
   el.classList.remove("hidden");
@@ -146,6 +148,7 @@ function deleteBooking(id) {
 function tripClick(ds) {
   if (diaryClick(ds)) return true;                                         // v1.01 trip diary
   if (funClick(ds)) return true;                                           // v1.04 Fun Finder
+  if (fixClick(ds)) return true;                                           // v1.11 Fix my trip
   if (ds.bkadd) { showBookingForm(ds.bkadd); return true; }
   if (ds.bkopen) { hideSheet("daySheet"); showBooking(ds.bkopen); return true; }
   if (ds.bkedit) { showBookingForm(null, ds.bkedit); return true; }
@@ -158,6 +161,7 @@ function tripClick(ds) {
 function tripSubmit(f, data) {
   if (diarySubmit(f, data)) return true;                                   // v1.01 trip diary
   if (funSubmit(f, data)) return true;                                     // v1.04 Fun Finder
+  if (fixSubmit(f, data)) return true;                                     // v1.11 Fix my trip
   if (f.dataset.bkpaste) { pasteBookings(data.text || ""); return true; }
   if (!f.dataset.bkform) return false;
   saveBooking(f, data); return true;
@@ -605,4 +609,179 @@ function wrapClick(ds) {
     const done = () => { document.body.classList.remove("print-wrap"); window.removeEventListener("afterprint", done); };
     window.addEventListener("afterprint", done); window.print(); return true; }
   return false;
+}
+
+// ------------------------------------------------------------ FIX MY TRIP (v1.11)
+// Scott's blueprint #53/#54: "Something changes: flight canceled ... Tap FIX MY TRIP. Trip Hub identifies
+// everything downstream affected ... I found 3 changes ... REVIEW CHANGES. User approves." + "Trip Dependency
+// Graph: FLIGHT -> RENTAL CAR -> HOTEL -> DINNER. Flight delayed 3 hours: rental pickup affected, hotel arrival
+// changed, dinner impossible." + "Never silently changes bookings."
+// Nothing is looked up online: the times are the ones the traveler saved. The app moves only ITS OWN plan, and
+// only the rows the traveler leaves ticked; every booking that needs a call is listed with its phone number.
+// Ready-after buffers: how long after a booking ENDS you can really be somewhere else.
+const FIX_AFTER = { flight: 60, train: 30, car: 15, ticket: 30, dinner: 30, hotel: 0, fun: 0 };
+const FIX_DELAYS = [[15, "15 min"], [30, "30 min"], [45, "45 min"], [60, "1 hour"], [90, "1½ hours"], [120, "2 hours"], [180, "3 hours"],
+  [240, "4 hours"], [300, "5 hours"], [360, "6 hours"], [480, "8 hours"], [720, "12 hours"], [1440, "a whole day"]];
+const fixAt = (day, t) => { const d = parseDay(day); const [h, m] = (t || "00:00").split(":").map(Number); d.setHours(h, m, 0, 0); return d.getTime(); };
+const fixFrom = ms => { const d = new Date(ms); return { day: ymd(d), t: `${pad(d.getHours())}:${pad(d.getMinutes())}` }; };
+const fixUp15 = ms => { const q = 15 * 60000; return Math.ceil(ms / q) * q; };
+const fixWhen = ms => { const x = fixFrom(ms); return `${x.day === today() ? "" : dayName(x.day) + " "}${hm(x.t)}`; };
+// The trip as timed points: each booking's start (and end), each Fun Finder pick in the day plan.
+function fixPoints(tr) {
+  const P = [];
+  tripBookings(tr).forEach(b => {
+    if (!b.day || !b.t) return;
+    const ed = b.endDay || (b.endT ? b.day : ""), s = fixAt(b.day, b.t), e = ed && b.endT ? fixAt(ed, b.endT) : null;
+    P.push({ src: "bk", id: b.id, kind: b.kind, title: bookTitle(b), icon: bookKind(b).icon, s, e: e && e > s ? e : null, phone: b.phone || "", num: b.num || "", ref: b });
+  });
+  [...new Set(tripFun(tr).map(f => f.day))].forEach(d => funPlan(tr, d).plan.forEach(f => P.push({ src: "fun", id: f.id, kind: "fun", title: f.title,
+    icon: f.pick === "must" ? "❤️" : "👍", s: fixAt(f.day, f.t), e: fixAt(f.day, funEnd(f)), phone: "", num: "", ref: f })));
+  return P.sort((a, b) => a.s - b.s);
+}
+// When you can be somewhere else after p. A car or hotel runs for days - you're free once you've picked it up / checked in.
+const fixReady = p => (p.kind === "car" || p.kind === "hotel" ? p.s : p.e || p.s) + (FIX_AFTER[p.kind] ?? 0) * 60000;
+// What a change does to the rest of the trip. change = { how: "late"|"time"|"cancel", mins, day, t }.
+function fixImpact(tr, bkId, change) {
+  const P = fixPoints(tr), me = P.find(p => p.src === "bk" && p.id === bkId); if (!me) return null;
+  const rows = [], calls = [], K = bookKind(me.ref);
+  const callFor = (p, why) => { if (p.src === "bk") calls.push({ id: p.id, icon: p.icon, title: p.title, phone: p.phone, num: p.num, why }); };
+  if (change.how === "cancel") {
+    rows.push({ act: "remove", src: "bk", id: me.id, icon: me.icon, title: me.title, say: "Take it off your trip", on: false });
+    callFor(me, me.kind === "flight" ? "ask what they can rebook you on — don't buy a new ticket first" : "confirm it's canceled and ask about a refund");
+    P.filter(p => p !== me && p.s >= me.s && p.s < me.s + 24 * 3600000).forEach(p => {
+      rows.push({ act: "keep", src: p.src, id: p.id, icon: p.icon, title: p.title, say: `${fixWhen(p.s)} — check this still works once you know your new plan`, on: false });
+      if (["car", "hotel", "flight", "train"].includes(p.kind)) callFor(p, p.kind === "hotel" ? "tell them your plans changed so they hold the room" : "tell them your plans changed");
+    });
+    return { me, rows, calls, change, delta: 0 };
+  }
+  const delta = change.how === "late" ? Number(change.mins) * 60000 : fixAt(change.day, change.t) - me.s;
+  if (!delta) return { me, rows, calls, change, delta: 0 };
+  rows.push({ act: "move", src: "bk", id: me.id, icon: me.icon, title: me.title, delta, whole: true,
+    say: `${K.start} ${fixWhen(me.s + delta)}${me.e ? ` · ${K.end.toLowerCase()} ${fixWhen(me.e + delta)}` : ""}`, on: true });
+  if (delta < 0) return { me, rows, calls, change, delta };              // earlier = nothing after it is squeezed
+  // Walk forward: anything starting before you can be there is hit; each thing moved pushes the next one (a chain, not a pile-up).
+  let ready = fixReady({ ...me, s: me.s + delta, e: me.e ? me.e + delta : null });
+  for (const p of P) {
+    if (p === me || p.s < me.s) continue;
+    if (p.s >= ready) break;                                             // sorted: nothing later is squeezed
+    const at = fixWhen(ready);
+    if (p.kind === "hotel") {                                             // you don't move a check-in - you tell them you're late
+      rows.push({ act: "keep", src: p.src, id: p.id, icon: p.icon, title: p.title, say: `You'll get there about ${at} — tell them you're arriving late so they hold the room`, on: false });
+      callFor(p, `say you'll arrive about ${at}`); continue; }
+    if (p.kind === "flight" || p.kind === "train") {                     // a connection: the carrier decides, not us
+      rows.push({ act: "keep", src: p.src, id: p.id, icon: p.icon, title: p.title, say: `Leaves ${fixWhen(p.s)} — you can't be there till about ${at}. The ${p.kind === "flight" ? "airline" : "company"} rebooks a missed connection`, on: false });
+      callFor(p, "you'll miss it — ask them to rebook you"); continue; }
+    if (p.kind === "ticket") {                                            // a show or tour runs at its time
+      rows.push({ act: "keep", src: p.src, id: p.id, icon: p.icon, title: p.title, say: `Starts ${fixWhen(p.s)} — you can't be there till about ${at}. Ask if there's a later time`, on: false });
+      callFor(p, "ask about a later time or a refund"); continue; }
+    const to = fixUp15(ready), d = to - p.s;
+    rows.push({ act: "move", src: p.src, id: p.id, icon: p.icon, title: p.title, delta: d, say: `Was ${fixWhen(p.s)} — move to ${fixWhen(to)}`, on: true });
+    if (p.kind === "car") callFor(p, `ask them to hold the car — you'll be there about ${fixWhen(to)}${me.kind === "flight" && me.ref.num ? ` (give them your flight, ${me.ref.num})` : ""}`);
+    else if (p.kind === "dinner") callFor(p, `move your table to about ${fixWhen(to)}`);
+    ready = Math.max(ready, fixReady({ ...p, s: to, e: p.e && p.kind !== "car" ? p.e + d : null }));
+  }
+  return { me, rows, calls, change, delta };
+}
+// Clashes already in the plan, no change needed: something starts before you can be there from the thing before it.
+function fixClashes(tr) {
+  const P = fixPoints(tr).filter(p => p.src === "bk" || p.ref.pick === "must"), out = [];
+  for (let i = 0; i < P.length; i++) for (let j = i + 1; j < P.length; j++) {
+    const a = P[i], b = P[j];
+    if (b.s >= fixReady(a) || a.kind === "hotel" || b.kind === "hotel") continue;   // a hotel stay spans days - not a clash
+    if (a.src === "fun" && b.src === "fun") continue;                                // Fun Finder already warns about its own
+    out.push([a, b]);
+  }
+  return out;
+}
+
+let FIX = null;                                                            // { trip, bk, impact, calls }
+function fixSheet() {
+  let el = document.getElementById("fixSheet");
+  if (!el) { el = document.createElement("div"); el.id = "fixSheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Fix my trip"); document.body.appendChild(el); }
+  return el;
+}
+const fixCallsHtml = calls => calls.map(c => `<div class="row"><span class="grow"><b>${c.icon} ${esc(c.title)}</b><span class="sub">${esc(c.why)}${c.num ? ` · # ${esc(c.num)}` : ""}${c.phone ? ` · ${telLinks(c.phone)}` : " · no phone saved — it's on your confirmation"}</span></span></div>`).join("");
+function showFix(view) {
+  const t = FIX && S.trips.find(x => x.id === FIX.trip); if (!t) { toast(`Add your ${TW} first`); return; }
+  const el = fixSheet(); let body = "";
+  if (view === "pick") {
+    const B = bookingsSorted(t).filter(b => b.day && b.t), C = fixClashes(t);
+    body = (C.length ? `<div class="day-label">Already clashing</div>` + C.map(([a, b]) =>
+        `<div class="bstat tight">⚠️ ${a.icon} ${esc(a.title)} → ${b.icon} ${esc(b.title)} at ${fixWhen(b.s)} — not enough time. You'd be ready about ${fixWhen(fixReady(a))}.</div>`).join("") : "")
+      + `<div class="day-label">What changed?</div>`
+      + (B.length ? B.map(b => `<button class="rn-row" data-fixb="${b.id}"><span>${bookKind(b).icon}</span><span class="grow">${esc(bookTitle(b))}<span class="sub">${esc(bookKind(b).label)} · ${dayName(b.day)} ${prettyDate(b.day)} · ${hm(b.t)}</span></span><span class="chev">›</span></button>`).join("")
+        : `<p class="fine">Add your bookings with their times (Plan → Bookings) and ${esc(APP_NAME)} can show what a delay knocks out.</p>`);
+  } else if (view === "what") {
+    const b = tripBookings(t).find(x => x.id === FIX.bk); if (!b) { showFix("pick"); return; }
+    const radio = (v, l, on) => `<label class="field" style="flex-direction:row;align-items:center;gap:8px;margin:6px 0"><input type="radio" name="how" value="${v}" ${on ? "checked" : ""} style="width:auto"> ${l}</label>`;
+    body = `<div class="today-line">${bookKind(b).icon} <b>${esc(bookTitle(b))}</b> · ${dayName(b.day)} ${prettyDate(b.day)} · ${hm(b.t)}</div>
+      <form class="qa-form" data-fixform="${b.id}">
+        ${radio("late", "Running late / delayed", true)}
+        <select name="mins" aria-label="How late">${FIX_DELAYS.map(([m, l]) => `<option value="${m}" ${m === 60 ? "selected" : ""}>${l}</option>`).join("")}</select>
+        ${radio("time", "New time", false)}
+        <div class="two"><input name="day" type="date" value="${esc(b.day)}" aria-label="New date"><input name="t" type="time" value="${esc(b.t)}" aria-label="New time"></div>
+        ${radio("cancel", "Canceled", false)}
+        <button class="btn">Show me what it changes</button></form>
+      <button class="btn sm ghost" data-fixgo="pick" style="margin-top:8px">‹ Something else</button>`;
+  } else if (view === "review") {
+    const I = FIX.impact;
+    if (!I || !I.rows.length) body = `<div class="today-line">✅ Nothing to change.</div><button class="btn sm ghost" data-fixgo="what">‹ Back</button>`;
+    else { const hits = I.rows.length - 1;
+      body = `<div class="today-line"><b>${I.change.how === "cancel" ? `${esc(I.me.title)} is canceled` : hits ? `I found ${hits} thing${hits === 1 ? "" : "s"} it knocks out` : "Nothing else is affected"}</b></div>
+        <p class="fine">Tick what ${esc(APP_NAME)} should change in your plan. It only changes your plan here — call the companies below to change the real bookings.</p>`
+        + I.rows.map((r, i) => `<label class="row fix-row"><input type="checkbox" data-fixtick="${i}" ${r.on ? "checked" : ""} ${r.act === "keep" ? "disabled" : ""} style="width:auto;margin-right:8px">
+          <span class="grow">${r.icon} ${esc(r.title)}<span class="sub">${esc(r.say)}</span></span></label>`).join("")
+        + (I.calls.length ? `<div class="day-label" style="margin-top:8px">📞 Call</div>` + fixCallsHtml(I.calls) : "")
+        + `<div class="foot-actions" style="margin-top:10px"><button class="btn" data-fixapply="1">Change my plan</button><button class="btn sm ghost" data-fixgo="what">‹ Back</button></div>`; }
+  } else {
+    body = `<div class="today-line">✅ ${FIX.made ? "Your plan is updated." : "Nothing changed in your plan."}</div>${FIX.calls && FIX.calls.length ? `<div class="day-label">📞 Now call</div>${fixCallsHtml(FIX.calls)}` : ""}
+      <p class="fine">Nothing was booked or canceled for you.${FIX.made ? " Tap Undo on the note at the bottom to put your plan back." : ""}</p>
+      <div class="foot-actions"><button class="btn sm ghost" data-fixgo="pick">Check again</button><button class="btn sm" data-fixclose="1">Close</button></div>`;
+  }
+  el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
+    <div class="sheet-head"><h2>🔄 Fix my trip</h2><button class="icon-btn" data-fixclose="1" aria-label="Close">✕</button></div>${body}</div>`;
+  el.classList.remove("hidden");
+}
+function fixApply() {
+  const tr = S.trips.find(t => t.id === FIX.trip), I = FIX.impact; if (!tr || !I) return;
+  const ticks = [...document.querySelectorAll("#fixSheet [data-fixtick]")].map(x => x.checked);
+  const todo = I.rows.filter((r, i) => ticks[i] && r.act !== "keep");
+  FIX.calls = I.calls; FIX.made = todo.length;
+  if (!todo.length) { showFix("done"); return; }
+  snap(); tr.bookings = tripBookings(tr).map(b => ({ ...b })); tr.fun = tripFun(tr).map(f => ({ ...f }));
+  todo.forEach(r => {
+    if (r.src === "bk") {
+      if (r.act === "remove") { tr.bookings = tr.bookings.filter(b => b.id !== r.id); tr.costs = (tr.costs || []).filter(c => c.bk !== r.id); return; }
+      const b = tr.bookings.find(x => x.id === r.id); if (!b) return;
+      const ed = b.endDay || (b.endT ? b.day : ""), s = fixFrom(fixAt(b.day, b.t) + r.delta);
+      if (ed && b.endT && (r.whole || ed === b.day)) {                       // what changed moves whole; a pick-up moves, its drop-off stays
+        const e = fixFrom(fixAt(ed, b.endT) + r.delta); b.endDay = b.endDay || e.day !== s.day ? e.day : ""; b.endT = e.t; }
+      b.day = s.day; b.t = s.t;
+    } else {
+      const f = tr.fun.find(x => x.id === r.id); if (!f) return;
+      const s = fixFrom(fixAt(f.day, f.t) + r.delta); if (f.end) f.end = fixFrom(fixAt(f.day, f.end) + r.delta).t;
+      f.day = s.day; f.t = s.t; if (f.end && f.end <= f.t) f.end = "";
+    }
+  });
+  save(); render(); buzz(); toast(`🔄 ${todo.length} change${todo.length === 1 ? "" : "s"} made`, true); showFix("done");
+}
+function fixClick(ds) {
+  if (ds.fixopen) { const [tr] = ds.fixopen === "pick" ? [curTrip()] : bkFind(ds.fixopen);
+    if (!tr) { toast(`Add your ${TW} first`); return true; }
+    hideSheet("helpSheet"); hideSheet("bookSheet"); FIX = { trip: tr.id, bk: ds.fixopen === "pick" ? null : ds.fixopen };
+    showFix(FIX.bk ? "what" : "pick"); return true; }
+  if (!FIX) return false;
+  if (ds.fixb) { FIX.bk = ds.fixb; showFix("what"); return true; }
+  if (ds.fixgo) { showFix(ds.fixgo); return true; }
+  if (ds.fixapply) { fixApply(); return true; }
+  if (ds.fixclose) { hideSheet("fixSheet"); return true; }
+  return false;
+}
+function fixSubmit(f, data) {
+  if (!f.dataset.fixform || !FIX) return false;
+  const tr = S.trips.find(t => t.id === FIX.trip); if (!tr) return true;
+  const how = ["late", "time", "cancel"].includes(data.how) ? data.how : "late";
+  if (how === "time" && (!data.day || !data.t)) { toast("Pick the new date and time"); return true; }
+  FIX.impact = fixImpact(tr, f.dataset.fixform, { how, mins: Number(data.mins) || 60, day: data.day, t: data.t });
+  showFix("review"); return true;
 }

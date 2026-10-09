@@ -3000,6 +3000,63 @@ def t_v110_scene_pick(b, base):
     a.page.click("#settingsBtn"); a.page.click('[data-scenepick="auto"]')
     check("Auto again: ocean, and nothing stored", a.js(f"{hero}.dataset.scene").startswith("ocean|") and a.js("S.scene === undefined"))
     a.close()
+
+def t_v111_fix_my_trip(b, base):
+    print("\n[v1.11 Fix my trip: a booking moves -> what it knocks out -> you tick -> your plan changes, calls listed]")
+    a = App(b, base, path=TRIP, at="2026-10-19T09:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-25", "port": "Orlando, FL"})
+    a.page.wait_for_timeout(150)
+    a.js("""(() => { const tr = curTrip(); tr.bookings = [
+      { id: 'f1', kind: 'flight', a: 'LIT', b: 'MCO', day: '2026-10-20', t: '07:05', endDay: '', endT: '10:40', num: 'AA 1234', phone: '800-433-7300' },
+      { id: 'c1', kind: 'car', a: 'Hertz', b: 'MCO airport', day: '2026-10-20', t: '11:30', endDay: '2026-10-25', endT: '10:00', num: 'H123456', phone: '800-654-3131' },
+      { id: 'h1', kind: 'hotel', a: 'Coronado Springs', b: '', day: '2026-10-20', t: '15:00', endDay: '2026-10-25', endT: '11:00', num: 'R-88812', phone: '407-939-1000' },
+      { id: 'd1', kind: 'dinner', a: 'Boma', b: '', day: '2026-10-20', t: '19:00', num: 'D-77', phone: '', cost: 90 },
+      { id: 't1', kind: 'ticket', a: 'Magic Kingdom', b: '', day: '2026-10-21', t: '09:00', endT: '22:00', num: 'MK-1' }];
+      tr.costs = [{ id: 'x1', bk: 'd1', cat: 'other', what: 'Boma', amt: 90, paid: false }];
+      tr.fun = [{ id: 'u1', day: '2026-10-20', t: '16:00', end: '17:00', title: 'Disney Springs', where: '', pick: 'must' }]; save(); render(); })()""")
+    C = a.js("fixClashes(curTrip()).map(([x, y]) => x.id + '>' + y.id)")
+    check("already clashing: the car pick-up is 50 min after landing (needs an hour)", C == ["f1>c1"], C)
+    a.js("shellGo('plan'); PLAN_VIEW = 'reservations'; render()")
+    check("Bookings has the Fix my trip row with the clash count", "Fix my trip" in a.page.inner_text("#cards") and "1 clash" in a.page.inner_text("#cards"))
+    a.js("showHelp()")
+    check("🛟 help has FIX MY TRIP", "FIX MY TRIP" in a.page.inner_text("#helpSheet"))
+    a.page.click('#helpSheet [data-fixopen="pick"]'); a.page.wait_for_timeout(100)
+    s = a.page.inner_text("#fixSheet")
+    check("pick screen: the clash + every timed booking", "already clashing" in s.lower() and "AA 1234" in s and "Magic Kingdom" in s and a.js("document.getElementById('helpSheet').classList.contains('hidden')"), s[:600])
+    a.page.click('#fixSheet [data-fixb="f1"]'); a.page.wait_for_timeout(80)
+    a.page.select_option('#fixSheet [name=mins]', "300"); a.page.click('#fixSheet form[data-fixform] button'); a.page.wait_for_timeout(100)
+    s = a.page.inner_text("#fixSheet")
+    check("5-hour delay: I found 3 things (car, hotel arrival, Disney Springs); dinner and tomorrow untouched",
+          "I found 3 things it knocks out" in s and "Hertz" in s and "Coronado Springs" in s and "Disney Springs" in s and "Boma" not in s and "Magic Kingdom" not in s, s[:900])
+    check("car: move to 4:45 PM (lands 3:40 + an hour); hotel: tell them you're late", "move to Tomorrow 4:45 PM" in s and "arriving late" in s, s[:900])
+    check("calls: Hertz with the flight number, the hotel; tap-to-call", "give them your flight, AA 1234" in s and a.js("document.querySelectorAll('#fixSheet a[href^=\"tel:\"]').length") == 2, s)
+    check("ticked by default: the flight + car + Disney Springs; the hotel row can't be ticked",
+          a.js("[...document.querySelectorAll('#fixSheet [data-fixtick]')].map(x => (x.checked ? 1 : 0) + (x.disabled ? 'd' : '')).join()") == "1,1,0d,1")
+    a.page.click('#fixSheet [data-fixapply]'); a.page.wait_for_timeout(120)
+    B = a.js("Object.fromEntries(curTrip().bookings.map(b => [b.id, [b.day, b.t, b.endDay, b.endT].join(' ')]))")
+    check("flight moved whole (12:05 -> 3:40 PM); car pick-up 4:45 PM, drop-off kept; hotel untouched",
+          B["f1"] == "2026-10-20 12:05  15:40" and B["c1"] == "2026-10-20 16:45 2026-10-25 10:00" and B["h1"] == "2026-10-20 15:00 2026-10-25 11:00", B)
+    check("Disney Springs chained after the car: 5:00-6:00 PM", a.js("[curTrip().fun[0].t, curTrip().fun[0].end].join()") == "17:00,18:00")
+    s = a.page.inner_text("#fixSheet")
+    check("done: plan updated + now call list, nothing booked for you", "Your plan is updated" in s and "now call" in s.lower() and "Nothing was booked" in s, s)
+    check("no clash left after the fix", a.js("fixClashes(curTrip()).length") == 0)
+    a.js("FIX = null; showBooking('d1')")
+    a.page.click('#bookSheet [data-fixopen="d1"]'); a.page.wait_for_timeout(80)
+    a.page.check('#fixSheet [name=how][value=cancel]'); a.page.click('#fixSheet form[data-fixform] button'); a.page.wait_for_timeout(100)
+    s = a.page.inner_text("#fixSheet")
+    check("canceled dinner: off the trip is NOT ticked until you say so", "Boma is canceled" in s and not a.js("document.querySelector('#fixSheet [data-fixtick]').checked"), s[:500])
+    a.page.check('#fixSheet [data-fixtick="0"]'); a.page.click('#fixSheet [data-fixapply]'); a.page.wait_for_timeout(120)
+    check("ticked: dinner and its money row are gone", not a.js("curTrip().bookings.some(b => b.id === 'd1')") and not a.js("curTrip().costs.some(c => c.bk === 'd1')"))
+    a.js("FIX = { trip: curTrip().id, bk: 't1' }; showFix('what')")
+    a.page.check('#fixSheet [name=how][value=time]'); a.page.fill('#fixSheet [name=t]', "08:00")
+    a.page.click('#fixSheet form[data-fixform] button'); a.page.wait_for_timeout(100)
+    check("earlier time: only the ticket itself moves", a.js("FIX.impact.rows.length") == 1 and "Starts Wednesday 8:00 AM" in a.page.inner_text("#fixSheet"), a.page.inner_text("#fixSheet")[:400])
+    a.close()
+
+
 def t_v109_port_wx_alerts(b, base):
     print("\n[v1.09 port-day weather notifications: 7 AM on the day, 8 PM the night before only with a warning]")
     a = App(b, base, path=CRUISE, at="2026-10-01T06:00:00")                # sail day, before 7 AM
@@ -3050,7 +3107,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip):
             try:
                 t(b, base)
             except Exception as e:

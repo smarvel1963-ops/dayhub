@@ -1,6 +1,9 @@
 {
- "version": "1.10",
+ "version": "1.11",
  "notes": {
+  "1.11": [
+   "🔄 Fix my trip: flight late, something moved or canceled? Tap 🛟 → FIX MY TRIP (or 🔄 This changed on any booking). You'll see what it knocks out — the car pick-up, the hotel arrival, dinner, your plans — tick what to change, and get a call list with the numbers. Nothing is booked or canceled for you. Bookings also warns when two things are already too close together."
+  ],
   "1.10": [
    "🖼️ Pick your background: ⚙ → Background. Choose the ocean, the road trip, the sky — or none — behind the clock. Auto keeps this app's own. It still follows the real weather and day / night."
   ],

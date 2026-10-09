@@ -168,6 +168,7 @@ function showHelp(view) {
       <button class="help-btn" data-help="get">🚗<b>GET TO THE SHIP</b></button>` : ""}
       <button class="help-btn red" data-help="medical">🩺<b>MEDICAL / SAFETY</b></button>
       <button class="help-btn" data-help="travel">✈️<b>TRAVEL PROBLEM</b></button>
+      ${tr && typeof fixClashes === "function" && (tr.bookings || []).some(b => b.day && b.t) ? `<button class="help-btn" data-fixopen="pick">🔄<b>FIX MY TRIP</b></button>` : ""}
       <button class="help-btn" data-help="docs">📄<b>MY DOCUMENTS</b></button>
       <button class="help-btn ghost" data-help="contacts">📇<b>MY TRIP CONTACTS</b>${missing ? `<span class="sub">${missing} not saved</span>` : ""}</button></div>`;
   else if (view === "back") { const g = tr && guardFor(tr);
