@@ -691,3 +691,7 @@ body.shell .bubbles { margin: 10px 0 12px; gap: 8px 6px; }
 /* v1.17 free time finder */
 .free-gap { margin: 4px 0 8px; }
 .wish-box summary { cursor: pointer; padding: 8px 0; color: var(--muted, #aab); }
+/* v1.18 group vote */
+.vote-who { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
+.vote-who .chip.on { outline: 2px solid var(--accent, #ffd166); }
+.vote-sc { min-width: 2.2em; text-align: right; margin-right: 6px; }

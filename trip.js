@@ -178,6 +178,7 @@ function tripClick(ds) {
   if (refundClick(ds)) return true;                                        // v1.15 refunds
   if (driveClick(ds)) return true;                                         // v1.16 road trip brain
   if (freeClick(ds)) return true;                                          // v1.17 free time finder
+  if (voteClick(ds)) return true;                                          // v1.18 group vote
   if (ds.lvpreset) { const i = document.querySelector('#bookSheet [name="lv_check"]'); if (i) i.value = ds.lvpreset; return true; }   // v1.12
   if (ds.bkadd) { showBookingForm(ds.bkadd); return true; }
   if (ds.bkopen) { hideSheet("daySheet"); showBooking(ds.bkopen); return true; }
@@ -197,6 +198,7 @@ function tripSubmit(f, data) {
   if (refundSubmit(f, data)) return true;                                  // v1.15 refunds
   if (driveSubmit(f, data)) return true;                                   // v1.16 road trip brain
   if (freeSubmit(f, data)) return true;                                    // v1.17 free time finder
+  if (voteSubmit(f, data)) return true;                                    // v1.18 group vote
   if (f.dataset.bkpaste) { pasteBookings(data.text || ""); return true; }
   if (!f.dataset.bkform) return false;
   saveBooking(f, data); return true;
@@ -1224,7 +1226,8 @@ function freeGaps(tr, day, now) {
   return out.filter(g => g.to - g.from >= FREE_MIN).map(g => ({ ...g, mins: g.to - g.from, t: `${pad(Math.floor(g.from / 60))}:${pad(g.from % 60)}`, end: `${pad(Math.floor(g.to / 60))}:${pad(g.to % 60)}` }));
 }
 // The ideas that fit a gap: biggest first that still fit (fills the time best), at most 3.
-const gapIdeas = (tr, g) => tripWish(tr).filter(w => Number(w.mins) > 0 && Number(w.mins) <= g.mins).sort((a, b) => b.mins - a.mins).slice(0, 3);
+const gapIdeas = (tr, g) => tripWish(tr).filter(w => Number(w.mins) > 0 && Number(w.mins) <= g.mins && !(typeof voteDown === "function" && voteDown(tr, w)))
+  .sort((a, b) => (typeof voteScore === "function" ? voteScore(b) - voteScore(a) : 0) || b.mins - a.mins).slice(0, 3);   // v1.18: votes first, then fill the time
 const inTrip = (tr, d) => tr && tr.start && d >= tr.start && d <= (tr.end || tr.start);
 // Day screen block (shell.js showDay).
 function freeDayHtml(tr, d) {
@@ -1236,10 +1239,11 @@ function freeDayHtml(tr, d) {
         ${I.map(w => `<button class="rn-row" data-freeadd="${tr.id}|${d}|${g.t}|${w.id}"><span>👉</span><span class="grow">${esc(w.title)}<span class="sub">${durWords(Number(w.mins))}${w.where ? " · " + esc(w.where) : ""} · tap to add at ${hm(g.t)}</span></span><span class="chev">＋</span></button>`).join("")}</div>`; }).join("")
       : `<div class="today-line sub">No open time left — a full day.</div>`}
     <details class="wish-box" ${W.length && !WISH_OPEN ? "" : "open"}><summary>💭 We'd like to do… (${W.length})</summary>
-      ${W.map(w => `<div class="row"><span class="grow">${esc(w.title)}<span class="sub">${durWords(Number(w.mins))}${w.where ? " · " + esc(w.where) : ""}</span></span><button class="x" data-wishdel="${tr.id}|${w.id}|${d}" aria-label="Remove">✕</button></div>`).join("")}
+      ${W.slice().sort(voteRank).map(w => `<div class="row"><span class="grow">${esc(w.title)}<span class="sub">${voteScore(w) ? `🗳️ ${voteScore(w) > 0 ? "+" : ""}${voteScore(w)} · ` : ""}${durWords(Number(w.mins))}${w.where ? " · " + esc(w.where) : ""}</span></span><button class="x" data-wishdel="${tr.id}|${w.id}|${d}" aria-label="Remove">✕</button></div>`).join("")}
       <form class="qa-form wish-add" data-wish="${tr.id}|${d}"><input name="title" placeholder="Mini golf, the outlet mall, the pool…" required autocomplete="off">
         <div class="two"><select name="mins" aria-label="About how long">${[[30, "30 min"], [60, "1 hour"], [90, "1½ hours"], [120, "2 hours"], [180, "3 hours"], [240, "half a day"]].map(([m, l]) => `<option value="${m}" ${m === 60 ? "selected" : ""}>${l}</option>`).join("")}</select>
         <input name="where" placeholder="Where (optional)" autocomplete="off"></div><button class="btn sm">＋ Add idea</button></form>
+      ${W.length >= 2 ? `<button class="btn sm ghost" data-voteopen="${tr.id}">🗳️ Vote — what should we do?</button>` : ""}
       <p class="fine">Your list for the whole trip — ${esc(APP_NAME)} shows the ones that fit each open stretch.</p></details>`;
 }
 // Home RIGHT NOW: you're in a gap of 45+ min today and there's an idea that fits.
@@ -1267,4 +1271,50 @@ function freeSubmit(f, data) {
   WISH_OPEN = true;
   wishSave(id, tr => tr.wish.push({ id: uid(), title: title.slice(0, 60), mins: Number(data.mins) || 60, where: String(data.where || "").trim().slice(0, 60) }));
   render(); showDay(d); buzz(); toast("💭 Added to your list"); return true;
+}
+
+// ------------------------------------------------------------ GROUP VOTE (v1.18)
+// Blueprint 3.5 "Group activities and voting" + 5.4 "Group preference matching" + V3 "advanced group planning".
+// One phone passed around: pick who's voting, 👍 / 👎 each idea on the trip's "We'd like to do" list
+// (w.votes = { name: 1 | -1 }). The people are the trip's (the same names as Split the cost). The list ranks by
+// votes; free-time suggestions put the group's favourites first and leave out an idea most people voted down.
+let VOTER = null;
+const voteScore = w => Object.values(w.votes || {}).reduce((n, v) => n + (v > 0 ? 1 : v < 0 ? -1 : 0), 0);
+const voteDown = (tr, w) => { const n = splitOf(tr).people.length, down = Object.values(w.votes || {}).filter(v => v < 0).length; return n >= 2 && down > n / 2; };
+const voteRank = (a, b) => voteScore(b) - voteScore(a);
+function showVote(id) {
+  const tr = S.trips.find(t => t.id === id); if (!tr) return;
+  const P = splitOf(tr).people, W = tripWish(tr).slice().sort(voteRank);
+  if (!P.includes(VOTER)) VOTER = P[0] || null;
+  let el = document.getElementById("voteSheet");
+  if (!el) { el = document.createElement("div"); el.id = "voteSheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Vote"); document.body.appendChild(el); }
+  const ppl = `<form class="inline-add" data-voteppl="${tr.id}"><input name="names" value="${esc(P.join(", "))}" placeholder="Names, e.g. Scott, Roxanne" aria-label="Who's voting" required autocomplete="off"><button class="btn sm ghost">Save names</button></form>`;
+  let body;
+  if (P.length < 2) body = `<p class="fine" style="margin-top:0">Add everyone's first name (two or more) and pass the phone around.</p>${ppl}`;
+  else if (!W.length) body = `<p class="fine">Add some ideas first (any trip day → Free time → We'd like to do…).</p>`;
+  else body = `<div class="vote-who">${P.map(p => `<button class="chip ${p === VOTER ? "on" : ""}" data-voter="${tr.id}|${esc(p)}">${p === VOTER ? "🗳️ " : ""}${esc(p)}</button>`).join("")}</div>
+    <p class="fine">${esc(VOTER)} is voting — then hand the phone to the next person.</p>
+    ${W.map(w => { const my = (w.votes || {})[VOTER] || 0, sc = voteScore(w), ups = P.filter(p => (w.votes || {})[p] > 0);
+      return `<div class="row vote-row ${voteDown(tr, w) ? "done" : ""}"><span class="grow">${esc(w.title)}<span class="sub">${durWords(Number(w.mins))}${ups.length ? ` · 👍 ${ups.map(esc).join(", ")}` : ""}${voteDown(tr, w) ? " · most said no" : ""}</span></span>
+        <b class="vote-sc">${sc > 0 ? "+" : ""}${sc}</b>
+        <button class="funpick ${my > 0 ? "on" : ""}" data-vote="${tr.id}|${w.id}|1" aria-label="Yes">👍</button><button class="funpick ${my < 0 ? "on" : ""}" data-vote="${tr.id}|${w.id}|-1" aria-label="No">👎</button></div>`; }).join("")}
+    <details style="margin-top:8px"><summary class="fine">Change who's going</summary>${ppl}</details>`;
+  el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
+    <div class="sheet-head"><h2>🗳️ What should we do?</h2><button class="icon-btn" data-voteclose="1" aria-label="Close">✕</button></div>${body}
+    <button class="btn" data-voteclose="1" style="width:100%;margin-top:10px">Done</button></div>`;
+  el.classList.remove("hidden");
+}
+function voteClick(ds) {
+  if (ds.voteopen) { hideSheet("daySheet"); showVote(ds.voteopen); return true; }
+  if (ds.voteclose) { hideSheet("voteSheet"); render(); return true; }
+  if (ds.voter) { const [id, p] = ds.voter.split("|"); VOTER = p; showVote(id); return true; }
+  if (ds.vote) { const [id, wid, v] = ds.vote.split("|"), n = Number(v);
+    wishSave(id, tr => { const w = tr.wish.find(x => x.id === wid); if (!w || !VOTER) return;
+      w.votes = { ...(w.votes || {}) }; if (w.votes[VOTER] === n) delete w.votes[VOTER]; else w.votes[VOTER] = n; });   // tap again = take the vote back
+    buzz(); showVote(id); return true; }
+  return false;
+}
+function voteSubmit(f, data) {
+  if (!f.dataset.voteppl) return false;
+  splitSetPeople(f.dataset.voteppl, data.names || ""); showVote(f.dataset.voteppl); toast("👥 Saved"); return true;
 }

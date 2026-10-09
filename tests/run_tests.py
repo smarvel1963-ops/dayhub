@@ -3325,6 +3325,44 @@ def t_v117_free_time(b, base):
     a.close()
 
 
+
+def t_v118_group_vote(b, base):
+    print("\n[v1.18 group vote: pass the phone, 👍/👎 each idea, favourites first, voted-down ideas left out]")
+    a = App(b, base, path=TRIP, at="2026-10-21T12:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-25", "port": "Orlando, FL"})
+    a.page.wait_for_timeout(150)
+    a.js("""(() => { const tr = curTrip(); tr.bookings = [{ id: 'd1', kind: 'dinner', a: 'Boma', b: '', day: '2026-10-21', t: '19:00', leave: { drive: 30 } }];
+      tr.fun = [{ id: 'u1', day: '2026-10-21', t: '14:00', end: '15:00', title: 'Disney Springs', where: '', pick: 'must' }];
+      tr.wish = [{ id: 'w1', title: 'Mini golf', mins: 90, where: '' }, { id: 'w2', title: 'Pool time', mins: 60, where: '' }, { id: 'w3', title: 'Outlet mall', mins: 180, where: '' }];
+      save(); render(); showDay('2026-10-21'); })()""")
+    a.page.evaluate("() => { document.querySelector('#daySheet details.wish-box').open = true; }")
+    tid = a.js("curTrip().id")
+    a.page.click(f'#daySheet [data-voteopen="{tid}"]'); a.page.wait_for_timeout(100)
+    check("no names yet: the vote sheet asks who's going", a.js("!!document.querySelector('#voteSheet form[data-voteppl]')") and "two or more" in a.page.inner_text("#voteSheet"))
+    a.page.fill('#voteSheet [data-voteppl] [name=names]', "Scott, Roxanne, Dean"); a.page.click('#voteSheet [data-voteppl] button'); a.page.wait_for_timeout(100)
+    check("names saved (shared with Split the cost); Scott votes first", a.js("curTrip().split.people") == ["Scott", "Roxanne", "Dean"] and "Scott is voting" in a.page.inner_text("#voteSheet"))
+    def vote(wid, v): a.page.click(f'#voteSheet [data-vote="{tid}|{wid}|{v}"]'); a.page.wait_for_timeout(60)
+    def voter(p): a.page.click(f'#voteSheet [data-voter="{tid}|{p}"]'); a.page.wait_for_timeout(60)
+    vote("w2", 1); vote("w1", -1)
+    voter("Roxanne"); vote("w2", 1); vote("w1", -1)
+    voter("Dean"); vote("w1", 1); vote("w3", 1)
+    sc = a.js("curTrip().wish.map(w => w.title + ':' + voteScore(w) + (voteDown(curTrip(), w) ? ':down' : ''))")
+    check("scores: Pool +2, Mini golf -1 (2 of 3 said no), Outlet +1", sc == ["Mini golf:-1:down", "Pool time:2", "Outlet mall:1"], sc)
+    rows = a.js("[...document.querySelectorAll('#voteSheet .vote-row')].map(r => r.querySelector('.grow').firstChild.textContent.trim())")
+    check("vote sheet ranked by votes", rows == ["Pool time", "Outlet mall", "Mini golf"], rows)
+    check("who's in shows", "👍 Scott, Roxanne" in a.page.inner_text("#voteSheet") and "most said no" in a.page.inner_text("#voteSheet"))
+    I = a.js("freeGaps(curTrip(), '2026-10-21', '12:00').map(g => gapIdeas(curTrip(), g).map(w => w.title).join('/'))")
+    check("suggestions: favourites first, Mini golf left out everywhere", I == ["Pool time", "Pool time/Outlet mall", "Pool time"], I)
+    vote("w3", 1)
+    check("tap again takes Dean's vote back", a.js("voteScore(curTrip().wish.find(w => w.id === 'w3'))") == 0 and "Dean" not in a.js("Object.keys(curTrip().wish.find(w => w.id === 'w3').votes || {}).join()"))
+    a.page.click('#voteSheet button.btn[data-voteclose]'); a.page.wait_for_timeout(100); a.js("showDay('2026-10-21')")
+    check("day list shows the score: 🗳️ +2 on Pool time", "🗳️ +2 · 1 h" in a.js("document.querySelector('#daySheet details.wish-box').textContent"))
+    a.close()
+
+
 def t_v109_port_wx_alerts(b, base):
     print("\n[v1.09 port-day weather notifications: 7 AM on the day, 8 PM the night before only with a warning]")
     a = App(b, base, path=CRUISE, at="2026-10-01T06:00:00")                # sail day, before 7 AM
@@ -3375,7 +3413,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote):
             try:
                 t(b, base)
             except Exception as e:

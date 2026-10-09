@@ -1,6 +1,9 @@
 {
- "version": "1.17",
+ "version": "1.18",
  "notes": {
+  "1.18": [
+   "🗳️ Vote on it: going with family or friends? Open your 'We'd like to do…' list → Vote, pass the phone around and everyone taps 👍 or 👎. The list ranks itself, free-time suggestions show the group's favourites first, and anything most people said no to stops coming up."
+  ],
   "1.17": [
    "⏳ Free time: open any trip day to see your open stretches ('3:00–6:30 PM · 3 h 30 min free — before Boma'). Keep a 'We'd like to do…' list with about how long each takes, and the ones that fit show up in each gap — tap to put it in your day. Home tells you when you have free time right now."
   ],
