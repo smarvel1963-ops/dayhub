@@ -1,6 +1,9 @@
 {
- "version": "1.12",
+ "version": "1.13",
  "notes": {
+  "1.13": [
+   "👥 Split the cost: Wallet → Money. Add who's going, pick who paid each payment, cost or spending (and if it was for everyone or just one person), and see each person's share and who owes whom — with the fewest payments to settle up. Share it to the group chat."
+  ],
   "1.12": [
    "⏰ Leave time: on any booking, add how long it takes to get there — drive, park + walk, check-in / security, extra buffer — and it shows LEAVE AT 4:25 AM, puts a 🚪 Leave row on your day, and reminds you 30 min before and when it's time to go. Flights have quick picks for 2 hr (US) or 3 hr (international) at the airport."
   ],

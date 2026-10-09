@@ -3097,6 +3097,48 @@ def t_v112_leave_time(b, base):
     a.close()
 
 
+
+def t_v113_split(b, base):
+    print("\n[v1.13 split the cost: who paid what, each one's share, who owes whom, fewest payments]")
+    a = App(b, base, path=TRIP, at="2026-10-19T09:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"tname": "Vegas", "start": "2026-11-05", "end": "2026-11-08", "port": "Las Vegas, NV"})
+    a.page.wait_for_timeout(150)
+    a.js("""(() => { const tr = curTrip();
+      tr.payments = [{ id: 'p1', day: '2026-10-01', amt: 900, note: 'flights + room' }];
+      tr.costs = [{ id: 'c1', cat: 'hotel', what: 'Resort fee', amt: 300, paid: true }, { id: 'c2', cat: 'other', what: 'Show', amt: 50, paid: false }];
+      tr.spends = [{ id: 's1', day: '2026-11-06', amt: 60, cat: 'Spa', note: '' }]; save();
+      S.tripTab = 'money'; shellGo('wallet'); })()""")
+    card = lambda: a.page.inner_text('[data-card="trips"]')
+    check("Money tab: Split the cost asks for names first", "split the cost" in card().lower() and a.js("!!document.querySelector('[data-splitppl]')"))
+    a.page.fill('[data-splitppl] [name=names]', "Scott, Roxanne, Dean, Scott"); a.page.click('[data-splitppl] button'); a.page.wait_for_timeout(120)
+    check("names saved once each", a.js("curTrip().split.people") == ["Scott", "Roxanne", "Dean"])
+    check("nothing assigned yet: 3 to assign (the unpaid cost doesn't count)", "3 not assigned" in card(), card()[-600:])
+    a.page.click('[data-card="trips"] [data-splitopen]'); a.page.wait_for_timeout(100)
+    check("sheet lists the 3 items with Paid by / For", a.js("document.querySelectorAll('#splitSheet [data-splitby]').length") == 3 and "Resort fee" in a.page.inner_text("#splitSheet"))
+    tid = a.js("curTrip().id")
+    a.page.select_option(f'#splitSheet [data-splitby="{tid}|p:p1"]', "Scott")
+    a.page.select_option(f'#splitSheet [data-splitby="{tid}|c:c1"]', "Roxanne")
+    a.page.select_option(f'#splitSheet [data-splitby="{tid}|s:s1"]', "Dean")
+    a.page.select_option(f'#splitSheet [data-splitfor="{tid}|s:s1"]', "Dean")
+    a.page.click('#splitSheet button.btn[data-splitclose]'); a.page.wait_for_timeout(120)
+    M = a.js("(() => { const M = splitMath(curTrip()); return { rows: M.rows.map(r => [r.name, r.paid, r.share, r.net]), pay: M.pay.map(p => p.from + '>' + p.to + ' ' + p.amt), open: M.open.length, total: M.total }; })()")
+    check("shares: $1,200 shared 3 ways + Dean's own $60 spa",
+          M["rows"] == [["Scott", 900, 400, 500], ["Roxanne", 300, 400, -100], ["Dean", 60, 460, -400]] and M["open"] == 0 and M["total"] == 1260, M)
+    check("settle up in 2 payments: Dean pays Scott $400, Roxanne pays Scott $100", M["pay"] == ["Dean>Scott 400", "Roxanne>Scott 100"], M)
+    c = card()
+    check("card shows owed / owes and the settle-up line", "is owed $500.00" in c and "owes $400.00" in c and "Dean pays Scott $400.00" in c, c[-700:])
+    check("share text", a.js("splitText(curTrip())").splitlines()[-1] == "Settle up: Dean pays Scott $400.00; Roxanne pays Scott $100.00")
+    a.page.fill('[data-card="trips"] [data-splitppl] [name=names]', "Scott, Roxanne"); a.page.click('[data-card="trips"] [data-splitppl] button'); a.page.wait_for_timeout(120)
+    M = a.js("(() => { const M = splitMath(curTrip()); return { open: M.open.map(x => x.key), rows: M.rows.map(r => [r.name, r.net]) }; })()")
+    check("drop Dean: his spa goes back to 'not assigned', never re-pointed", M == {"open": ["s:s1"], "rows": [["Scott", 300], ["Roxanne", -300]]}, M)
+    a.js("curTrip().split.by['s:s1'] = 'Roxanne'; save(); render()")
+    check("even split: 2 people all square when paid the same", a.js("splitMath({ split: { people: ['A', 'B'], by: { 's:x': 'A', 's:y': 'B' }, for: {} }, spends: [{ id: 'x', amt: 10, cat: 'a' }, { id: 'y', amt: 10, cat: 'b' }] }).pay.length") == 0)
+    a.close()
+
+
 def t_v109_port_wx_alerts(b, base):
     print("\n[v1.09 port-day weather notifications: 7 AM on the day, 8 PM the night before only with a warning]")
     a = App(b, base, path=CRUISE, at="2026-10-01T06:00:00")                # sail day, before 7 AM
@@ -3147,7 +3189,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split):
             try:
                 t(b, base)
             except Exception as e:

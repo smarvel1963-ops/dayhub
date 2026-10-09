@@ -124,6 +124,7 @@ function cruiseClick(ds) {
   return false;
 }
 function cruiseChange(ds, t) {
+  if (typeof splitChange === "function" && splitChange(ds, t)) return true;   // v1.13 split the cost (trip.js)
   if (phaseChange(ds, t)) return true;                                      // v0.61 first things
   if (billChange(ds, t)) return true;                                       // v1.03 final bill check
   if (!ds.ghtoggle) return false;

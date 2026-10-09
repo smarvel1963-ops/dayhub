@@ -262,7 +262,8 @@ const CARDS = {
             <button class="x" data-tripdel="${tr.id}:costs:${c.id}" aria-label="Remove">✕</button></div>`).join("") +
           `<form class="inline-add cost-add" data-cost="${tr.id}"><select name="cat" aria-label="What kind">${COST_CATS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select>
             <input name="what" placeholder="What (e.g. Westgate, 2 nights)" autocomplete="off"><input name="amt" type="number" step="0.01" min="0" inputmode="decimal" placeholder="$" required>
-            <label class="paidbox"><input type="checkbox" name="paid" value="1"> paid</label><button class="btn sm">Add</button></form>`;
+            <label class="paidbox"><input type="checkbox" name="paid" value="1"> paid</label><button class="btn sm">Add</button></form>`
+          + (typeof splitHtml === "function" ? splitHtml(tr) : "");                       // v1.13 split the cost (trip.js)
       } else if (tab === "onboard") {
         const spent = tripSpent(tr), bud = Number(tr.onboardBudget || 0), gr = gratEstimate(tr);
         const cats = {}; (tr.spends || []).forEach(x => { cats[x.cat] = (cats[x.cat] || 0) + Number(x.amt || 0); });

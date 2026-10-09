@@ -169,6 +169,7 @@ function tripClick(ds) {
   if (diaryClick(ds)) return true;                                         // v1.01 trip diary
   if (funClick(ds)) return true;                                           // v1.04 Fun Finder
   if (fixClick(ds)) return true;                                           // v1.11 Fix my trip
+  if (splitClick(ds)) return true;                                         // v1.13 split the cost
   if (ds.lvpreset) { const i = document.querySelector('#bookSheet [name="lv_check"]'); if (i) i.value = ds.lvpreset; return true; }   // v1.12
   if (ds.bkadd) { showBookingForm(ds.bkadd); return true; }
   if (ds.bkopen) { hideSheet("daySheet"); showBooking(ds.bkopen); return true; }
@@ -183,6 +184,7 @@ function tripSubmit(f, data) {
   if (diarySubmit(f, data)) return true;                                   // v1.01 trip diary
   if (funSubmit(f, data)) return true;                                     // v1.04 Fun Finder
   if (fixSubmit(f, data)) return true;                                     // v1.11 Fix my trip
+  if (splitSubmit(f, data)) return true;                                   // v1.13 split the cost
   if (f.dataset.bkpaste) { pasteBookings(data.text || ""); return true; }
   if (!f.dataset.bkform) return false;
   saveBooking(f, data); return true;
@@ -816,4 +818,113 @@ function leaveReminders(add, inWin) {
     add(`lv:${b.id}:${L.day}${L.t}:30`, at, at - 30 * 60000, `⏰ Leave in 30 min — ${what}`, `Leave at ${hm(L.t)} for ${K.start === "Time" ? "" : K.start.toLowerCase() + " "}${hm(b.t)} (${leaveWhy(b)}).`);
     add(`lv:${b.id}:${L.day}${L.t}:go`, at + 30 * 60000, at, `🚪 Leave now — ${what}`, `${K.start === "Time" ? "It's" : K.start} at ${hm(b.t)}${b.b ? ` · ${b.b}` : ""}.`);
   }));
+}
+
+// ------------------------------------------------------------ SPLIT THE COST (v1.13)
+// Blueprint WALLET 4.2 "Split costs; Who owes whom" + 4.5 "Who paid what; Shared trip contributions; Trip cost per
+// traveler; Final trip cost". tr.split = { people: ["Scott", "Roxanne"], by: { key: name }, for: { key: name } }.
+// key = "p:<id>" a fare payment, "c:<id>" a cost marked paid, "s:<id>" a spending entry. An item counts once
+// someone is picked as who paid it; it's shared by everyone unless "for" names one person. Nothing is sent.
+const splitOf = tr => { const x = tr.split || {}; return { people: Array.isArray(x.people) ? x.people : [], by: x.by || {}, for: x.for || {} }; };
+function splitItems(tr) {
+  const out = [];
+  (tr.payments || []).forEach(x => Number(x.amt) > 0 && out.push({ key: `p:${x.id}`, what: `${trCruise(tr) ? "🚢 Cruise" : "✈️ Trip"} payment${x.note ? ` — ${x.note}` : ""}`, day: x.day || "", amt: Number(x.amt) }));
+  (tr.costs || []).forEach(x => Number(x.amt) > 0 && x.paid && out.push({ key: `c:${x.id}`, what: `${costLabel(x.cat)}${x.what ? ` — ${x.what}` : ""}`, day: "", amt: Number(x.amt) }));
+  (tr.spends || []).forEach(x => Number(x.amt) > 0 && out.push({ key: `s:${x.id}`, what: `💵 ${x.cat}${x.note ? ` — ${x.note}` : ""}`, day: x.day || "", amt: Number(x.amt) }));
+  return out;
+}
+const cents = n => Math.round(n * 100) / 100;
+function splitMath(tr) {
+  const X = splitOf(tr), P = X.people, bal = Object.fromEntries(P.map(p => [p, { paid: 0, share: 0 }])), open = [];
+  let total = 0;
+  splitItems(tr).forEach(it => {
+    const by = X.by[it.key]; if (!by || !bal[by]) { open.push(it); return; }
+    const who = X.for[it.key] && bal[X.for[it.key]] ? [X.for[it.key]] : P;
+    total += it.amt; bal[by].paid += it.amt; who.forEach(p => { bal[p].share += it.amt / who.length; });
+  });
+  const rows = P.map(p => ({ name: p, paid: cents(bal[p].paid), share: cents(bal[p].share), net: cents(bal[p].paid - bal[p].share) }));
+  // settle up: the one owed most is paid by the one owing most - few payments for a small group
+  const cr = rows.filter(r => r.net > 0.004).map(r => ({ ...r })), db = rows.filter(r => r.net < -0.004).map(r => ({ ...r, net: -r.net })), pay = [];
+  const big = (a, b) => b.net - a.net;
+  cr.sort(big); db.sort(big);
+  while (cr.length && db.length) {
+    const c = cr[0], d = db[0], amt = cents(Math.min(c.net, d.net));
+    if (amt > 0) pay.push({ from: d.name, to: c.name, amt });
+    c.net = cents(c.net - amt); d.net = cents(d.net - amt);
+    if (c.net <= 0.004) cr.shift();
+    if (d.net <= 0.004) db.shift();
+    cr.sort(big); db.sort(big);
+  }
+  return { people: P, rows, pay, open, total: cents(total) };
+}
+// The block at the bottom of Wallet → Money.
+function splitHtml(tr) {
+  const M = splitMath(tr);
+  if (!M.people.length) return `<div class="day-label" style="margin-top:14px">👥 Split the cost</div>
+    <div class="today-line sub">Going with others? Add everyone's first name and ${esc(APP_NAME)} works out who paid what and who owes whom.</div>
+    <form class="inline-add" data-splitppl="${tr.id}"><input name="names" placeholder="Names, e.g. Scott, Roxanne" required autocomplete="off"><button class="btn sm">Add</button></form>`;
+  const one = M.people.length === 1;
+  return `<div class="day-label" style="margin-top:14px">👥 Split the cost</div>
+    <div class="today-line sub">${M.people.map(esc).join(" · ")}${one ? " — add at least one more person to split" : ""}</div>
+    ${M.rows.map(r => `<div class="row split-row"><span class="grow"><b>${esc(r.name)}</b><span class="sub">paid ${money(r.paid)} · share ${money(r.share)}</span></span>
+      <span class="pill ${r.net < -0.004 ? "soon" : ""}">${r.net > 0.004 ? `is owed ${money(r.net)}` : r.net < -0.004 ? `owes ${money(-r.net)}` : "even ✓"}</span></div>`).join("")}
+    ${M.pay.length ? `<div class="today-line">💸 Settle up: ${M.pay.map(x => `<b>${esc(x.from)}</b> pays <b>${esc(x.to)}</b> ${money(x.amt)}`).join(" · ")}</div>`
+      : M.total ? `<div class="today-line">✅ All square.</div>` : ""}
+    ${M.total && !one ? `<div class="today-line sub">Split so far ${money(M.total)} · about ${money(M.total / M.people.length)} each if everything was shared</div>` : ""}
+    <div class="foot-actions" style="flex-wrap:wrap"><button class="btn sm ${M.open.length ? "" : "ghost"}" data-splitopen="${tr.id}">${M.open.length ? `🧾 ${M.open.length} not assigned — who paid?` : "🧾 Who paid what"}</button>
+      ${M.total ? `<button class="btn sm ghost" data-splitshare="${tr.id}">📤 Share</button>` : ""}</div>
+    <form class="inline-add" data-splitppl="${tr.id}"><input name="names" value="${esc(M.people.join(", "))}" aria-label="Who's on the trip" required autocomplete="off"><button class="btn sm ghost">Save names</button></form>`;
+}
+function splitText(tr) {
+  const M = splitMath(tr);
+  return [`${tr.name} — who owes whom`, ...M.rows.map(r => `${r.name}: paid ${money(r.paid)}, share ${money(r.share)}${r.net > 0.004 ? `, is owed ${money(r.net)}` : r.net < -0.004 ? `, owes ${money(-r.net)}` : ", even"}`),
+    M.pay.length ? `Settle up: ${M.pay.map(x => `${x.from} pays ${x.to} ${money(x.amt)}`).join("; ")}` : "All square.",
+    M.open.length ? `(${M.open.length} item${M.open.length === 1 ? "" : "s"} not assigned yet)` : ""].filter(Boolean).join("\n");
+}
+// The sheet: every item with "paid by" + "for".
+function showSplit(id) {
+  const tr = S.trips.find(t => t.id === id); if (!tr) return;
+  const X = splitOf(tr), items = splitItems(tr);
+  let el = document.getElementById("splitSheet");
+  if (!el) { el = document.createElement("div"); el.id = "splitSheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Who paid what"); document.body.appendChild(el); }
+  const opt = (sel, v, l) => `<option value="${esc(v)}" ${sel === v ? "selected" : ""}>${esc(l)}</option>`;
+  el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
+    <div class="sheet-head"><h2>🧾 Who paid what</h2><button class="icon-btn" data-splitclose="1" aria-label="Close">✕</button></div>
+    <p class="fine" style="margin-top:0">Pick who paid each one. It's split between everyone unless you pick one person under "for". Costs count once they're marked paid.</p>
+    ${items.length ? items.map(it => `<div class="row split-item"><span class="grow">${esc(it.what)}<span class="sub">${it.day ? prettyDate(it.day) + " · " : ""}${money(it.amt)}</span></span>
+      <select data-splitby="${tr.id}|${it.key}" aria-label="Paid by">${opt(X.by[it.key] || "", "", "Paid by…")}${X.people.map(p => opt(X.by[it.key] || "", p, p)).join("")}</select>
+      <select data-splitfor="${tr.id}|${it.key}" aria-label="For">${opt(X.for[it.key] || "", "", "for everyone")}${X.people.map(p => opt(X.for[it.key] || "", p, `for ${p}`)).join("")}</select></div>`).join("")
+      : `<p class="fine">Nothing to split yet — log payments, paid costs or spending first.</p>`}
+    <button class="btn" data-splitclose="1" style="width:100%;margin-top:10px">Done</button></div>`;
+  el.classList.remove("hidden");
+}
+function splitSave(id, fn) {
+  const tr = S.trips.find(t => t.id === id); if (!tr) return null;
+  snap(); const X = splitOf(tr); tr.split = { people: X.people.slice(), by: { ...X.by }, for: { ...X.for } }; fn(tr.split); save(); return tr;
+}
+function splitSetPeople(id, text) {
+  const ppl = [...new Set(String(text).split(/[,;\n]/).map(s => s.trim().slice(0, 30)).filter(Boolean))].slice(0, 12);
+  splitSave(id, X => { X.people = ppl;                                     // a removed person's picks are cleared, never re-pointed
+    Object.keys(X.by).forEach(k => { if (!ppl.includes(X.by[k])) delete X.by[k]; });
+    Object.keys(X.for).forEach(k => { if (!ppl.includes(X.for[k])) delete X.for[k]; }); });
+}
+function splitClick(ds) {
+  if (ds.splitopen) { showSplit(ds.splitopen); return true; }
+  if (ds.splitclose) { hideSheet("splitSheet"); render(); return true; }
+  if (ds.splitshare) { const tr = S.trips.find(t => t.id === ds.splitshare); if (!tr) return true; const text = splitText(tr);
+    if (navigator.share) navigator.share({ title: `${tr.name} — who owes whom`, text }).catch(() => {});
+    else if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => toast("📋 Copied — paste it in your group chat"), () => toast("Couldn't copy on this phone"));
+    else toast("Couldn't copy on this phone");
+    return true; }
+  return false;
+}
+function splitChange(ds, t) {
+  const k = ds.splitby ? "by" : ds.splitfor ? "for" : null; if (!k) return false;
+  const [id, key] = (ds.splitby || ds.splitfor).split("|");
+  splitSave(id, X => { if (t.value) X[k][key] = t.value; else delete X[k][key]; });
+  return true;
+}
+function splitSubmit(f, data) {
+  if (!f.dataset.splitppl) return false;
+  splitSetPeople(f.dataset.splitppl, data.names || ""); render(); buzz(); toast("👥 Saved"); return true;
 }
