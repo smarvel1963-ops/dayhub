@@ -1,6 +1,9 @@
 {
- "version": "1.14",
+ "version": "1.15",
  "notes": {
+  "1.15": [
+   "🗓️ Free cancellation: add the 'cancel free until' date from your confirmation to any booking — you'll get a heads-up 3 days before and on the last day. ↩️ Refunds owed (Wallet → Money): track money coming back, tap 'got it' when it lands, and get a nudge if it's late. Canceling a paid booking in Fix my trip offers to track the refund for you."
+  ],
   "1.14": [
    "🏨 Hotel mode: tap your hotel → Room, wifi + check-out. Keep the room number, wifi, breakfast and parking in one place (it shows on Home while you're staying). On check-out day Home shows 'Check out by 11:00 AM' with an 11-point checklist — chargers, the safe, under the beds, the final bill — plus a reminder the night before and an hour before."
   ],

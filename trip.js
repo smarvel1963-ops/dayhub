@@ -84,7 +84,7 @@ function bookingsHtml(tr) {
   const rows = bookingsSorted(tr).map(b => { const K = bookKind(b);
     const ed = b.endDay || (b.endT ? b.day : "");
     const when = b.day ? `${dayName(b.day)} ${prettyDate(b.day)}${b.t ? ` · ${hm(b.t)}` : ""}${K.end && ed ? ` → ${ed !== b.day ? prettyDate(ed) + " " : ""}${b.endT ? hm(b.endT) : ""}` : ""}` : "No date yet";
-    return `<button class="rn-row" data-bkopen="${b.id}"><span>${K.icon}</span><span class="grow">${esc(bookTitle(b))}<span class="sub">${esc(K.label)} · ${esc(when)}${Number(b.cost) > 0 ? ` · ${money(Number(b.cost))}${b.paid ? " paid ✓" : ""}` : ""}</span></span><span class="chev">›</span></button>`; }).join("");
+    return `<button class="rn-row" data-bkopen="${b.id}"><span>${K.icon}</span><span class="grow">${esc(bookTitle(b))}<span class="sub">${esc(K.label)} · ${esc(when)}${Number(b.cost) > 0 ? ` · ${money(Number(b.cost))}${b.paid ? " paid ✓" : ""}` : ""}${b.cancelBy && cancelLeft(b) >= 0 ? ` · 🗓️ ${cancelWords(b)}` : ""}</span></span><span class="chev">›</span></button>`; }).join("");
   return `<div class="day-label">Your bookings</div>${rows || `<div class="today-line sub">Flights, hotels, cars, tickets — add them below and they land on the right day.</div>`}
     ${rows ? `<button class="rn-row" data-fixopen="pick"><span>🔄</span><span class="grow">Fix my trip<span class="sub">${(n => n ? `⚠️ ${n} clash${n === 1 ? "" : "es"} — ` : "")(fixClashes(tr).length)}Late, moved or canceled? See what it knocks out</span></span><span class="chev">›</span></button>` : ""}
     <button class="rn-row" data-bkpasteopen="1"><span>📋</span><span class="grow">Paste a confirmation email<span class="sub">Flights, hotels, rental cars — filled in for you to check</span></span><span class="chev">›</span></button>
@@ -112,6 +112,7 @@ function showBooking(id) {
     ${row(K.a.replace(/ \(.*\)/, ""), esc(b.a || ""))}${row(K.b.replace(/ \(.*\)/, ""), esc(b.b || ""))}
     ${row(K.num.replace(/ \(.*\)/, ""), esc(b.num || ""))}${row("Phone", telLinks(b.phone || ""))}
     ${Number(b.cost) > 0 ? row("Cost", `${money(Number(b.cost))} · ${b.paid ? "paid ✓" : "not paid yet"}`) : ""}
+    ${b.cancelBy ? row("Cancellation", `${cancelLeft(b) >= 0 && cancelLeft(b) <= 3 ? "⚠️ " : "🗓️ "}${cancelWords(b)}`) : ""}
     ${b.note ? `<div class="today-line">📝 ${esc(b.note)}</div>` : ""}
     <div class="foot-actions" style="flex-wrap:wrap;margin-top:10px">
       ${place.trim() ? `<a class="btn sm ghost" href="${mapsLink(place)}" target="_blank" rel="noopener">🗺️ Map</a>` : ""}
@@ -138,6 +139,7 @@ function showBookingForm(kind, id, draft) {
       <div class="two"><input name="cost" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Cost $ (optional)" value="${v("cost")}">
         <label class="field" style="margin:0;flex-direction:row;align-items:center;gap:8px"><input name="paid" type="checkbox" value="1" ${b.paid ? "checked" : ""} style="width:auto"> Paid</label></div>
       <input name="note" placeholder="Note (seat, room type, what to bring…)" value="${v("note")}" autocomplete="off">
+      <label class="field" style="margin:0">🗓️ Free cancellation until (from your confirmation — optional)<input name="cancelBy" type="date" value="${v("cancelBy")}"></label>
       <details class="leave-box" ${leaveMins(b) ? "open" : ""}><summary>⏰ Leave time — how long to get there?</summary>
         <div class="two">${LEAVE_PARTS.map(([k, l]) => `<label class="field" style="margin:0">${l} (min)<input name="lv_${k}" type="number" min="0" max="1440" step="5" inputmode="numeric" value="${esc(String((b.leave || {})[k] || ""))}"></label>`).join("")}</div>
         ${b.kind === "flight" ? `<div class="foot-actions" style="flex-wrap:wrap"><button type="button" class="chip" data-lvpreset="120">Domestic: at the airport 2 hr early</button><button type="button" class="chip" data-lvpreset="180">International: 3 hr</button></div>
@@ -153,6 +155,7 @@ function saveBooking(f, d) {
   snap(); tr.bookings = tripBookings(tr).slice();
   const fields = { kind: f.dataset.bkform, a: (d.a || "").trim(), b: (d.b || "").trim(), day: d.day || "", t: d.t || "", endDay: d.endDay || "", endT: d.endT || "",
     num: (d.num || "").trim(), phone: (d.phone || "").trim(), cost: Number(d.cost || 0) || null, paid: d.paid === "1", note: (d.note || "").trim(),
+    cancelBy: d.cancelBy || "",
     leave: Object.fromEntries(LEAVE_PARTS.map(([k]) => [k, Math.max(0, Math.min(1440, Math.round(Number(d["lv_" + k]) || 0)))]).filter(([, n]) => n > 0)) };
   let b = tr.bookings.find(x => x.id === f.dataset.bkid);
   if (b) Object.assign(b, fields); else { b = { id: uid(), ...fields }; tr.bookings.push(b); }
@@ -172,6 +175,7 @@ function tripClick(ds) {
   if (fixClick(ds)) return true;                                           // v1.11 Fix my trip
   if (splitClick(ds)) return true;                                         // v1.13 split the cost
   if (hotelClick(ds)) return true;                                         // v1.14 hotel mode
+  if (refundClick(ds)) return true;                                        // v1.15 refunds
   if (ds.lvpreset) { const i = document.querySelector('#bookSheet [name="lv_check"]'); if (i) i.value = ds.lvpreset; return true; }   // v1.12
   if (ds.bkadd) { showBookingForm(ds.bkadd); return true; }
   if (ds.bkopen) { hideSheet("daySheet"); showBooking(ds.bkopen); return true; }
@@ -188,6 +192,7 @@ function tripSubmit(f, data) {
   if (fixSubmit(f, data)) return true;                                     // v1.11 Fix my trip
   if (splitSubmit(f, data)) return true;                                   // v1.13 split the cost
   if (hotelSubmit(f, data)) return true;                                   // v1.14 hotel mode
+  if (refundSubmit(f, data)) return true;                                  // v1.15 refunds
   if (f.dataset.bkpaste) { pasteBookings(data.text || ""); return true; }
   if (!f.dataset.bkform) return false;
   saveBooking(f, data); return true;
@@ -673,6 +678,8 @@ function fixImpact(tr, bkId, change) {
   const callFor = (p, why) => { if (p.src === "bk") calls.push({ id: p.id, icon: p.icon, title: p.title, phone: p.phone, num: p.num, why }); };
   if (change.how === "cancel") {
     rows.push({ act: "remove", src: "bk", id: me.id, icon: me.icon, title: me.title, say: "Take it off your trip", on: false });
+    if (Number(me.ref.cost) > 0 && me.ref.paid) rows.push({ act: "refund", src: "rf", id: me.id, icon: "↩️", title: `Track a refund of ${money(Number(me.ref.cost))}`,
+      say: `Wallet → Money → Refunds owed${me.ref.cancelBy && cancelLeft(me.ref) < 0 ? " — free cancellation ended, it may be partial" : ""}`, on: true, amt: Number(me.ref.cost), what: me.title, from: me.ref.kind === "flight" ? "" : me.ref.a || "" });
     callFor(me, me.kind === "flight" ? "ask what they can rebook you on — don't buy a new ticket first" : "confirm it's canceled and ask about a refund");
     P.filter(p => p !== me && p.s >= me.s && p.s < me.s + 24 * 3600000).forEach(p => {
       rows.push({ act: "keep", src: p.src, id: p.id, icon: p.icon, title: p.title, say: `${fixWhen(p.s)} — check this still works once you know your new plan`, on: false });
@@ -776,6 +783,7 @@ function fixApply() {
   if (!todo.length) { showFix("done"); return; }
   snap(); tr.bookings = tripBookings(tr).map(b => ({ ...b })); tr.fun = tripFun(tr).map(f => ({ ...f }));
   todo.forEach(r => {
+    if (r.act === "refund") { tr.refunds = tripRefunds(tr).concat({ id: uid(), what: r.what, from: r.from, amt: r.amt, asked: today(), expect: "", got: "" }); return; }   // v1.15
     if (r.src === "bk") {
       if (r.act === "remove") { tr.bookings = tr.bookings.filter(b => b.id !== r.id); tr.costs = (tr.costs || []).filter(c => c.bk !== r.id); return; }
       const b = tr.bookings.find(x => x.id === r.id); if (!b) return;
@@ -1006,4 +1014,57 @@ function hotelReminders(add, inWin) {
     if (b.endT && inWin(out)) { const at = atMs(out, b.endT);
       add(`ho:${b.id}:${out}:1h`, at, at - 3600000, `🏨 Check out in 1 hour — ${b.a}`, `${outLeft(b) ? `${outLeft(b)} things left on your checklist.` : "Checklist done ✓"} Look under the beds and in the safe.`); }
   }));
+}
+
+// ------------------------------------------------------------ CANCEL-BY + REFUNDS (v1.15)
+// Blueprint 2.5 "Cancellation terms", 4.4 "Cancellation/refund tracking", 4.5 "Refund tracking". A booking can
+// carry the last day it can be canceled free (b.cancelBy, from the confirmation - never guessed): it shows on
+// the booking and in the list, with reminders 3 days before and on the day. tr.refunds = [{ id, what, from, amt,
+// asked, expect, got }] in Wallet → Money: what's owed back, a nudge once it's late. Nothing is sent anywhere.
+const cancelLeft = b => b.cancelBy ? daysUntil(b.cancelBy) : null;
+const cancelWords = b => { const n = cancelLeft(b); if (n === null) return "";
+  return n < 0 ? `free cancellation ended ${prettyDate(b.cancelBy)}` : n === 0 ? "last day to cancel free — today" : `free cancellation until ${prettyDate(b.cancelBy)} (${n} day${n === 1 ? "" : "s"})`; };
+function cancelReminders(add, inWin) {
+  myTrips().forEach(tr => tripBookings(tr).filter(b => b.cancelBy).forEach(b => {
+    const w = `${bookKind(b).icon} ${bookTitle(b)}`, d3 = addDays(b.cancelBy, -3);
+    if (inWin(d3)) add(`cx:${b.id}:${b.cancelBy}:3`, atMs(d3, "23:59"), atMs(d3, "09:00"), `🗓️ 3 days left to cancel free — ${w}`, `Free cancellation ends ${prettyDate(b.cancelBy)}. Still going? Nothing to do.`);
+    if (inWin(b.cancelBy)) add(`cx:${b.id}:${b.cancelBy}:0`, atMs(b.cancelBy, "23:59"), atMs(b.cancelBy, "09:00"), `⚠️ Last day to cancel free — ${w}`, `${b.phone ? `Call ${b.phone}` : "Check your confirmation"} if your plans changed.`);
+  }));
+  myTrips().forEach(tr => tripRefunds(tr).filter(r => !r.got && r.expect).forEach(r => {
+    const d = addDays(r.expect, 1);
+    if (inWin(d)) add(`rf:${r.id}:${r.expect}`, atMs(d, "23:59"), atMs(d, "10:00"), `↩️ Refund not here yet? ${money(r.amt)} — ${r.what}`,
+      `It was due ${prettyDate(r.expect)}${r.from ? ` from ${r.from}` : ""}. Check your card, then call them.`);
+  }));
+}
+const tripRefunds = tr => (tr && Array.isArray(tr.refunds) ? tr.refunds : []);
+const refundLate = r => !r.got && r.expect && daysUntil(r.expect) < 0;
+// Wallet → Money block.
+function refundsHtml(tr) {
+  const R = tripRefunds(tr), open = R.filter(r => !r.got), owed = open.reduce((n, r) => n + Number(r.amt || 0), 0);
+  return `<div class="day-label" style="margin-top:14px">↩️ Refunds owed${owed ? ` — ${money(owed)}` : ""}</div>
+    ${R.length ? R.slice().sort((a, b) => (a.got - b.got) || (a.expect || "9").localeCompare(b.expect || "9")).map(r => `<div class="row refund-row ${r.got ? "done" : ""}">
+      <span class="grow">${esc(r.what)}<span class="sub">${[r.from && esc(r.from), r.asked && `asked ${prettyDate(r.asked)}`, r.got ? `back ${prettyDate(r.got)} ✓` : r.expect ? (refundLate(r) ? `⚠️ was due ${prettyDate(r.expect)}` : `due by ${prettyDate(r.expect)}`) : ""].filter(Boolean).join(" · ")}</span></span>
+      <b>${money(r.amt)}</b><button class="pill ${r.got ? "" : refundLate(r) ? "late" : "soon"}" data-refundgot="${tr.id}|${r.id}" style="border:0;cursor:pointer">${r.got ? "got it ✓" : "not back"}</button>
+      <button class="x" data-refunddel="${tr.id}|${r.id}" aria-label="Remove">✕</button></div>`).join("")
+      : `<div class="today-line sub">Canceled something or waiting on money back? Track it here so it doesn't slip.</div>`}
+    <form class="inline-add refund-add" data-refund="${tr.id}"><input name="what" placeholder="What (e.g. Boma dinner deposit)" required autocomplete="off">
+      <input name="amt" type="number" step="0.01" min="0" inputmode="decimal" placeholder="$" required><input name="from" placeholder="From (company)" autocomplete="off">
+      <label class="field" style="margin:0">Expected by<input name="expect" type="date"></label><button class="btn sm">Add</button></form>`;
+}
+function refundSave(id, fn) {
+  const tr = S.trips.find(t => t.id === id); if (!tr) return null;
+  snap(); tr.refunds = tripRefunds(tr).map(r => ({ ...r })); fn(tr.refunds, tr); save(); return tr;
+}
+function refundClick(ds) {
+  if (ds.refundgot) { const [id, rid] = ds.refundgot.split("|");
+    refundSave(id, R => { const r = R.find(x => x.id === rid); if (r) r.got = r.got ? "" : today(); }); render(); return true; }
+  if (ds.refunddel) { const [id, rid] = ds.refunddel.split("|");
+    refundSave(id, (R, tr) => { tr.refunds = R.filter(x => x.id !== rid); }); render(); toast("Removed", true); return true; }
+  return false;
+}
+function refundSubmit(f, data) {
+  if (!f.dataset.refund) return false;
+  const amt = Number(data.amt), what = String(data.what || "").trim(); if (!what || !(amt > 0)) return true;
+  refundSave(f.dataset.refund, R => R.push({ id: uid(), what: what.slice(0, 80), from: String(data.from || "").trim().slice(0, 60), amt, asked: today(), expect: data.expect || "", got: "" }));
+  render(); buzz(); toast("↩️ Tracking it"); return true;
 }

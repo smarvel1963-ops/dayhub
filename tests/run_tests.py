@@ -2512,7 +2512,7 @@ def t_v098_bookings(b, base):
             const el = f.querySelector(`[name=${k}]`); if (el.type === 'checkbox') el.checked = !!x; else el.value = x; } f.requestSubmit(); }""", vals)
         a.page.wait_for_timeout(150)
     book("flight", {"a": "LIT", "b": "MCO", "day": "2026-10-20", "t": "07:05", "endT": "10:40", "num": "AA 1234", "cost": "420", "paid": True})
-    hd = a.js("(showBookingForm('hotel'), [...document.querySelectorAll('[data-bkform] input[type=date]')].map(i => i.value))")
+    hd = a.js("(showBookingForm('hotel'), [...document.querySelectorAll('[data-bkform] input[type=date]:not([name=cancelBy])')].map(i => i.value))")
     check("a new hotel starts on the trip's dates", hd == ["2026-10-20", "2026-10-25"], hd)
     a.js("hideSheet('bookSheet')")
     book("hotel", {"a": "Coronado Springs", "b": "1000 W Buena Vista Dr, Orlando", "t": "15:00", "endT": "11:00", "num": "H-88812", "cost": "1150"})
@@ -3189,6 +3189,54 @@ def t_v114_hotel_mode(b, base):
     a.close()
 
 
+
+def t_v115_cancel_refunds(b, base):
+    print("\n[v1.15 free-cancel deadlines + refunds owed (and Fix my trip offers the refund)]")
+    a = App(b, base, path=TRIP, at="2026-10-10T09:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-23", "port": "Orlando, FL"})
+    a.page.wait_for_timeout(150)
+    a.js("showBookingForm('hotel')")
+    for k, v in {"a": "Coronado Springs", "t": "15:00", "endT": "11:00", "cost": "600", "cancelBy": "2026-10-13", "phone": "407-939-1000"}.items():
+        a.page.fill(f'#bookSheet [name={k}]', v)
+    a.js("document.querySelector('#bookSheet form[data-bkform]').requestSubmit()"); a.page.wait_for_timeout(150)
+    bk = a.js("curTrip().bookings[0]")
+    check("form saves the free-cancel date", bk["cancelBy"] == "2026-10-13", bk)
+    a.js(f"showBooking('{bk['id']}')")
+    s = a.page.inner_text("#bookSheet")
+    check("detail: ⚠️ 3 days left shows", "free cancellation until Oct 13 (3 days)" in s and "⚠️" in s, s[:600])
+    a.js("hideSheet('bookSheet'); shellGo('plan'); PLAN_VIEW = 'reservations'; render()")
+    check("bookings list carries it", "free cancellation until Oct 13" in a.page.inner_text("#cards"))
+    R = a.js("""(() => { const out = []; cancelReminders((k, until, at, title) => out.push([k.split(':').pop(), new Date(at).toString().slice(4, 21), title]), d => d >= '2026-10-10' && d <= '2026-10-20'); return out; })()""")
+    check("reminders: 3 days before (today 9 AM) + the last day", [r[:2] for r in R] == [["3", "Oct 10 2026 09:00"], ["0", "Oct 13 2026 09:00"]]
+          and R[1][2] == "⚠️ Last day to cancel free — 🏨 Coronado Springs", R)
+    a.js("""(() => { const tr = curTrip(); tr.bookings.push({ id: 'd1', kind: 'dinner', a: 'Boma', b: '', day: '2026-10-21', t: '19:00', cost: 90, paid: true }); save(); })()""")
+    a.js("FIX = { trip: curTrip().id, bk: 'd1' }; showFix('what')")
+    a.page.check('#fixSheet [name=how][value=cancel]'); a.page.click('#fixSheet form[data-fixform] button'); a.page.wait_for_timeout(100)
+    s = a.page.inner_text("#fixSheet")
+    check("canceling a paid booking offers 'Track a refund of $90.00', ticked", "Track a refund of $90.00" in s and a.js("document.querySelector('#fixSheet [data-fixtick=\"1\"]').checked"), s[:600])
+    a.page.check('#fixSheet [data-fixtick="0"]'); a.page.click('#fixSheet [data-fixapply]'); a.page.wait_for_timeout(120)
+    rf = a.js("curTrip().refunds")
+    check("dinner gone; refund tracked from Boma, asked today", not a.js("curTrip().bookings.some(b => b.id === 'd1')") and len(rf) == 1
+          and {k: rf[0][k] for k in ["what", "from", "amt", "asked", "got"]} == {"what": "Boma", "from": "Boma", "amt": 90, "asked": "2026-10-10", "got": ""}, rf)
+    a.js("hideSheet('fixSheet'); S.tripTab = 'money'; shellGo('wallet')")
+    card = lambda: a.page.inner_text('[data-card="trips"]')
+    check("Wallet → Money: Refunds owed — $90.00", "refunds owed — $90.00" in card().lower(), card()[-500:])
+    a.page.fill('[data-refund] [name=what]', "Airport shuttle"); a.page.fill('[data-refund] [name=amt]', "40")
+    a.page.fill('[data-refund] [name=from]', "Mears"); a.page.fill('[data-refund] [name=expect]', "2026-10-05")
+    a.page.click('[data-refund] button'); a.page.wait_for_timeout(120)
+    c = card()
+    check("added by hand; past its date = ⚠️ was due; total $130", "refunds owed — $130.00" in c.lower() and "was due Oct 5" in c, c[-600:])
+    rid = a.js("curTrip().refunds.find(r => r.what === 'Airport shuttle').id")
+    a.page.click(f'[data-refundgot="{a.js("curTrip().id")}|{rid}"]'); a.page.wait_for_timeout(100)
+    check("got it ✓: back today, owed drops to $90", a.js(f"curTrip().refunds.find(r => r.id === '{rid}').got") == "2026-10-10" and "refunds owed — $90.00" in card().lower())
+    R = a.js("""(() => { curTrip().refunds[0].expect = '2026-10-15'; const out = []; cancelReminders((k, until, at, title) => out.push(k.split(':')[0] + ' ' + new Date(at).toString().slice(4, 15) + ' ' + title), d => d >= '2026-10-10' && d <= '2026-10-20'); return out.filter(x => x.startsWith('rf')); })()""")
+    check("late refund nudge the day after it's due (only the open one)", R == ["rf Oct 16 2026 ↩️ Refund not here yet? $90.00 — Boma"], R)
+    a.close()
+
+
 def t_v109_port_wx_alerts(b, base):
     print("\n[v1.09 port-day weather notifications: 7 AM on the day, 8 PM the night before only with a warning]")
     a = App(b, base, path=CRUISE, at="2026-10-01T06:00:00")                # sail day, before 7 AM
@@ -3239,7 +3287,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds):
             try:
                 t(b, base)
             except Exception as e:

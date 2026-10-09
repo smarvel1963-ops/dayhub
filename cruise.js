@@ -75,6 +75,7 @@ function carChip(tr) {
 function cruiseReminders(add, inWin) {
   if (typeof leaveReminders === "function") leaveReminders(add, inWin);    // v1.12 leave-time engine (trip.js), every trip
   if (typeof hotelReminders === "function") hotelReminders(add, inWin);    // v1.14 hotel check-out (trip.js)
+  if (typeof cancelReminders === "function") cancelReminders(add, inWin);  // v1.15 cancel-by + late refunds (trip.js)
   myTrips().filter(tr => isCruise(tr) && tr.end).forEach(tr => {
     const d = addDays(tr.end, -1);
     if (inWin(d) && !tr.safeEmpty && tr.homeDone !== tr.end)
