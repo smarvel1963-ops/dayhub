@@ -1,6 +1,9 @@
 {
- "version": "1.16",
+ "version": "1.17",
  "notes": {
+  "1.17": [
+   "⏳ Free time: open any trip day to see your open stretches ('3:00–6:30 PM · 3 h 30 min free — before Boma'). Keep a 'We'd like to do…' list with about how long each takes, and the ones that fit show up in each gap — tap to put it in your day. Home tells you when you have free time right now."
+  ],
   "1.16": [
    "🚗 Road trip planner: on any trip day tap 'Driving today?' — type the miles and drive time from your maps app, and get a break about every 2 hours, a lunch or dinner stop, fuel before the tank gets low, your arrival time and the gas cost. It also tells you if you'll make that night's hotel check-in or dinner."
   ],

@@ -177,6 +177,7 @@ function tripClick(ds) {
   if (hotelClick(ds)) return true;                                         // v1.14 hotel mode
   if (refundClick(ds)) return true;                                        // v1.15 refunds
   if (driveClick(ds)) return true;                                         // v1.16 road trip brain
+  if (freeClick(ds)) return true;                                          // v1.17 free time finder
   if (ds.lvpreset) { const i = document.querySelector('#bookSheet [name="lv_check"]'); if (i) i.value = ds.lvpreset; return true; }   // v1.12
   if (ds.bkadd) { showBookingForm(ds.bkadd); return true; }
   if (ds.bkopen) { hideSheet("daySheet"); showBooking(ds.bkopen); return true; }
@@ -195,6 +196,7 @@ function tripSubmit(f, data) {
   if (hotelSubmit(f, data)) return true;                                   // v1.14 hotel mode
   if (refundSubmit(f, data)) return true;                                  // v1.15 refunds
   if (driveSubmit(f, data)) return true;                                   // v1.16 road trip brain
+  if (freeSubmit(f, data)) return true;                                    // v1.17 free time finder
   if (f.dataset.bkpaste) { pasteBookings(data.text || ""); return true; }
   if (!f.dataset.bkform) return false;
   saveBooking(f, data); return true;
@@ -1188,4 +1190,81 @@ function driveSubmit(f, data) {
     driveSave(id, tr => { tr.vehicle = { range: Number(data.range) || 0, mpg: Number(data.mpg) || 0, gas: Number(data.gas) || 0 }; });
     render(); showDrive(f.dataset.vehicle); toast("🚗 Car saved"); return true; }
   return false;
+}
+
+// ------------------------------------------------------------ FREE TIME FINDER (v1.17)
+// Blueprint 3.4 "Time-Based Discovery: I have 30 minutes / 1 hour / 2 hours / half a day; What can we do before
+// dinner?; Schedule-aware recommendations". From the trip's own day (bookings with their leave times, Fun Finder
+// picks, drives) it finds the open gaps (8 AM - 10 PM, from now on today), and fits the traveler's own
+// "we'd like to do" list into them (tr.wish = [{ id, title, mins, where }]). One tap puts an idea into the day
+// as a ❤️ Fun Finder pick. Nothing is looked up - the ideas are the traveler's.
+const FREE_FROM = "08:00", FREE_TO = "22:00", FREE_MIN = 30;
+let WISH_OPEN = false;                                                      // stays open while you're adding / removing ideas
+const tripWish = tr => (tr && Array.isArray(tr.wish) ? tr.wish : []);
+const durWords = m => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}` : `${m} min`;
+// Busy stretches of the day in minutes from midnight: [start, end, label].
+function busyOn(tr, day) {
+  const B = [], base = fixAt(day, "00:00"), m = ms => Math.round((ms - base) / 60000);
+  fixPoints(tr).forEach(p => {
+    const s = fixFrom(p.s); if (s.day !== day) return;
+    const L = p.src === "bk" ? leaveAt(p.ref) : null;
+    const from = L && L.day === day ? toMin(L.t) : m(p.s) - (p.src === "bk" ? 30 : 0);      // no leave time = 30 min to get there
+    const end = p.kind === "hotel" ? m(p.s) + 30 : Math.max(m(p.s) + 30, m(fixReady(p)));      // checking in ~30 min; a stay isn't busy all night
+    B.push([Math.max(0, from), Math.min(1440, end), `${p.icon} ${p.title}`, m(p.s)]);
+  });
+  tripDrives(tr).forEach(dv => { if (dv.day !== day || !dv.t) return; const P = drivePlan(tr, dv);
+    B.push([toMin(dv.t), P.plusDays ? 1440 : toMin(P.arrive), `🚗 Drive to ${dv.to}`, toMin(dv.t)]); });
+  return B.sort((a, b) => a[0] - b[0]);
+}
+function freeGaps(tr, day, now) {
+  let cur = Math.max(toMin(FREE_FROM), now ? toMin(now) : 0); const end = toMin(FREE_TO), out = [];
+  const B = busyOn(tr, day);
+  B.forEach(b => { if (b[0] - cur >= FREE_MIN && cur < end) out.push({ from: cur, to: Math.min(b[0], end), before: b[2], beforeAt: b[3] }); cur = Math.max(cur, b[1]); });
+  if (end - cur >= FREE_MIN) out.push({ from: cur, to: end, before: "", beforeAt: null });
+  return out.filter(g => g.to - g.from >= FREE_MIN).map(g => ({ ...g, mins: g.to - g.from, t: `${pad(Math.floor(g.from / 60))}:${pad(g.from % 60)}`, end: `${pad(Math.floor(g.to / 60))}:${pad(g.to % 60)}` }));
+}
+// The ideas that fit a gap: biggest first that still fit (fills the time best), at most 3.
+const gapIdeas = (tr, g) => tripWish(tr).filter(w => Number(w.mins) > 0 && Number(w.mins) <= g.mins).sort((a, b) => b.mins - a.mins).slice(0, 3);
+const inTrip = (tr, d) => tr && tr.start && d >= tr.start && d <= (tr.end || tr.start);
+// Day screen block (shell.js showDay).
+function freeDayHtml(tr, d) {
+  if (!inTrip(tr, d) || d < today()) return "";
+  const G = freeGaps(tr, d, d === today() ? nowT() : null), W = tripWish(tr);
+  return `<div class="day-label" style="margin-top:10px">⏳ Free time</div>
+    ${G.length ? G.map(g => { const I = gapIdeas(tr, g);
+      return `<div class="free-gap"><div class="today-line"><b>${hm(g.t)}–${hm(g.end)}</b> · ${durWords(g.mins)} free${g.before ? ` — before ${esc(g.before)}` : ""}</div>
+        ${I.map(w => `<button class="rn-row" data-freeadd="${tr.id}|${d}|${g.t}|${w.id}"><span>👉</span><span class="grow">${esc(w.title)}<span class="sub">${durWords(Number(w.mins))}${w.where ? " · " + esc(w.where) : ""} · tap to add at ${hm(g.t)}</span></span><span class="chev">＋</span></button>`).join("")}</div>`; }).join("")
+      : `<div class="today-line sub">No open time left — a full day.</div>`}
+    <details class="wish-box" ${W.length && !WISH_OPEN ? "" : "open"}><summary>💭 We'd like to do… (${W.length})</summary>
+      ${W.map(w => `<div class="row"><span class="grow">${esc(w.title)}<span class="sub">${durWords(Number(w.mins))}${w.where ? " · " + esc(w.where) : ""}</span></span><button class="x" data-wishdel="${tr.id}|${w.id}|${d}" aria-label="Remove">✕</button></div>`).join("")}
+      <form class="qa-form wish-add" data-wish="${tr.id}|${d}"><input name="title" placeholder="Mini golf, the outlet mall, the pool…" required autocomplete="off">
+        <div class="two"><select name="mins" aria-label="About how long">${[[30, "30 min"], [60, "1 hour"], [90, "1½ hours"], [120, "2 hours"], [180, "3 hours"], [240, "half a day"]].map(([m, l]) => `<option value="${m}" ${m === 60 ? "selected" : ""}>${l}</option>`).join("")}</select>
+        <input name="where" placeholder="Where (optional)" autocomplete="off"></div><button class="btn sm">＋ Add idea</button></form>
+      <p class="fine">Your list for the whole trip — ${esc(APP_NAME)} shows the ones that fit each open stretch.</p></details>`;
+}
+// Home RIGHT NOW: you're in a gap of 45+ min today and there's an idea that fits.
+function freeNudge(tr) {
+  if (!inTrip(tr, today())) return null;
+  const g = freeGaps(tr, today(), nowT())[0]; if (!g || g.from > toMin(nowT()) + 5 || g.mins < 45) return null;
+  const n = gapIdeas(tr, g).length;
+  return { icon: "⏳", text: `You have ${durWords(g.mins)} free till ${hm(g.end)}`, sub: n ? `${n} idea${n === 1 ? "" : "s"} from your list fit${g.before ? ` — then ${g.before}` : ""}` : g.before ? `then ${g.before}` : "", act: `data-tlday="${today()}"` };
+}
+function wishSave(id, fn) {
+  const tr = S.trips.find(t => t.id === id); if (!tr) return null;
+  snap(); tr.wish = tripWish(tr).map(w => ({ ...w })); fn(tr); save(); return tr;
+}
+function freeClick(ds) {
+  if (ds.freeadd) { const [id, d, t, wid] = ds.freeadd.split("|"), tr = S.trips.find(x => x.id === id), w = tr && tripWish(tr).find(x => x.id === wid); if (!w) return true;
+    snap(); tr.fun = tripFun(tr).concat({ id: uid(), day: d, t, end: addMinT(t, Number(w.mins)), title: w.title, where: w.where || "", pick: "must" });
+    tr.wish = tripWish(tr).filter(x => x.id !== wid); save(); render(); showDay(d); buzz(); toast(`❤️ ${w.title} added at ${hm(t)}`, true); return true; }
+  if (ds.wishdel) { const [id, wid, d] = ds.wishdel.split("|");
+    WISH_OPEN = true; wishSave(id, tr => { tr.wish = tr.wish.filter(x => x.id !== wid); }); render(); if (d) showDay(d); return true; }
+  return false;
+}
+function freeSubmit(f, data) {
+  if (!f.dataset.wish) return false;
+  const [id, d] = f.dataset.wish.split("|"), title = String(data.title || "").trim(); if (!title) return true;
+  WISH_OPEN = true;
+  wishSave(id, tr => tr.wish.push({ id: uid(), title: title.slice(0, 60), mins: Number(data.mins) || 60, where: String(data.where || "").trim().slice(0, 60) }));
+  render(); showDay(d); buzz(); toast("💭 Added to your list"); return true;
 }

@@ -69,6 +69,7 @@ function rightNow(tr) {
   const hn = typeof hotelNudge === "function" ? hotelNudge(tr) : null;   // v1.14 hotel mode: check-out day goes first
   if (hn) { if (hn.first) out.unshift(hn); else out.push(hn); }
   const dn = typeof diaryNudge === "function" ? diaryNudge(tr) : null; if (dn) out.push(dn);   // v1.01 trip diary
+  const fr = typeof freeNudge === "function" ? freeNudge(tr) : null; if (fr) out.push(fr);       // v1.17 free time now (after the diary)
   return out.slice(0, 3);
 }
 // ---- NEXT UP: the next thing with a day (port, all aboard, excursion, final payment, events)
@@ -261,6 +262,7 @@ function showDay(d) {
     <div class="day-label" style="margin-top:10px">The day</div>
     ${items.length ? items.map(x => `<${x.bk ? `button class="row rn-row" data-bkopen="${x.bk}"` : `div class="row"`}><span class="time">${x.t ? hm(x.t) : ""}</span><span class="grow">${x.icon || ""} ${esc(x.title)}${x.sub ? `<span class="sub">${esc(x.sub)}</span>` : ""}</span>${x.bk ? `<span class="chev">›</span></button>` : "</div>"}`).join("") : `<div class="today-line sub">${trCruise(tr) ? "🌊" : "😎"} Nothing planned yet — a good day to relax.</div>`}
     ${typeof driveDayHtml === "function" ? driveDayHtml(tr, d) : ""}
+    ${typeof freeDayHtml === "function" ? freeDayHtml(tr, d) : ""}
     ${typeof funDayHtml === "function" ? funDayHtml(tr, d) : ""}
     ${typeof diaryDayHtml === "function" ? diaryDayHtml(tr, d) : ""}
     <div class="foot-actions" style="flex-wrap:wrap;margin-top:10px">

@@ -3069,8 +3069,9 @@ def t_v112_leave_time(b, base):
     a.js("showBookingForm('flight')")
     check("flight form has the leave-time box with the airline presets", a.js("!!document.querySelector('#bookSheet details.leave-box [name=lv_drive]')") and "Domestic" in a.js("document.getElementById('bookSheet').textContent"))
     a.page.evaluate("""() => { document.querySelector('#bookSheet details.leave-box').open = true; }""")
-    for k, v in {"a": "LIT", "b": "MCO", "day": "2026-10-20", "t": "07:05", "endT": "10:40", "num": "AA 1234", "lv_drive": "25", "lv_park": "15"}.items():
+    for k, v in {"a": "LIT", "b": "MCO", "day": "2026-10-20", "t": "07:05", "endT": "10:40", "num": "AA 1234"}.items():
         a.page.fill(f'#bookSheet [name={k}]', v)
+    a.js("(() => { const f = document.querySelector('#bookSheet form[data-bkform]'); f.lv_drive.value = '25'; f.lv_park.value = '15'; })()")   # inside <details>: set, don't type (typing flaked)
     a.page.click('#bookSheet [data-lvpreset="120"]')
     check("Domestic preset fills check-in with 120", a.page.input_value('#bookSheet [name=lv_check]') == "120")
     a.js("document.querySelector('#bookSheet form[data-bkform]').requestSubmit()"); a.page.wait_for_timeout(150)
@@ -3281,6 +3282,49 @@ def t_v116_road_trip(b, base):
     a.close()
 
 
+
+def t_v117_free_time(b, base):
+    print("\n[v1.17 free time finder: open stretches in the day + our own ideas that fit, one tap into the day]")
+    a = App(b, base, path=TRIP, at="2026-10-21T12:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-25", "port": "Orlando, FL"})
+    a.page.wait_for_timeout(150)
+    a.js("""(() => { const tr = curTrip(); tr.bookings = [
+      { id: 't1', kind: 'ticket', a: 'Magic Kingdom', b: '', day: '2026-10-21', t: '08:00', endT: '11:00' },
+      { id: 'd1', kind: 'dinner', a: 'Boma', b: '', day: '2026-10-21', t: '19:00', leave: { drive: 30 } }];
+      tr.fun = [{ id: 'u1', day: '2026-10-21', t: '14:00', end: '15:00', title: 'Disney Springs', where: '', pick: 'must' }]; save(); render(); showDay('2026-10-21'); })()""")
+    G = a.js("freeGaps(curTrip(), '2026-10-21', '12:00').map(g => g.t + '-' + g.end + ' ' + g.mins + ' ' + g.before)")
+    check("gaps from now: 12-2 before Disney Springs, 3-6:30 before leaving for Boma, 7:30-10 PM",
+          G == ["12:00-14:00 120 ❤️ Disney Springs", "15:00-18:30 210 🍽️ Boma", "19:30-22:00 150 "], G)
+    s = a.page.inner_text("#daySheet")
+    check("day screen: Free time with the open stretches; the idea list starts open", "free time" in s.lower() and "3:00 PM–6:30 PM · 3 h 30 min free — before 🍽️ Boma" in s
+          and a.js("document.querySelector('#daySheet details.wish-box').open"), s[:1500])
+    def idea(title, mins, where=""):
+        a.page.fill('#daySheet form[data-wish] [name=title]', title); a.page.select_option('#daySheet form[data-wish] [name=mins]', str(mins))
+        a.page.fill('#daySheet form[data-wish] [name=where]', where); a.page.click('#daySheet form[data-wish] button'); a.page.wait_for_timeout(120)
+    idea("Mini golf", 90, "Fantasia Gardens"); idea("Outlet mall", 180); idea("Pool time", 60); idea("Spa", 240)
+    check("4 ideas on the trip's list", a.js("curTrip().wish.map(w => w.title + ':' + w.mins)") == ["Mini golf:90", "Outlet mall:180", "Pool time:60", "Spa:240"])
+    I = a.js("freeGaps(curTrip(), '2026-10-21', '12:00').map(g => gapIdeas(curTrip(), g).map(w => w.title).join('/'))")
+    check("what fits each stretch (biggest first; the 4 h spa fits nowhere)", I == ["Mini golf/Pool time", "Outlet mall/Mini golf/Pool time", "Mini golf/Pool time"], I)
+    a.js("hideSheet('daySheet'); shellGo('home')")
+    home = a.page.inner_text("#cards")
+    check("Home: You have 2 h free till 2:00 PM, 2 ideas fit, then Disney Springs", "You have 2 h free till 2:00 PM" in home and "2 ideas from your list fit — then ❤️ Disney Springs" in home, home[:700])
+    a.js("showDay('2026-10-21')")
+    tid = a.js("curTrip().id"); wid = a.js("curTrip().wish.find(w => w.title === 'Outlet mall').id")
+    a.page.click(f'#daySheet [data-freeadd="{tid}|2026-10-21|15:00|{wid}"]'); a.page.wait_for_timeout(120)
+    f = a.js("curTrip().fun.find(x => x.title === 'Outlet mall')")
+    check("tap: Outlet mall 3-6 PM as a ❤️ pick, off the idea list", f and f["t"] == "15:00" and f["end"] == "18:00" and f["pick"] == "must" and not a.js("curTrip().wish.some(w => w.title === 'Outlet mall')"), f)
+    G = a.js("freeGaps(curTrip(), '2026-10-21', '12:00').map(g => g.t + '-' + g.end)")
+    check("the day updates: 30 min left before Boma", G == ["12:00-14:00", "18:00-18:30", "19:30-22:00"], G)
+    sid = a.js("curTrip().wish.find(w => w.title === 'Spa').id")
+    a.page.click(f'#daySheet [data-wishdel="{tid}|{sid}|2026-10-21"]'); a.page.wait_for_timeout(100)
+    check("✕ removes an idea, the day stays open", not a.js("curTrip().wish.some(w => w.title === 'Spa')") and not a.js("document.getElementById('daySheet').classList.contains('hidden')"))
+    check("past days get no free-time block", a.js("freeDayHtml(curTrip(), '2026-10-20')") == "")
+    a.close()
+
+
 def t_v109_port_wx_alerts(b, base):
     print("\n[v1.09 port-day weather notifications: 7 AM on the day, 8 PM the night before only with a warning]")
     a = App(b, base, path=CRUISE, at="2026-10-01T06:00:00")                # sail day, before 7 AM
@@ -3331,7 +3375,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time):
             try:
                 t(b, base)
             except Exception as e:

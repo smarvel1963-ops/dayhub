@@ -688,3 +688,6 @@ body.shell .bubbles { margin: 10px 0 12px; gap: 8px 6px; }
 .leave-box { margin: 6px 0; } .leave-box summary { cursor: pointer; padding: 6px 0; color: var(--muted, #aab); }
 /* v1.16 road trip brain */
 .drive-box summary { cursor: pointer; padding: 8px 0; color: var(--muted, #aab); }
+/* v1.17 free time finder */
+.free-gap { margin: 4px 0 8px; }
+.wish-box summary { cursor: pointer; padding: 8px 0; color: var(--muted, #aab); }
