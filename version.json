@@ -1,6 +1,9 @@
 {
- "version": "1.03",
+ "version": "1.04",
  "notes": {
+  "1.04": [
+   "🎉 Fun Finder: tap a day and add what's on the ship's daily planner (or your trip's day) — then ❤️ must see, 👍 interested or — skip. Your day builds itself around the ❤️, adds the 👍 that fit, keeps the rest as backups, warns when two must-sees overlap, and on port days tells you what falls while you're ashore. Your picks show on your schedule."
+  ],
   "1.03": [
    "🧾 Final bill check: the last night, type the total on the ship's bill and Cruise Hub puts it next to its own count (your logged spending + gratuities − onboard credit) — plus what to look for: the gratuity line, your credit, excursions you already paid for, a charge logged twice. Get me home → Check my final bill, or Wallet → Onboard."
   ],

@@ -74,7 +74,7 @@ function nextUp() {
   const now = nowT();
   for (let i = 0; i <= 60; i++) { const d = addDays(today(), i);
     // plans + the cruise's own days (sail day, ports, all aboard, excursions) + bills / final payment
-    const it = dayItems(d).filter(x => (isPlan(x) || ["trip", "aboard", "exc", "bill", "book"].includes(x.kind)) && (i > 0 || !x.t || x.t >= now));
+    const it = dayItems(d).filter(x => (isPlan(x) || ["trip", "aboard", "exc", "bill", "book", "fun"].includes(x.kind)) && (i > 0 || !x.t || x.t >= now));
     if (it.length) { const x = it[0]; return `${x.icon || "📅"} ${i === 0 ? "Today" : i === 1 ? "Tomorrow" : `${dayName(d)} ${prettyDate(d)}`}${x.t ? ` · ${hm(x.t)}` : ""} — ${esc(x.title)}`; } }
   return "";
 }
@@ -205,6 +205,7 @@ function timelineHtml() {
     const bits = pt ? [pt.arrive && `in ${hm(pt.arrive)}`, pt.allAboard && `all aboard ${hm(aaLocal(pt))}`, pt.excursion && pt.excursion.toLowerCase() !== "none" && `🤿 ${esc(pt.excursion)}`, typeof portRealityBit === "function" && portRealityBit(pt), portWxText(pt)].filter(Boolean)
       : d === tr.start ? [trCruise(tr) && tr.ship && `board ${esc(tr.ship)}`].filter(Boolean) : d === end ? ["getting home"] : [];
     if (typeof bookingBits === "function") bits.push(...bookingBits(tr, d).map(esc));   // v0.98 ✈️ 7:05 AM · 🏨 check-in
+    if (typeof funBits === "function") bits.push(...funBits(tr, d));   // v1.04
     if (typeof tripDiary === "function" && diaryHas(tripDiary(tr)[d])) bits.push(`📔 ${esc(tripDiary(tr)[d].mood || "written")}`);   // v1.01
     rows.push(`<button class="tl-row ${past ? "past" : ""} ${now ? "now" : ""}" data-tlday="${d}"><span class="tl-ic">${k.icon}</span><span class="grow">
         <b>${esc(k.title)}</b>${now ? ` <span class="pill">TODAY</span>` : ""}<span class="sub">Day ${n} · ${dayName(d)} ${prettyDate(d)}${bits.length ? " · " + bits.join(" · ") : ""}</span></span><span class="chev">›</span></button>`);
@@ -256,6 +257,7 @@ function showDay(d) {
     ${!pt && (d === tr.start || d === (tr.end || tr.start)) && typeof homePortHtml === "function" ? homePortHtml(tr, true) : ""}
     <div class="day-label" style="margin-top:10px">The day</div>
     ${items.length ? items.map(x => `<${x.bk ? `button class="row rn-row" data-bkopen="${x.bk}"` : `div class="row"`}><span class="time">${x.t ? hm(x.t) : ""}</span><span class="grow">${x.icon || ""} ${esc(x.title)}${x.sub ? `<span class="sub">${esc(x.sub)}</span>` : ""}</span>${x.bk ? `<span class="chev">›</span></button>` : "</div>"}`).join("") : `<div class="today-line sub">${trCruise(tr) ? "🌊" : "😎"} Nothing planned yet — a good day to relax.</div>`}
+    ${typeof funDayHtml === "function" ? funDayHtml(tr, d) : ""}
     ${typeof diaryDayHtml === "function" ? diaryDayHtml(tr, d) : ""}
     <div class="foot-actions" style="flex-wrap:wrap;margin-top:10px">
       ${!trCruise(tr) ? "" : pt ? `<button class="btn sm ghost" data-portedit="${pt.id}">✏️ Edit this port</button>` : d !== tr.start && d !== (tr.end || tr.start) ? `<button class="btn sm ghost" data-portadd="${d}">⚓ It's a port day</button>` : ""}

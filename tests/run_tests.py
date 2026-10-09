@@ -2796,6 +2796,47 @@ def t_v103_final_bill(b, base):
     a.close()
 
 
+def t_v104_fun_finder(b, base):
+    print("\n[v1.04 Fun Finder: must see / interested / skip -> the day builds itself around the must-sees]")
+    a = App(b, base, path=CRUISE, at="2026-11-13T09:00:00")              # a sea day
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Carnival"})
+    a.js("curTrip().ports = [{ id: 'p1', name: 'Cozumel', day: '2026-11-14', arrive: '08:00', allAboard: '16:30' }]; save(); render(); showDay('2026-11-13')")
+    s = a.page.inner_text("#daySheet")
+    check("the day screen has Fun Finder with an add form", "fun finder" in s.lower() and a.js("!!document.querySelector('#daySheet form[data-fun]')"))
+    def add(title, t, end="", where="", pick="must"):
+        a.page.fill('#daySheet form[data-fun] [name=title]', title); a.page.fill('#daySheet form[data-fun] [name=t]', t)
+        a.page.fill('#daySheet form[data-fun] [name=end]', end); a.page.fill('#daySheet form[data-fun] [name=where]', where)
+        a.page.select_option('#daySheet form[data-fun] [name=pick]', pick)
+        a.page.click('#daySheet form[data-fun] button'); a.page.wait_for_timeout(120)
+    add("Comedy Show", "19:00", "19:45", "Punchliner, deck 5")
+    add("Production Show", "19:30")                                        # no end = about an hour -> clashes with Comedy
+    add("Trivia", "20:00", pick="maybe")                                   # clashes with Production -> backup
+    add("Pool party", "14:00", pick="maybe")
+    add("Bingo", "15:00", pick="skip")
+    check("5 added, sheet stays open on the day", a.js("curTrip().fun.length") == 5 and not a.js("document.getElementById('daySheet').classList.contains('hidden')"))
+    P = a.js("(() => { const F = funPlan(curTrip(), '2026-11-13'); return { plan: F.plan.map(f => f.title), backups: F.backups.map(([f, h]) => f.title + '>' + h.title), clashes: F.clashes.length }; })()")
+    check("your day = both ❤️ + the 👍 that fits; Trivia is a backup; the two ❤️ clash",
+          P == {"plan": ["Pool party", "Comedy Show", "Production Show"], "backups": ["Trivia>Production Show"], "clashes": 1}, P)
+    s = a.page.inner_text("#daySheet")
+    check("the clash warning + the backup note show", "Comedy Show and Production Show overlap" in s and "backup — clashes with Production Show" in s, s[:1200])
+    check("your day joins the schedule (3 fun items)", a.js("dayItems('2026-11-13').filter(x => x.kind === 'fun').map(x => x.title).join()") == "Pool party,Comedy Show,Production Show")
+    a.js("hideSheet('daySheet'); shellGo('plan'); PLAN_VIEW = 'trip'; render()")
+    check("timeline: 🎉 3 planned", "🎉 3 planned" in a.page.inner_text(".timeline"))
+    pid = a.js("curTrip().fun.find(f => f.title === 'Production Show').id")
+    a.js("showDay('2026-11-13')"); a.page.click(f'#daySheet [data-funpick$="|{pid}|skip"]'); a.page.wait_for_timeout(120)
+    P = a.js("funPlan(curTrip(), '2026-11-13').plan.map(f => f.title).join()")
+    check("skip the Production Show: clash gone, Trivia moves into your day", P == "Pool party,Comedy Show,Trivia" and "overlap" not in a.page.inner_text("#daySheet"), P)
+    bid = a.js("curTrip().fun.find(f => f.title === 'Bingo').id")
+    a.page.click(f'#daySheet [data-fundel="{a.js("curTrip().id")}|{bid}"]'); a.page.wait_for_timeout(120)
+    check("✕ removes one", a.js("curTrip().fun.length") == 4 and not a.js("curTrip().fun.some(f => f.title === 'Bingo')"))
+    a.js("curTrip().fun.push({ id: 'f9', day: '2026-11-14', t: '11:00', end: '', title: 'Art auction', where: '', pick: 'must' }); save(); render(); showDay('2026-11-14')")
+    check("port day: a pick between off-the-ship and head-back-by says you're ashore then", "Art auction at 11:00 AM falls while you're ashore (back by 3:10 PM)" in a.page.inner_text("#daySheet"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -2824,7 +2865,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder):
             try:
                 t(b, base)
             except Exception as e:

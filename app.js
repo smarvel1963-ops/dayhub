@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.03";
+const VERSION = "1.04";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -2019,6 +2019,7 @@ function dayItems(day) {
     if (tr.finalDue === day && tripLeft(tr) !== 0)
       it.push({ t: null, title: `Final payment — ${tr.name}`, sub: tripLeft(tr) ? money(tripLeft(tr)) + " left" : "", kind: "bill", icon: "💳" });
     if (typeof bookingItems === "function") it.push(...bookingItems(tr, day));          // v0.98 flights, hotels, cars (trip.js)
+    if (typeof funItems === "function") it.push(...funItems(tr, day));                  // v1.04 Fun Finder picks (trip.js)
   });
   S.packages.filter(p => !p.delivered && p.eta === day).forEach(p => it.push({ t: null, title: `${p.name} arriving`, sub: (CARRIERS[p.carrier] || CARRIERS.other)[0], kind: "pkg", icon: "📦" }));
   const w = WXDATA && WXDATA.here;

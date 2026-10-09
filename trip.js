@@ -145,6 +145,7 @@ function deleteBooking(id) {
 // ---- clicks / submits (called from cruise.js cruiseClick / cruiseSubmit)
 function tripClick(ds) {
   if (diaryClick(ds)) return true;                                         // v1.01 trip diary
+  if (funClick(ds)) return true;                                           // v1.04 Fun Finder
   if (ds.bkadd) { showBookingForm(ds.bkadd); return true; }
   if (ds.bkopen) { hideSheet("daySheet"); showBooking(ds.bkopen); return true; }
   if (ds.bkedit) { showBookingForm(null, ds.bkedit); return true; }
@@ -156,6 +157,7 @@ function tripClick(ds) {
 }
 function tripSubmit(f, data) {
   if (diarySubmit(f, data)) return true;                                   // v1.01 trip diary
+  if (funSubmit(f, data)) return true;                                     // v1.04 Fun Finder
   if (f.dataset.bkpaste) { pasteBookings(data.text || ""); return true; }
   if (!f.dataset.bkform) return false;
   saveBooking(f, data); return true;
@@ -451,5 +453,79 @@ function diarySubmit(f, data) {
   const [id, d] = f.dataset.diary.split("|");
   if (diarySet(id, d, { text: (data.text || "").trim(), best: (data.best || "").trim() })) { hideSheet("daySheet"); render(); buzz(); toast("📔 Saved to the diary", true); }
   else toast(`Open this ${TW} in the app it was planned in to write its diary`);
+  return true;
+}
+
+// ------------------------------------------------------------ FUN FINDER (v1.04)
+// Cruise Hub plan (10/4): "Cruise Hub should allow: ❤️ MUST SEE / 👍 Interested / — Skip. Then automatically
+// build the day around ❤️ events" + "Have a backup for overlapping activities" + "Don't assume the same show
+// repeats every night". The traveler adds what's on the ship's daily planner (or the trip's day) - title, time,
+// end, where - and picks one of the three. RULES ONLY:
+//   your day = every ❤️, then each 👍 that doesn't clash with anything already in it;
+//   two ❤️ that overlap = a warning (pick one, or look for another showing);
+//   a 👍 that clashes = kept as a backup;
+//   on a port day, anything between "off the ship" and "head back by" = "you'll be ashore then".
+// Your day's picks join the schedule (dayItems kind "fun"), NEXT and the timeline. tr.fun = [{ id, day, t, end, title, where, pick }].
+const FUN_PICKS = [["must", "❤️", "Must see"], ["maybe", "👍", "Interested"], ["skip", "—", "Skip"]];
+const FUN_LEN = 60;                                                          // no end time = about an hour
+const tripFun = tr => (tr && Array.isArray(tr.fun) ? tr.fun : []);
+const funEnd = f => f.end && f.end > f.t ? f.end : addMinT(f.t, FUN_LEN);
+const funClash = (a, b) => a.t < funEnd(b) && b.t < funEnd(a);
+function funPlan(tr, day) {
+  const all = tripFun(tr).filter(f => f.day === day && f.t).sort((a, b) => a.t.localeCompare(b.t));
+  const plan = [], clashes = [], backups = [];
+  all.filter(f => f.pick === "must").forEach(f => { plan.filter(p => funClash(p, f)).forEach(p => clashes.push([p, f])); plan.push(f); });
+  all.filter(f => f.pick === "maybe").forEach(f => { const hit = plan.find(p => funClash(p, f)); if (hit) backups.push([f, hit]); else plan.push(f); });
+  plan.sort((a, b) => a.t.localeCompare(b.t));
+  const pt = typeof portOn === "function" && trCruise(tr) ? portOn(tr, day) : null, R = pt && typeof portReality === "function" ? portReality(pt) : null;
+  const ashore = R && R.mins > 0 ? plan.filter(f => f.t >= R.off && f.t < R.by) : [];
+  return { all, plan, clashes, backups, ashore, R };
+}
+function funItems(tr, day) {
+  return funPlan(tr, day).plan.map(f => ({ t: f.t, end: f.end || null, title: f.title, sub: [f.where, f.pick === "must" ? "❤️ must see" : "👍 interested"].filter(Boolean).join(" · "), kind: "fun", icon: f.pick === "must" ? "❤️" : "👍", trip: tr.id }));
+}
+const funBits = (tr, d) => { const n = funPlan(tr, d).plan.length; return n ? [`🎉 ${n} planned`] : []; };
+// the "Fun Finder" block on a day screen (shell.js showDay)
+function funDayHtml(tr, d) {
+  if (!tr || !tr.start || d < tr.start || d > (tr.end || tr.start)) return "";
+  const F = funPlan(tr, d), inPlan = new Set(F.plan.map(f => f.id)), back = new Map(F.backups.map(([f, hit]) => [f.id, hit]));
+  const chip = (f, k, ic, l) => `<button class="funpick ${f.pick === k ? "on" : ""}" data-funpick="${tr.id}|${f.id}|${k}" aria-label="${l}" title="${l}">${ic}</button>`;
+  const rows = F.all.concat(tripFun(tr).filter(f => f.day === d && !f.t)).map(f => {
+    const note = f.pick === "skip" ? "skipped" : inPlan.has(f.id) ? "in your day" : back.has(f.id) ? `backup — clashes with ${back.get(f.id).title}` : "";
+    return `<div class="row fun-row ${f.pick === "skip" ? "done" : ""}"><span class="time">${f.t ? hm(f.t) : ""}</span><span class="grow">${esc(f.title)}
+      <span class="sub">${[f.end && `till ${hm(f.end)}`, f.where && esc(f.where), note].filter(Boolean).join(" · ")}</span></span>
+      ${FUN_PICKS.map(([k, ic, l]) => chip(f, k, ic, l)).join("")}<button class="x" data-fundel="${tr.id}|${f.id}" aria-label="Remove">✕</button></div>`; });
+  const warn = F.clashes.map(([a, b]) => `<div class="bstat tight">⚠️ ${esc(a.title)} and ${esc(b.title)} overlap — pick one, or look for a later showing (shows often run twice).</div>`)
+    .concat(F.ashore.map(f => `<div class="bstat tight">🏝️ ${esc(f.title)} at ${hm(f.t)} falls while you're ashore (back by ${hm(F.R.by)}) — fine if it's in port; if it's on the ship, plan around it.</div>`));
+  return `<div class="day-label" style="margin-top:10px">🎉 Fun Finder</div>
+    ${warn.join("")}
+    ${rows.length ? rows.join("") : `<div class="today-line sub">Add what's on ${trCruise(tr) ? "the ship's daily planner" : "the day"} — shows, trivia, dinner, the pool party — then tap ❤️ must see, 👍 interested or — skip. Your day builds itself around the ❤️.</div>`}
+    <form class="qa-form fun-add" data-fun="${tr.id}|${d}">
+      <input name="title" placeholder="${trCruise(tr) ? "Show, trivia, dinner…" : "Activity, tour, dinner…"}" required autocomplete="off">
+      <div class="two"><label class="field" style="margin:0">Starts<input name="t" type="time" required></label><label class="field" style="margin:0">Ends (optional)<input name="end" type="time"></label></div>
+      <div class="two"><input name="where" placeholder="Where (deck, venue)" autocomplete="off">
+        <select name="pick" aria-label="Pick">${FUN_PICKS.map(([k, ic, l]) => `<option value="${k}">${ic} ${l}</option>`).join("")}</select></div>
+      <button class="btn sm">＋ Add</button></form>`;
+}
+function funSave(id, fn) {
+  const tr = S.trips.find(t => t.id === id); if (!tr) { toast(`Open this ${TW} in the app it was planned in to change it`); return false; }
+  snap(); tr.fun = tripFun(tr).slice(); fn(tr); save(); return true;
+}
+function funClick(ds) {
+  if (ds.funpick) { const [id, fid, k] = ds.funpick.split("|"); let day = "";
+    if (funSave(id, tr => { const f = tr.fun.find(x => x.id === fid); if (f) { tr.fun = tr.fun.map(x => x.id === fid ? { ...x, pick: k } : x); day = f.day; } }) && day) { render(); showDay(day); }
+    return true; }
+  if (ds.fundel) { const [id, fid] = ds.fundel.split("|"); let day = "";
+    if (funSave(id, tr => { const f = tr.fun.find(x => x.id === fid); if (f) day = f.day; tr.fun = tr.fun.filter(x => x.id !== fid); }) && day) { render(); showDay(day); toast("Removed", true); }
+    return true; }
+  return false;
+}
+function funSubmit(f, data) {
+  if (!f.dataset.fun) return false;
+  const [id, d] = f.dataset.fun.split("|"), title = (data.title || "").trim();
+  if (!title || !data.t) return true;
+  const pick = FUN_PICKS.some(p => p[0] === data.pick) ? data.pick : "must";
+  if (funSave(id, tr => tr.fun.push({ id: uid(), day: d, t: data.t, end: data.end && data.end > data.t ? data.end : "", title, where: (data.where || "").trim(), pick }))) {
+    render(); showDay(d); buzz(); toast(`${pick === "must" ? "❤️" : pick === "maybe" ? "👍" : "—"} Added`); }
   return true;
 }
