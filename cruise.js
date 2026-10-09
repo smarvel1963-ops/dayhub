@@ -88,6 +88,7 @@ function cruiseClick(ds) {
   if (phaseClick(ds)) return true;                                          // v0.61 on board
   if (billClick(ds)) return true;                                           // v1.03 final bill check
   if (pkgCalcClick(ds)) return true;                                        // v1.05 package buy or skip
+  if (secretClick(ds)) return true;                                         // v1.06 secret engine
   if (ds.gohome) { showGoHome(); return true; }
   if (ds.ghclose) { hideSheet("ghSheet"); return true; }
   if (ds.ghgo) { const tr = curTrip(); hideSheet("ghSheet");
@@ -553,4 +554,74 @@ function pkgCalcSubmit(f, data) {
   ["price", "days", "cap"].concat(Object.keys(PKG_DEF)).forEach(k => { c[k] = data[k] === undefined ? "" : String(data[k]).trim(); });
   PKG_INC.forEach(([k]) => { c[k] = data[k] === "1"; }); c.wifi = data.wifi === "1";
   snap(); tr.pkgCalc = c; save(); showPkgCalc(); return true;
+}
+
+// ------------------------------------------------------------ SECRET ENGINE (v1.06)
+// Cruise Hub plan (10/4): "Secret Engine - the right tip at the right moment" + the 273-item Cruise Hacks list
+// ("hacks appear automatically at the moment they matter instead of users reading a giant article"). Home shows
+// ONE tip for where the cruise is right now (booked / getting close / the week before / the night before / sail
+// day / a port day / a sea day / the final night). "Got it" retires it (tr.secretsSeen), "Another" shows the next.
+// Only GENERAL tips from that list - nothing that states one cruise line's own rules (those need verifying on the
+// line's site first, same rule as the ship and port guides).
+const SECRETS = [
+  ["s1", "booked", "Watch the price after you book. Depending on your fare and the line's rules, a drop before final payment may get you a lower price or a credit — ask."],
+  ["s2", "booked", "Compare the cruise line's insurance with independent travel insurance before you accept either."],
+  ["s3", "booked", "Flying in? Plan to arrive the day before you sail — a late flight can't make the ship wait."],
+  ["s4", "booked", "Compare port parking with a hotel park-and-cruise package — and check whether the hotel's port shuttle needs a reservation."],
+  ["s5", "close", "Check your passport's expiration against every country on the itinerary — some want months left on it."],
+  ["s6", "close", "Download the cruise line's app now and do online check-in as soon as it opens — boarding times can go fast."],
+  ["s7", "close", "Reserve the popular things early — specialty dining, shows that need booking, scarce excursions — and cancel later if the terms allow."],
+  ["s8", "week", "Photograph your passports and documents and keep an offline copy on your phone — plus one with someone at home."],
+  ["s9", "week", "Download movies, music, offline port maps and translation before you leave — ship Wi-Fi is slow and costs extra."],
+  ["s10", "week", "Bring your usual pain relievers, seasickness and stomach remedies — the onboard shop's choice is small and pricey."],
+  ["s11", "week", "Pack a waterproof phone pouch and zip-top bags for beach days and wet swimsuits."],
+  ["s12", "week", "Leave space in the suitcase for what you'll bring home."],
+  ["s13", "eve", "Pack a carry-on for sail day: documents, meds, charger, swimsuit, sunscreen and a change for dinner — checked bags can take hours to reach the cabin."],
+  ["s14", "eve", "Never put passports, medication or valuables in a checked bag."],
+  ["s15", "eve", "Photograph each suitcase and its luggage tag before you hand it over, and put your name and phone INSIDE each bag too."],
+  ["s16", "sail", "Skip the giant buffet crowd at boarding — another included venue is often open and quieter."],
+  ["s17", "sail", "Walk the ship while it's empty: find Guest Services, the medical center, your muster station and the quiet spots."],
+  ["s18", "sail", "Check the cabin before you unpack — photograph anything already damaged so it isn't blamed on you."],
+  ["s19", "sail", "Test the cabin safe before you put anything in it."],
+  ["s20", "sail", "Look at your onboard account today — a package or credit missing on day one is easy to fix now."],
+  ["s21", "sail", "Cabin walls are often steel — magnetic hooks keep hats, lanyards and the daily schedule off the counter."],
+  ["s22", "port", "Before you walk off, take a photo of the terminal sign and pin the ship on your map."],
+  ["s23", "port", "Keep one card apart from your wallet, and carry a little cash — not every port vendor takes cards."],
+  ["s24", "port", "Screenshot your excursion's meeting point and the port agent's number before you lose ship Wi-Fi."],
+  ["s25", "port", "Take only the ID you need ashore — passports and extra cash can stay in the safe unless the port requires them."],
+  ["s26", "port", "Paying by card abroad? If the machine offers to charge in dollars, pick the local currency — your own card usually converts for less."],
+  ["s27", "sea", "Check your onboard account every day — a wrong charge is much easier to sort out now than on the last morning."],
+  ["s28", "sea", "Read the whole week's schedule before you book specialty dining, so dinner doesn't land on top of a show you wanted."],
+  ["s29", "sea", "Pools and the gym are quietest early in the morning."],
+  ["s30", "sea", "Some demos and tastings are really sales pitches — go if you want them, skip if you don't."],
+  ["s31", "sea", "Plan tomorrow tonight: popular sea-day activities fill up."],
+  ["s32", "final", "Report a wrong charge before you get off — Guest Services can fix it while you're still on board (🧾 Final bill check helps)."],
+  ["s33", "final", "Your card may show a hold for the onboard account for a few days after the cruise — that's usually the hold, not a second charge."],
+  ["s34", "final", "Keep passports, meds and car keys OUT of the bag you put in the hallway tonight."],
+];
+function secretMoment(tr) {
+  if (!tr || !tr.start || !trCruise(tr)) return null;
+  const sd = daysUntil(tr.start), ed = daysUntil(tr.end || tr.start);
+  if (sd > 60) return "booked"; if (sd > 14) return "close"; if (sd > 2) return "week"; if (sd > 0) return "eve";
+  if (sd === 0) return "sail"; if (ed < 0) return null; if (ed <= 1) return "final";
+  return portOn(tr, today()) ? "port" : "sea";
+}
+function secretNow(tr) {
+  const m = secretMoment(tr); if (!m) return null;
+  const seen = new Set(Array.isArray(tr.secretsSeen) ? tr.secretsSeen : []), L = SECRETS.filter(s => s[1] === m && !seen.has(s[0]));
+  if (!L.length) return null;
+  const day = Math.round(parseDay(today()) / 864e5);
+  return L[((day + (Number(tr.secretSkip) || 0)) % L.length + L.length) % L.length];
+}
+function secretHtml(tr) {
+  const s = secretNow(tr); if (!s) return "";
+  return `<section class="card secret-card"><div class="body"><div class="secret-h">💡 Cruise secret</div><div class="secret-t">${esc(s[2])}</div>
+    <div class="foot-actions"><button class="btn sm ghost" data-secretok="${tr.id}|${s[0]}">Got it</button><button class="btn sm ghost" data-secretnext="${tr.id}">Another</button></div></div></section>`;
+}
+function secretClick(ds) {
+  if (!ds.secretok && !ds.secretnext) return false;
+  const [id, sid] = (ds.secretok || ds.secretnext).split("|"), tr = S.trips.find(t => t.id === id); if (!tr) return true;
+  if (ds.secretok) tr.secretsSeen = (Array.isArray(tr.secretsSeen) ? tr.secretsSeen : []).concat(sid);
+  else tr.secretSkip = (Number(tr.secretSkip) || 0) + 1;
+  save(); render(); return true;
 }

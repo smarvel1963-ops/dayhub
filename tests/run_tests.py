@@ -2876,6 +2876,43 @@ def t_v105_package_calc(b, base):
     a.close()
 
 
+def t_v106_secrets(b, base):
+    print("\n[v1.06 secret engine: one general cruise tip for where the cruise is right now]")
+    a = App(b, base, path=CRUISE)                                            # today 2026-10-01
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Bahamas", "start": "2026-12-10", "end": "2026-12-14", "line": "Carnival"})
+    a.page.wait_for_timeout(150)
+    M = lambda start, end, ports="[]": a.js(f"(() => {{ const tr = curTrip(); tr.start = '{start}'; tr.end = '{end}'; tr.ports = {ports}; return secretMoment(tr); }})()")
+    got = [M("2026-12-10", "2026-12-14"), M("2026-11-01", "2026-11-05"), M("2026-10-10", "2026-10-14"), M("2026-10-02", "2026-10-06"),
+           M("2026-10-01", "2026-10-05"), M("2026-09-29", "2026-10-04"),
+           M("2026-09-29", "2026-10-04", "[{ id: 'p', name: 'Nassau', day: '2026-10-01', allAboard: '17:00' }]"),
+           M("2026-09-27", "2026-10-02"), M("2026-09-20", "2026-09-25")]
+    check("moments: booked / close / week / eve / sail / sea / port / final / none after",
+          got == ["booked", "close", "week", "eve", "sail", "sea", "port", "final", None], got)
+    a.js("(() => { const tr = curTrip(); tr.start = '2026-10-01'; tr.end = '2026-10-05'; tr.ports = []; save(); shellGo('home'); })()")
+    s = a.page.inner_text(".secret-card")
+    first = a.js("secretNow(curTrip())[0]")
+    check("sail day: Home shows ONE sail-day secret", "CRUISE SECRET" in s.upper() and a.js("document.querySelectorAll('.secret-card').length") == 1 and a.js("SECRETS.find(x => x[0] === secretNow(curTrip())[0])[1]") == "sail")
+    a.page.click('.secret-card [data-secretnext]'); a.page.wait_for_timeout(100)
+    check("Another = a different sail-day tip", a.js("secretNow(curTrip())[0]") != first and a.js("SECRETS.find(x => x[0] === secretNow(curTrip())[0])[1]") == "sail")
+    shown = a.js("secretNow(curTrip())[0]")
+    a.page.click('.secret-card [data-secretok]'); a.page.wait_for_timeout(100)
+    check("Got it retires that tip for this trip", shown in a.js("curTrip().secretsSeen") and a.js("secretNow(curTrip())[0]") != shown)
+    a.js("curTrip().secretsSeen = SECRETS.filter(x => x[1] === 'sail').map(x => x[0]); save(); render()")
+    check("all of a moment's tips seen = no card", not a.js("!!document.querySelector('.secret-card')"))
+    check("every tip has a known moment and a unique id", a.js("(() => { const ok = ['booked','close','week','eve','sail','port','sea','final']; return SECRETS.every(s => ok.includes(s[1])) && new Set(SECRETS.map(s => s[0])).size === SECRETS.length; })()"))
+    a.close()
+    t = App(b, base, path=TRIP)
+    t.page.fill('form[data-setup] [name=name]', "Pat"); t.page.fill('form[data-setup] [name=city]', "72032")
+    t.page.click('form[data-setup] button'); t.page.wait_for_function("WXDATA && WXDATA.here")
+    t.qa("trip", {"tname": "Florida trip", "start": "2026-10-01", "end": "2026-10-05", "port": "Orlando, FL"})
+    t.page.wait_for_timeout(150); t.js("shellGo('home')")
+    check("Trip Hub (not a cruise): no cruise secrets", not t.js("!!document.querySelector('.secret-card')"))
+    t.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -2904,7 +2941,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets):
             try:
                 t(b, base)
             except Exception as e:

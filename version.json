@@ -1,6 +1,9 @@
 {
- "version": "1.05",
+ "version": "1.06",
  "notes": {
+  "1.06": [
+   "💡 Cruise secrets: Home now shows one tip for exactly where your cruise is — booked, getting close, the week before, the night before, sail day, a port day, a sea day, the last night. Got it puts it away; Another shows the next one."
+  ],
   "1.05": [
    "🧮 Package: buy or skip? (Wallet → Perks): type the package price from your cruise line's offer and how you'd really use it — drinks, coffee, water, Wi-Fi, specialty dining, photos — and Cruise Hub tells you BUY, SKIP or close call, how much you'd save, and how many drinks a day it takes to break even. Your own prices, your own answer."
   ],

@@ -100,7 +100,8 @@ function homeHtml() {
   if (!tr) return MODE === "trip" ? addTripHtml() : addCruiseHtml();       // v0.60 no cruise / trip yet: the ways in
   const [bi, bl] = splitIcon(bb.label);                                     // the big button's job = the hot bubble
   const nxWhat = (nx.split(" — ")[1] || "").toLowerCase();                 // NEXT that only repeats a row above = left out
-  return prefsCardHtml() + phaseCardHtml(tr) + goingOnHtml(items, nxWhat && items.some(r => r.text.toLowerCase().includes(nxWhat)) ? "" : nx) + bubblesHtml([
+  return prefsCardHtml() + phaseCardHtml(tr) + goingOnHtml(items, nxWhat && items.some(r => r.text.toLowerCase().includes(nxWhat)) ? "" : nx)
+    + (typeof secretHtml === "function" ? secretHtml(tr) : "") + bubblesHtml([   // v1.06 one cruise secret for right now
     { icon: bi, label: bl, attrs: bb.act, hot: true },
     { icon: "📅", label: "My day", attrs: 'data-shellgo="plan" data-planview="today"' },
     { icon: "🗺️", label: trCruise(tr) ? "My cruise" : "My trip", attrs: 'data-shellgo="plan" data-planview="trip"' },
