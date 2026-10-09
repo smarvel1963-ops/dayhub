@@ -1,6 +1,9 @@
 {
- "version": "1.18",
+ "version": "1.19",
  "notes": {
+  "1.19": [
+   "📤 Export your trip's money: Wallet → Money → Export saves one spreadsheet file (opens in Excel or Google Sheets) with every payment, cost, spending and refund — and who paid. ⚠️ Spending now spots an amount logged twice on the same day: remove the extra, or tell it both are real."
+  ],
   "1.18": [
    "🗳️ Vote on it: going with family or friends? Open your 'We'd like to do…' list → Vote, pass the phone around and everyone taps 👍 or 👎. The list ranks itself, free-time suggestions show the group's favourites first, and anything most people said no to stops coming up."
   ],

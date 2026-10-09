@@ -3363,6 +3363,46 @@ def t_v118_group_vote(b, base):
     a.close()
 
 
+
+def t_v119_money_export(b, base):
+    print("\n[v1.19 trip money export (CSV) + spending logged twice]")
+    a = App(b, base, path=TRIP, at="2026-10-22T09:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-25", "port": "Orlando, FL"})
+    a.page.wait_for_timeout(150)
+    a.js("""(() => { const tr = curTrip();
+      tr.payments = [{ id: 'p1', day: '2026-09-01', amt: 900, note: 'deposit' }];
+      tr.costs = [{ id: 'c1', cat: 'hotel', what: 'Resort fee, 3 nights', amt: 300, paid: true }, { id: 'c2', cat: 'other', what: 'Show "Mystere"', amt: 120, paid: false }];
+      tr.spends = [{ id: 's1', day: '2026-10-21', amt: 45, cat: 'Food', note: '' }, { id: 's2', day: '2026-10-21', amt: 45, cat: 'food', note: '' }, { id: 's3', day: '2026-10-21', amt: 45, cat: 'Spa', note: '' }];
+      tr.refunds = [{ id: 'r1', what: 'Shuttle', from: 'Mears', amt: 40, asked: '2026-10-21', expect: '', got: '' }];
+      tr.split = { people: ['Scott', 'Roxanne'], by: { 'p:p1': 'Scott', 's:s3': 'Roxanne' }, for: { 's:s3': 'Roxanne' } };
+      save(); S.tripTab = 'onboard'; shellGo('wallet'); })()""")
+    check("same day + amount + kind (any case) = one 'logged twice?' group", a.js("spendDupes(curTrip()).map(g => g.map(x => x.id).join())") == ["s1,s2"])
+    c = a.page.inner_text('[data-card="trips"]')
+    check("Spending tab warns: Logged twice? $45.00 Food on Oct 21 × 2", "Logged twice? $45.00 Food on Oct 21 × 2" in c, c[:700])
+    tid = a.js("curTrip().id")
+    a.page.click(f'[data-dupeok="{tid}|s1,s2"]'); a.page.wait_for_timeout(100)
+    check("'Both are real' clears the warning and keeps both", a.js("spendDupes(curTrip()).length") == 0 and a.js("curTrip().spends.length") == 3 and "Logged twice" not in a.page.inner_text('[data-card="trips"]'))
+    a.js("curTrip().spends.forEach(x => delete x.dupeOk); save(); render()")
+    a.page.click(f'[data-dupedel="{tid}|s2"]'); a.page.wait_for_timeout(100)
+    check("'Remove one' drops the extra (undoable)", a.js("curTrip().spends.map(x => x.id)") == ["s1", "s3"] and a.js("spendDupes(curTrip()).length") == 0)
+    csv = a.js("moneyCsv(curTrip())").replace("\r\n", "\n").split("\n")
+    check("CSV header + date order + quoting of commas / quotes",
+          csv[0] == "Date,Type,Kind,What,Amount,Status,Paid by,For" and csv[1] == "2026-09-01,Trip payment,fare,deposit,900.00,paid,Scott,everyone"
+          and '2026-10-21,Spending,Spa,,45.00,paid,Roxanne,Roxanne' in csv and '2026-10-21,Refund,Mears,Shuttle,-40.00,owed,,' in csv
+          and ',Cost,Hotel,"Resort fee, 3 nights",300.00,paid,,' in csv and ',Cost,Other,"Show ""Mystere""",120.00,not paid,,' in csv, csv)
+    check("total = paid lines (unpaid cost + refund still owed left out): $1,290.00", ",Total spent (paid less refunds back),,,1290.00" in csv, csv[-3:])
+    a.js("S.tripTab = 'money'; render()")
+    with a.page.expect_download() as dl:
+        a.page.click(f'[data-card="trips"] [data-moneyexport="{tid}"]')
+    d = dl.value
+    body = open(d.path(), encoding="utf-8-sig").read()
+    check("Money tab button downloads 'Orlando money 2026-10-22.csv'", d.suggested_filename == "Orlando money 2026-10-22.csv" and body.startswith("Date,Type"), d.suggested_filename)
+    a.close()
+
+
 def t_v109_port_wx_alerts(b, base):
     print("\n[v1.09 port-day weather notifications: 7 AM on the day, 8 PM the night before only with a warning]")
     a = App(b, base, path=CRUISE, at="2026-10-01T06:00:00")                # sail day, before 7 AM
@@ -3413,7 +3453,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export):
             try:
                 t(b, base)
             except Exception as e:

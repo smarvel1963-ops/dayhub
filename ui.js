@@ -264,13 +264,15 @@ const CARDS = {
             <input name="what" placeholder="What (e.g. Westgate, 2 nights)" autocomplete="off"><input name="amt" type="number" step="0.01" min="0" inputmode="decimal" placeholder="$" required>
             <label class="paidbox"><input type="checkbox" name="paid" value="1"> paid</label><button class="btn sm">Add</button></form>`
           + (typeof splitHtml === "function" ? splitHtml(tr) : "")                        // v1.13 split the cost (trip.js)
-          + (typeof refundsHtml === "function" ? refundsHtml(tr) : "");                   // v1.15 refunds owed (trip.js)
+          + (typeof refundsHtml === "function" ? refundsHtml(tr) : "")                    // v1.15 refunds owed (trip.js)
+          + (typeof exportMoney === "function" ? `<button class="add-link" data-moneyexport="${tr.id}">📤 Export the trip's money (CSV for Excel / Sheets)</button>` : "");   // v1.19
       } else if (tab === "onboard") {
         const spent = tripSpent(tr), bud = Number(tr.onboardBudget || 0), gr = gratEstimate(tr);
         const cats = {}; (tr.spends || []).forEach(x => { cats[x.cat] = (cats[x.cat] || 0) + Number(x.amt || 0); });
         body = `<div class="paygrid"><div class="fact">Budget<b>${bud ? money(bud) : "--"}</b></div><div class="fact">Spent<b>${money(spent)}</b></div>
             <div class="fact ${bud && spent > bud ? "" : "take"}">Left<b>${bud ? money(bud - spent) : "--"}</b></div></div>`;
         if (bud && spent > bud) body += `<div class="bstat over" style="margin-top:8px">⚠ ${money(spent - bud)} over your onboard budget.</div>`;
+        if (typeof dupesHtml === "function") body += dupesHtml(tr);                     // v1.19 logged twice?
         if (isCruise(tr)) { const credit = Number(tr.credit || 0), bal = spent + gr - credit;
           body += `<div class="today-line" style="margin-top:8px">🧾 Ship account: <b>${money(bal)}</b> <span class="sub" style="display:inline">(spent ${money(spent)} + gratuities ${money(gr)}${credit ? ` − credit ${money(credit)}` : ""})</span></div>`;
           if (tr.end && daysUntil(tr.end) <= 1) body += `<label class="row"><input type="checkbox" class="tick" data-tverify="${tr.id}" ${tr.accountVerified ? "checked" : ""}><span class="grow">Final ship account checked — charges match</span></label>`;

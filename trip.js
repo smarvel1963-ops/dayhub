@@ -179,6 +179,7 @@ function tripClick(ds) {
   if (driveClick(ds)) return true;                                         // v1.16 road trip brain
   if (freeClick(ds)) return true;                                          // v1.17 free time finder
   if (voteClick(ds)) return true;                                          // v1.18 group vote
+  if (exportClick(ds)) return true;                                        // v1.19 money export + double entries
   if (ds.lvpreset) { const i = document.querySelector('#bookSheet [name="lv_check"]'); if (i) i.value = ds.lvpreset; return true; }   // v1.12
   if (ds.bkadd) { showBookingForm(ds.bkadd); return true; }
   if (ds.bkopen) { hideSheet("daySheet"); showBooking(ds.bkopen); return true; }
@@ -1317,4 +1318,54 @@ function voteClick(ds) {
 function voteSubmit(f, data) {
   if (!f.dataset.voteppl) return false;
   splitSetPeople(f.dataset.voteppl, data.names || ""); showVote(f.dataset.voteppl); toast("👥 Saved"); return true;
+}
+
+// ------------------------------------------------------------ MONEY EXPORT + DOUBLE-ENTRY CHECK (v1.19)
+// Blueprint 4.2 "Duplicate expense detection; Expense export" + 4.5 "Spending report; Export for personal records".
+// One CSV (opens in Excel / Google Sheets / Numbers) with every money line of the trip: payments, costs, spending,
+// refunds, plus who paid and who it was for (Split the cost). And a check for spending logged twice: the same
+// amount on the same day in the same kind - shown in Spending with one tap to remove the extra. Saved on the
+// phone only; nothing is sent anywhere.
+const csvCell = v => { const s = String(v ?? ""); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+function moneyRows(tr) {
+  const X = splitOf(tr), who = k => [X.by[k] || "", X.for[k] || (X.by[k] ? "everyone" : "")], R = [];
+  (tr.payments || []).forEach(x => R.push([x.day || "", `${trCruise(tr) ? "Cruise" : "Trip"} payment`, "fare", x.note || "", Number(x.amt) || 0, "paid", ...who(`p:${x.id}`)]));
+  (tr.costs || []).forEach(x => R.push(["", "Cost", costLabel(x.cat).replace(/^\S+\s/, ""), x.what || "", Number(x.amt) || 0, x.paid ? "paid" : "not paid", ...who(`c:${x.id}`)]));
+  (tr.spends || []).forEach(x => R.push([x.day || "", "Spending", x.cat || "", x.note || "", Number(x.amt) || 0, "paid", ...who(`s:${x.id}`)]));
+  tripRefunds(tr).forEach(x => R.push([x.got || x.asked || "", "Refund", x.from || "", x.what || "", -(Number(x.amt) || 0), x.got ? "back" : "owed", "", ""]));
+  return R.sort((a, b) => (a[0] || "9").localeCompare(b[0] || "9"));
+}
+function moneyCsv(tr) {
+  const R = moneyRows(tr), sum = R.filter(r => r[5] !== "not paid" && r[5] !== "owed").reduce((n, r) => n + r[4], 0);
+  return [["Date", "Type", "Kind", "What", "Amount", "Status", "Paid by", "For"], ...R.map(r => [r[0], r[1], r[2], r[3], r[4].toFixed(2), r[5], r[6], r[7]]),
+    [], ["", "Total spent (paid less refunds back)", "", "", sum.toFixed(2)]].map(r => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
+}
+function exportMoney(id) {
+  const tr = S.trips.find(t => t.id === id); if (!tr) return;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["﻿" + moneyCsv(tr)], { type: "text/csv" }));       // BOM so Excel reads the emoji / accents
+  a.download = `${(tr.name || "trip").replace(/[^\w ]+/g, "").trim().slice(0, 40) || "trip"} money ${today()}.csv`;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  toast("📤 Saved — open it in Excel or Google Sheets");
+}
+// Spending logged twice: same day + same amount + same kind ("Both are real" stamps each one apart). Groups of 2+.
+function spendDupes(tr) {
+  const g = {};
+  (tr.spends || []).forEach(x => { const k = `${x.day}|${Number(x.amt).toFixed(2)}|${String(x.cat || "").toLowerCase()}|${x.dupeOk || ""}`; (g[k] = g[k] || []).push(x); });
+  return Object.values(g).filter(a => a.length > 1);
+}
+function dupesHtml(tr) {
+  return spendDupes(tr).map(a => `<div class="bstat tight dupe">⚠️ Logged twice? ${money(a[0].amt)} ${esc(a[0].cat)} on ${prettyDate(a[0].day)} × ${a.length}
+    <button class="btn sm ghost" data-dupedel="${tr.id}|${a[a.length - 1].id}">Remove one</button> <button class="btn sm ghost" data-dupeok="${tr.id}|${a.map(x => x.id).join(",")}">Both are real</button></div>`).join("");
+}
+function exportClick(ds) {
+  if (ds.moneyexport) { exportMoney(ds.moneyexport); return true; }
+  if (ds.dupedel) { const [id, sid] = ds.dupedel.split("|"), tr = S.trips.find(t => t.id === id); if (!tr) return true;
+    snap(); tr.spends = (tr.spends || []).filter(x => x.id !== sid);
+    if (tr.split && tr.split.by) { delete tr.split.by[`s:${sid}`]; if (tr.split.for) delete tr.split.for[`s:${sid}`]; }
+    save(); render(); toast("Removed the extra one", true); return true; }
+  if (ds.dupeok) { const [id, ids] = ds.dupeok.split("|"), tr = S.trips.find(t => t.id === id); if (!tr) return true;
+    snap(); const keep = new Set(ids.split(",")); tr.spends = (tr.spends || []).map(x => keep.has(x.id) ? { ...x, dupeOk: x.dupeOk || uid() } : x);
+    save(); render(); return true; }
+  return false;
 }
