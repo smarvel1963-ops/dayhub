@@ -30,6 +30,17 @@ function bookTitle(b) {
   if (b.kind === "train") return `${b.a || "?"} → ${b.b || "?"}`;
   return b.a || K.label;
 }
+// ---- LEAVE-TIME ENGINE (v1.12, blueprint #55: "Every scheduled event can have: event time, travel time, parking,
+// walking, check-in, security, buffer. Then Trip Hub calculates: LEAVE AT 5:42 PM. Not: Dinner at 6:30.")
+// b.leave = { drive, park, check, buf } in minutes, typed by the traveler - never guessed, nothing looked up.
+const LEAVE_PARTS = [["drive", "🚗 Getting there"], ["park", "🅿️ Park + walk"], ["check", "🛂 Check-in / security"], ["buf", "⏳ Extra buffer"]];
+const leaveMins = b => LEAVE_PARTS.reduce((n, [k]) => n + (Number((b.leave || {})[k]) || 0), 0);
+function leaveAt(b) {                                                       // { day, t } or null (no minutes = no leave time)
+  const m = leaveMins(b); if (!m || !b.day || !b.t) return null;
+  const d = parseDay(b.day); const [h, mi] = b.t.split(":").map(Number); d.setHours(h, mi - m, 0, 0);
+  return { day: ymd(d), t: `${pad(d.getHours())}:${pad(d.getMinutes())}`, mins: m };
+}
+const leaveWhy = b => LEAVE_PARTS.filter(([k]) => Number((b.leave || {})[k]) > 0).map(([k, l]) => `${l.split(" ")[0]} ${Number(b.leave[k])} min`).join(" + ");
 // Sorted by when they start (undated last).
 const bookingsSorted = tr => tripBookings(tr).slice().sort((x, y) => `${x.day || "9"}${x.t || "99"}`.localeCompare(`${y.day || "9"}${y.t || "99"}`));   // untimed after timed, same day
 
@@ -38,6 +49,8 @@ function bookingItems(tr, day) {
   const out = [];
   tripBookings(tr).forEach(b => {
     const K = bookKind(b), title = bookTitle(b);
+    const L = leaveAt(b);
+    if (L && L.day === day) out.push({ t: L.t, title: `Leave for ${title}`, sub: `${K.start === "Time" ? "" : K.start.toLowerCase() + " "}${hm(b.t)} · ${leaveWhy(b)}`, kind: "book", icon: "🚪", bk: b.id, trip: tr.id });
     if (b.day === day) out.push({ t: b.t || null, title: `${K.start === "Time" ? "" : K.start + " — "}${title}`, sub: [K.label, b.num && b.kind !== "flight" ? b.num : ""].filter(Boolean).join(" · "), kind: "book", icon: K.icon, bk: b.id, trip: tr.id });
     const ed = b.endDay || (b.endT ? b.day : "");                          // a flight that lands the same day
     if (K.end && ed === day && (ed !== b.day || b.endT))
@@ -95,6 +108,7 @@ function showBooking(id) {
     <p class="fine" style="margin-top:0">${esc(K.label)} · ${esc(tr.name)}</p>
     ${row(K.start, b.day ? `${dayName(b.day)} ${prettyDate(b.day)}${b.t ? " · " + hm(b.t) : ""}` : "")}
     ${K.end ? row(K.end, b.endDay || b.endT ? [b.endDay && `${dayName(b.endDay)} ${prettyDate(b.endDay)}`, b.endT && hm(b.endT)].filter(Boolean).join(" · ") : "") : ""}
+    ${(L => L ? `<div class="today-line leave-line">⏰ <b>LEAVE AT ${hm(L.t)}</b>${L.day !== b.day ? ` (${dayName(L.day)})` : ""}<span class="sub">${esc(leaveWhy(b))} = ${L.mins} min before ${hm(b.t)}</span></div>` : "")(leaveAt(b))}
     ${row(K.a.replace(/ \(.*\)/, ""), esc(b.a || ""))}${row(K.b.replace(/ \(.*\)/, ""), esc(b.b || ""))}
     ${row(K.num.replace(/ \(.*\)/, ""), esc(b.num || ""))}${row("Phone", telLinks(b.phone || ""))}
     ${Number(b.cost) > 0 ? row("Cost", `${money(Number(b.cost))} · ${b.paid ? "paid ✓" : "not paid yet"}`) : ""}
@@ -123,6 +137,11 @@ function showBookingForm(kind, id, draft) {
       <div class="two"><input name="cost" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Cost $ (optional)" value="${v("cost")}">
         <label class="field" style="margin:0;flex-direction:row;align-items:center;gap:8px"><input name="paid" type="checkbox" value="1" ${b.paid ? "checked" : ""} style="width:auto"> Paid</label></div>
       <input name="note" placeholder="Note (seat, room type, what to bring…)" value="${v("note")}" autocomplete="off">
+      <details class="leave-box" ${leaveMins(b) ? "open" : ""}><summary>⏰ Leave time — how long to get there?</summary>
+        <div class="two">${LEAVE_PARTS.map(([k, l]) => `<label class="field" style="margin:0">${l} (min)<input name="lv_${k}" type="number" min="0" max="1440" step="5" inputmode="numeric" value="${esc(String((b.leave || {})[k] || ""))}"></label>`).join("")}</div>
+        ${b.kind === "flight" ? `<div class="foot-actions" style="flex-wrap:wrap"><button type="button" class="chip" data-lvpreset="120">Domestic: at the airport 2 hr early</button><button type="button" class="chip" data-lvpreset="180">International: 3 hr</button></div>
+        <p class="fine">Most airlines suggest about 2 hours for US flights and 3 for international — check yours.</p>` : ""}
+        <p class="fine">${esc(APP_NAME)} adds these up and tells you when to LEAVE. You know your drive best — nothing is looked up.</p></details>
       <button class="btn">${b0 ? "Save" : "Add"}</button>
       <div class="hint">${esc(APP_NAME)} never asks for card numbers. A cost here is added to the trip's money.</div></form></div>`;
   el.classList.remove("hidden");
@@ -132,7 +151,8 @@ function saveBooking(f, d) {
   const tr = S.trips.find(x => x.id === BK_TRIP); if (!tr) return;
   snap(); tr.bookings = tripBookings(tr).slice();
   const fields = { kind: f.dataset.bkform, a: (d.a || "").trim(), b: (d.b || "").trim(), day: d.day || "", t: d.t || "", endDay: d.endDay || "", endT: d.endT || "",
-    num: (d.num || "").trim(), phone: (d.phone || "").trim(), cost: Number(d.cost || 0) || null, paid: d.paid === "1", note: (d.note || "").trim() };
+    num: (d.num || "").trim(), phone: (d.phone || "").trim(), cost: Number(d.cost || 0) || null, paid: d.paid === "1", note: (d.note || "").trim(),
+    leave: Object.fromEntries(LEAVE_PARTS.map(([k]) => [k, Math.max(0, Math.min(1440, Math.round(Number(d["lv_" + k]) || 0)))]).filter(([, n]) => n > 0)) };
   let b = tr.bookings.find(x => x.id === f.dataset.bkid);
   if (b) Object.assign(b, fields); else { b = { id: uid(), ...fields }; tr.bookings.push(b); }
   syncBookingCost(tr, b); save(); hideSheet("bookSheet"); render(); buzz(); toast(`${bookKind(b).icon} Saved ✓`, true);
@@ -149,6 +169,7 @@ function tripClick(ds) {
   if (diaryClick(ds)) return true;                                         // v1.01 trip diary
   if (funClick(ds)) return true;                                           // v1.04 Fun Finder
   if (fixClick(ds)) return true;                                           // v1.11 Fix my trip
+  if (ds.lvpreset) { const i = document.querySelector('#bookSheet [name="lv_check"]'); if (i) i.value = ds.lvpreset; return true; }   // v1.12
   if (ds.bkadd) { showBookingForm(ds.bkadd); return true; }
   if (ds.bkopen) { hideSheet("daySheet"); showBooking(ds.bkopen); return true; }
   if (ds.bkedit) { showBookingForm(null, ds.bkedit); return true; }
@@ -784,4 +805,15 @@ function fixSubmit(f, data) {
   if (how === "time" && (!data.day || !data.t)) { toast("Pick the new date and time"); return true; }
   FIX.impact = fixImpact(tr, f.dataset.fixform, { how, mins: Number(data.mins) || 60, day: data.day, t: data.t });
   showFix("review"); return true;
+}
+
+// Leave-time reminders (v1.12, blueprint #56 "Notifications must be ruthless ... Leave for airport in 30 min.
+// Dinner requires leaving in 20 min."): two per booking that has a leave time - 30 min before, and LEAVE NOW.
+function leaveReminders(add, inWin) {
+  myTrips().forEach(tr => tripBookings(tr).forEach(b => {
+    const L = leaveAt(b); if (!L || !inWin(L.day)) return;
+    const at = atMs(L.day, L.t), K = bookKind(b), what = `${K.icon} ${bookTitle(b)}`;
+    add(`lv:${b.id}:${L.day}${L.t}:30`, at, at - 30 * 60000, `⏰ Leave in 30 min — ${what}`, `Leave at ${hm(L.t)} for ${K.start === "Time" ? "" : K.start.toLowerCase() + " "}${hm(b.t)} (${leaveWhy(b)}).`);
+    add(`lv:${b.id}:${L.day}${L.t}:go`, at + 30 * 60000, at, `🚪 Leave now — ${what}`, `${K.start === "Time" ? "It's" : K.start} at ${hm(b.t)}${b.b ? ` · ${b.b}` : ""}.`);
+  }));
 }

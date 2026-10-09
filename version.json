@@ -1,6 +1,9 @@
 {
- "version": "1.11",
+ "version": "1.12",
  "notes": {
+  "1.12": [
+   "⏰ Leave time: on any booking, add how long it takes to get there — drive, park + walk, check-in / security, extra buffer — and it shows LEAVE AT 4:25 AM, puts a 🚪 Leave row on your day, and reminds you 30 min before and when it's time to go. Flights have quick picks for 2 hr (US) or 3 hr (international) at the airport."
+  ],
   "1.11": [
    "🔄 Fix my trip: flight late, something moved or canceled? Tap 🛟 → FIX MY TRIP (or 🔄 This changed on any booking). You'll see what it knocks out — the car pick-up, the hotel arrival, dinner, your plans — tick what to change, and get a call list with the numbers. Nothing is booked or canceled for you. Bookings also warns when two things are already too close together."
   ],

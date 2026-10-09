@@ -682,3 +682,7 @@ body.shell .bubbles { margin: 10px 0 12px; gap: 8px 6px; }
 .scene-picks { display: flex; flex-wrap: wrap; gap: 6px; }
 .scene-picks .chip { background: var(--card-solid); border: 1px solid var(--line); color: var(--text); cursor: pointer; min-height: 36px; }
 .scene-picks .chip.on { border-color: var(--accent); background: rgba(94,234,212,.18); font-weight: 700; }
+/* v1.12 leave-time engine */
+.leave-line { border-left: 3px solid var(--accent, #ffd166); padding-left: 8px; }
+.leave-line .sub { display: block; }
+.leave-box { margin: 6px 0; } .leave-box summary { cursor: pointer; padding: 6px 0; color: var(--muted, #aab); }

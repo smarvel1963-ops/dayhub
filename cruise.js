@@ -73,6 +73,7 @@ function carChip(tr) {
 }
 // Extra reminders (called from reminderList): the safe + bag check on the final evening.
 function cruiseReminders(add, inWin) {
+  if (typeof leaveReminders === "function") leaveReminders(add, inWin);    // v1.12 leave-time engine (trip.js), every trip
   myTrips().filter(tr => isCruise(tr) && tr.end).forEach(tr => {
     const d = addDays(tr.end, -1);
     if (inWin(d) && !tr.safeEmpty && tr.homeDone !== tr.end)
