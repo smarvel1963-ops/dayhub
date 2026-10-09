@@ -288,6 +288,7 @@ const CARDS = {
             `<div class="fine">From <a href="${PKG_SRC}" target="_blank" rel="noopener" style="color:var(--accent)">Princess's package terms</a> (sailings from Jan 14, 2026). Your own booking's terms win if they differ.</div>
              <form class="inline-add" data-drink="${tr.id}"><input name="price" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Drink price $ — is it included?" required><button class="btn sm">Check</button></form>`
           : `<div class="empty">Custom package: add what your drinks / dining / Wi-Fi package includes below${linePkgs(tr.line).length ? ` — or pick your line's package on the trip (Edit → Package) to fill it in` : ""}.</div>`;
+        if (isCruise(tr)) body += `<button class="add-link" data-pkgcalc="1">🧮 Is a package worth it for us? Buy or skip</button>`;   // v1.05
         body += `<div class="day-label" style="margin-top:12px">Use it before you lose it</div>` + ((tr.perks || []).length ? tr.perks.map(x => {
             const left = x.total ? x.total - x.used : null;
             return `<div class="row"><span class="grow">${esc(x.name)}<span class="sub">${x.unit === "$" ? `${money(x.used)} used${x.total ? ` of ${money(x.total)}` : " — set the amount ✏️"}` : `${x.used} of ${x.total} used`}</span></span>

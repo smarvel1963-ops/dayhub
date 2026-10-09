@@ -1,6 +1,9 @@
 {
- "version": "1.04",
+ "version": "1.05",
  "notes": {
+  "1.05": [
+   "🧮 Package: buy or skip? (Wallet → Perks): type the package price from your cruise line's offer and how you'd really use it — drinks, coffee, water, Wi-Fi, specialty dining, photos — and Cruise Hub tells you BUY, SKIP or close call, how much you'd save, and how many drinks a day it takes to break even. Your own prices, your own answer."
+  ],
   "1.04": [
    "🎉 Fun Finder: tap a day and add what's on the ship's daily planner (or your trip's day) — then ❤️ must see, 👍 interested or — skip. Your day builds itself around the ❤️, adds the 👍 that fit, keeps the rest as backups, warns when two must-sees overlap, and on port days tells you what falls while you're ashore. Your picks show on your schedule."
   ],

@@ -87,6 +87,7 @@ function cruiseClick(ds) {
   if (onboardClick(ds)) return true;                                        // v0.60 onboarding
   if (phaseClick(ds)) return true;                                          // v0.61 on board
   if (billClick(ds)) return true;                                           // v1.03 final bill check
+  if (pkgCalcClick(ds)) return true;                                        // v1.05 package buy or skip
   if (ds.gohome) { showGoHome(); return true; }
   if (ds.ghclose) { hideSheet("ghSheet"); return true; }
   if (ds.ghgo) { const tr = curTrip(); hideSheet("ghSheet");
@@ -110,6 +111,7 @@ function cruiseSubmit(f, data) {
   if (helpSubmit(f, data)) return true;                                     // v0.57 crisis mode
   if (onboardSubmit(f, data)) return true;                                  // v0.60 paste my confirmation
   if (billSubmit(f, data)) return true;                                     // v1.03 final bill check
+  if (pkgCalcSubmit(f, data)) return true;                                  // v1.05 package buy or skip
   if (!f.dataset.car) return false;
   const tr = S.trips.find(x => x.id === f.dataset.car); if (!tr) return true;
   const c = { where: String(data.where || "").trim(), level: String(data.level || "").trim(), spot: String(data.spot || "").trim() };
@@ -468,4 +470,87 @@ function billSubmit(f, data) {
   const v = Number(data.amt); if (!isFinite(v) || data.amt === "") return true;
   snap(); tr.billSeen = Math.round(v * 100) / 100;
   save(); render(); showBill(); return true;
+}
+
+// ------------------------------------------------------------ PACKAGE: BUY OR SKIP? (v1.05)
+// Cruise Hub plan (10/4): '"Should I Buy This Package?" ... User answers maybe six questions: alcoholic
+// drinks/day? Specialty coffees? Bottled water? Need Wi-Fi? Specialty dining? Want photos? -> BUY SEPARATELY $X /
+// PACKAGE $Y -> BUY PACKAGE or SKIP PACKAGE' + "package rules change ... pull the current rules for that cruise
+// rather than hard-code old information". So NO line's prices are built in: the traveler types the package's
+// price from their own offer and the prices on their ship's menu (starting numbers are only a guess to change).
+// What the package covers is ticked by them - pre-ticked only from the app's VERIFIED presets (Princess Plus /
+// Premier: drink price cap, Wi-Fi, gratuities, Premier's photos + specialty dining). Per person. tr.pkgCalc keeps
+// the answers. Service charges are left out on purpose: they usually apply to both sides, so the answer holds.
+const PKG_DEF = { drinks: 3, drinkPr: 14, coffee: 1, coffeePr: 5, water: 2, waterPr: 4, wifiPr: 20, dinners: 0, dinnerPr: 50, photos: 0 };
+const PKG_INC = [["incDrinks", "🍹 Drinks"], ["incCoffee", "☕ Specialty coffee"], ["incWater", "💧 Bottled water / soda"], ["incWifi", "📶 Wi-Fi"],
+  ["incGrats", "🧾 Crew gratuities"], ["incDining", "🍽️ Specialty dining"], ["incPhotos", "📸 Photos"]];
+function pkgCalcVals(tr) {
+  const P = pkgOf(tr), c = tr.pkgCalc || {}, n = k => (c[k] !== undefined && c[k] !== "" && isFinite(Number(c[k])) ? Number(c[k]) : null);
+  const pre = { incDrinks: !!P, incCoffee: false, incWater: !!P, incWifi: !!P, incGrats: !!(P && P.gratsPaid), incDining: tr.pkg === "princess-premier", incPhotos: tr.pkg === "princess-premier" };
+  const v = { days: n("days") ?? (tripNights(tr) || 7), price: n("price"), cap: n("cap") ?? (P ? P.drinkCap : null), wifi: c.wifi !== undefined ? !!c.wifi : true };
+  Object.keys(PKG_DEF).forEach(k => { v[k] = n(k) ?? PKG_DEF[k]; });
+  PKG_INC.forEach(([k]) => { v[k] = c[k] !== undefined ? !!c[k] : pre[k]; });
+  return v;
+}
+// what the package is worth to THIS traveler, per person
+function pkgWorth(v) {
+  const drink = v.cap ? Math.min(v.drinkPr, v.cap) : v.drinkPr, parts = [];
+  const add = (on, label, amt) => { if (on && amt > 0) parts.push([label, Math.round(amt * 100) / 100]); };
+  add(v.incDrinks, `Drinks: ${v.drinks} a day × ${money(drink)}${v.cap && v.drinkPr > v.cap ? ` (package covers up to ${money(v.cap)})` : ""}`, v.days * v.drinks * drink);
+  add(v.incCoffee, `Specialty coffee: ${v.coffee} a day × ${money(v.coffeePr)}`, v.days * v.coffee * v.coffeePr);
+  add(v.incWater, `Water / soda: ${v.water} a day × ${money(v.waterPr)}`, v.days * v.water * v.waterPr);
+  add(v.incWifi && v.wifi, `Wi-Fi: ${money(v.wifiPr)} a day`, v.days * v.wifiPr);
+  add(v.incGrats, `Crew gratuities: ~${money(GRAT_PER_DAY)} a day`, v.days * GRAT_PER_DAY);
+  add(v.incDining, `Specialty dining: ${v.dinners} × ${money(v.dinnerPr)}`, v.dinners * v.dinnerPr);
+  add(v.incPhotos, "Photos you'd buy anyway", v.photos);
+  const value = Math.round(parts.reduce((s, p) => s + p[1], 0) * 100) / 100, cost = v.price ? Math.round(v.price * v.days * 100) / 100 : null;
+  const rest = value - (v.incDrinks ? v.days * v.drinks * drink : 0);
+  const even = cost && v.incDrinks && drink > 0 ? Math.max(0, Math.ceil(((cost - rest) / v.days / drink) * 10) / 10) : null;   // drinks a day to break even
+  const verdict = cost === null ? null : value >= cost * 1.1 ? "buy" : value <= cost * 0.9 ? "skip" : "close";
+  return { parts, value, cost, even, verdict, drink };
+}
+function showPkgCalc() {
+  const tr = curTrip(); if (!tr) return;
+  let el = document.getElementById("pkgSheet");
+  if (!el) { el = document.createElement("div"); el.id = "pkgSheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Package: buy or skip"); document.body.appendChild(el); }
+  const v = pkgCalcVals(tr), W = pkgWorth(v), P = pkgOf(tr), n = Number(tr.travelers) || 1;
+  const num = (k, label, step = "1") => `<label class="field" style="margin:0">${label}<input name="${k}" type="number" min="0" step="${step}" inputmode="decimal" value="${v[k] ?? ""}"></label>`;
+  const verdict = !W.verdict ? `<div class="today-line sub">Type the package price (per person, per day) from your cruise line's offer to get the answer.</div>`
+    : `<div class="bstat ${W.verdict === "buy" ? "ok" : W.verdict === "skip" ? "over" : "tight"}"><b>${W.verdict === "buy" ? `✅ BUY THE PACKAGE — you'd save about ${money(W.value - W.cost)}` : W.verdict === "skip" ? `⛔ SKIP IT — paying as you go saves about ${money(W.cost - W.value)}` : "🤝 CLOSE CALL — about even"}</b>
+        <br>Buy separately: <b>${money(W.value)}</b> · Package: <b>${money(W.cost)}</b> <span class="sub" style="display:inline">(per person, ${v.days} days)</span>
+        ${n > 1 ? `<br>For ${n} of you: ${money(W.value * n)} vs ${money(W.cost * n)}` : ""}
+        ${W.verdict === "close" ? "<br>Buy it if you'd rather not think about every drink; skip it if you'd rather keep the money." : ""}
+        ${W.even !== null ? `<br>Break-even: about <b>${W.even} drinks a day</b> at ${money(W.drink)}.` : ""}</div>`;
+  el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
+    <div class="sheet-head"><h2>🧮 Package: buy or skip?</h2><button class="icon-btn" data-pkgclose="1" aria-label="Close">✕</button></div>
+    ${verdict}
+    ${W.parts.length ? `<div class="day-label" style="margin-top:8px">What it's worth to you</div>${W.parts.map(([l, a]) => `<div class="row"><span class="grow">${esc(l)}</span><b>${money(a)}</b></div>`).join("")}` : ""}
+    <form class="qa-form" data-pkgcalc="${tr.id}" style="margin-top:10px">
+      <div class="day-label">The package${P ? ` — ${esc(P.name)}` : ""}</div>
+      <div class="two">${num("price", "Price per person / day $", "0.01")}${num("days", "Days")}</div>
+      <div class="two">${num("cap", "Drink price limit $ (blank = none)", "0.01")}<span></span></div>
+      <div class="pkg-inc">${PKG_INC.map(([k, l]) => `<label><input type="checkbox" name="${k}" value="1" ${v[k] ? "checked" : ""}> ${l}</label>`).join("")}</div>
+      <div class="day-label" style="margin-top:8px">How you'd really use it (per person)</div>
+      <div class="two">${num("drinks", "🍹 Drinks a day", "0.5")}${num("drinkPr", "Usual drink $", "0.01")}</div>
+      <div class="two">${num("coffee", "☕ Coffees a day", "0.5")}${num("coffeePr", "Coffee $", "0.01")}</div>
+      <div class="two">${num("water", "💧 Waters / sodas a day", "0.5")}${num("waterPr", "Each $", "0.01")}</div>
+      <div class="two"><label class="field" style="margin:0;flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="wifi" value="1" ${v.wifi ? "checked" : ""} style="width:auto"> I'd buy Wi-Fi anyway</label>${num("wifiPr", "Wi-Fi $ a day", "0.01")}</div>
+      <div class="two">${num("dinners", "🍽️ Specialty dinners")}${num("dinnerPr", "Each $", "0.01")}</div>
+      <div class="two">${num("photos", "📸 Photos you'd buy $", "0.01")}<span></span></div>
+      <button class="btn">Work it out</button></form>
+    <p class="fine">The starting prices are only a guess — change them to what's on your ship's menu or the cruise line's app. Packages change often: check your own offer's terms (some lines want everyone in the cabin on the same package). Service charges usually apply both ways, so they don't change the answer.</p></div>`;
+  el.classList.remove("hidden");
+}
+function pkgCalcClick(ds) {
+  if (ds.pkgcalc) { showPkgCalc(); return true; }
+  if (ds.pkgclose) { hideSheet("pkgSheet"); return true; }
+  return false;
+}
+function pkgCalcSubmit(f, data) {
+  if (!f.dataset.pkgcalc) return false;
+  const tr = S.trips.find(x => x.id === f.dataset.pkgcalc); if (!tr) return true;
+  const c = {};
+  ["price", "days", "cap"].concat(Object.keys(PKG_DEF)).forEach(k => { c[k] = data[k] === undefined ? "" : String(data[k]).trim(); });
+  PKG_INC.forEach(([k]) => { c[k] = data[k] === "1"; }); c.wifi = data.wifi === "1";
+  snap(); tr.pkgCalc = c; save(); showPkgCalc(); return true;
 }

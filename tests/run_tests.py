@@ -2837,6 +2837,45 @@ def t_v104_fun_finder(b, base):
     a.close()
 
 
+def t_v105_package_calc(b, base):
+    print("\n[v1.05 package: buy or skip - what it's worth to YOU vs what it costs, no line prices built in]")
+    a = App(b, base, path=CRUISE)
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Bahamas", "start": "2026-11-12", "end": "2026-11-19", "line": "Carnival", "travelers": "2"})
+    a.page.wait_for_timeout(150)
+    a.js("S.tripTab = 'perks'; shellGo('wallet')")
+    check("Wallet -> Perks has the buy-or-skip button", a.js("!!document.querySelector('[data-card=\"trips\"] [data-pkgcalc]')"))
+    a.page.click('[data-card="trips"] [data-pkgcalc]'); a.page.wait_for_timeout(120)
+    s = a.page.inner_text("#pkgSheet")
+    check("no price yet = no answer, asks for the offer's price; custom line = nothing pre-ticked; 7 days from the trip",
+          "Type the package price" in s and a.js("document.querySelectorAll('#pkgSheet .pkg-inc input:checked').length") == 0
+          and a.page.input_value('#pkgSheet [name=days]') == "7", s[:500])
+    def run(vals, ticks):
+        for k, v in vals.items(): a.page.fill(f'#pkgSheet form[data-pkgcalc] [name={k}]', str(v))
+        for k in ["incDrinks", "incCoffee", "incWater", "incWifi", "incGrats", "incDining", "incPhotos"]:
+            a.page.set_checked(f'#pkgSheet [name={k}]', k in ticks)
+        a.page.click('#pkgSheet form[data-pkgcalc] button.btn'); a.page.wait_for_timeout(120)
+        return a.page.inner_text("#pkgSheet")
+    T = ["incDrinks", "incWater", "incWifi"]
+    s = run({"price": 70, "drinks": 3}, T)                                   # 3x14 + 2x4 + 20 = 70 a day = the price
+    check("worth $70 a day vs $70 a day: CLOSE CALL, $490.00 both sides, for 2 of you $980.00", "CLOSE CALL" in s and "$490.00" in s and "For 2 of you: $980.00 vs $980.00" in s, s[:600])
+    s = run({"drinks": 6}, T)                                                # 84 + 8 + 20 = 112 a day -> 784
+    check("6 drinks a day: BUY, save about $294.00, break-even 3 drinks a day", "BUY THE PACKAGE" in s and "$294.00" in s and "3 drinks a day" in s, s[:600])
+    s = run({"drinks": 1}, T)                                                # 14 + 8 + 20 = 42 -> 294
+    check("1 drink a day: SKIP, paying as you go saves about $196.00", "SKIP IT" in s and "$196.00" in s, s[:600])
+    check("answers are kept on the trip", a.js("curTrip().pkgCalc.drinks") == "1" and a.js("curTrip().pkgCalc.incWifi") is True and a.js("curTrip().pkgCalc.incGrats") is False)
+    w = a.js("pkgWorth({ days: 7, price: 80, cap: 20, wifi: true, drinks: 4, drinkPr: 25, coffee: 0, coffeePr: 5, water: 0, waterPr: 4, wifiPr: 20, dinners: 1, dinnerPr: 50, photos: 0, incDrinks: true, incCoffee: false, incWater: false, incWifi: false, incGrats: true, incDining: true, incPhotos: false })")
+    check("a $25 drink on a $20-limit package counts $20; gratuities ~$18 a day; 1 dinner",
+          w["value"] == 7 * 4 * 20 + 7 * 18 + 50 and any("covers up to $20.00" in p[0] for p in w["parts"]) and w["verdict"] == "buy", w)
+    a.js("hideSheet('pkgSheet'); curTrip().line = 'Princess'; curTrip().pkg = 'princess-premier'; delete curTrip().pkgCalc; save(); showPkgCalc()")
+    on = a.js("[...document.querySelectorAll('#pkgSheet .pkg-inc input:checked')].map(i => i.name).sort().join()")
+    check("Princess Premier (verified preset): drinks, water, Wi-Fi, gratuities, dining, photos pre-ticked; $20 limit filled",
+          on == "incDining,incDrinks,incGrats,incPhotos,incWater,incWifi" and a.page.input_value('#pkgSheet [name=cap]') == "20", on)
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -2865,7 +2904,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc):
             try:
                 t(b, base)
             except Exception as e:
