@@ -2978,6 +2978,28 @@ def t_v108_wrap_up(b, base):
     a.close()
 
 
+def t_v110_scene_pick(b, base):
+    print("\n[v1.10 pick your background: Auto / Ocean / Road trip / Sky / None in settings]")
+    a = App(b, base, path=CRUISE)
+    hero = "document.getElementById('hero')"
+    check("Auto: Cruise Hub keeps its ocean", a.js(f"{hero}.dataset.scene").startswith("ocean|"))
+    a.page.click("#settingsBtn")
+    check("settings has a Background tile and 5 choices, Auto on",
+          a.js("!!document.querySelector('[data-setjump=sceneBox]')") and a.js("document.querySelectorAll('[data-scenepick]').length") == 5
+          and a.js("document.querySelector('[data-scenepick].on').dataset.scenepick") == "auto")
+    a.page.click('[data-scenepick="travel"]')
+    check("Road trip: the car scene behind the clock, saved", a.js(f"{hero}.dataset.scene").startswith("travel|") and a.js("S.scene") == "travel"
+          and a.js("document.querySelector('[data-scenepick].on').dataset.scenepick") == "travel")
+    a.page.click('[data-scenepick="off"]')
+    check("None: no picture behind the clock", a.js(f"{hero}.dataset.scene") == "off" and a.js(f"{hero}.style.getPropertyValue('--scene')") == ""
+          and "svg" not in a.js(f"getComputedStyle({hero}).backgroundImage"))
+    a.page.click('[data-scenepick="weather"]')
+    check("Sky: back from None, the picture returns", a.js(f"{hero}.dataset.scene").startswith("weather|") and "svg" in a.js(f"getComputedStyle({hero}).backgroundImage"))
+    a.page.reload(); a.page.wait_for_function("typeof S === 'object' && document.getElementById('hero').dataset.scene")
+    check("the pick survives a reload", a.js(f"{hero}.dataset.scene").startswith("weather|"))
+    a.page.click("#settingsBtn"); a.page.click('[data-scenepick="auto"]')
+    check("Auto again: ocean, and nothing stored", a.js(f"{hero}.dataset.scene").startswith("ocean|") and a.js("S.scene === undefined"))
+    a.close()
 def t_v109_port_wx_alerts(b, base):
     print("\n[v1.09 port-day weather notifications: 7 AM on the day, 8 PM the night before only with a warning]")
     a = App(b, base, path=CRUISE, at="2026-10-01T06:00:00")                # sail day, before 7 AM
@@ -3028,7 +3050,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick):
             try:
                 t(b, base)
             except Exception as e:

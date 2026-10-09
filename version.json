@@ -1,6 +1,9 @@
 {
- "version": "1.09",
+ "version": "1.10",
  "notes": {
+  "1.10": [
+   "🖼️ Pick your background: ⚙ → Background. Choose the ocean, the road trip, the sky — or none — behind the clock. Auto keeps this app's own. It still follows the real weather and day / night."
+  ],
   "1.09": [
    "🌦️ Port-day weather alerts: a 7 AM note on boarding day and every port day ('Cozumel today: 88°/77°' + what to bring), and an 8 PM heads-up the night before when there's a warning — storms, rain, very high UV, heat, wind. Turn on ⚙ → Reminders to get them."
   ],

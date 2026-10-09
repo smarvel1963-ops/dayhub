@@ -1434,6 +1434,7 @@ document.addEventListener("click", e => {
   if (ds.top3 === "pick") { top3Pick(true); render(); return; }
   if (ds.t3up) { const T = S.top3.items, i = T.findIndex(x => x.id === ds.t3up); if (i > 0) [T[i - 1], T[i]] = [T[i], T[i - 1]]; saveLocal(); render(); return; }
   if (ds.t3del) { S.top3.items = S.top3.items.filter(x => x.id !== ds.t3del); saveLocal(); render(); return; }
+  if (typeof sceneClick === "function" && sceneClick(ds)) return;          // v1.10 scenes.js
   if (ds.setjump) { const el = document.getElementById(ds.setjump); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }   // v0.63
   if (typeof shellClick === "function" && shellClick(ds)) return;           // v0.58 shell.js tabs
   if (typeof cruiseClick === "function" && cruiseClick(ds)) return;          // v0.56 cruise.js
@@ -1565,7 +1566,7 @@ function openSettings() {
 // v0.63 settings jump tiles (the hub navigation)
 function drawSetJump() {
   const g = document.getElementById("setJump"); if (!g) return;
-  const want = [["proBox", "⭐", "Pro"], ["remindBox", "🔔", "Reminders"], ["syncBox", "☁️", "Backup"], ["aiBox", "🤖", "AI helper"], ["simpleBox", "👓", "Display"],
+  const want = [["proBox", "⭐", "Pro"], ["remindBox", "🔔", "Reminders"], ["syncBox", "☁️", "Backup"], ["aiBox", "🤖", "AI helper"], ["simpleBox", "👓", "Display"], ["sceneBox", "🖼️", "Background"],
     ["famBox", "🌐", "Hub family"], ["installBox", "📲", "Install"], ["cardList", "🗂️", "Cards"], ["dataBox", "💾", "My data"]];
   const items = want.filter(([id]) => { const el = document.getElementById(id); return el && !el.hidden && el.innerHTML.trim(); })
     .map(([id, ic, l]) => ({ icon: ic, label: l, attrs: `data-setjump="${id}"` }));
@@ -1589,6 +1590,9 @@ function drawSettings() {
   let smb = document.getElementById("simpleBox");                           // v0.62 simple mode (shell.js)
   if (!smb) { smb = document.createElement("div"); smb.id = "simpleBox"; document.getElementById("cardList").before(smb); }
   if (typeof drawSimpleBox === "function") drawSimpleBox();
+  let scb = document.getElementById("sceneBox");                           // v1.10 pick your background (scenes.js)
+  if (!scb) { scb = document.createElement("div"); scb.id = "sceneBox"; smb.after(scb); }
+  if (typeof drawSceneBox === "function") drawSceneBox();
   let fb = document.getElementById("famBox");
   if (!fb) { fb = document.createElement("div"); fb.id = "famBox"; db.before(fb); }
   drawFamBox();

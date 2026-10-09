@@ -122,7 +122,9 @@ const SCENES = {
 
 // Called from paintHero(): sets --scene on the hero only when the scene changes.
 function paintScene(hero) {
-  const name = SCENE_FOR[MODE] || "weather", h = new Date().getHours();
+  const pick = S.scene && S.scene !== "auto" ? S.scene : null;          // v1.10 the person's own pick (⚙ → Background)
+  if (pick === "off") { SCENE_KEY = "off"; hero.style.removeProperty("--scene"); hero.dataset.scene = "off"; return; }
+  const name = (pick && SCENES[pick] ? pick : SCENE_FOR[MODE]) || "weather", h = new Date().getHours();
   const w = WXDATA && WXDATA.here && WXDATA.here.cur;
   const night = w && w.is_day != null ? !w.is_day : (h < 6 || h >= 19);
   const kind = skyKind(w ? w.weather_code : null);
@@ -132,4 +134,20 @@ function paintScene(hero) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240" preserveAspectRatio="xMidYMax slice">${SC_STYLE}${SCENES[name](kind, night)}</svg>`;
   hero.style.setProperty("--scene", `url("data:image/svg+xml,${encodeURIComponent(svg)}")`);
   hero.dataset.scene = key;
+}
+
+// v1.10 PICK YOUR BACKGROUND (plan "user-picked backgrounds"): ⚙ → 🖼️ Background.
+// Auto = this app's own scene; any hub can show any scene, or none. Saved in S.scene.
+const SCENE_PICKS = [["auto", "✨", "Auto"], ["ocean", "🌊", "Ocean"], ["travel", "🚗", "Road trip"], ["weather", "⛅", "Sky"], ["off", "⬜", "None"]];
+function drawSceneBox() {
+  const g = document.getElementById("sceneBox"); if (!g) return;
+  const cur = S.scene || "auto", own = SCENE_PICKS.find(x => x[0] === SCENE_FOR[MODE]);
+  g.innerHTML = `<h3>🖼️ Background</h3><div class="scene-picks">` + SCENE_PICKS.map(([k, ic, l]) =>
+    `<button class="chip${k === cur ? " on" : ""}" data-scenepick="${k}" aria-pressed="${k === cur}">${ic} ${l}</button>`).join("") +
+    `</div><p class="fine" style="margin-top:6px">The faint picture behind the clock. Auto = ${own ? own[2].toLowerCase() : "this app's own"}. It follows the real weather and day / night.</p>`;
+}
+function sceneClick(ds) {
+  if (!ds.scenepick) return false;
+  S.scene = ds.scenepick === "auto" ? undefined : ds.scenepick; SCENE_KEY = null; save(); render(); drawSceneBox();
+  if (typeof drawSetJump === "function") drawSetJump(); return true;
 }
