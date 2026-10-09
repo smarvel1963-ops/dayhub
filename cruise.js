@@ -78,6 +78,28 @@ function cruiseReminders(add, inWin) {
     if (inWin(d) && !tr.safeEmpty && tr.homeDone !== tr.end)
       add(`gh:${tr.id}:safe`, atMs(d, "23:59"), atMs(d, "20:00"), "🔐 Final night — check your cabin safe",
         "Passport, cash, jewelry and car keys out of the safe. Keep them out of the bag you put outside.");
+    portWxReminders(tr, add, inWin);                                         // v1.09
+  });
+}
+// v1.09 PORT-DAY WEATHER ALERTS (Scott 10/8 "yes all 3" - #2). The port weather Cruise Hub already shows (free
+// Open-Meteo forecast for the port's own day) now also notifies: 7 AM on sail day and each port day ("Cozumel
+// today: ⛅ 88°/77°" + what to bring), and 8 PM the night before ONLY when there's a warning (storms, rain, very
+// high UV, heat, wind, cool). Same rules as the screen (cruiseWxAlerts); nothing new is fetched beyond the
+// forecast for those days, and nothing fires until that forecast has loaded.
+function portWxReminders(tr, add, inWin) {
+  const days = (tr.ports || []).map(pt => ({ name: pt.name, day: pt.day, kind: "port" }));
+  if (tr.port && tr.start) days.push({ name: tr.port, day: tr.start, kind: "sail" });
+  days.filter(x => x.name && x.day && (inWin(x.day) || inWin(addDays(x.day, -1)))).forEach(x => {
+    ensurePlaceWx(x.name, x.day);
+    const w = PORTWX[`${x.name}|${x.day}`]; if (!w || w.loading || w.none) return;
+    const al = cruiseWxAlerts(w, x.kind), place = placeName(x.name);
+    const line = `${wmo(w.code)[0]} ${Math.round(w.hi)}°/${Math.round(w.lo)}°${w.rain >= 20 ? ` · rain ${w.rain}%` : ""}`;
+    const body = al.length ? al.map(a => `${a.icon} ${a.text}`).join(" · ") : "No weather worries — enjoy it!";
+    if (inWin(x.day)) add(`pw:${tr.id}:${x.day}:am`, atMs(x.day, "12:00"), atMs(x.day, "07:00"),
+      `${x.kind === "sail" ? "🚢" : "⚓"} ${place} ${x.kind === "sail" ? "on boarding day" : "today"}: ${line}`, body);
+    const eve = addDays(x.day, -1);
+    if (al.length && inWin(eve)) add(`pw:${tr.id}:${x.day}:eve`, atMs(eve, "23:59"), atMs(eve, "20:00"),
+      `🌦️ Tomorrow in ${place}: ${line}`, body);
   });
 }
 // Click / submit handlers (called from ui.js's listeners; return true when handled).

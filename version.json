@@ -1,6 +1,9 @@
 {
- "version": "1.08",
+ "version": "1.09",
  "notes": {
+  "1.09": [
+   "🌦️ Port-day weather alerts: a 7 AM note on boarding day and every port day ('Cozumel today: 88°/77°' + what to bring), and an 8 PM heads-up the night before when there's a warning — storms, rain, very high UV, heat, wind. Turn on ⚙ → Reminders to get them."
+  ],
   "1.08": [
    "🎞️ Your wrap-up: after the trip, one page with the numbers (days, ports, sea days, best days), your best moments, every day you wrote about with your ❤️ picks, and the money — trip cost, what you spent, the final bill. Share it, or Save as PDF. Home offers it the week after; it's also in Plan → Diary."
   ],

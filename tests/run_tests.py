@@ -2978,6 +2978,28 @@ def t_v108_wrap_up(b, base):
     a.close()
 
 
+def t_v109_port_wx_alerts(b, base):
+    print("\n[v1.09 port-day weather notifications: 7 AM on the day, 8 PM the night before only with a warning]")
+    a = App(b, base, path=CRUISE, at="2026-10-01T06:00:00")                # sail day, before 7 AM
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Western Caribbean", "start": "2026-10-01", "end": "2026-10-05", "line": "Carnival", "port": "Galveston, TX"})
+    a.js("curTrip().ports = [{ id: 'p1', name: 'Cozumel', day: '2026-10-02', allAboard: '16:30' }]; save(); reminderList()")
+    a.page.wait_for_function("['Galveston, TX|2026-10-01', 'Cozumel|2026-10-02'].every(k => PORTWX[k] && !PORTWX[k].loading)")
+    R = a.js("reminderList().filter(r => r.key.startsWith('pw:')).map(r => ({ key: r.key.split(':').slice(2).join(':'), at: new Date(r.at).toTimeString().slice(0, 5), title: r.title, body: r.body }))")
+    keys = sorted(r["key"] for r in R)
+    check("sail day: 8 PM the night before + 7 AM; Cozumel: 8 PM the night before + 7 AM", keys == ["2026-10-01:am", "2026-10-01:eve", "2026-10-02:am", "2026-10-02:eve"], R)
+    g = {r["key"]: r for r in R}
+    check("sail-day morning: 'Galveston on boarding day: 88°/77°' at 7:00", g["2026-10-01:am"]["at"] == "07:00" and "🚢 Galveston, TX on boarding day:" in g["2026-10-01:am"]["title"] and "88°/77°" in g["2026-10-01:am"]["title"], g.get("2026-10-01:am"))
+    check("night before at 8 PM: 'Tomorrow in Cozumel' with the UV warning (fixture UV 9.2)",
+          g["2026-10-02:eve"]["at"] == "20:00" and g["2026-10-02:eve"]["title"].startswith("🌦️ Tomorrow in Cozumel:") and "UV very high (9)" in g["2026-10-02:eve"]["body"], g.get("2026-10-02:eve"))
+    check("port morning: '⚓ Cozumel today' with the same warning", g["2026-10-02:am"]["title"].startswith("⚓ Cozumel today:") and "UV very high" in g["2026-10-02:am"]["body"])
+    calm = a.js("(() => { PORTWX['Cozumel|2026-10-02'] = { hi: 82, lo: 74, rain: 10, code: 1, uv: 4, wind: 8, gust: 12 }; return reminderList().filter(r => r.key.includes(':2026-10-02:')).map(r => r.key.split(':').pop() + '|' + r.body); })()")
+    check("a calm forecast: no night-before alert, the morning says no worries", calm == ["am|No weather worries — enjoy it!"], calm)
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -3006,7 +3028,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts):
             try:
                 t(b, base)
             except Exception as e:
