@@ -422,8 +422,9 @@ function tripDiaryHtml() {
       <div class="today-line">${days.length} of ${len} day${len === 1 ? "" : "s"} written${fav ? ` · 😍 ${fav} best day${fav === 1 ? "" : "s"}` : ""}</div>
       ${todayOpen ? `<button class="add-link" data-tlday="${today()}">＋ Write about today</button>` : ""}
       ${rows.length ? rows.join("") : `<div class="today-line sub">${started ? "Tap a day in Trip and write a few lines — what you did, the best moment." : `Your diary opens ${prettyDate(tr.start)}. Each night, a few lines about the day — you'll be glad you did.`}</div>`}
-      ${days.length ? `<div class="foot-actions" style="margin-top:10px"><button class="btn sm" data-diaryshare="${tr.id}">📤 Share my diary</button></div>
-        <p class="fine">Shares as text — send it to the family, or keep it in your notes.</p>` : ""}</div></section>`;
+      ${days.length || started ? `<div class="foot-actions" style="margin-top:10px">${days.length ? `<button class="btn sm" data-diaryshare="${tr.id}">📤 Share my diary</button>` : ""}
+        ${started ? `<button class="btn sm ghost" data-wrapopen="1">🎞️ ${trCruise(tr) ? "Cruise" : "Trip"} wrap-up</button>` : ""}</div>` : ""}
+      ${days.length ? `<p class="fine">Shares as text — send it to the family, or keep it in your notes.</p>` : ""}</div></section>`;
 }
 function diaryShare(id) {
   const tr = diaryOwn(id); if (!tr) return;
@@ -438,7 +439,7 @@ function diaryNudge(tr) {
   const t = today(), end = tr.end || tr.start;
   if (t >= tr.start && t <= end && nowT() >= "17:00" && !diaryHas(tripDiary(tr)[t])) return { icon: "📔", text: "How was today? Add it to your diary", act: `data-tlday="${t}"` };
   const n = diaryDays(tr).length;
-  if (t > end && n) return { icon: "📔", text: `Your ${trCruise(tr) ? "cruise" : "trip"} diary — ${n} day${n === 1 ? "" : "s"}`, act: 'data-shellgo="plan" data-planview="diary"' };
+  if (t > end) return { icon: "🎞️", text: `Your ${trCruise(tr) ? "cruise" : "trip"} wrap-up${n ? ` — ${n} day${n === 1 ? "" : "s"} in the diary` : ""}`, act: 'data-wrapopen="1"' };   // v1.08
   return null;
 }
 function diaryClick(ds) {
@@ -446,6 +447,7 @@ function diaryClick(ds) {
     if (diarySet(id, d, { mood: e.mood === m ? "" : m })) { render(); showDay(d); }
     return true; }
   if (ds.diaryshare) { diaryShare(ds.diaryshare); return true; }
+  if (wrapClick(ds)) return true;                                          // v1.08 wrap-up
   return false;
 }
 function diarySubmit(f, data) {
@@ -528,4 +530,79 @@ function funSubmit(f, data) {
   if (funSave(id, tr => tr.fun.push({ id: uid(), day: d, t: data.t, end: data.end && data.end > data.t ? data.end : "", title, where: (data.where || "").trim(), pick }))) {
     render(); showDay(d); buzz(); toast(`${pick === "must" ? "❤️" : pick === "maybe" ? "👍" : "—"} Added`); }
   return true;
+}
+
+// ------------------------------------------------------------ WRAP-UP (v1.08)
+// Scott 10/8 ("yes all 3" - #3 '"Our cruise" wrap-up: after the cruise, one page with the diary, spending, the
+// bill...'; "use data once cruise purchased"). One page from what the trip already holds: the numbers (days,
+// ports / sea days, diary days, best days), each day with its mood, lines, best moment and ❤️ picks, the bookings,
+// and the money (trip cost, onboard / trip spending by kind, the final bill). Share as text, or Save as PDF
+// (the phone's print → "Save as PDF" - only this page prints). Nothing new is stored; nothing is sent anywhere.
+function wrapStats(tr) {
+  const len = tripLen(tr), cruise = trCruise(tr), ports = cruise ? (tr.ports || []).filter(p => p.day >= tr.start && p.day <= (tr.end || tr.start)) : [];
+  const D = tripDiary(tr), days = diaryDays(tr);
+  const cats = {}; (tr.spends || []).forEach(x => { cats[x.cat] = (cats[x.cat] || 0) + Number(x.amt || 0); });
+  const kinds = {}; tripBookings(tr).forEach(b => { kinds[b.kind] = (kinds[b.kind] || 0) + 1; });
+  return { len, nights: tripNights(tr), cruise, ports, sea: cruise && typeof seaDays === "function" ? seaDays(tr) : 0, days, best: days.filter(d => D[d].mood === "😍").length,
+    spent: tripSpent(tr), cats, total: tripWallet(tr).total, bill: tr.billSeen !== undefined && tr.billSeen !== null && tr.billSeen !== "" && isFinite(Number(tr.billSeen)) ? Number(tr.billSeen) : null, kinds };
+}
+const wrapMusts = (tr, d) => tripFun(tr).filter(f => f.day === d && f.pick === "must").sort((a, b) => (a.t || "").localeCompare(b.t || ""));
+function wrapText(tr) {
+  const W = wrapStats(tr), L = [diaryText(tr).split("\n")[0]];
+  L.push([`${W.len} day${W.len === 1 ? "" : "s"}`, W.cruise && W.ports.length && `${W.ports.length} port${W.ports.length === 1 ? "" : "s"} (${W.ports.map(p => p.name).join(", ")})`, W.cruise && W.sea && `${W.sea} sea day${W.sea === 1 ? "" : "s"}`, W.best && `😍 ${W.best} best day${W.best === 1 ? "" : "s"}`].filter(Boolean).join(" · "));
+  const best = W.days.map(d => tripDiary(tr)[d].best).filter(Boolean);
+  if (best.length) { L.push("", "⭐ Best moments"); best.forEach(b => L.push(`• ${b}`)); }
+  const body = diaryText(tr).split("\n").slice(1).join("\n").trim();
+  if (body) L.push("", body);
+  return L.join("\n");
+}
+function showWrap() {
+  const tr = curTrip(); if (!tr) return;
+  let el = document.getElementById("wrapSheet");
+  if (!el) { el = document.createElement("div"); el.id = "wrapSheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Wrap-up"); document.body.appendChild(el); }
+  const W = wrapStats(tr), D = tripDiary(tr), word = W.cruise ? "cruise" : "trip";
+  const stat = (v, l) => `<div class="wrap-stat"><b>${v}</b><span>${l}</span></div>`;
+  const stats = [stat(W.len, W.len === 1 ? "day" : "days"), W.cruise ? stat(W.ports.length, W.ports.length === 1 ? "port" : "ports") : stat(tripBookings(tr).length, "bookings"),
+    W.cruise ? stat(W.sea, W.sea === 1 ? "sea day" : "sea days") : stat(W.days.length, "diary days"), stat(W.best, "😍 best")];
+  const dayRows = [];
+  if (tr.start) for (let d = tr.start, n = 1; d <= (tr.end || tr.start) && n < 400; d = addDays(d, 1), n++) {
+    const e = D[d] || {}, k = dayKind(tr, d), musts = wrapMusts(tr, d);
+    if (!diaryHas(e) && !musts.length) continue;
+    dayRows.push(`<div class="wrap-day"><div class="wrap-dh">${e.mood || k.icon} <b>Day ${n} · ${esc(k.title)}</b> <span class="sub" style="display:inline">${dayName(d)} ${prettyDate(d)}</span></div>
+      ${e.text ? `<div class="diary-text">${esc(e.text)}</div>` : ""}${e.best ? `<div class="sub">⭐ ${esc(e.best)}</div>` : ""}
+      ${musts.length ? `<div class="sub">❤️ ${musts.map(f => esc(f.title)).join(" · ")}</div>` : ""}</div>`); }
+  const best = W.days.map(d => D[d].best).filter(Boolean);
+  const money3 = [W.total > 0 && [`${W.cruise ? "Cruise" : "Trip"} cost (fare + extras)`, money(W.total)],
+    W.spent > 0 && [W.cruise ? "Onboard spending you logged" : "Spending you logged", money(W.spent)],
+    W.bill !== null && ["Final ship bill", money(W.bill)]].filter(Boolean);
+  const BK = { flight: "✈️", hotel: "🏨", car: "🚗", train: "🚆", ticket: "🎟️", dinner: "🍽️" };
+  el.innerHTML = `<div class="sheet-body wrap-body"><div class="grab no-print"></div>
+    <div class="sheet-head"><h2>🎞️ ${esc(tr.name)}</h2><button class="icon-btn no-print" data-wrapclose="1" aria-label="Close">✕</button></div>
+    <p class="fine" style="margin-top:0">${[tr.ship && esc(tr.ship), !W.cruise && tr.port && esc(placeName(tr.port)), tr.start && `${prettyDate(tr.start)}${tr.end && tr.end !== tr.start ? ` – ${prettyDate(tr.end)}` : ""}`, Number(tr.travelers) > 1 && `${tr.travelers} of you`].filter(Boolean).join(" · ")}</p>
+    <div class="wrap-stats">${stats.join("")}</div>
+    ${W.cruise && W.ports.length ? `<div class="today-line">⚓ ${W.ports.slice().sort((a, b) => a.day.localeCompare(b.day)).map(p => esc(p.name)).join(" → ")}</div>` : ""}
+    ${Object.keys(W.kinds).length ? `<div class="today-line">${Object.entries(W.kinds).map(([k, c]) => `${BK[k] || "🎟️"} ${c}`).join(" · ")}</div>` : ""}
+    ${best.length ? `<div class="day-label" style="margin-top:10px">⭐ Best moments</div>${best.map(b => `<div class="today-line">• ${esc(b)}</div>`).join("")}` : ""}
+    <div class="day-label" style="margin-top:10px">Day by day</div>
+    ${dayRows.length ? dayRows.join("") : `<div class="today-line sub">Nothing written yet — tap a day in Plan → Trip and add a few lines; they show up here.</div>`}
+    ${money3.length || Object.keys(W.cats).length ? `<div class="day-label" style="margin-top:10px">💵 Money</div>
+      ${money3.map(([l, v]) => `<div class="row"><span class="grow">${l}</span><b>${v}</b></div>`).join("")}
+      ${Object.entries(W.cats).sort((a, b) => b[1] - a[1]).map(([c, v]) => `<div class="row"><span class="grow sub">${esc(c)}</span><span>${money(v)}</span></div>`).join("")}` : ""}
+    <div class="foot-actions no-print" style="margin-top:12px;flex-wrap:wrap">
+      <button class="btn sm" data-wrapshare="${tr.id}">📤 Share</button><button class="btn sm ghost" data-wrapprint="1">🖨️ Save as PDF</button></div>
+    <p class="fine no-print">Save as PDF: in the print screen pick <b>Save as PDF</b> (iPhone: pinch out on the preview, then share). Made from your own ${word} — nothing is sent anywhere.</p></div>`;
+  el.classList.remove("hidden");
+}
+function wrapClick(ds) {
+  if (ds.wrapopen) { hideSheet("daySheet"); showWrap(); return true; }
+  if (ds.wrapclose) { hideSheet("wrapSheet"); return true; }
+  if (ds.wrapshare) { const tr = S.trips.find(t => t.id === ds.wrapshare); if (!tr) return true; const text = wrapText(tr);
+    if (navigator.share) navigator.share({ title: `${tr.name} wrap-up`, text }).catch(() => {});
+    else if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => toast("📋 Wrap-up copied — paste it anywhere"), () => toast("Couldn't copy on this phone"));
+    else toast("Couldn't copy on this phone");
+    return true; }
+  if (ds.wrapprint) { document.body.classList.add("print-wrap");
+    const done = () => { document.body.classList.remove("print-wrap"); window.removeEventListener("afterprint", done); };
+    window.addEventListener("afterprint", done); window.print(); return true; }
+  return false;
 }

@@ -593,6 +593,22 @@ body.simple .hero .chips, body.simple .hero .cd-pct, body.simple .hero .hero-btn
 .port-reality { text-align: center; margin: 4px 0 6px; padding: 10px; border-radius: 16px; background: rgba(94,234,212,.10); border: 1px solid var(--line); }
 .port-reality .pr-big { font-size: 34px; font-weight: 800; line-height: 1.1; }
 .port-reality .pr-sub { font-size: 12px; color: var(--dim); text-transform: uppercase; letter-spacing: .6px; }
+/* v1.08 wrap-up */
+.wrap-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0; }
+.wrap-stat { text-align: center; padding: 8px 4px; border-radius: 14px; border: 1px solid var(--line); background: var(--card-solid); }
+.wrap-stat b { display: block; font-size: 22px; line-height: 1.1; }
+.wrap-stat span { font-size: 11px; color: var(--dim); }
+.wrap-day { padding: 8px 0; border-bottom: 1px solid var(--line); }
+@media print {
+  body.print-wrap > *:not(#wrapSheet) { display: none !important; }
+  body.print-wrap { background: #fff !important; color: #000 !important; }
+  body.print-wrap #wrapSheet, body.print-wrap #wrapSheet .sheet-body { position: static !important; inset: auto !important; max-height: none !important; overflow: visible !important;
+    transform: none !important; background: #fff !important; color: #000 !important; box-shadow: none !important; border: none !important; }
+  body.print-wrap #wrapSheet .no-print { display: none !important; }
+  body.print-wrap #wrapSheet .sub, body.print-wrap #wrapSheet .fine, body.print-wrap #wrapSheet .wrap-stat span { color: #444 !important; }
+  body.print-wrap #wrapSheet .wrap-stat { background: #fff !important; border-color: #bbb !important; }
+  body.print-wrap #wrapSheet .diary-text { color: #000 !important; }
+}
 /* v1.06 secret engine */
 .secret-card .secret-h { font-size: 12px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; color: var(--accent); }
 .secret-card .secret-t { font-size: 14.5px; line-height: 1.4; margin: 4px 0 6px; }

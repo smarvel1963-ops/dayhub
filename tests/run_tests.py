@@ -2709,7 +2709,7 @@ def t_v101_diary(b, base):
     c.qa("trip", {"ttype": "cruise", "tname": "Bahamas", "start": "2026-09-30", "end": "2026-10-03", "line": "Carnival"})
     c.page.wait_for_timeout(150)
     c.js("S.trips[0].diary = { '2026-10-01': { mood: '😍', text: 'Snorkeled at Nassau', best: '' } }; save(); shellGo('home')")
-    check("after the cruise: Home shows 'Your cruise diary — 1 day'", "Your cruise diary — 1 day" in c.page.inner_text(".going-on"))
+    check("after the cruise: Home shows 'Your cruise wrap-up — 1 day in the diary' (v1.08)", "Your cruise wrap-up — 1 day in the diary" in c.page.inner_text(".going-on"))
     c.js("shellGo('plan'); PLAN_VIEW = 'diary'; render()")
     d = c.page.inner_text("body")
     check("Cruise Hub: 'Cruise diary', 1 of 4 days, 1 best day", "Cruise diary" in d and "1 of 4 days written" in d and "😍 1 best day" in d, d[:400])
@@ -2941,6 +2941,43 @@ def t_v107_upgrade(b, base):
     a.close()
 
 
+def t_v108_wrap_up(b, base):
+    print("\n[v1.08 wrap-up: one page after the cruise - numbers, best moments, day by day, money; share or PDF]")
+    a = App(b, base, path=CRUISE)                                            # today 2026-10-01, cruise ended 9/28
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Bahamas", "start": "2026-09-24", "end": "2026-09-28", "line": "Carnival", "ship": "Carnival Breeze", "travelers": "2"})
+    a.js("""(() => { const tr = curTrip(); tr.total = 1800;
+      tr.ports = [{ id: 'p1', name: 'Nassau', day: '2026-09-26' }, { id: 'p2', name: 'Half Moon Cay', day: '2026-09-25' }];
+      tr.diary = { '2026-09-26': { mood: '😍', text: 'Snorkeled the reef.', best: 'Sea turtle!' }, '2026-09-27': { mood: '🙂', text: 'Pool all day.', best: '' } };
+      tr.fun = [{ id: 'f1', day: '2026-09-27', t: '20:00', end: '', title: 'Comedy Show', where: '', pick: 'must' },
+                { id: 'f2', day: '2026-09-27', t: '21:00', end: '', title: 'Trivia', where: '', pick: 'maybe' }];
+      tr.spends = [{ id: 's1', day: '2026-09-25', amt: 60, cat: 'Drinks' }, { id: 's2', day: '2026-09-26', amt: 120, cat: 'Spa' }];
+      tr.billSeen = 410; save(); shellGo('home'); })()""")
+    check("after the cruise: Home offers the wrap-up", "Your cruise wrap-up — 2 days in the diary" in a.page.inner_text(".going-on"))
+    a.page.click('.going-on [data-wrapopen]'); a.page.wait_for_timeout(150)
+    s = a.page.inner_text("#wrapSheet")
+    check("numbers: 5 days, 2 ports, 1 sea day (25-27 less 2 ports), 1 best; ship + dates + 2 of you",
+          a.js("[...document.querySelectorAll('#wrapSheet .wrap-stat b')].map(x => x.textContent).join()") == "5,2,1,1" and "Carnival Breeze" in s and "2 of you" in s, s[:500])
+    check("ports in order, best moments", "Half Moon Cay → Nassau" in s and "Sea turtle!" in s)
+    check("day by day: only days with something - the mood, the lines, the ❤️ (not the 👍)",
+          "Day 3 · Nassau" in s and "Snorkeled the reef." in s and "Day 4 · At sea" in s and "Comedy Show" in s and "Trivia" not in s and "Day 1" not in s, s[:1200])
+    check("money: cruise cost, onboard spending, the final bill, by kind",
+          "$1,800.00" in s and "$180.00" in s and "$410.00" in s and "Spa" in s and "Drinks" in s)
+    t = a.js("wrapText(curTrip())")
+    check("share text: header, numbers, best moments, then the diary", t.startswith("📔 Bahamas") and "5 days · 2 ports (Nassau, Half Moon Cay) · 1 sea day · 😍 1 best day" in t
+          and "⭐ Best moments\n• Sea turtle!" in t and "Snorkeled the reef." in t, t)
+    a.js("window.__printed = null; window.print = () => { window.__printed = document.body.classList.contains('print-wrap'); }")
+    a.page.click('#wrapSheet [data-wrapprint]'); a.page.wait_for_timeout(100)
+    check("Save as PDF prints with only the wrap-up page", a.js("window.__printed") is True)
+    a.js("window.dispatchEvent(new Event('afterprint'))")
+    check("...and the page goes back to normal after", not a.js("document.body.classList.contains('print-wrap')"))
+    a.js("hideSheet('wrapSheet'); shellGo('plan'); PLAN_VIEW = 'diary'; render()")
+    check("Plan -> Diary has the wrap-up button too", a.js("!!document.querySelector('.planview ~ section [data-wrapopen]')"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -2969,7 +3006,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up):
             try:
                 t(b, base)
             except Exception as e:
