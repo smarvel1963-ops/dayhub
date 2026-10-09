@@ -686,3 +686,5 @@ body.shell .bubbles { margin: 10px 0 12px; gap: 8px 6px; }
 .leave-line { border-left: 3px solid var(--accent, #ffd166); padding-left: 8px; }
 .leave-line .sub { display: block; }
 .leave-box { margin: 6px 0; } .leave-box summary { cursor: pointer; padding: 6px 0; color: var(--muted, #aab); }
+/* v1.16 road trip brain */
+.drive-box summary { cursor: pointer; padding: 8px 0; color: var(--muted, #aab); }

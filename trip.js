@@ -176,6 +176,7 @@ function tripClick(ds) {
   if (splitClick(ds)) return true;                                         // v1.13 split the cost
   if (hotelClick(ds)) return true;                                         // v1.14 hotel mode
   if (refundClick(ds)) return true;                                        // v1.15 refunds
+  if (driveClick(ds)) return true;                                         // v1.16 road trip brain
   if (ds.lvpreset) { const i = document.querySelector('#bookSheet [name="lv_check"]'); if (i) i.value = ds.lvpreset; return true; }   // v1.12
   if (ds.bkadd) { showBookingForm(ds.bkadd); return true; }
   if (ds.bkopen) { hideSheet("daySheet"); showBooking(ds.bkopen); return true; }
@@ -193,6 +194,7 @@ function tripSubmit(f, data) {
   if (splitSubmit(f, data)) return true;                                   // v1.13 split the cost
   if (hotelSubmit(f, data)) return true;                                   // v1.14 hotel mode
   if (refundSubmit(f, data)) return true;                                  // v1.15 refunds
+  if (driveSubmit(f, data)) return true;                                   // v1.16 road trip brain
   if (f.dataset.bkpaste) { pasteBookings(data.text || ""); return true; }
   if (!f.dataset.bkform) return false;
   saveBooking(f, data); return true;
@@ -1067,4 +1069,123 @@ function refundSubmit(f, data) {
   const amt = Number(data.amt), what = String(data.what || "").trim(); if (!what || !(amt > 0)) return true;
   refundSave(f.dataset.refund, R => R.push({ id: uid(), what: what.slice(0, 80), from: String(data.from || "").trim().slice(0, 60), amt, asked: today(), expect: data.expect || "", got: "" }));
   render(); buzz(); toast("↩️ Tracking it"); return true;
+}
+
+// ------------------------------------------------------------ ROAD TRIP BRAIN (v1.16, the free part)
+// Blueprint 2.4 "Road Trip Brain: drive route and multiple stops; fuel/range; rest stops and smart breaks; food
+// along the route; predicted hotel arrival; vehicle profiles". No routing service (paid / not yet approved): the
+// traveler types the drive the way their maps app shows it - miles + drive time - and the car's range. From that:
+// a break about every 2 hours, a meal stop at lunch / dinner time, a fuel stop before the tank drops under 20%,
+// the arrival time, the fuel cost, and whether you make that night's hotel check-in / dinner.
+// tr.drives = [{ id, day, from, to, t, miles, mins }], tr.vehicle = { range, mpg, gas }. Stop lengths are plain
+// planning numbers the traveler sees - not looked up.
+const DRIVE_BREAK_EVERY = 120, DRIVE_BREAK = 15, DRIVE_MEAL = 45, DRIVE_FUEL = 15, DRIVE_RESERVE = 0.2;
+const tripDrives = tr => (tr && Array.isArray(tr.drives) ? tr.drives : []);
+const vehicleOf = tr => ({ range: Number((tr.vehicle || {}).range) || 0, mpg: Number((tr.vehicle || {}).mpg) || 0, gas: Number((tr.vehicle || {}).gas) || 0 });
+const minsT = (t, m) => { const x = toMin(t) + m; return { t: addMinT(t, m), plus: Math.floor(x / 1440) }; };
+function drivePlan(tr, dv) {
+  const V = vehicleOf(tr), mins = Number(dv.mins) || 0, miles = Number(dv.miles) || 0, mph = mins ? miles / (mins / 60) : 0;
+  const stops = []; let clock = 0, driven = 0, sinceBreak = 0, sinceFuel = 0, ate = new Set();
+  const fuelEvery = V.range ? V.range * (1 - DRIVE_RESERVE) : 0;
+  while (driven < mins - 1) {
+    // drive until the next thing that needs a stop: 2 h since a break, the tank, or the end
+    let leg = Math.min(DRIVE_BREAK_EVERY - sinceBreak, mins - driven);
+    if (fuelEvery && mph) leg = Math.min(leg, Math.max(1, Math.round((fuelEvery - sinceFuel) / mph * 60)));
+    driven += leg; clock += leg; sinceBreak += leg; if (mph) sinceFuel += leg / 60 * mph;
+    if (driven >= mins - 1) break;
+    const at = minsT(dv.t || "08:00", clock), hr = toMin(at.t) / 60;
+    const meal = !ate.has("lunch") && hr >= 11.5 && hr <= 14 ? "lunch" : !ate.has("dinner") && hr >= 17.5 && hr <= 20 ? "dinner" : "";
+    const fuel = fuelEvery && sinceFuel >= fuelEvery * 0.85;
+    const len = meal ? DRIVE_MEAL : fuel ? DRIVE_FUEL : DRIVE_BREAK;
+    stops.push({ t: at.t, plus: at.plus, mile: Math.round(driven / 60 * mph), kind: meal ? "meal" : fuel ? "fuel" : "break", fuel, meal, len });
+    if (meal) ate.add(meal);
+    if (fuel) sinceFuel = 0;
+    clock += len; sinceBreak = 0;
+  }
+  const end = minsT(dv.t || "08:00", clock + Math.max(0, mins - driven));
+  const gallons = V.mpg ? miles / V.mpg : 0;
+  return { stops, arrive: end.t, plusDays: end.plus, total: clock + Math.max(0, mins - driven), gallons, cost: gallons && V.gas ? gallons * V.gas : 0, mph };
+}
+// What's waiting at the other end: that night's hotel check-in / dinner / tickets on the arrival day.
+function driveMeets(tr, dv, P) {
+  const day = addDays(dv.day, P.plusDays), out = [];
+  tripBookings(tr).filter(b => b.day === day && b.t && ["hotel", "dinner", "ticket"].includes(b.kind)).forEach(b => {
+    const late = P.arrive > b.t, K = bookKind(b);
+    if (b.kind === "hotel") out.push({ ok: true, text: `🏨 ${b.a}: check-in from ${hm(b.t)} — you get there about ${hm(P.arrive)}${late ? "" : " (early: ask about early check-in or bag drop)"}` });
+    else out.push({ ok: !late, text: `${K.icon} ${bookTitle(b)} at ${hm(b.t)} — ${late ? `you arrive about ${hm(P.arrive)}: leave earlier or move it (🔄 Fix my trip)` : `fine, you're there about ${hm(P.arrive)}`}` });
+  });
+  return out;
+}
+const stopWords = s => s.meal ? `🍔 ${s.meal[0].toUpperCase() + s.meal.slice(1)}${s.fuel ? " + ⛽ fuel" : ""}` : s.fuel ? "⛽ Fuel + stretch" : "☕ Break — stretch, restroom";
+// Day list (app.js dayItems): leave + arrive rows.
+function driveItems(tr, day) {
+  const out = [];
+  tripDrives(tr).forEach(dv => { const P = drivePlan(tr, dv);
+    if (dv.day === day) out.push({ t: dv.t || null, title: `Drive ${dv.from || "?"} → ${dv.to || "?"}`, sub: `${dv.miles ? dv.miles + " mi · " : ""}${P.stops.length} stop${P.stops.length === 1 ? "" : "s"}`, kind: "book", icon: "🚗", trip: tr.id });
+    if (addDays(dv.day, P.plusDays) === day && dv.t) out.push({ t: P.arrive, title: `Arrive ${dv.to || ""} (about)`, sub: "with stops", kind: "book", icon: "🏁", trip: tr.id });
+  });
+  return out;
+}
+// Day screen block (shell.js showDay): each drive + add one.
+function driveDayHtml(tr, d) {
+  if (!tr || trCruise(tr) && tripDrives(tr).every(x => x.day !== d) && d !== tr.start && d !== (tr.end || tr.start)) return "";
+  const D = tripDrives(tr).filter(x => x.day === d);
+  return `${D.length ? `<div class="day-label" style="margin-top:10px">🚗 Drive</div>` : ""}
+    ${D.map(dv => { const P = drivePlan(tr, dv);
+      return `<button class="rn-row" data-driveopen="${tr.id}|${dv.id}"><span>🚗</span><span class="grow">${esc(dv.from || "?")} → ${esc(dv.to || "?")}
+        <span class="sub">${dv.t ? `leave ${hm(dv.t)} · arrive about ${hm(P.arrive)}${P.plusDays ? " next day" : ""} · ` : ""}${P.stops.length} stop${P.stops.length === 1 ? "" : "s"}${P.cost ? ` · ⛽ about ${money(P.cost)}` : ""}</span></span><span class="chev">›</span></button>`; }).join("")}
+    ${D.length ? "" : `<details class="drive-box"><summary>Driving today? Plan the breaks, food + fuel</summary>`}
+    <form class="qa-form drive-add" data-drive="${tr.id}|${d}">
+      <div class="two"><input name="from" placeholder="From" required autocomplete="off"><input name="to" placeholder="To" required autocomplete="off"></div>
+      <div class="two"><label class="field" style="margin:0">Leave at<input name="t" type="time" value="08:00" required></label><input name="miles" type="number" min="1" max="3000" inputmode="numeric" placeholder="Miles" required></div>
+      <div class="two"><input name="h" type="number" min="0" max="48" inputmode="numeric" placeholder="Drive hours" required><input name="m" type="number" min="0" max="59" inputmode="numeric" placeholder="+ minutes"></div>
+      <button class="btn sm">＋ Plan this drive</button>
+      <div class="hint">Type the miles and drive time your maps app shows — ${esc(APP_NAME)} plans the breaks, food and fuel around them.</div></form>${D.length ? "" : "</details>"}`;
+}
+function showDrive(key) {
+  const [id, did] = key.split("|"), tr = S.trips.find(t => t.id === id), dv = tr && tripDrives(tr).find(x => x.id === did); if (!dv) return;
+  const P = drivePlan(tr, dv), V = vehicleOf(tr), M = driveMeets(tr, dv, P);
+  let el = document.getElementById("driveSheet");
+  if (!el) { el = document.createElement("div"); el.id = "driveSheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Drive plan"); document.body.appendChild(el); }
+  const row = (t, ic, l, sub) => `<div class="row"><span class="time">${t ? hm(t) : ""}</span><span class="grow">${ic} ${l}${sub ? `<span class="sub">${sub}</span>` : ""}</span></div>`;
+  el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
+    <div class="sheet-head"><h2>🚗 ${esc(dv.from)} → ${esc(dv.to)}</h2><button class="icon-btn" data-driveclose="1" aria-label="Close">✕</button></div>
+    <p class="fine" style="margin-top:0">${dayName(dv.day)} ${prettyDate(dv.day)} · ${dv.miles} mi · ${Math.floor(dv.mins / 60)} h ${dv.mins % 60} min of driving · ${Math.floor(P.total / 60)} h ${P.total % 60} min door to door</p>
+    ${row(dv.t, "🚗", "Leave", esc(dv.from))}
+    ${P.stops.map(s => row(s.t, "", stopWords(s), `about mile ${s.mile} · ${s.len} min`)).join("")}
+    ${row(P.arrive, "🏁", `Arrive${P.plusDays ? " (next day)" : ""}`, esc(dv.to))}
+    ${M.map(m => `<div class="bstat tight ${m.ok ? "" : "over"}">${esc(m.text)}</div>`).join("")}
+    ${P.cost ? `<div class="today-line">⛽ About ${P.gallons.toFixed(1)} gal · ${money(P.cost)}</div>` : ""}
+    <a class="btn sm ghost" href="https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(dv.from)}&destination=${encodeURIComponent(dv.to)}" target="_blank" rel="noopener">🗺️ Open in maps</a>
+    <div class="day-label" style="margin-top:10px">Your car</div>
+    <form class="qa-form" data-vehicle="${tr.id}|${dv.id}">
+      <div class="two"><label class="field" style="margin:0">Miles on a full tank<input name="range" type="number" min="0" max="1500" inputmode="numeric" value="${V.range || ""}"></label>
+        <label class="field" style="margin:0">Miles per gallon<input name="mpg" type="number" min="0" max="150" step="0.1" inputmode="decimal" value="${V.mpg || ""}"></label></div>
+      <label class="field" style="margin:0">Gas $ / gallon (what you're paying)<input name="gas" type="number" min="0" max="20" step="0.01" inputmode="decimal" value="${V.gas || ""}"></label>
+      <button class="btn sm">Save car</button></form>
+    <p class="fine">Breaks about every 2 hours, a meal stop around lunch or dinner, fuel before the tank drops under 20%. Real traffic will change it — leave a little early.</p>
+    <button class="btn sm ghost" data-drivedel="${tr.id}|${dv.id}">Delete this drive</button></div>`;
+  el.classList.remove("hidden");
+}
+function driveSave(id, fn) {
+  const tr = S.trips.find(t => t.id === id); if (!tr) return null;
+  snap(); tr.drives = tripDrives(tr).map(x => ({ ...x })); fn(tr); save(); return tr;
+}
+function driveClick(ds) {
+  if (ds.driveopen) { hideSheet("daySheet"); showDrive(ds.driveopen); return true; }
+  if (ds.driveclose) { hideSheet("driveSheet"); return true; }
+  if (ds.drivedel) { const [id, did] = ds.drivedel.split("|"); driveSave(id, tr => { tr.drives = tr.drives.filter(x => x.id !== did); });
+    hideSheet("driveSheet"); render(); toast("Drive deleted", true); return true; }
+  return false;
+}
+function driveSubmit(f, data) {
+  if (f.dataset.drive) { const [id, d] = f.dataset.drive.split("|"), mins = (Number(data.h) || 0) * 60 + (Number(data.m) || 0), miles = Number(data.miles) || 0;
+    if (!mins || !miles) { toast("Add the miles and the drive time"); return true; }
+    let did = "";
+    driveSave(id, tr => { did = uid(); tr.drives.push({ id: did, day: d, from: String(data.from || "").trim().slice(0, 60), to: String(data.to || "").trim().slice(0, 60), t: data.t || "08:00", miles, mins }); });
+    render(); buzz(); showDrive(`${id}|${did}`); return true; }
+  if (f.dataset.vehicle) { const [id] = f.dataset.vehicle.split("|");
+    driveSave(id, tr => { tr.vehicle = { range: Number(data.range) || 0, mpg: Number(data.mpg) || 0, gas: Number(data.gas) || 0 }; });
+    render(); showDrive(f.dataset.vehicle); toast("🚗 Car saved"); return true; }
+  return false;
 }

@@ -1,6 +1,9 @@
 {
- "version": "1.15",
+ "version": "1.16",
  "notes": {
+  "1.16": [
+   "🚗 Road trip planner: on any trip day tap 'Driving today?' — type the miles and drive time from your maps app, and get a break about every 2 hours, a lunch or dinner stop, fuel before the tank gets low, your arrival time and the gas cost. It also tells you if you'll make that night's hotel check-in or dinner."
+  ],
   "1.15": [
    "🗓️ Free cancellation: add the 'cancel free until' date from your confirmation to any booking — you'll get a heads-up 3 days before and on the last day. ↩️ Refunds owed (Wallet → Money): track money coming back, tap 'got it' when it lands, and get a nudge if it's late. Canceling a paid booking in Fix my trip offers to track the refund for you."
   ],

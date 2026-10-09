@@ -260,6 +260,7 @@ function showDay(d) {
     ${!pt && (d === tr.start || d === (tr.end || tr.start)) && typeof homePortHtml === "function" ? homePortHtml(tr, true) : ""}
     <div class="day-label" style="margin-top:10px">The day</div>
     ${items.length ? items.map(x => `<${x.bk ? `button class="row rn-row" data-bkopen="${x.bk}"` : `div class="row"`}><span class="time">${x.t ? hm(x.t) : ""}</span><span class="grow">${x.icon || ""} ${esc(x.title)}${x.sub ? `<span class="sub">${esc(x.sub)}</span>` : ""}</span>${x.bk ? `<span class="chev">›</span></button>` : "</div>"}`).join("") : `<div class="today-line sub">${trCruise(tr) ? "🌊" : "😎"} Nothing planned yet — a good day to relax.</div>`}
+    ${typeof driveDayHtml === "function" ? driveDayHtml(tr, d) : ""}
     ${typeof funDayHtml === "function" ? funDayHtml(tr, d) : ""}
     ${typeof diaryDayHtml === "function" ? diaryDayHtml(tr, d) : ""}
     <div class="foot-actions" style="flex-wrap:wrap;margin-top:10px">

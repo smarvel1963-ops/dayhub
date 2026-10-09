@@ -3237,6 +3237,50 @@ def t_v115_cancel_refunds(b, base):
     a.close()
 
 
+
+def t_v116_road_trip(b, base):
+    print("\n[v1.16 road trip brain (free): typed miles + drive time -> breaks, meals, fuel, arrival, does it make check-in]")
+    a = App(b, base, path=TRIP, at="2026-10-19T09:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-25", "port": "Orlando, FL"})
+    a.page.wait_for_timeout(150)
+    a.js("""(() => { const tr = curTrip(); tr.bookings = [
+      { id: 'h1', kind: 'hotel', a: 'Coronado Springs', b: '', day: '2026-10-20', t: '15:00', endDay: '2026-10-25', endT: '11:00' },
+      { id: 'd1', kind: 'dinner', a: 'Boma', b: '', day: '2026-10-20', t: '19:00' }]; save(); render(); showDay('2026-10-20'); })()""")
+    check("day screen: a collapsed 'Driving today?' when there's no drive", a.js("!!document.querySelector('#daySheet details.drive-box form[data-drive]')"))
+    a.page.evaluate("() => { document.querySelector('#daySheet details.drive-box').open = true; }")
+    for k, v in {"from": "Little Rock", "to": "Orlando", "t": "07:00", "miles": "900", "h": "13", "m": "30"}.items():
+        a.page.fill(f'#daySheet form[data-drive] [name={k}]', v)
+    a.page.click('#daySheet form[data-drive] button'); a.page.wait_for_timeout(150)
+    dv = a.js("curTrip().drives[0]")
+    check("saved: 900 mi, 810 min, leave 7:00; the plan opens", dv["miles"] == 900 and dv["mins"] == 810 and dv["t"] == "07:00"
+          and not a.js("document.getElementById('driveSheet').classList.contains('hidden')"), dv)
+    a.page.fill('#driveSheet [name=range]', "400"); a.page.fill('#driveSheet [name=mpg]', "25"); a.page.fill('#driveSheet [name=gas]', "3.20")
+    a.page.click('#driveSheet form[data-vehicle] button'); a.page.wait_for_timeout(120)
+    P = a.js("(() => { const P = drivePlan(curTrip(), curTrip().drives[0]); return { s: P.stops.map(s => s.t + ' ' + s.kind + (s.meal ? ':' + s.meal : '') + (s.fuel ? '+fuel' : '')), arrive: P.arrive, plus: P.plusDays, cost: Math.round(P.cost * 100) / 100 }; })()")
+    check("stops every 2 h; lunch + fuel 12:18, dinner + fuel 6:21 (tank at 80%), arrive 11:15 PM, $115.20 gas",
+          P == {"s": ["09:00 break", "11:15 break", "12:18 meal:lunch+fuel", "15:03 break", "17:18 break", "18:21 meal:dinner+fuel", "21:06 break"],
+                "arrive": "23:15", "plus": 0, "cost": 115.2}, P)
+    s = a.page.inner_text("#driveSheet")
+    check("sheet: stop list with mile markers, the hotel note, dinner flagged late, gas",
+          "Lunch + ⛽ fuel" in s and "about mile 320" in s and "Coronado Springs: check-in from 3:00 PM" in s
+          and "Boma at 7:00 PM — you arrive about 11:15 PM" in s and "36.0 gal · $115.20" in s, s[:1500])
+    check("dinner warning is marked red", a.js("[...document.querySelectorAll('#driveSheet .bstat.over')].length") == 1)
+    rows = a.js("dayItems('2026-10-20').filter(x => x.icon === '🚗' || x.icon === '🏁').map(x => x.t + ' ' + x.title)")
+    check("day list: Drive at 7:00 + Arrive about 11:15 PM", rows == ["07:00 Drive Little Rock → Orlando", "23:15 Arrive Orlando (about)"], rows)
+    a.js("hideSheet('driveSheet'); showDay('2026-10-20')")
+    s = a.page.inner_text("#daySheet")
+    check("day screen shows the drive summary", "arrive about 11:15 PM" in s and "7 stops" in s and "about $115.20" in s, s[:900])
+    P2 = a.js("drivePlan({ vehicle: {} }, { day: '2026-10-21', t: '20:00', miles: 300, mins: 300 })")
+    check("no car saved = no fuel stops; past midnight = next day", [x["kind"] for x in P2["stops"]] == ["break", "break"] and P2["arrive"] == "01:30" and P2["plusDays"] == 1, P2)
+    a.page.click(f'#daySheet [data-driveopen="{a.js("curTrip().id")}|{dv["id"]}"]'); a.page.wait_for_timeout(80)
+    a.page.click('#driveSheet [data-drivedel]'); a.page.wait_for_timeout(100)
+    check("delete the drive", a.js("curTrip().drives.length") == 0)
+    a.close()
+
+
 def t_v109_port_wx_alerts(b, base):
     print("\n[v1.09 port-day weather notifications: 7 AM on the day, 8 PM the night before only with a warning]")
     a = App(b, base, path=CRUISE, at="2026-10-01T06:00:00")                # sail day, before 7 AM
@@ -3287,7 +3331,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip):
             try:
                 t(b, base)
             except Exception as e:
