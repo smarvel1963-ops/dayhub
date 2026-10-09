@@ -2756,6 +2756,46 @@ def t_v102_port_reality(b, base):
     a.close()
 
 
+def t_v103_final_bill(b, base):
+    print("\n[v1.03 final bill check: the ship's bill vs Cruise Hub's count + what to look for]")
+    a = App(b, base, path=CRUISE, at="2026-11-18T19:00:00")              # final night (cruise ends 11/19)
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Carnival", "travelers": "2"})
+    a.js("""(() => { const tr = curTrip(); tr.credit = 100;
+      tr.spends = [{ id: 's1', day: '2026-11-14', amt: 12.5, cat: 'Drinks' }, { id: 's2', day: '2026-11-14', amt: 12.5, cat: 'Drinks' },
+                   { id: 's3', day: '2026-11-15', amt: 150, cat: 'Spa' }];
+      tr.costs = (tr.costs || []).concat([{ id: 'c1', cat: 'excursion', what: 'Snorkel', amt: 89, paid: true }]); save(); render(); })()""")
+    C = a.js("billCount(curTrip())")
+    check("count = spent 175 + gratuities 2 x 7 nights x $18 = 252 - credit 100 = 327", C["spent"] == 175 and C["gr"] == 252 and C["credit"] == 100 and C["total"] == 327, C)
+    L = " | ".join(a.js("billLooks(curTrip())"))
+    check("look-fors from the trip: gratuity rate, the credit, the prepaid excursion, the same amount twice, service charges",
+          "2 × 7 nights" in L and "$100.00 onboard credit" in L and "Snorkel ($89.00) before the cruise" in L and "$12.50 2 times on" in L and "service charge" in L, L)
+    a.js("showGoHome()")
+    check("Get me home has the bill check button", a.js("!!document.querySelector('#ghSheet [data-billcheck]')"))
+    a.page.click('#ghSheet [data-billcheck]'); a.page.wait_for_timeout(100)
+    s = a.page.inner_text("#billSheet")
+    check("bill sheet opens over a closed Get me home: the count rows, no verdict yet", a.js("document.getElementById('ghSheet').classList.contains('hidden')")
+          and "$327.00" in s and "~$252.00" in s and "−$100.00" in s and "MORE" not in s and "Within" not in s, s[:600])
+    bill = lambda v: (a.page.fill('#billSheet form[data-bill] [name=amt]', v), a.page.click('#billSheet form[data-bill] button'), a.page.wait_for_timeout(120), a.page.inner_text("#billSheet"))[3]
+    s = bill("330")
+    check("bill $330 = within $5: looks right, nothing ticked for you", "Within $5.00 of your count" in s and a.js("curTrip().billSeen") == 330 and not a.js("!!curTrip().accountVerified"))
+    a.page.click('#billSheet [data-billok]'); a.page.wait_for_timeout(120)
+    check("tick 'Charges match' = account checked (Get me home sees it)", a.js("curTrip().accountVerified") is True and a.js("goHomeItems(curTrip())[0].ok") is True)
+    s = bill("400")
+    check("bill $400: $73.00 MORE than the count", "$73.00 MORE" in s)
+    s = bill("300")
+    check("bill $300: $27.00 less, still check the list", "$27.00 less" in s)
+    a.js("hideSheet('billSheet'); curTrip().line = 'Princess'; curTrip().pkg = 'princess-plus'; save()")
+    L = " | ".join(a.js("billLooks(curTrip())"))
+    check("a package that pays gratuities: NO daily gratuity charge, count has $0 gratuities",
+          "Princess Plus pays crew gratuities — there should be NO daily gratuity charge" in L and a.js("billCount(curTrip()).gr") == 0, L)
+    a.js("S.tripTab = 'onboard'; shellGo('wallet')")
+    check("Wallet -> Onboard has the bill check on the last night", a.js("!!document.querySelector('[data-card=\"trips\"] [data-billcheck]')"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -2784,7 +2824,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill):
             try:
                 t(b, base)
             except Exception as e:

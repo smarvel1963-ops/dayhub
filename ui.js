@@ -271,7 +271,8 @@ const CARDS = {
         if (bud && spent > bud) body += `<div class="bstat over" style="margin-top:8px">⚠ ${money(spent - bud)} over your onboard budget.</div>`;
         if (isCruise(tr)) { const credit = Number(tr.credit || 0), bal = spent + gr - credit;
           body += `<div class="today-line" style="margin-top:8px">🧾 Ship account: <b>${money(bal)}</b> <span class="sub" style="display:inline">(spent ${money(spent)} + gratuities ${money(gr)}${credit ? ` − credit ${money(credit)}` : ""})</span></div>`;
-          if (tr.end && daysUntil(tr.end) <= 1) body += `<label class="row"><input type="checkbox" class="tick" data-tverify="${tr.id}" ${tr.accountVerified ? "checked" : ""}><span class="grow">Final ship account checked — charges match</span></label>`; }
+          if (tr.end && daysUntil(tr.end) <= 1) body += `<label class="row"><input type="checkbox" class="tick" data-tverify="${tr.id}" ${tr.accountVerified ? "checked" : ""}><span class="grow">Final ship account checked — charges match</span></label>`;
+          if (tr.end && daysUntil(tr.end) <= 1) body += `<button class="add-link" data-billcheck="1">🧾 Check my final bill</button>`; }   // v1.03
         if (pkgOf(tr) && pkgOf(tr).gratsPaid) body += `<div class="today-line" style="margin-top:8px">🧾 Gratuities: <b>$0</b> — ${esc(pkgOf(tr).name)} pays crew appreciation.</div>`;
         if (gr) body += `<div class="today-line" style="margin-top:8px">🧾 Automatic gratuities: about <b>${money(gr)}</b> (${Number(tr.travelers) || 1} × ${nights} nights × ~$${GRAT_PER_DAY}) — they hit your account even if you never log them.</div>`;
         const mx = Math.max(1, ...Object.values(cats));

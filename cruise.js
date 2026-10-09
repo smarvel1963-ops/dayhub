@@ -55,6 +55,7 @@ function showGoHome() {
       ? `<label class="row"><input type="checkbox" class="tick" data-ghtoggle="${i.key}" ${i.ok ? "checked" : ""}><span class="grow">${esc(i.key === "safe" ? "My cabin safe is EMPTY (passport, cash, jewelry, car keys out)" : i.label)}</span></label>`
       : i.tap === "car" ? ""
       : `<div class="row"><span class="grow">${i.ok ? "✅" : "⬜"} ${esc(i.label)}</span><button class="btn sm ghost" data-ghgo="${i.tap}">Open</button></div>`).join("")}
+    <button class="add-link" data-billcheck="1">🧾 Check my final bill against Cruise Hub's count</button>
     <h3 style="margin-top:12px">🚗 Remember my car</h3>
     <form class="inline-add car-form" data-car="${tr.id}">
       <input name="where" placeholder="Garage / lot (e.g. Port garage B)" value="${esc(c.where || "")}" autocomplete="off">
@@ -85,6 +86,7 @@ function cruiseClick(ds) {
   if (helpClick(ds)) return true;                                          // v0.57 crisis mode
   if (onboardClick(ds)) return true;                                        // v0.60 onboarding
   if (phaseClick(ds)) return true;                                          // v0.61 on board
+  if (billClick(ds)) return true;                                           // v1.03 final bill check
   if (ds.gohome) { showGoHome(); return true; }
   if (ds.ghclose) { hideSheet("ghSheet"); return true; }
   if (ds.ghgo) { const tr = curTrip(); hideSheet("ghSheet");
@@ -97,6 +99,7 @@ function cruiseClick(ds) {
 }
 function cruiseChange(ds, t) {
   if (phaseChange(ds, t)) return true;                                      // v0.61 first things
+  if (billChange(ds, t)) return true;                                       // v1.03 final bill check
   if (!ds.ghtoggle) return false;
   const tr = curTrip(); if (!tr) return true;
   if (ds.ghtoggle === "safe") tr.safeEmpty = t.checked; else if (ds.ghtoggle === "account") tr.accountVerified = t.checked;
@@ -106,6 +109,7 @@ function cruiseSubmit(f, data) {
   if (typeof tripSubmit === "function" && tripSubmit(f, data)) return true;   // v0.98 bookings (trip.js)
   if (helpSubmit(f, data)) return true;                                     // v0.57 crisis mode
   if (onboardSubmit(f, data)) return true;                                  // v0.60 paste my confirmation
+  if (billSubmit(f, data)) return true;                                     // v1.03 final bill check
   if (!f.dataset.car) return false;
   const tr = S.trips.find(x => x.id === f.dataset.car); if (!tr) return true;
   const c = { where: String(data.where || "").trim(), level: String(data.level || "").trim(), spot: String(data.spot || "").trim() };
@@ -394,4 +398,74 @@ function portRealityHtml(pt) {
     <div class="today-line">${tone}</div>
     ${R.mins > 60 ? `<button class="add-link" data-askq="${esc(`We have about ${ashoreText(R.mins)} ashore${where} — what's worth it?`)}">💡 What fits in ${ashoreText(R.mins)}${esc(where)}?</button>` : ""}
     <p class="fine">Estimates from your port times. Getting off can be faster with an early excursion, slower on a busy day — the ship's announcements always win.</p>`;
+}
+
+// ------------------------------------------------------------ FINAL BILL CHECK (v1.03)
+// Cruise Hub plan (10/4): "Final Bill Check". The last night, put the ship's bill next to Cruise Hub's own count
+// (logged spending + estimated gratuities - onboard credit) and say what to look for. RULES ONLY, from the trip:
+// a package that pays gratuities, onboard credit, excursions already paid before the cruise, the same amount
+// logged twice on one day. Nothing is looked up - the traveler types the bill's total (tr.billSeen).
+const BILL_CLOSE = 5;                                                        // within $5 = it matches
+function billCount(tr) {
+  const spent = tripSpent(tr), gr = gratEstimate(tr), credit = Number(tr.credit || 0);
+  return { spent, n: (tr.spends || []).length, gr, credit, total: Math.round((spent + gr - credit) * 100) / 100 };
+}
+// what to look for on the bill, from this trip's own data
+function billLooks(tr) {
+  const out = [], P = pkgOf(tr), n = Number(tr.travelers) || 1, nights = tripNights(tr);
+  if (P && P.gratsPaid) out.push(`${P.name} pays crew gratuities — there should be NO daily gratuity charge.`);
+  else if (nights) out.push(`Gratuities: Cruise Hub counts about ${money(GRAT_PER_DAY)} a person a night (${n} × ${nights} nights). Your line's real rate is on the bill — compare that line first.`);
+  if (Number(tr.credit) > 0) out.push(`Your ${money(tr.credit)} onboard credit should show as a credit.`);
+  (tr.costs || []).filter(c => c.cat === "excursion" && c.paid).forEach(c => out.push(`You paid for ${c.what || "an excursion"} (${money(c.amt)}) before the cruise — it should NOT be on the ship bill.`));
+  const seen = {};
+  (tr.spends || []).forEach(x => { const k = `${x.day}|${Number(x.amt).toFixed(2)}`; seen[k] = (seen[k] || 0) + 1; });
+  Object.entries(seen).filter(([, c]) => c > 1).forEach(([k, c]) => { const [d, a] = k.split("|");
+    out.push(`Your log has ${money(a)} ${c} times on ${dayName(d)} ${prettyDate(d)} — if the bill does too, make sure you really bought it ${c} times.`); });
+  out.push("Bar, spa and salon charges often add a service charge on top of the price — your log may not include it.");
+  out.push("A charge you don't recognize? Guest Services can show you the receipt you signed.");
+  return out;
+}
+function showBill() {
+  const tr = curTrip(); if (!tr) return;
+  let el = document.getElementById("billSheet");
+  if (!el) { el = document.createElement("div"); el.id = "billSheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Final bill check"); document.body.appendChild(el); }
+  const C = billCount(tr), seen = Number(tr.billSeen), has = tr.billSeen !== undefined && tr.billSeen !== null && tr.billSeen !== "" && isFinite(seen);
+  const diff = has ? Math.round((seen - C.total) * 100) / 100 : 0, close = has && Math.abs(diff) <= BILL_CLOSE;
+  const row = (l, v, s) => `<div class="row"><span class="grow">${l}${s ? `<span class="sub">${s}</span>` : ""}</span><b>${v}</b></div>`;
+  const verdict = !has ? "" : close ? `<div class="bstat ok">✅ Within ${money(BILL_CLOSE)} of your count — looks right.</div>`
+    : diff > 0 ? `<div class="bstat over">⚠️ The bill is <b>${money(diff)} MORE</b> than your count — go through it with the list below.</div>`
+    : `<div class="bstat">The bill is <b>${money(-diff)} less</b> than your count — good for you, but check the list below (a charge may still be coming).</div>`;
+  el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
+    <div class="sheet-head"><h2>🧾 Final bill check</h2><button class="icon-btn" data-billclose="1" aria-label="Close">✕</button></div>
+    <div class="day-label">Cruise Hub's count</div>
+    ${row("Your logged spending", money(C.spent), `${C.n} charge${C.n === 1 ? "" : "s"} logged`)}
+    ${row("Gratuities", C.gr ? `~${money(C.gr)}` : "$0.00", C.gr ? "estimate" : pkgOf(tr) && pkgOf(tr).gratsPaid ? `paid by ${esc(pkgOf(tr).name)}` : "")}
+    ${C.credit ? row("Onboard credit", `−${money(C.credit)}`) : ""}
+    ${row("<b>About</b>", money(C.total))}
+    <form class="qa-form" data-bill="${tr.id}" style="margin-top:10px">
+      <label class="field" style="margin:0">What does the ship's bill say?<input name="amt" type="number" step="0.01" inputmode="decimal" placeholder="Total $" value="${has ? esc(String(seen)) : ""}" required></label>
+      <button class="btn sm">Compare</button></form>
+    ${verdict}
+    ${has ? `<label class="row"><input type="checkbox" class="tick" data-billok="${tr.id}" ${tr.accountVerified ? "checked" : ""}><span class="grow">Charges match — I've checked my bill</span></label>` : ""}
+    <div class="day-label" style="margin-top:10px">Look for</div>
+    ${billLooks(tr).map(x => `<div class="today-line">☐ ${esc(x)}</div>`).join("")}
+    <p class="fine">See your bill in the cruise line's app or at Guest Services. It's easiest to fix before you get off the ship. Log charges as you go (Wallet → Onboard) and this count gets closer.</p></div>`;
+  el.classList.remove("hidden");
+}
+function billClick(ds) {
+  if (ds.billcheck) { hideSheet("ghSheet"); showBill(); return true; }
+  if (ds.billclose) { hideSheet("billSheet"); return true; }
+  return false;
+}
+function billChange(ds, t) {
+  if (!ds.billok) return false;
+  const tr = S.trips.find(x => x.id === ds.billok); if (!tr) return true;
+  tr.accountVerified = t.checked; save(); render(); showBill(); return true;
+}
+function billSubmit(f, data) {
+  if (!f.dataset.bill) return false;
+  const tr = S.trips.find(x => x.id === f.dataset.bill); if (!tr) return true;
+  const v = Number(data.amt); if (!isFinite(v) || data.amt === "") return true;
+  snap(); tr.billSeen = Math.round(v * 100) / 100;
+  save(); render(); showBill(); return true;
 }
