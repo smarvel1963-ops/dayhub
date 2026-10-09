@@ -180,6 +180,7 @@ function tripClick(ds) {
   if (freeClick(ds)) return true;                                          // v1.17 free time finder
   if (voteClick(ds)) return true;                                          // v1.18 group vote
   if (exportClick(ds)) return true;                                        // v1.19 money export + double entries
+  if (docsClick(ds)) return true;                                          // v1.20 document expiry
   if (ds.lvpreset) { const i = document.querySelector('#bookSheet [name="lv_check"]'); if (i) i.value = ds.lvpreset; return true; }   // v1.12
   if (ds.bkadd) { showBookingForm(ds.bkadd); return true; }
   if (ds.bkopen) { hideSheet("daySheet"); showBooking(ds.bkopen); return true; }
@@ -200,6 +201,7 @@ function tripSubmit(f, data) {
   if (driveSubmit(f, data)) return true;                                   // v1.16 road trip brain
   if (freeSubmit(f, data)) return true;                                    // v1.17 free time finder
   if (voteSubmit(f, data)) return true;                                    // v1.18 group vote
+  if (docsSubmit(f, data)) return true;                                    // v1.20 document expiry
   if (f.dataset.bkpaste) { pasteBookings(data.text || ""); return true; }
   if (!f.dataset.bkform) return false;
   saveBooking(f, data); return true;
@@ -1368,4 +1370,57 @@ function exportClick(ds) {
     snap(); const keep = new Set(ids.split(",")); tr.spends = (tr.spends || []).map(x => keep.has(x.id) ? { ...x, dupeOk: x.dupeOk || uid() } : x);
     save(); render(); return true; }
   return false;
+}
+
+// ------------------------------------------------------------ DOCUMENT EXPIRY CHECK (v1.20)
+// Blueprint 4.3 "Travel Vault: Passport/license references; Insurance information ... Privacy and deletion
+// controls". The free, private part: WHO has WHICH document and WHEN it runs out - never a number (the app's
+// standing rule: "never asks for passport or ID numbers"). S.idDocs = [{ id, who, kind, exp }] belongs to the
+// person, not one trip, so every trip is checked against it: expired before you go / runs out during the trip
+// (red), a passport with under 6 months left after you get home (amber - many countries ask for that; the
+// traveler checks their destination). Reminders 90 and 30 days before anything runs out.
+const DOC_KINDS = [["passport", "🛂 Passport"], ["pcard", "🪪 Passport card"], ["license", "🚗 Driver's license"], ["stateid", "🪪 State ID"],
+  ["visa", "🧾 Visa / travel permit"], ["insurance", "🛡️ Insurance card"], ["other", "📄 Other"]];
+const docLabel = k => (DOC_KINDS.find(x => x[0] === k) || DOC_KINDS[DOC_KINDS.length - 1])[1];
+const idDocs = () => (Array.isArray(S.idDocs) ? S.idDocs : []);
+function docCheck(tr, d) {
+  if (!d.exp || !tr || !tr.start) return { level: "ok", text: "" };
+  const end = tr.end || tr.start;
+  if (d.exp < tr.start) return { level: "bad", text: `expired ${prettyDate(d.exp)} — before you go` };
+  if (d.exp <= end) return { level: "bad", text: `runs out ${prettyDate(d.exp)} — during the trip` };
+  if (d.kind === "passport" && d.exp < addDays(end, 182)) return { level: "warn", text: `under 6 months left when you get home (${prettyDate(d.exp)}) — many countries ask for 6; check yours` };
+  return { level: "ok", text: `good till ${prettyDate(d.exp)}` };
+}
+// Readiness (app.js readiness): only once a document is saved.
+function docsReady(tr, add) {
+  const D = idDocs().filter(d => d.exp); if (!D.length || !tr.start) return;
+  const bad = D.filter(d => docCheck(tr, d).level === "bad");
+  add("Documents valid for the trip", bad.length ? 1 - bad.length / D.length : 1, 9999, bad.length ? `Renew ${bad[0].who ? bad[0].who + "'s " : ""}${docLabel(bad[0].kind).replace(/^\S+\s/, "").toLowerCase()} — ${docCheck(tr, bad[0]).text}` : "");
+}
+// The block in 🛟 → MY DOCUMENTS.
+function docsVaultHtml(tr) {
+  const D = idDocs().slice().sort((a, b) => (a.who || "").localeCompare(b.who || "") || (a.exp || "9").localeCompare(b.exp || "9"));
+  return `<div class="day-label" style="margin-top:10px">🗂️ When they run out</div>
+    ${D.map(d => { const c = tr ? docCheck(tr, d) : { level: "ok", text: d.exp ? `good till ${prettyDate(d.exp)}` : "" };
+      return `<div class="row doc-row"><span class="grow">${docLabel(d.kind)}${d.who ? ` — ${esc(d.who)}` : ""}<span class="sub">${c.level === "bad" ? "⛔ " : c.level === "warn" ? "⚠️ " : "✅ "}${esc(c.text || (d.exp ? prettyDate(d.exp) : "no date"))}</span></span>
+        <button class="x" data-docdel="${d.id}" aria-label="Remove">✕</button></div>`; }).join("")}
+    <form class="qa-form doc-add" data-docadd="1"><div class="two"><input name="who" placeholder="Whose (e.g. Scott)" autocomplete="off">
+      <select name="kind" aria-label="What">${DOC_KINDS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select></div>
+      <label class="field" style="margin:0">Expires<input name="exp" type="date" required></label><button class="btn sm">＋ Add</button></form>
+    <p class="fine">Just whose it is and when it runs out — ${esc(APP_NAME)} never asks for document numbers. Saved on this phone.</p>`;
+}
+function docsReminders(add, inWin) {
+  idDocs().filter(d => d.exp).forEach(d => [90, 30].forEach(n => { const day = addDays(d.exp, -n);
+    if (inWin(day)) add(`doc:${d.id}:${d.exp}:${n}`, atMs(day, "23:59"), atMs(day, "10:00"), `🗂️ ${d.who ? d.who + "'s " : ""}${docLabel(d.kind).replace(/^\S+\s/, "").toLowerCase()} runs out in ${n} days`,
+      `Expires ${prettyDate(d.exp)}.${d.kind === "passport" ? " Renewing can take weeks — start now if you have a trip coming." : ""}`); }));
+}
+function docsClick(ds) {
+  if (!ds.docdel) return false;
+  snap(); S.idDocs = idDocs().filter(d => d.id !== ds.docdel); save(); render(); showHelp("docs"); toast("Removed", true); return true;
+}
+function docsSubmit(f, data) {
+  if (!f.dataset.docadd) return false;
+  if (!data.exp) return true;
+  snap(); S.idDocs = idDocs().concat({ id: uid(), who: String(data.who || "").trim().slice(0, 30), kind: DOC_KINDS.some(k => k[0] === data.kind) ? data.kind : "other", exp: data.exp });
+  save(); render(); showHelp("docs"); buzz(); toast("🗂️ Saved"); return true;
 }

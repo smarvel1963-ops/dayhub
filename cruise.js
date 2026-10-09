@@ -76,6 +76,7 @@ function cruiseReminders(add, inWin) {
   if (typeof leaveReminders === "function") leaveReminders(add, inWin);    // v1.12 leave-time engine (trip.js), every trip
   if (typeof hotelReminders === "function") hotelReminders(add, inWin);    // v1.14 hotel check-out (trip.js)
   if (typeof cancelReminders === "function") cancelReminders(add, inWin);  // v1.15 cancel-by + late refunds (trip.js)
+  if (typeof docsReminders === "function") docsReminders(add, inWin);      // v1.20 documents running out (trip.js)
   myTrips().filter(tr => isCruise(tr) && tr.end).forEach(tr => {
     const d = addDays(tr.end, -1);
     if (inWin(d) && !tr.safeEmpty && tr.homeDone !== tr.end)
@@ -198,7 +199,8 @@ function showHelp(view) {
   else if (view === "docs") { ensureLists(tr || { lists: {} }); const D = tr ? (tr.lists.docs || []) : [];
     body = (tr && tr.booking ? `<div class="row"><span class="grow"><b>Booking #</b><span class="sub">${esc(tr.booking)}</span></span></div>` : "") +
       (D.length ? D.map(i => `<div class="today-line">${i.done ? "✅" : "⬜"} ${esc(i.text)}</div>`).join("") : `<p class="fine">No documents list yet.</p>`) +
-      `<p class="fine">Keep a photo of your passport / ID in your phone's photos and a paper copy apart from it.</p>`; }
+      `<p class="fine">Keep a photo of your passport / ID in your phone's photos and a paper copy apart from it.</p>`
+      + (typeof docsVaultHtml === "function" ? docsVaultHtml(tr) : ""); }                 // v1.20 when they run out (trip.js)
   else body = tr ? `<form class="help-form" data-helpform="${tr.id}">${HELP_FIELDS.map(([k, l]) => `<label class="field">${l}<input name="${k}" value="${esc(helpVal(tr, k))}" autocomplete="off"></label>`).join("")}
       <button class="btn" style="width:100%;margin-top:8px">Save contacts</button></form><p class="fine">Saved on this phone only (and in your backup if it's on).</p>` : `<p class="fine">Plan a cruise first.</p>`;
   const titles = { back: "🚢 Back to ship", get: "🚗 Get to the ship", medical: "🩺 Medical / safety", travel: "✈️ Travel problem", docs: "📄 My documents", contacts: "📇 My trip contacts" };

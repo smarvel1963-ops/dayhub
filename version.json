@@ -1,6 +1,9 @@
 {
- "version": "1.19",
+ "version": "1.20",
  "notes": {
+  "1.20": [
+   "🗂️ Passport & ID check: 🛟 → My documents → add whose passport, license or ID and when it runs out (never the number). Every trip checks it: expired, runs out during the trip, or a passport with under 6 months left after you get home. Reminders 90 and 30 days before anything expires."
+  ],
   "1.19": [
    "📤 Export your trip's money: Wallet → Money → Export saves one spreadsheet file (opens in Excel or Google Sheets) with every payment, cost, spending and refund — and who paid. ⚠️ Spending now spots an amount logged twice on the same day: remove the extra, or tell it both are real."
   ],

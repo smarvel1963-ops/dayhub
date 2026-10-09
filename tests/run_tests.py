@@ -3403,6 +3403,39 @@ def t_v119_money_export(b, base):
     a.close()
 
 
+
+def t_v120_doc_expiry(b, base):
+    print("\n[v1.20 document expiry: whose + when it runs out (no numbers) checked against every trip]")
+    a = App(b, base, path=TRIP, at="2026-10-09T09:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"tname": "Cancun", "start": "2026-11-10", "end": "2026-11-17", "port": "Cancun, Mexico"})
+    a.page.wait_for_timeout(150)
+    a.js("showHelp('docs')")
+    check("🛟 My documents has 'When they run out' with an add form, no number box", "when they run out" in a.page.inner_text("#helpSheet").lower()
+          and a.js("!!document.querySelector('#helpSheet form[data-docadd] [name=exp]')") and not a.js("!!document.querySelector('#helpSheet form[data-docadd] [name=num]')"))
+    def add(who, kind, exp):
+        a.page.fill('#helpSheet form[data-docadd] [name=who]', who); a.page.select_option('#helpSheet form[data-docadd] [name=kind]', kind)
+        a.page.fill('#helpSheet form[data-docadd] [name=exp]', exp); a.page.click('#helpSheet form[data-docadd] button'); a.page.wait_for_timeout(100)
+    add("Scott", "passport", "2027-03-01"); add("Roxanne", "passport", "2026-11-15"); add("Scott", "license", "2026-11-01"); add("Dean", "passport", "2028-01-01")
+    check("4 saved, only whose / what / when", a.js("S.idDocs.map(d => [d.who, d.kind, d.exp].join(' '))") == ["Scott passport 2027-03-01", "Roxanne passport 2026-11-15", "Scott license 2026-11-01", "Dean passport 2028-01-01"]
+          and a.js("Object.keys(S.idDocs[0]).sort().join()") == "exp,id,kind,who")
+    C = a.js("S.idDocs.map(d => docCheck(curTrip(), d).level)")
+    check("checked against Nov 10-17: 6-month passport warn / runs out during / expired before / fine", C == ["warn", "bad", "bad", "ok"], C)
+    s = a.page.inner_text("#helpSheet")
+    check("the list says why", "runs out Nov 15 — during the trip" in s and "expired Nov 1 — before you go" in s and "under 6 months left when you get home" in s and "good till" in s, s[:1200])
+    r = a.js("readiness(curTrip()).items.find(i => i.label === 'Documents valid for the trip')")
+    check("readiness: Documents valid 0.5 + 'Renew Roxanne's passport'", r and r["score"] == 0.5 and r["action"].startswith("Renew Roxanne's passport — runs out Nov 15"), r)
+    R = a.js("""(() => { const out = []; docsReminders((k, until, at, title) => out.push(new Date(at).toString().slice(4, 15) + ' ' + title), d => d >= '2026-10-09' && d <= '2026-12-31'); return out; })()""")
+    check("reminders 90 / 30 days before (in the window)", sorted(R) == ["Dec 01 2026 🗂️ Scott's passport runs out in 90 days", "Oct 16 2026 🗂️ Roxanne's passport runs out in 30 days"], R)
+    did = a.js("S.idDocs.find(d => d.who === 'Scott' && d.kind === 'license').id")
+    a.page.click(f'#helpSheet [data-docdel="{did}"]'); a.page.wait_for_timeout(100)
+    check("✕ removes one; sheet stays on My documents", a.js("S.idDocs.length") == 3 and "when they run out" in a.page.inner_text("#helpSheet").lower())
+    check("no documents saved = no readiness row", a.js("(() => { const keep = S.idDocs; S.idDocs = []; const r = readiness(curTrip()).items.some(i => i.label === 'Documents valid for the trip'); S.idDocs = keep; return r; })()") is False)
+    a.close()
+
+
 def t_v109_port_wx_alerts(b, base):
     print("\n[v1.09 port-day weather notifications: 7 AM on the day, 8 PM the night before only with a warning]")
     a = App(b, base, path=CRUISE, at="2026-10-01T06:00:00")                # sail day, before 7 AM
@@ -3453,7 +3486,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry):
             try:
                 t(b, base)
             except Exception as e:

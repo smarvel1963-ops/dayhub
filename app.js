@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.19";
+const VERSION = "1.20";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -1788,6 +1788,7 @@ function readiness(tr) {
   else add("Booking number saved", tr.booking ? 1 : 0, 9999, "Add your booking number (Edit)");
   if (cruise) add("Travel insurance decided", tr.insurance && tr.insurance !== "undecided" ? 1 : 0, 120, "Decide on travel insurance (Edit)");
   add("Documents", frac("docs"), 90, firstOpen("docs") ? `Documents: ${firstOpen("docs").text}` : "");
+  if (typeof docsReady === "function") docsReady(tr, add);              // v1.20 expiry vs the trip's dates (trip.js)
   if (cruise) add("Port days entered", tr.ports.length ? 1 : 0, 90, "Add your port days — the 🗺️ Ports tab");
   if (cruise && tr.ports.length) {
     const open = tr.ports.filter(pt => !pt.excursion);
