@@ -66,6 +66,8 @@ function rightNow(tr) {
   const W = tripWallet(tr), fd = tr.finalDue ? daysUntil(tr.finalDue) : null;
   if (fd !== null && fd >= 0 && fd <= 30 && tripLeft(tr) && !out.some(o => /final payment/i.test(o.text))) out.push({ icon: "💳", text: `Final payment ${inDays(fd)} — ${money(tripLeft(tr))}`, act: 'data-shellgo="wallet"' });
   if (W.unused && tr.end && daysUntil(tr.end) <= 2 && daysUntil(tr.end) >= 0) out.push({ icon: "🎁", text: `${W.unused} benefit${W.unused === 1 ? "" : "s"} not used yet`, act: 'data-shellgo="wallet"' });
+  const hn = typeof hotelNudge === "function" ? hotelNudge(tr) : null;   // v1.14 hotel mode: check-out day goes first
+  if (hn) { if (hn.first) out.unshift(hn); else out.push(hn); }
   const dn = typeof diaryNudge === "function" ? diaryNudge(tr) : null; if (dn) out.push(dn);   // v1.01 trip diary
   return out.slice(0, 3);
 }

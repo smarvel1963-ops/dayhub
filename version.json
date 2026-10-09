@@ -1,6 +1,9 @@
 {
- "version": "1.13",
+ "version": "1.14",
  "notes": {
+  "1.14": [
+   "🏨 Hotel mode: tap your hotel → Room, wifi + check-out. Keep the room number, wifi, breakfast and parking in one place (it shows on Home while you're staying). On check-out day Home shows 'Check out by 11:00 AM' with an 11-point checklist — chargers, the safe, under the beds, the final bill — plus a reminder the night before and an hour before."
+  ],
   "1.13": [
    "👥 Split the cost: Wallet → Money. Add who's going, pick who paid each payment, cost or spending (and if it was for everyone or just one person), and see each person's share and who owes whom — with the fewest payments to settle up. Share it to the group chat."
   ],

@@ -3139,6 +3139,56 @@ def t_v113_split(b, base):
     a.close()
 
 
+
+def t_v114_hotel_mode(b, base):
+    print("\n[v1.14 hotel mode: room / wifi / breakfast in one place, check-out checklist + reminders]")
+    seed = """(() => { const tr = curTrip(); tr.bookings = [
+      { id: 'h1', kind: 'hotel', a: 'Coronado Springs', b: '', day: '2026-10-20', t: '15:00', endDay: '2026-10-23', endT: '11:00', num: 'R-1', phone: '407-939-1000' }]; save(); render(); })()"""
+    def start(at):
+        a = App(b, base, path=TRIP, at=at)
+        a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+        a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+        if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+        a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-23", "port": "Orlando, FL"})
+        a.page.wait_for_timeout(150); a.js(seed); a.js("shellGo('home')"); return a
+    a = start("2026-10-21T09:00:00")
+    home = a.page.inner_text("#cards")
+    check("mid-stay Home: the hotel row asks for the room number", "Coronado Springs — add your room number" in home, home[:600])
+    a.page.click('#cards [data-hotelopen="h1"]'); a.page.wait_for_timeout(100)
+    s = a.page.inner_text("#hotelSheet")
+    check("hotel sheet: dates, front desk, the 5 fields, the checklist below", "check-out Friday" in s and a.js("document.querySelectorAll('#hotelSheet form[data-hotelstay] input').length") == 5
+          and a.js("document.querySelectorAll('#hotelSheet [data-hotelout]').length") == 11, s[:500])
+    a.page.fill('#hotelSheet [name=room]', "1412"); a.page.fill('#hotelSheet [name=wifi]', "CS-Guest"); a.page.fill('#hotelSheet [name=pass]', "mickey22")
+    a.page.click('#hotelSheet form[data-hotelstay] button.btn'); a.page.wait_for_timeout(120)
+    check("saved on the booking (blanks not stored)", a.js("curTrip().bookings[0].stay") == {"room": "1412", "wifi": "CS-Guest", "pass": "mickey22"})
+    a.js("hideSheet('hotelSheet'); shellGo('home')")
+    home = a.page.inner_text("#cards")
+    check("Home now: Room 1412 + the wifi", "Room 1412 · Coronado Springs" in home and "CS-Guest · mickey22" in home, home[:600])
+    a.js("showBooking('h1')")
+    check("booking detail has the hotel-mode button", a.js("!!document.querySelector('#bookSheet [data-hotelopen=\"h1\"]')"))
+    a.js("hideSheet('bookSheet')")
+    R = a.js("""(() => { const out = []; hotelReminders((k, until, at, title) => out.push([k.split(':').pop(), new Date(at).toString().slice(4, 21), title]), d => d >= '2026-10-21' && d <= '2026-10-23'); return out; })()""")
+    check("reminders: 8 PM the night before + 10 AM (1 hour before 11)", [r[:2] for r in R] == [["eve", "Oct 22 2026 20:00"], ["1h", "Oct 23 2026 10:00"]]
+          and R[0][2] == "🏨 Check out tomorrow by 11:00 AM — Coronado Springs", R)
+    check("an hour past check-out the stay is over", a.js("hotelNow(curTrip(), '2026-10-23', '12:01')") is None and a.js("hotelNow(curTrip(), '2026-10-23', '11:59').id") == "h1")
+    a.close()
+    a = start("2026-10-23T09:30:00")
+    home = a.page.inner_text("#cards")
+    check("check-out day: Home's first row is the check-out countdown", "Check out by 11:00 AM — 0 of 11 checked" in home.split("NEXT")[0], home[:500])
+    a.page.click('#cards [data-hotelopen="h1"]'); a.page.wait_for_timeout(100)
+    check("check-out day: the checklist comes first", a.js("document.querySelector('#hotelSheet .day-label').textContent").startswith("✅ Check-out checklist"))
+    for k in ["chargers", "outlets", "safe", "bath", "bed", "closet", "fridge", "meds", "bill", "keys"]:
+        a.page.click(f'#hotelSheet [data-hotelout="h1|{k}"]'); a.page.wait_for_timeout(40)
+    check("10 ticked, saved in order", a.js("curTrip().bookings[0].outDone.length") == 10 and a.js("outLeft(curTrip().bookings[0])") == 1)
+    a.page.click('#hotelSheet [data-hotelout="h1|car"]'); a.page.wait_for_timeout(80)
+    check("all 11: nothing left behind", "nothing left behind" in a.page.inner_text("#hotelSheet"))
+    a.page.click('#hotelSheet [data-hotelout="h1|safe"]'); a.page.wait_for_timeout(80)
+    check("untick works", a.js("curTrip().bookings[0].outDone.includes('safe')") is False)
+    a.js("hideSheet('hotelSheet'); shellGo('home')")
+    check("Home count follows: 10 of 11", "10 of 11 checked" in a.page.inner_text("#cards"))
+    a.close()
+
+
 def t_v109_port_wx_alerts(b, base):
     print("\n[v1.09 port-day weather notifications: 7 AM on the day, 8 PM the night before only with a warning]")
     a = App(b, base, path=CRUISE, at="2026-10-01T06:00:00")                # sail day, before 7 AM
@@ -3189,7 +3239,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode):
             try:
                 t(b, base)
             except Exception as e:

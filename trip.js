@@ -115,6 +115,7 @@ function showBooking(id) {
     ${b.note ? `<div class="today-line">📝 ${esc(b.note)}</div>` : ""}
     <div class="foot-actions" style="flex-wrap:wrap;margin-top:10px">
       ${place.trim() ? `<a class="btn sm ghost" href="${mapsLink(place)}" target="_blank" rel="noopener">🗺️ Map</a>` : ""}
+      ${b.kind === "hotel" ? `<button class="btn sm" data-hotelopen="${b.id}">🏨 Room, wifi + check-out</button>` : ""}
       ${b.day && b.t ? `<button class="btn sm ghost" data-fixopen="${b.id}">🔄 This changed</button>` : ""}
       <button class="btn sm ghost" data-bkedit="${b.id}">✏️ Edit</button>
       <button class="btn sm ghost" data-bkdel="${b.id}">Delete</button></div></div>`;
@@ -170,6 +171,7 @@ function tripClick(ds) {
   if (funClick(ds)) return true;                                           // v1.04 Fun Finder
   if (fixClick(ds)) return true;                                           // v1.11 Fix my trip
   if (splitClick(ds)) return true;                                         // v1.13 split the cost
+  if (hotelClick(ds)) return true;                                         // v1.14 hotel mode
   if (ds.lvpreset) { const i = document.querySelector('#bookSheet [name="lv_check"]'); if (i) i.value = ds.lvpreset; return true; }   // v1.12
   if (ds.bkadd) { showBookingForm(ds.bkadd); return true; }
   if (ds.bkopen) { hideSheet("daySheet"); showBooking(ds.bkopen); return true; }
@@ -185,6 +187,7 @@ function tripSubmit(f, data) {
   if (funSubmit(f, data)) return true;                                     // v1.04 Fun Finder
   if (fixSubmit(f, data)) return true;                                     // v1.11 Fix my trip
   if (splitSubmit(f, data)) return true;                                   // v1.13 split the cost
+  if (hotelSubmit(f, data)) return true;                                   // v1.14 hotel mode
   if (f.dataset.bkpaste) { pasteBookings(data.text || ""); return true; }
   if (!f.dataset.bkform) return false;
   saveBooking(f, data); return true;
@@ -927,4 +930,80 @@ function splitChange(ds, t) {
 function splitSubmit(f, data) {
   if (!f.dataset.splitppl) return false;
   splitSetPeople(f.dataset.splitppl, data.names || ""); render(); buzz(); toast("👥 Saved"); return true;
+}
+
+// ------------------------------------------------------------ HOTEL MODE (v1.14)
+// Blueprint 2.5 "Hotel check-in/check-out; Parking, breakfast and fees; Room and reservation information;
+// Checkout and departure checklist" + V2 "Hotel Mode". While a hotel stay is on: the room number, wifi,
+// breakfast and parking in one place (b.stay - typed by the traveler). Check-out day: a checklist (b.outDone)
+// on Home, the night-before + 1-hour reminders. Nothing is looked up; nothing is sent.
+const STAY_FIELDS = [["room", "🚪 Room number"], ["wifi", "📶 Wi-Fi name"], ["pass", "🔑 Wi-Fi password"], ["breakfast", "🍳 Breakfast (where / hours)"], ["parking", "🅿️ Parking (spot / pass / fee)"]];
+const CHECKOUT_LIST = [["chargers", "🔌 Phone chargers + cables"], ["outlets", "🔌 Every outlet — adapters, plug-ins"], ["safe", "🔐 Room safe empty — passports, cash, jewelry"],
+  ["bath", "🛁 Bathroom — toiletries, shower, hooks"], ["bed", "🛏️ Under the beds + between the sheets"], ["closet", "🧥 Closet, drawers, hangers"],
+  ["fridge", "🧊 Mini-fridge + anything you stored"], ["meds", "💊 Meds + glasses"], ["bill", "🧾 Final bill checked — no surprise charges"],
+  ["keys", "🗝️ Room keys handed back"], ["car", "🚗 Car / parking pass / valet ticket"]];
+const hotelOut = b => b.endDay || b.day;                                   // check-out day
+// The stay that's on now (checked in, not yet an hour past check-out).
+function hotelNow(tr, t = today(), now = nowT()) {
+  return tripBookings(tr).filter(b => b.kind === "hotel" && b.day && b.day <= t && hotelOut(b) >= t)
+    .filter(b => !(hotelOut(b) === t && b.endT && now > addMinT(b.endT, 60))).sort((x, y) => hotelOut(x).localeCompare(hotelOut(y)))[0] || null;
+}
+const outLeft = b => CHECKOUT_LIST.filter(([k]) => !(b.outDone || []).includes(k)).length;
+// RIGHT NOW row (shell.js rightNow): check-out day first, else the room for tonight.
+function hotelNudge(tr) {
+  const b = tr && hotelNow(tr); if (!b) return null;
+  const t = today(), st = b.stay || {};
+  if (hotelOut(b) === t) return { icon: "🏨", text: `Check out${b.endT ? ` by ${hm(b.endT)}` : " today"} — ${CHECKOUT_LIST.length - outLeft(b)} of ${CHECKOUT_LIST.length} checked`, sub: b.a, act: `data-hotelopen="${b.id}"`, first: true };
+  if (hotelOut(b) === addDays(t, 1) && nowT() >= "17:00") return { icon: "🏨", text: `Check out tomorrow${b.endT ? ` by ${hm(b.endT)}` : ""} — start the checklist tonight`, sub: b.a, act: `data-hotelopen="${b.id}"` };
+  return { icon: "🏨", text: st.room ? `Room ${st.room} · ${b.a}` : `${b.a} — add your room number`, sub: st.wifi ? `📶 ${st.wifi}${st.pass ? " · " + st.pass : ""}` : "", act: `data-hotelopen="${b.id}"` };
+}
+function showHotel(id) {
+  const [tr, b] = bkFind(id); if (!b) return;
+  const st = b.stay || {}, done = b.outDone || [], t = today(), outSoon = hotelOut(b) <= addDays(t, 1);
+  let el = document.getElementById("hotelSheet");
+  if (!el) { el = document.createElement("div"); el.id = "hotelSheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Hotel"); document.body.appendChild(el); }
+  const list = `<div class="day-label" style="margin-top:10px">✅ Check-out checklist${b.endT ? ` — by ${hm(b.endT)} ${hotelOut(b) === t ? "today" : dayName(hotelOut(b))}` : ""}</div>
+    ${CHECKOUT_LIST.map(([k, l]) => `<label class="row"><input type="checkbox" class="tick" data-hotelout="${b.id}|${k}" ${done.includes(k) ? "checked" : ""}><span class="grow">${l}</span></label>`).join("")}
+    ${outLeft(b) === 0 ? `<div class="today-line">🎉 All checked — nothing left behind.</div>` : ""}`;
+  el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
+    <div class="sheet-head"><h2>🏨 ${esc(b.a || "Hotel")}</h2><button class="icon-btn" data-hotelclose="1" aria-label="Close">✕</button></div>
+    <p class="fine" style="margin-top:0">${b.day ? `Check-in ${dayName(b.day)} ${prettyDate(b.day)}${b.t ? " " + hm(b.t) : ""}` : ""}${hotelOut(b) ? ` · check-out ${dayName(hotelOut(b))} ${prettyDate(hotelOut(b))}${b.endT ? " " + hm(b.endT) : ""}` : ""}${b.phone ? ` · front desk ${telLinks(b.phone)}` : ""}</p>
+    ${outSoon ? list : ""}
+    <form class="qa-form" data-hotelstay="${b.id}">
+      ${STAY_FIELDS.map(([k, l]) => `<label class="field" style="margin:4px 0">${l}<input name="${k}" value="${esc(st[k] || "")}" autocomplete="off"></label>`).join("")}
+      <button class="btn">Save</button>
+      <div class="hint">On this phone only. Tip: snap a photo of the room-number card too.</div></form>
+    ${outSoon ? "" : list}</div>`;
+  el.classList.remove("hidden");
+}
+function hotelSaveB(id, fn) {
+  const [tr, b0] = bkFind(id); if (!b0) return null;
+  snap(); tr.bookings = tripBookings(tr).map(b => b.id === id ? { ...b } : b); const b = tr.bookings.find(x => x.id === id); fn(b); save(); return b;
+}
+function hotelClick(ds) {
+  if (ds.hotelopen) { hideSheet("bookSheet"); showHotel(ds.hotelopen); return true; }
+  if (ds.hotelclose) { hideSheet("hotelSheet"); render(); return true; }
+  return false;
+}
+function hotelChange(ds, t) {
+  if (!ds.hotelout) return false;
+  const [id, k] = ds.hotelout.split("|");
+  const b = hotelSaveB(id, b => { const s = new Set(b.outDone || []); if (t.checked) s.add(k); else s.delete(k); b.outDone = CHECKOUT_LIST.map(x => x[0]).filter(x => s.has(x)); });
+  if (b && !outLeft(b)) toast("🎉 All checked — nothing left behind", true);
+  setTimeout(() => showHotel(id), 0); return true;
+}
+function hotelSubmit(f, data) {
+  if (!f.dataset.hotelstay) return false;
+  hotelSaveB(f.dataset.hotelstay, b => { b.stay = Object.fromEntries(STAY_FIELDS.map(([k]) => [k, String(data[k] || "").trim().slice(0, 80)]).filter(([, v]) => v)); });
+  render(); showHotel(f.dataset.hotelstay); buzz(); toast("🏨 Saved"); return true;
+}
+// Reminders: 8 PM the night before check-out, and 1 hour before check-out time (only when it's saved - never guessed).
+function hotelReminders(add, inWin) {
+  myTrips().forEach(tr => tripBookings(tr).filter(b => b.kind === "hotel" && b.endDay && b.endDay !== b.day).forEach(b => {
+    const out = b.endDay, eve = addDays(out, -1);
+    if (inWin(eve)) add(`ho:${b.id}:${out}:eve`, atMs(eve, "23:59"), atMs(eve, "20:00"), `🏨 Check out tomorrow${b.endT ? ` by ${hm(b.endT)}` : ""} — ${b.a}`,
+      "Pack tonight: chargers, the safe, the bathroom. Open the checklist in your trip.");
+    if (b.endT && inWin(out)) { const at = atMs(out, b.endT);
+      add(`ho:${b.id}:${out}:1h`, at, at - 3600000, `🏨 Check out in 1 hour — ${b.a}`, `${outLeft(b) ? `${outLeft(b)} things left on your checklist.` : "Checklist done ✓"} Look under the beds and in the safe.`); }
+  }));
 }

@@ -74,6 +74,7 @@ function carChip(tr) {
 // Extra reminders (called from reminderList): the safe + bag check on the final evening.
 function cruiseReminders(add, inWin) {
   if (typeof leaveReminders === "function") leaveReminders(add, inWin);    // v1.12 leave-time engine (trip.js), every trip
+  if (typeof hotelReminders === "function") hotelReminders(add, inWin);    // v1.14 hotel check-out (trip.js)
   myTrips().filter(tr => isCruise(tr) && tr.end).forEach(tr => {
     const d = addDays(tr.end, -1);
     if (inWin(d) && !tr.safeEmpty && tr.homeDone !== tr.end)
@@ -125,6 +126,7 @@ function cruiseClick(ds) {
 }
 function cruiseChange(ds, t) {
   if (typeof splitChange === "function" && splitChange(ds, t)) return true;   // v1.13 split the cost (trip.js)
+  if (typeof hotelChange === "function" && hotelChange(ds, t)) return true;   // v1.14 hotel mode (trip.js)
   if (phaseChange(ds, t)) return true;                                      // v0.61 first things
   if (billChange(ds, t)) return true;                                       // v1.03 final bill check
   if (!ds.ghtoggle) return false;
