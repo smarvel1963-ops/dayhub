@@ -89,6 +89,7 @@ function cruiseClick(ds) {
   if (billClick(ds)) return true;                                           // v1.03 final bill check
   if (pkgCalcClick(ds)) return true;                                        // v1.05 package buy or skip
   if (secretClick(ds)) return true;                                         // v1.06 secret engine
+  if (upgradeClick(ds)) return true;                                        // v1.07 upgrade worth it
   if (ds.gohome) { showGoHome(); return true; }
   if (ds.ghclose) { hideSheet("ghSheet"); return true; }
   if (ds.ghgo) { const tr = curTrip(); hideSheet("ghSheet");
@@ -113,6 +114,7 @@ function cruiseSubmit(f, data) {
   if (onboardSubmit(f, data)) return true;                                  // v0.60 paste my confirmation
   if (billSubmit(f, data)) return true;                                     // v1.03 final bill check
   if (pkgCalcSubmit(f, data)) return true;                                  // v1.05 package buy or skip
+  if (upgradeSubmit(f, data)) return true;                                  // v1.07 upgrade worth it
   if (!f.dataset.car) return false;
   const tr = S.trips.find(x => x.id === f.dataset.car); if (!tr) return true;
   const c = { where: String(data.where || "").trim(), level: String(data.level || "").trim(), spot: String(data.spot || "").trim() };
@@ -624,4 +626,59 @@ function secretClick(ds) {
   if (ds.secretok) tr.secretsSeen = (Array.isArray(tr.secretsSeen) ? tr.secretsSeen : []).concat(sid);
   else tr.secretSkip = (Number(tr.secretSkip) || 0) + 1;
   save(); render(); return true;
+}
+
+// ------------------------------------------------------------ UPGRADE: WORTH IT? (v1.07)
+// Cruise Hub plan (10/4): "upgrade score" + Cruise Hacks 4-8 ("compare cabin location against elevators,
+// theaters, nightclubs...", "check what is directly above and below", "don't pay for an upgrade without
+// checking exactly what benefits come with it", "an upgrade bid can mean losing control of your cabin
+// location"). No invented score: the math is shown plainly - the extra cost per person per night and per sea
+// day (when a balcony or a bigger cabin is used most), less what the upgrade's own perks are worth to the
+// traveler. Prices come from their offer; nothing is looked up. tr.upgrade keeps the answers.
+const seaDays = tr => { let n = 0; if (tr && tr.start && tr.end) for (let d = addDays(tr.start, 1); d < tr.end; d = addDays(d, 1)) if (!portOn(tr, d)) n++; return n; };
+function upgradeMath(u, tr) {
+  const extra = Number(u.extra) || 0, perks = Number(u.perks) || 0, n = Number(tr.travelers) || 1, nights = tripNights(tr), sea = seaDays(tr);
+  if (!extra) return null;
+  const net = Math.max(0, extra - perks), r = x => Math.round(x * 100) / 100;
+  return { extra, perks, net, n, nights, sea, perNight: nights ? r(net / n / nights) : null, perSea: sea ? r(net / n / sea) : null, free: perks >= extra };
+}
+function showUpgrade() {
+  const tr = curTrip(); if (!tr) return;
+  let el = document.getElementById("upSheet");
+  if (!el) { el = document.createElement("div"); el.id = "upSheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Upgrade: worth it?"); document.body.appendChild(el); }
+  const u = tr.upgrade || {}, M = upgradeMath(u, tr), v = k => esc(u[k] ?? "");
+  const out = !M ? `<div class="today-line sub">Type what the upgrade costs on top of your cabin (the whole cabin, all of you) to see it per person, per night.</div>`
+    : `<div class="bstat ${M.free ? "ok" : "tight"}">${M.free ? `✅ The perks you'd use are worth ${money(M.perks)} — more than the ${money(M.extra)} it costs. The bigger cabin is free.`
+      : `You'd pay <b>${money(M.net)}</b> for the cabin itself${M.perks ? ` (${money(M.extra)} less ${money(M.perks)} of perks you'd use)` : ""}:
+        ${M.perNight !== null ? `<br><b>${money(M.perNight)}</b> a person a night (${M.n} × ${M.nights} nights)` : ""}
+        ${M.perSea !== null ? `<br><b>${money(M.perSea)}</b> a person per sea day (${M.sea} sea day${M.sea === 1 ? "" : "s"} — when a balcony or more room gets used most)` : `<br>No sea days on this cruise — you'll mostly be ashore.`}
+        <br>Worth it if that's less than you'd pay to sit on a quiet balcony, sleep better or spread out.`}</div>`;
+  const checks = ["What's directly above and below it? (pool deck, theater, nightclub, galley = noise)",
+    "Near the elevators is handy; right beside them can be busy and loud.",
+    "High and far forward / aft moves more; midship and lower decks move less (motion-sensitive?).",
+    "Exactly which perks come with it — and will you really use them?",
+    "An upgrade BID can mean you don't choose where the new cabin is. Compare the bid with buying the better cabin outright."];
+  el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
+    <div class="sheet-head"><h2>🛏️ Upgrade: worth it?</h2><button class="icon-btn" data-upclose="1" aria-label="Close">✕</button></div>
+    ${out}
+    <form class="qa-form" data-upgrade="${tr.id}" style="margin-top:10px">
+      <div class="two"><input name="from" placeholder="Now (e.g. Interior)" value="${v("from")}" autocomplete="off"><input name="to" placeholder="Upgrade to (e.g. Balcony)" value="${v("to")}" autocomplete="off"></div>
+      <div class="two"><label class="field" style="margin:0">Extra it costs $ (whole cabin)<input name="extra" type="number" step="0.01" min="0" inputmode="decimal" value="${v("extra")}"></label>
+        <label class="field" style="margin:0">Perks you'd use $ (optional)<input name="perks" type="number" step="0.01" min="0" inputmode="decimal" value="${v("perks")}"></label></div>
+      <button class="btn">Work it out</button></form>
+    <div class="day-label" style="margin-top:10px">Before you say yes</div>
+    ${checks.map(x => `<div class="today-line">☐ ${esc(x)}</div>`).join("")}
+    <p class="fine">${tripNights(tr)} nights · ${seaDays(tr)} sea days (from your port days) · ${Number(tr.travelers) || 1} traveler${(Number(tr.travelers) || 1) === 1 ? "" : "s"}. Prices are the ones you type from your offer.</p></div>`;
+  el.classList.remove("hidden");
+}
+function upgradeClick(ds) {
+  if (ds.upopen) { showUpgrade(); return true; }
+  if (ds.upclose) { hideSheet("upSheet"); return true; }
+  return false;
+}
+function upgradeSubmit(f, data) {
+  if (!f.dataset.upgrade) return false;
+  const tr = S.trips.find(x => x.id === f.dataset.upgrade); if (!tr) return true;
+  snap(); tr.upgrade = { from: String(data.from || "").trim(), to: String(data.to || "").trim(), extra: String(data.extra || "").trim(), perks: String(data.perks || "").trim() };
+  save(); showUpgrade(); return true;
 }

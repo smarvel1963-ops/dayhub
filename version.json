@@ -1,6 +1,9 @@
 {
- "version": "1.06",
+ "version": "1.07",
  "notes": {
+  "1.07": [
+   "🛏️ Offered an upgrade? (Wallet → Perks): type what it costs and what its perks are worth to you, and Cruise Hub shows what you're really paying for the room — per person, per night and per sea day — plus what to check before you say yes (what's above and below, motion, upgrade bids)."
+  ],
   "1.06": [
    "💡 Cruise secrets: Home now shows one tip for exactly where your cruise is — booked, getting close, the week before, the night before, sail day, a port day, a sea day, the last night. Got it puts it away; Another shows the next one."
   ],

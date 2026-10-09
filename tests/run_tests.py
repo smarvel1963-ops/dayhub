@@ -2913,6 +2913,34 @@ def t_v106_secrets(b, base):
     t.close()
 
 
+def t_v107_upgrade(b, base):
+    print("\n[v1.07 upgrade: worth it? - the plain math per person, per night, per sea day + the checklist]")
+    a = App(b, base, path=CRUISE)
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Carnival", "travelers": "2"})
+    a.js("""curTrip().ports = [{ id: 'p1', name: 'Cozumel', day: '2026-11-14' }, { id: 'p2', name: 'Roatan', day: '2026-11-16' },
+      { id: 'p3', name: 'Belize', day: '2026-11-17' }]; save(); S.tripTab = 'perks'; shellGo('wallet')""")
+    check("7 nights, 3 sea days (6 middle days less 3 ports)", a.js("tripNights(curTrip())") == 7 and a.js("seaDays(curTrip())") == 3)
+    check("Wallet -> Perks has 'Offered an upgrade?'", a.js("!!document.querySelector('[data-card=\"trips\"] [data-upopen]')"))
+    a.page.click('[data-card="trips"] [data-upopen]'); a.page.wait_for_timeout(120)
+    s = a.page.inner_text("#upSheet")
+    check("no price yet: asks for it; the 'before you say yes' checklist is there", "Type what the upgrade costs" in s and "above and below" in s and "upgrade BID" in s, s[:500])
+    def run(vals):
+        for k, v in vals.items(): a.page.fill(f'#upSheet form[data-upgrade] [name={k}]', str(v))
+        a.page.click('#upSheet form[data-upgrade] button'); a.page.wait_for_timeout(120)
+        return a.page.inner_text("#upSheet")
+    s = run({"from": "Interior", "to": "Balcony", "extra": 700, "perks": 100})
+    check("$700 less $100 perks = $600 for the cabin: $42.86 a person a night, $100.00 a person per sea day",
+          "$600.00" in s and "$42.86" in s and "$100.00" in s and "3 sea days" in s, s[:700])
+    check("answers kept on the trip", a.js("curTrip().upgrade") == {"from": "Interior", "to": "Balcony", "extra": "700", "perks": "100"})
+    s = run({"perks": 800})
+    check("perks worth more than the price: the bigger cabin is free", "The bigger cabin is free" in s, s[:400])
+    check("no sea days: says you'll mostly be ashore", "mostly be ashore" in a.js("(() => { const tr = curTrip(); tr.upgrade.perks = ''; tr.ports = ['2026-11-13','2026-11-14','2026-11-15','2026-11-16','2026-11-17','2026-11-18'].map((d, i) => ({ id: 'q' + i, name: 'Port ' + i, day: d })); showUpgrade(); return document.getElementById('upSheet').innerText; })()"))
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -2941,7 +2969,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade):
             try:
                 t(b, base)
             except Exception as e:
