@@ -358,3 +358,40 @@ function tripExploreHtml() {
       ${tileNav(qs.map(([ic, l, q]) => ({ icon: ic, label: l, attrs: `data-askq="${esc(q)}"` })), 3)}
       <p class="fine" style="margin-top:8px">Ideas come from ${esc(APP_NAME)} AI using your own trip. Check opening hours and prices before you go.</p></div></section>`;
 }
+
+// ------------------------------------------------------------ PORT REALITY (v1.02)
+// Cruise Hub plan (10/4): '"Port Reality" usable time'. The ship is in port 8 AM - 5 PM, but the time you really
+// have ashore is shorter: getting off takes a while, and Return Guard wants you heading back well before all
+// aboard. RULES ONLY, from the port's own times:
+//   off the ship ~ arrival + 30 min (60 at a tender port - the boats run in turns)
+//   back by      = Return Guard's head-back time (all aboard on the phone's clock - margin - trip back)
+//   real time ashore = back by - off the ship
+// Estimates, said so on screen - the ship's announcements always win.
+const PORT_OFF_MIN = 30, PORT_OFF_TENDER = 60;
+function portReality(pt) {
+  if (!pt || !pt.arrive || !pt.allAboard) return null;
+  const tender = isTenderPort(pt), off = addMinT(pt.arrive, tender ? PORT_OFF_TENDER : PORT_OFF_MIN), by = guardBy(pt);
+  if (toMin(aaLocal(pt)) <= toMin(pt.arrive)) return null;                 // overnight / next-day all aboard: not this sum
+  return { tender, off, by, mins: toMin(by) - toMin(off) };
+}
+const ashoreText = m => m <= 0 ? "no time" : minsText(m);
+// timeline bit: "⏱️ 5h 40m ashore"
+const portRealityBit = pt => { const R = portReality(pt); return R ? `⏱️ ${R.mins > 0 ? ashoreText(R.mins) + " ashore" : "check times"}` : ""; };
+// the day screen block
+function portRealityHtml(pt) {
+  const R = portReality(pt);
+  if (!R) return pt && !pt.arrive && pt.allAboard ? `<div class="today-line sub">⏱️ Add the time the ship arrives (✏️ Edit this port) to see your real time ashore.</div>` : "";
+  const row = (l, s, v) => `<div class="row"><span class="grow">${l}${s ? `<span class="sub">${s}</span>` : ""}</span><b>${v}</b></div>`;
+  const tone = R.mins <= 0 ? "⚠️ Not enough time ashore once you allow for getting off and back — check the times with the ship."
+    : R.mins < 180 ? "⚠️ A short port day — pick ONE thing and stay close to the ship." : R.mins < 300 ? "👍 Time for one excursion or a good look around." : "🌴 Plenty of time — an excursion and some free time.";
+  const where = pt.name ? ` in ${pt.name}` : "";
+  return `<div class="day-label" style="margin-top:10px">⏱️ Port reality</div>
+    <div class="port-reality"><div class="pr-big">${R.mins > 0 ? ashoreText(R.mins) : "0m"}</div><div class="pr-sub">real time ashore</div></div>
+    ${row("Ship arrives", "", hm(pt.arrive))}
+    ${row("Off the ship", `about ${R.tender ? PORT_OFF_TENDER : PORT_OFF_MIN} min${R.tender ? " — a tender port, the boats run in turns" : " for the gangway crowd"}`, `~${hm(R.off)}`)}
+    ${row("Head back by", `${guardMargin()} min margin + ${guardBack(pt)} min trip back`, hm(R.by))}
+    ${row("All aboard", Number(pt.shipOffset) ? `${hm(pt.allAboard)} ship time` : "", hm(aaLocal(pt)))}
+    <div class="today-line">${tone}</div>
+    ${R.mins > 60 ? `<button class="add-link" data-askq="${esc(`We have about ${ashoreText(R.mins)} ashore${where} — what's worth it?`)}">💡 What fits in ${ashoreText(R.mins)}${esc(where)}?</button>` : ""}
+    <p class="fine">Estimates from your port times. Getting off can be faster with an early excursion, slower on a busy day — the ship's announcements always win.</p>`;
+}

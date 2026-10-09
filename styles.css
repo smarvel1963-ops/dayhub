@@ -589,6 +589,10 @@ body.simple .hero .chips, body.simple .hero .cd-pct, body.simple .hero .hero-btn
 .tilenav.cols6 { grid-template-columns: repeat(6, 1fr); gap: 5px; }   /* v1.01 Plan views + Diary */
 .tilenav.cols6 .tile { padding: 8px 2px; border-radius: 14px; }
 .tilenav.cols6 .tile b { font-size: 10px; letter-spacing: 0; }
+/* v1.02 port reality */
+.port-reality { text-align: center; margin: 4px 0 6px; padding: 10px; border-radius: 16px; background: rgba(94,234,212,.10); border: 1px solid var(--line); }
+.port-reality .pr-big { font-size: 34px; font-weight: 800; line-height: 1.1; }
+.port-reality .pr-sub { font-size: 12px; color: var(--dim); text-transform: uppercase; letter-spacing: .6px; }
 /* v1.01 trip diary */
 .diary-moods { display: flex; gap: 8px; margin: 6px 0 8px; }
 .diary-moods .mood { flex: 1; font-size: 24px; line-height: 1; padding: 8px 0; border-radius: 14px; border: 1px solid var(--line); background: var(--card-solid); cursor: pointer; }

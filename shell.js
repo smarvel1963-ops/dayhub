@@ -202,7 +202,7 @@ function timelineHtml() {
       <span class="sub">${sd} day${sd === 1 ? "" : "s"} to go · ${R.pct}% ready${R.next ? ` · next: ${esc(R.next.action.replace(/\s*\([^)]*\)/g, ""))}` : ""}</span></span><span class="chev">›</span></button>`);
   for (let d = tr.start, n = 1; d <= end; d = addDays(d, 1), n++) {
     const k = dayKind(tr, d), pt = k.pt, past = d < today(), now = d === today();
-    const bits = pt ? [pt.arrive && `in ${hm(pt.arrive)}`, pt.allAboard && `all aboard ${hm(aaLocal(pt))}`, pt.excursion && pt.excursion.toLowerCase() !== "none" && `🤿 ${esc(pt.excursion)}`, portWxText(pt)].filter(Boolean)
+    const bits = pt ? [pt.arrive && `in ${hm(pt.arrive)}`, pt.allAboard && `all aboard ${hm(aaLocal(pt))}`, pt.excursion && pt.excursion.toLowerCase() !== "none" && `🤿 ${esc(pt.excursion)}`, typeof portRealityBit === "function" && portRealityBit(pt), portWxText(pt)].filter(Boolean)
       : d === tr.start ? [trCruise(tr) && tr.ship && `board ${esc(tr.ship)}`].filter(Boolean) : d === end ? ["getting home"] : [];
     if (typeof bookingBits === "function") bits.push(...bookingBits(tr, d).map(esc));   // v0.98 ✈️ 7:05 AM · 🏨 check-in
     if (typeof tripDiary === "function" && diaryHas(tripDiary(tr)[d])) bits.push(`📔 ${esc(tripDiary(tr)[d].mood || "written")}`);   // v1.01
@@ -247,7 +247,8 @@ function showDay(d) {
     <div class="sheet-head"><h2>${k.icon} ${esc(k.title)}</h2><button class="icon-btn" data-dayclose="1" aria-label="Close">✕</button></div>
     <p class="fine" style="margin-top:0">${dayName(d)} ${prettyDate(d)}${w ? ` · ${w}` : ""}</p>
     ${al.map(a => `<div class="wx-alert">${a.icon} ${esc(a.text)}</div>`).join("")}
-    ${pt && pt.allAboard ? `<div class="row"><span class="grow"><b>All aboard</b>${Number(pt.shipOffset) ? `<span class="sub">${hm(pt.allAboard)} ship time</span>` : ""}</span><b>${hm(aaLocal(pt))}</b></div>
+    ${pt && typeof portRealityHtml === "function" ? portRealityHtml(pt) : ""}
+    ${pt && pt.allAboard && !(typeof portReality === "function" && portReality(pt)) ? `<div class="row"><span class="grow"><b>All aboard</b>${Number(pt.shipOffset) ? `<span class="sub">${hm(pt.allAboard)} ship time</span>` : ""}</span><b>${hm(aaLocal(pt))}</b></div>
       <div class="row"><span class="grow"><b>Head back by</b><span class="sub">${guardMargin()} min margin + ${guardBack(pt)} min trip back</span></span><b>${hm(guardBy(pt))}</b></div>` : ""}
     ${pt && pt.excursion && pt.excursion.toLowerCase() !== "none" ? `<div class="row"><span class="grow">🤿 <b>${esc(pt.excursion)}</b><span class="sub">${[pt.meet && `meet ${hm(pt.meet)}`, pt.where, pt.walk && `${pt.walk} min walk from the cabin`].filter(Boolean).map(esc).join(" · ")}</span></span></div>` : ""}
     ${pt && (pt.cash || pt.currency) ? `<div class="today-line">💵 ${esc([pt.cash && `bring ${pt.cash}`, pt.currency].filter(Boolean).join(" · "))}</div>` : ""}

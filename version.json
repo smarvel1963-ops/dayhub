@@ -1,6 +1,9 @@
 {
- "version": "1.01",
+ "version": "1.02",
  "notes": {
+  "1.02": [
+   "⏱️ Port reality: tap a port day to see your REAL time ashore — from getting off the ship (longer at a tender port) to when Return Guard wants you heading back. A short day says so, and 💡 asks what fits in the time you really have."
+  ],
   "1.01": [
    "📔 Trip diary: each day of your trip gets a page — tap how the day was, write a few lines and the best moment. Plan → Diary reads the whole trip back, and 📤 Share sends it to the family as text. In the evening, Home asks \"How was today?\". Stays on your phone."
   ],

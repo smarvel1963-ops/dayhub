@@ -1424,7 +1424,7 @@ document.addEventListener("click", e => {
   if (ds.aldel) { snap(); S.alarms = S.alarms.filter(a => a.id !== ds.aldel); ALARM_EDIT = null; closeQA(); save(); render(); drawAlarmBox(); toast("Alarm removed", true); return; }
   if (ds.ask === "open") { showAsk(); return; }
   if (ds.askclose) { document.getElementById("askSheet").classList.add("hidden"); if (ds.open === "sheet") openSettings(); return; }
-  if (ds.askq) { askDayHub(ds.askq); return; }
+  if (ds.askq) { hideSheet("daySheet"); askDayHub(ds.askq); return; }   // v1.02 Port reality asks from the day screen
   if (ds.askmic) { const SR = window.SpeechRecognition || window.webkitSpeechRecognition; const i = document.querySelector("#askSheet input[name=q]");
     if (!SR || !i) { toast("Tap the 🎤 on your keyboard and talk"); return; }
     const r = new SR(); r.lang = navigator.language || "en-US"; r.onresult = e => { i.value = e.results[0][0].transcript; askDayHub(i.value); }; r.start(); t.textContent = "…"; return; }

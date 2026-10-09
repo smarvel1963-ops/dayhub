@@ -2716,6 +2716,46 @@ def t_v101_diary(b, base):
     c.close()
 
 
+def t_v102_port_reality(b, base):
+    print("\n[v1.02 port reality: real time ashore = off the ship -> head back by]")
+    a = App(b, base, path=CRUISE, at="2026-11-13T09:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess"})
+    a.js("""curTrip().ports = [
+      { id: 'p1', name: 'Cozumel', day: '2026-11-14', arrive: '08:00', allAboard: '16:30' },
+      { id: 'p2', name: 'Princess Cays', day: '2026-11-16', arrive: '09:00', allAboard: '14:00' },
+      { id: 'p3', name: 'Grand Turk', day: '2026-11-17', arrive: '15:00', allAboard: '16:30' },
+      { id: 'p4', name: 'Nassau', day: '2026-11-18', allAboard: '17:00' },
+      { id: 'p5', name: 'Roatan', day: '2026-11-15', arrive: '07:00', allAboard: '17:30', shipOffset: 60 }]; save(); render()""")
+    R = lambda i: a.js(f"portReality(curTrip().ports[{i}])")
+    r = R(0)
+    check("docked port: off ~8:30, back by 15:10 (16:30 - 60 margin - 20 back) = 6h 40m ashore",
+          r == {"tender": False, "off": "08:30", "by": "15:10", "mins": 400}, r)
+    r = R(1)
+    check("tender port: off ~10:00 (60 min), back by 12:15 (14:00 - 60 - 45) = 2h 15m", r == {"tender": True, "off": "10:00", "by": "12:15", "mins": 135}, r)
+    check("ship clock 1 hr ahead: all aboard 17:30 ship = 16:30 phone -> back by 15:10, off 7:30 = 7h 40m", R(4)["mins"] == 460 and R(4)["by"] == "15:10", R(4))
+    check("no arrival time = no sum (never guessed)", R(3) is None)
+    a.js("shellGo('plan'); PLAN_VIEW = 'trip'; render()"); tl = a.page.inner_text(".timeline")
+    check("timeline shows the time ashore per port", "⏱️ 6h 40m ashore" in tl and "⏱️ 2h 15m ashore" in tl, tl[:700])
+    a.js("showDay('2026-11-14')")
+    s = a.page.inner_text("#daySheet")
+    check("day screen: big number, the four times, the verdict",
+          "6h 40m" in s and "real time ashore" in s.lower() and "Off the ship" in s and "8:30" in s and "Head back by" in s and "3:10" in s and "Plenty of time" in s, s[:900])
+    check("All aboard shows once (Port reality replaces the old two rows)", s.count("All aboard") == 1, s.count("All aboard"))
+    check("'What fits' ask button carries the real hours", "We have about 6h 40m ashore in Cozumel" in a.js("document.querySelector('#daySheet [data-askq]').dataset.askq"))
+    a.js("showDay('2026-11-16')")
+    s = a.page.inner_text("#daySheet")
+    check("tender + short day: tender reason and 'pick ONE thing'", "tender port" in s and "pick ONE thing" in s, s[:900])
+    a.js("showDay('2026-11-17')")
+    check("too little time after margins (in 3 PM, back by 3:10): warns to check with the ship", "Not enough time ashore" in a.page.inner_text("#daySheet") and a.js("portReality(curTrip().ports[2]).mins") < 0)
+    a.js("showDay('2026-11-18')")
+    s = a.page.inner_text("#daySheet")
+    check("no arrival: hint to add it, old All aboard rows still there", "Add the time the ship arrives" in s and "Head back by" in s)
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -2744,7 +2784,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality):
             try:
                 t(b, base)
             except Exception as e:
