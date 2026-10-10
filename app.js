@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.21";
+const VERSION = "1.22";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -1180,10 +1180,12 @@ const trackUrl = pk => (CARRIERS[pk.carrier] || CARRIERS.other)[1](encodeURIComp
 function morningBrief() {
   const t = today(), w = WXDATA && WXDATA.here, items = dayItems(t), plans = items.filter(isPlan), parts = [];
   S.remember.filter(r => r.day === t).forEach(r => parts.push(`📌 ${r.text}`));
+  const tb = typeof tripBriefParts === "function" ? tripBriefParts(t) : [];   // v1.22 a trip day leads with the trip (trip.js)
+  parts.push(...tb);
   if (w) parts.push(`${wmo(w.day.code)[0]} ${Math.round(w.day.lo)}°–${Math.round(w.day.hi)}°` +
     (w.day.rainFrom ? ` · rain from ${fmtTime(w.day.rainFrom)}` : w.day.rain < 20 ? " · no rain" : ""));
   const f = plans.find(i => i.t && i.t >= nowT()) || plans.find(i => i.t);
-  parts.push(plans.length ? `${plans.length} planned${f ? ` · first ${hm(f.t)} ${f.title}` : ""}` : "nothing planned");
+  if (plans.length || !tb.length) parts.push(plans.length ? `${plans.length} planned${f ? ` · first ${hm(f.t)} ${f.title}` : ""}` : "nothing planned");
   const todo = S.todos.filter(x => todoShown(x) && !todoDone(x)).length;
   if (todo) parts.push(`${todo} to-do${todo === 1 ? "" : "s"}`);
   items.filter(i => i.kind === "bill").forEach(i => parts.push(`💳 ${i.title}`));

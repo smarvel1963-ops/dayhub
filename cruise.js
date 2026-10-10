@@ -77,6 +77,7 @@ function cruiseReminders(add, inWin) {
   if (typeof hotelReminders === "function") hotelReminders(add, inWin);    // v1.14 hotel check-out (trip.js)
   if (typeof cancelReminders === "function") cancelReminders(add, inWin);  // v1.15 cancel-by + late refunds (trip.js)
   if (typeof docsReminders === "function") docsReminders(add, inWin);      // v1.20 documents running out (trip.js)
+  if (typeof tomorrowReminders === "function") tomorrowReminders(add, inWin);   // v1.22 8 PM "tomorrow" on trip days (trip.js)
   myTrips().filter(tr => isCruise(tr) && tr.end).forEach(tr => {
     const d = addDays(tr.end, -1);
     if (inWin(d) && !tr.safeEmpty && tr.homeDone !== tr.end)

@@ -1469,3 +1469,41 @@ function spendPulseSubmit(f, data) {
   const tr = S.trips.find(t => t.id === f.dataset.budgetset), n = Number(data.bud); if (!tr || !(n > 0)) return true;
   snap(); tr.onboardBudget = Math.round(n * 100) / 100; save(); render(); buzz(); toast("📅 Budget set"); return true;
 }
+
+// ------------------------------------------------------------ DAILY TRAVEL BRIEFING (v1.22)
+// Blueprint 5.5 "Daily travel briefing" + 1.4 smart alerts ("Time to leave; check-in/check-out reminders").
+// The morning brief (app.js morningBrief) counted only calendar plans, so on a trip day it said "nothing
+// planned" over a 7 AM flight. Now, on a trip day it leads with the trip: day n of N, the first thing with a
+// time (a leave time counts), check-out, drives, plans, the day's budget. And at 8 PM the night before a trip
+// day: "🌙 Tomorrow" with the first three timed things. All from what the traveler saved.
+const TRIP_KINDS = ["book", "fun"];
+function tripDayTimed(tr, d) {
+  return dayItems(d).filter(i => TRIP_KINDS.includes(i.kind) && i.t && i.trip === tr.id).sort((a, b) => a.t.localeCompare(b.t));
+}
+function tripBriefParts(t = today()) {
+  const out = [];
+  myTrips().filter(tr => inTrip(tr, t)).forEach(tr => {
+    const n = Math.round((parseDay(t) - parseDay(tr.start)) / 86400000) + 1, N = tripDays(tr);
+    out.push(`${trCruise(tr) ? "🚢" : "🧳"} ${tr.name} — day ${n} of ${N}`);
+    const T = tripDayTimed(tr, t), f = T.find(i => i.t >= nowT()) || T[0];
+    if (f) out.push(`first ${hm(f.t)} ${f.icon} ${f.title}`);
+    const ho = tripBookings(tr).find(b => b.kind === "hotel" && (b.endDay || b.day) === t && b.endDay !== b.day);
+    if (ho) out.push(`🏨 check out${ho.endT ? ` by ${hm(ho.endT)}` : " today"}`);
+    const fun = T.filter(i => i.kind === "fun").length; if (fun) out.push(`🎉 ${fun} planned`);
+    const P = typeof spendPulse === "function" ? spendPulse(tr, t) : null;
+    if (P && P.on) out.push(`💵 about ${money(Math.round(Math.max(0, P.perRest > 0 && P.rest > 0 ? P.perRest : P.perDay)))} today`);
+  });
+  return out;
+}
+// 8 PM the night before each trip day (and the day before it starts) that has something with a time.
+function tomorrowReminders(add, inWin) {
+  myTrips().forEach(tr => {
+    if (!tr.start) return;
+    for (let d = tr.start; d <= (tr.end || tr.start); d = addDays(d, 1)) {
+      const eve = addDays(d, -1); if (!inWin(eve)) continue;
+      const T = tripDayTimed(tr, d).slice(0, 3); if (!T.length) continue;
+      add(`tb:${tr.id}:${d}`, atMs(eve, "23:59"), atMs(eve, "20:00"), `🌙 Tomorrow: ${hm(T[0].t)} ${T[0].title}`,
+        T.map(i => `${hm(i.t)} ${i.icon} ${i.title}`).join(" · ") + (d === tr.start ? " — first day of the trip! Bags by the door tonight." : ""));
+    }
+  });
+}

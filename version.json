@@ -1,6 +1,9 @@
 {
- "version": "1.21",
+ "version": "1.22",
  "notes": {
+  "1.22": [
+   "🌙 Daily travel briefing: on trip days your morning note leads with the trip — day 2 of 7, when to leave first, check-out, what's planned, today's budget. And at 8 PM the night before, a 'Tomorrow' note with your first three things and their times."
+  ],
   "1.21": [
    "📅 Daily spending pace: set a spending budget for the trip (Wallet → Spending) and see what a day is worth, what today has used, and where you'll finish — 'about $91 a day keeps you on budget'. Home gives you a heads-up only when you're running ahead."
   ],

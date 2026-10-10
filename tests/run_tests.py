@@ -3471,6 +3471,33 @@ def t_v121_spend_pulse(b, base):
     a.close()
 
 
+
+def t_v122_trip_briefing(b, base):
+    print("\n[v1.22 daily travel briefing: the morning brief leads with the trip + an 8 PM 'tomorrow' note]")
+    a = App(b, base, path=TRIP, at="2026-10-21T06:30:00")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-26", "port": "Orlando, FL"})
+    a.page.wait_for_timeout(150)
+    a.js("""(() => { const tr = curTrip(); tr.onboardBudget = 700; tr.bookings = [
+      { id: 'h1', kind: 'hotel', a: 'Coronado Springs', b: '', day: '2026-10-20', t: '15:00', endDay: '2026-10-21', endT: '11:00' },
+      { id: 't1', kind: 'ticket', a: 'Magic Kingdom', b: '', day: '2026-10-21', t: '09:00', endT: '22:00', leave: { drive: 20 } }];
+      tr.fun = [{ id: 'u1', day: '2026-10-21', t: '14:00', end: '15:00', title: 'Pool', where: '', pick: 'must' }]; save(); render(); })()""")
+    m = a.js("morningBrief()")
+    check("morning brief leads with the trip: day 2 of 7, first = the leave time, check-out, plans, today's money",
+          "🧳 Orlando — day 2 of 7" in m and "first 8:40 AM 🚪 Leave for Magic Kingdom" in m and "🏨 check out by 11:00 AM" in m
+          and "🎉 1 planned" in m and "💵 about $140.00 today" in m, m)
+    check("no more 'nothing planned' over a full trip day", "nothing planned" not in m, m)
+    check("not on a trip day: the brief is as before", a.js("tripBriefParts('2026-11-05')") == [])
+    R = a.js("""(() => { const out = []; tomorrowReminders((k, until, at, title, body) => out.push([new Date(at).toString().slice(4, 21), title, body]), d => d >= '2026-10-19' && d <= '2026-10-22'); return out; })()""")
+    check("8 PM 'tomorrow' notes only for days with timed things", [r[0] for r in R] == ["Oct 19 2026 20:00", "Oct 20 2026 20:00"], R)
+    check("eve of the trip: tomorrow's check-in + bags by the door", R[0][1] == "🌙 Tomorrow: 3:00 PM Check-in — Coronado Springs" and "first day of the trip" in R[0][2], R[0])
+    check("eve of day 2: the first three, leave time first", R[1][1] == "🌙 Tomorrow: 8:40 AM Leave for Magic Kingdom"
+          and R[1][2] == "8:40 AM 🚪 Leave for Magic Kingdom · 9:00 AM 🎟️ Starts — Magic Kingdom · 11:00 AM 🏨 Check-out — Coronado Springs", R[1])
+    a.close()
+
+
 def t_v109_port_wx_alerts(b, base):
     print("\n[v1.09 port-day weather notifications: 7 AM on the day, 8 PM the night before only with a warning]")
     a = App(b, base, path=CRUISE, at="2026-10-01T06:00:00")                # sail day, before 7 AM
@@ -3521,7 +3548,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing):
             try:
                 t(b, base)
             except Exception as e:
