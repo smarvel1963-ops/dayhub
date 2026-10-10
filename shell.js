@@ -69,6 +69,7 @@ function rightNow(tr) {
   const hn = typeof hotelNudge === "function" ? hotelNudge(tr) : null;   // v1.14 hotel mode: check-out day goes first
   if (hn) { if (hn.first) out.unshift(hn); else out.push(hn); }
   const dn = typeof diaryNudge === "function" ? diaryNudge(tr) : null; if (dn) out.push(dn);   // v1.01 trip diary
+  const pn = typeof spendPulseNudge === "function" ? spendPulseNudge(tr) : null; if (pn) out.push(pn);   // v1.21 spending running ahead
   const fr = typeof freeNudge === "function" ? freeNudge(tr) : null; if (fr) out.push(fr);       // v1.17 free time now (after the diary)
   return out.slice(0, 3);
 }

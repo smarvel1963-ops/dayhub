@@ -3436,6 +3436,41 @@ def t_v120_doc_expiry(b, base):
     a.close()
 
 
+
+def t_v121_spend_pulse(b, base):
+    print("\n[v1.21 daily spending pulse: a day's worth, today's use, where the pace finishes, Home warns when ahead]")
+    a = App(b, base, path=TRIP, at="2026-10-22T15:00:00")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-26", "port": "Orlando, FL"})
+    a.page.wait_for_timeout(150)
+    a.js("""(() => { const tr = curTrip(); tr.spends = [{ id: 's1', day: '2026-10-20', amt: 150, cat: 'Food', note: '' },
+      { id: 's2', day: '2026-10-21', amt: 140, cat: 'Fun', note: '' }, { id: 's3', day: '2026-10-22', amt: 45, cat: 'Food', note: '' }];
+      save(); S.tripTab = 'onboard'; shellGo('wallet'); })()""")
+    card = lambda: " ".join(a.page.inner_text('[data-card="trips"]').split())   # bold amounts wrap
+    check("a regular trip with no budget: Set budget right in Spending", a.js("!!document.querySelector('[data-card=\"trips\"] form[data-budgetset]')"))
+    a.page.fill('[data-card="trips"] form[data-budgetset] [name=bud]', "700"); a.page.click('[data-card="trips"] form[data-budgetset] button'); a.page.wait_for_timeout(120)
+    P = a.js("(() => { const P = spendPulse(curTrip()); return [P.days, P.dayN, P.perDay, P.todaySpent, Math.round(P.pace), Math.round(P.perRest), P.status]; })()")
+    check("7 days, day 3, $100 a day, $45 today, pace $782, $91/day keeps it, running fast", P == [7, 3, 100, 45, 782, 91, "fast"], P)
+    c = card()
+    check("Spending shows day 3 of 7 + the running-ahead warning", "Day 3 of 7 · today $45.00 of about $100.00" in c and "at this pace you finish around $782.00 of $700.00" in c and "About $91.00 a day keeps you on budget" in c, c[:900])
+    a.js("shellGo('home')")
+    h = a.page.inner_text("#cards")
+    check("Home: Spending is running ahead", "Spending is running ahead — on pace for $782.00 of $700.00" in h and "about $91.00 a day keeps you on budget" in h, h[:800])
+    a.page.click('#cards [data-spendgo]'); a.page.wait_for_timeout(100)
+    check("tap goes to Wallet → Spending", a.js("S.tripTab") == "onboard" and "Day 3 of 7" in card())
+    a.js("curTrip().spends = curTrip().spends.filter(x => x.id !== 's1'); save(); render()")
+    c = card()
+    check("less spent: ✅ On pace, about $129 a day for the rest", "On pace — finishing around $432.00 of $700.00. About $129.00 a day for the rest." in c, c[:900])
+    a.js("shellGo('home')")
+    check("on pace = nothing on Home", "Spending is" not in a.page.inner_text("#cards"))
+    a.js("curTrip().spends.push({ id: 's9', day: '2026-10-22', amt: 600, cat: 'Shopping', note: '' }); save(); render()")
+    check("over budget: Home says by how much", "Spending is $85.00 over budget" in a.page.inner_text("#cards"))
+    check("before the trip: just the daily worth", a.js("spendPulse(curTrip(), '2026-10-10').status") == "before" and "about <b>$100.00 a day</b>" in a.js("(() => { const tr = curTrip(); const keep = tr.start; return spendPulseHtml(Object.assign({}, tr, { start: '2026-12-01', end: '2026-12-07' })); })()"))
+    a.close()
+
+
 def t_v109_port_wx_alerts(b, base):
     print("\n[v1.09 port-day weather notifications: 7 AM on the day, 8 PM the night before only with a warning]")
     a = App(b, base, path=CRUISE, at="2026-10-01T06:00:00")                # sail day, before 7 AM
@@ -3486,7 +3521,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse):
             try:
                 t(b, base)
             except Exception as e:

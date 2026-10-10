@@ -272,6 +272,7 @@ const CARDS = {
         body = `<div class="paygrid"><div class="fact">Budget<b>${bud ? money(bud) : "--"}</b></div><div class="fact">Spent<b>${money(spent)}</b></div>
             <div class="fact ${bud && spent > bud ? "" : "take"}">Left<b>${bud ? money(bud - spent) : "--"}</b></div></div>`;
         if (bud && spent > bud) body += `<div class="bstat over" style="margin-top:8px">⚠ ${money(spent - bud)} over your onboard budget.</div>`;
+        if (typeof spendPulseHtml === "function") body += spendPulseHtml(tr);                     // v1.21 daily pace
         if (typeof dupesHtml === "function") body += dupesHtml(tr);                     // v1.19 logged twice?
         if (isCruise(tr)) { const credit = Number(tr.credit || 0), bal = spent + gr - credit;
           body += `<div class="today-line" style="margin-top:8px">🧾 Ship account: <b>${money(bal)}</b> <span class="sub" style="display:inline">(spent ${money(spent)} + gratuities ${money(gr)}${credit ? ` − credit ${money(credit)}` : ""})</span></div>`;

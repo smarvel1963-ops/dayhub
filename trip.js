@@ -181,6 +181,7 @@ function tripClick(ds) {
   if (voteClick(ds)) return true;                                          // v1.18 group vote
   if (exportClick(ds)) return true;                                        // v1.19 money export + double entries
   if (docsClick(ds)) return true;                                          // v1.20 document expiry
+  if (spendPulseClick(ds)) return true;                                         // v1.21 spending pulse
   if (ds.lvpreset) { const i = document.querySelector('#bookSheet [name="lv_check"]'); if (i) i.value = ds.lvpreset; return true; }   // v1.12
   if (ds.bkadd) { showBookingForm(ds.bkadd); return true; }
   if (ds.bkopen) { hideSheet("daySheet"); showBooking(ds.bkopen); return true; }
@@ -202,6 +203,7 @@ function tripSubmit(f, data) {
   if (freeSubmit(f, data)) return true;                                    // v1.17 free time finder
   if (voteSubmit(f, data)) return true;                                    // v1.18 group vote
   if (docsSubmit(f, data)) return true;                                    // v1.20 document expiry
+  if (spendPulseSubmit(f, data)) return true;                                   // v1.21 spending pulse
   if (f.dataset.bkpaste) { pasteBookings(data.text || ""); return true; }
   if (!f.dataset.bkform) return false;
   saveBooking(f, data); return true;
@@ -1423,4 +1425,47 @@ function docsSubmit(f, data) {
   if (!data.exp) return true;
   snap(); S.idDocs = idDocs().concat({ id: uid(), who: String(data.who || "").trim().slice(0, 30), kind: DOC_KINDS.some(k => k[0] === data.kind) ? data.kind : "other", exp: data.exp });
   save(); render(); showHelp("docs"); buzz(); toast("🗂️ Saved"); return true;
+}
+
+// ------------------------------------------------------------ DAILY SPENDING PULSE (v1.21)
+// Blueprint 4.1 "Trip Budget: ... Daily spending pulse; Budget warnings". The trip's spending budget
+// (tr.onboardBudget - the same number Cruise Hub calls the onboard budget) spread over the trip's days: what
+// a day is worth, what today has used, where the pace finishes, and what's left per day. Home warns when the
+// pace runs more than 10% over. Only the traveler's own logged spending - nothing is looked up.
+const tripDays = tr => tr && tr.start ? Math.round((parseDay(tr.end || tr.start) - parseDay(tr.start)) / 86400000) + 1 : 0;
+function spendPulse(tr, t = today()) {
+  const bud = Number(tr.onboardBudget || 0), days = tripDays(tr); if (!bud || !days) return null;
+  const spent = tripSpent(tr), perDay = bud / days, on = t >= tr.start && t <= (tr.end || tr.start);
+  const dayN = on ? Math.round((parseDay(t) - parseDay(tr.start)) / 86400000) + 1 : t < tr.start ? 0 : days;
+  const todaySpent = (tr.spends || []).filter(x => x.day === t).reduce((n, x) => n + Number(x.amt || 0), 0);
+  const pace = dayN ? spent / dayN * days : spent, rest = days - dayN;
+  return { bud, days, spent, perDay, on, dayN, todaySpent, pace, rest, perRest: rest > 0 ? (bud - spent) / rest : bud - spent,
+    status: !dayN ? "before" : spent > bud ? "over" : on && pace > bud * 1.1 ? "fast" : "ok" };
+}
+function spendPulseHtml(tr) {
+  const P = spendPulse(tr);
+  if (!P) return `<form class="inline-add budget-set" data-budgetset="${tr.id}"><input name="bud" type="number" step="1" min="1" inputmode="decimal" placeholder="${trCruise(tr) ? "Onboard" : "Spending"} budget for the trip $" required><button class="btn sm">Set budget</button></form>
+    <p class="fine">Set one and ${esc(APP_NAME)} tracks a daily pace: what each day can use, and if you're running ahead.</p>`;
+  const r = n => money(Math.round(n));
+  const head = !P.dayN ? `📅 ${r(P.bud)} over ${P.days} days = about <b>${r(P.perDay)} a day</b>.`
+    : P.on ? `📅 Day ${P.dayN} of ${P.days} · today <b>${r(P.todaySpent)}</b> of about ${r(P.perDay)}` : `🏁 Trip done — spent ${r(P.spent)} of ${r(P.bud)}.`;
+  const pace = P.on && P.dayN ? (P.status === "over" ? ""                                              // the tab's own "over your budget" line says it
+      : P.status === "fast" ? `<div class="bstat over">⚠ Running ahead: at this pace you finish around <b>${r(P.pace)}</b> of ${r(P.bud)}. About <b>${r(Math.max(0, P.perRest))} a day</b> keeps you on budget.</div>`
+      : `<div class="bstat tight">✅ On pace — finishing around ${r(P.pace)} of ${r(P.bud)}.${P.rest > 0 ? ` About ${r(P.perRest)} a day for the rest.` : ` ${r(P.bud - P.spent)} left today.`}</div>`) : "";
+  return `<div class="today-line spend-pulse">${head}</div>${pace}`;
+}
+// Home RIGHT NOW (shell.js): only when it needs the traveler.
+function spendPulseNudge(tr) {
+  const P = tr && spendPulse(tr); if (!P || !P.on || !["fast", "over"].includes(P.status)) return null;
+  return { icon: "💸", text: P.status === "over" ? `Spending is ${money(Math.round(P.spent - P.bud))} over budget` : `Spending is running ahead — on pace for ${money(Math.round(P.pace))} of ${money(P.bud)}`,
+    sub: P.rest > 0 && P.perRest > 0 ? `about ${money(Math.round(P.perRest))} a day keeps you on budget` : "", act: 'data-spendgo="1"' };
+}
+function spendPulseClick(ds) {
+  if (!ds.spendgo) return false;
+  S.tripTab = "onboard"; shellGo("wallet"); return true;
+}
+function spendPulseSubmit(f, data) {
+  if (!f.dataset.budgetset) return false;
+  const tr = S.trips.find(t => t.id === f.dataset.budgetset), n = Number(data.bud); if (!tr || !(n > 0)) return true;
+  snap(); tr.onboardBudget = Math.round(n * 100) / 100; save(); render(); buzz(); toast("📅 Budget set"); return true;
 }

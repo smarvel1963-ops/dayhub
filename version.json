@@ -1,6 +1,9 @@
 {
- "version": "1.20",
+ "version": "1.21",
  "notes": {
+  "1.21": [
+   "📅 Daily spending pace: set a spending budget for the trip (Wallet → Spending) and see what a day is worth, what today has used, and where you'll finish — 'about $91 a day keeps you on budget'. Home gives you a heads-up only when you're running ahead."
+  ],
   "1.20": [
    "🗂️ Passport & ID check: 🛟 → My documents → add whose passport, license or ID and when it runs out (never the number). Every trip checks it: expired, runs out during the trip, or a passport with under 6 months left after you get home. Reminders 90 and 30 days before anything expires."
   ],
