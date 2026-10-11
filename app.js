@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.28";
+const VERSION = "1.29";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -925,7 +925,7 @@ function syncOff() {
   DTOKEN = null; CLOUD_PENDING = null; S.sync = { on: false, last: null, dirty: false }; saveLocal(); drawSyncBox();
   toast("Backup turned off — your Drive copy stays until you delete it");
 }
-function drawSyncBox() {
+function drawSyncBox(delArmed) {
   const g = document.getElementById("syncBox"); if (!g) return;
   const when = iso => new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   g.innerHTML = `<h3>Backup & sync</h3>` + (CLOUD_PENDING
@@ -935,7 +935,8 @@ function drawSyncBox() {
     : S.sync.on
     ? `<div class="leg"><span>☁️ On — ${S.sync.last ? `last backup ${when(S.sync.last)}` : "not backed up yet"}${S.sync.dirty ? " · <b style='color:var(--orange)'>new changes</b>" : ""}</span></div>
        <div class="foot-actions"><button class="btn sm" data-sync="now">Back up now</button>
-       <button class="btn sm ghost" data-sync="restore">Restore</button><button class="btn sm ghost" data-sync="off">Turn off</button></div>`
+       <button class="btn sm ghost" data-sync="restore">Restore</button><button class="btn sm ghost" data-sync="off">Turn off</button>
+       <button class="btn sm ${delArmed ? "" : "ghost"}" data-sync="delete" style="${delArmed ? "background:var(--red);color:#fff" : ""}">🗑️ ${delArmed ? "Tap again to delete" : "Delete my Drive backup"}</button></div>`
     : `<p class="fine" style="margin-top:0"><b>⚠️ Not backed up yet</b> — everything is only on this phone. Turn it on once:</p>
        <ol class="steps"><li>Tap <b>Back up to my Google Drive</b>.</li><li>Pick your Google account → <b>Continue</b> → <b>Allow</b>.</li>
          <li>Done — every change saves to Google's servers by itself from then on.</li></ol>
@@ -2003,8 +2004,36 @@ function eraseAll() {
   ERASE_ARMED = 0; snap(); const keepName = S.name;
   // NOT closeSettings(): that saves the still-open form, which would write the
   // old name / city straight back into the erased app (caught by the test suite).
-  S = blank(); saveLocal(); WXDATA = null; document.getElementById("sheet").classList.add("hidden"); render();
+  S = blank(); saveLocal(); WXDATA = null; document.getElementById("sheet").classList.add("hidden");
+  forgetPhone();
+  render();
   toast(`Erased${keepName ? ", " + keepName : ""}`, true);
+}
+// v1.29 (store audit L-M1): Erase used to reset only the planner. It now also signs this phone out of Google
+// (and tells Google to drop the sign-in) and forgets the purchase emails, the AI passphrase, saved map places and
+// the other hub's trip copy. These sign-ins are SHARED by every Hub app on this phone (one Google sign-in, one AI
+// credits email), so they go for all of them - the Erase button says so. The phone's random id stays, so the
+// phone doesn't take a second spot on a purchase. Undo brings the planner back; sign-ins are typed again.
+function forgetPhone() {
+  try { if (window.google && google.accounts && google.accounts.oauth2) [GTOKEN, DTOKEN, MTOKEN].filter(Boolean)
+    .filter((t, i, l) => l.indexOf(t) === i).forEach(t => google.accounts.oauth2.revoke(t, () => {})); } catch (e) { /* offline */ }
+  GTOKEN = DTOKEN = MTOKEN = null; GTOKEN_EXP = DTOKEN_EXP = MTOKEN_EXP = 0;
+  [TOK_KEY, AUTO_KEY, AUTH_NONCE_KEY, PRO_KEY, FAM_KEY, "dayhub.aipass", "hub.aicredits", "hub.geo"]
+    .forEach(k => { try { localStorage.removeItem(k); sessionStorage.removeItem(k); } catch (e) { /* private mode */ } });
+}
+// v1.29: delete the backup copy in the person's own Google Drive (before, the app said "stays until you delete it"
+// and offered no way to). Two taps; signs in to Drive if needed; turns backup off so it isn't written again.
+let DEL_ARMED = 0;
+async function deleteBackup() {
+  if (Date.now() - DEL_ARMED > 5000) { DEL_ARMED = Date.now(); toast("Tap Delete again to delete your Drive backup for good"); drawSyncBox(true); return; }
+  DEL_ARMED = 0;
+  if (!dReady() && !(await driveSignIn(""))) return;
+  try {
+    const f = await driveFind();
+    if (f) await dfetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(f.id)}`, { method: "DELETE" });
+    CLOUD_PENDING = null; S.sync = { on: false, last: null, dirty: false }; saveLocal(); drawSyncBox();
+    toast(f ? "Your Drive backup is deleted ✓" : "There was no Drive backup to delete");
+  } catch (e) { toast("Couldn't delete the backup — try again (" + e.message + ")"); drawSyncBox(); }
 }
 function drawDataBox(armed) {
   const g = document.getElementById("dataBox"); if (!g) return;
@@ -2013,7 +2042,7 @@ function drawDataBox(armed) {
       <button class="btn sm ghost" data-data="import">⬆️ Load a backup file</button>
       <button class="btn sm ${armed ? "" : "ghost"}" data-data="erase" style="${armed ? "background:var(--red);color:#fff" : ""}">🗑️ ${armed ? "Tap again to erase" : "Erase everything"}</button></div>
     <input type="file" id="importFile" accept="application/json,.json" style="display:none">
-    <p class="fine" style="margin-top:6px">The download is a file you keep anywhere (email it to yourself, save it to Drive). Erasing can be undone right after.</p>`;
+    <p class="fine" style="margin-top:6px">The download is a file you keep anywhere (email it to yourself, save it to Drive). Erase also signs this phone out of Google and forgets saved purchase emails for every Hub app on this phone. Your plans can be undone right after; sign-ins are just typed again. A Drive backup is deleted in Backup & sync.</p>`;
 }
 
 // ------------------------------------------------------------- the day

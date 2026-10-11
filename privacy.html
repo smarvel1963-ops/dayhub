@@ -22,13 +22,13 @@
 </head>
 <body><main>
   <h1>Day Hub privacy policy</h1>
-  <p class="dim">Day Hub, Cruise Hub and Trip Hub are apps by Marvel Corp. Last updated October 7, 2026.</p>
+  <p class="dim">Day Hub, Cruise Hub, Trip Hub and Home Hub are apps by Marvel Corp. Last updated October 11, 2026.</p>
 
   <h2>The short version</h2>
   <p>What you type into Day Hub stays on your phone. We have no Day Hub account system and no database of your plans. There are no ads, no ad trackers and no analytics in the app. A few features you choose to turn on send data to other services, and each one is listed below.</p>
 
   <h2>What stays on your phone</h2>
-  <p>Your schedule, to-dos, lists, notes, bills, trips, work hours and settings are saved in your browser's storage on your phone. We cannot see them. You can erase them any time in ⚙ Settings → <b>Your data</b> → <b>Erase</b>, and uninstalling the app or clearing its site data also removes them.</p>
+  <p>Your schedule, to-dos, lists, notes, bills, trips, work hours and settings are saved in your browser's storage on your phone. We cannot see them. You can erase them any time in ⚙ Settings → <b>Your data</b> → <b>Erase everything</b>. Erase also signs the phone out of Google, tells Google to drop that sign-in, and forgets saved purchase emails and the AI passphrase for every Hub app on the phone. Uninstalling the app or clearing its site data also removes everything.</p>
 
   <h2>What leaves your phone, and why</h2>
   <table>
@@ -36,11 +36,13 @@
     <tr><td>Always (weather)</td><td>The city or ZIP code you enter, then that place's map location</td><td>Open-Meteo (weather and place search). For US ZIP codes, also Zippopotam.us.</td></tr>
     <tr><td>Always (opening the app)</td><td>Normal web requests (your IP address, browser type)</td><td>GitHub Pages, which hosts the app, and Google Fonts, which supplies the lettering.</td></tr>
     <tr><td>If you connect Google Calendar</td><td>Day Hub reads your calendar events to show them and adds the events, bills and shifts you create in Day Hub to your calendar</td><td>Google, directly from your phone. The sign-in token is kept on your phone and expires after about an hour.</td></tr>
-    <tr><td>If you turn on backup</td><td>A copy of your Day Hub data</td><td>A hidden app folder in <b>your own</b> Google Drive. Only Day Hub on your devices can read it. We cannot.</td></tr>
+    <tr><td>If you turn on backup</td><td>A copy of your Day Hub data</td><td>A hidden app folder in <b>your own</b> Google Drive. Only Day Hub on your devices can read it. We cannot. Delete it any time in ⚙ → <b>Backup &amp; sync</b> → <b>Delete my Drive backup</b>.</td></tr>
     <tr><td>If you connect Gmail (where offered)</td><td>Day Hub reads emails on your phone (read-only) to find bookings, appointments and package tracking</td><td>Google, directly from your phone. Email content is processed on your phone and is not sent to us or anyone else. Nothing is added until you tap Add.</td></tr>
-    <tr><td>If you use the AI helper (Brain dump, Ask, Top 3)</td><td>The text you send, and for Ask and Top 3, the planner items they need</td><td>Our relay (a Google Apps Script run by Marvel Corp), which passes it to Anthropic's Claude to get the answer. The relay does not save your text. It keeps only a count of requests per day.</td></tr>
-    <tr><td>If you buy Day Hub Pro</td><td>The email you bought with (or your Whop membership id), and a random id your phone makes for itself, to check the purchase is active and limit it to 3 phones</td><td>Our relay, which looks the purchase up with Whop. The relay keeps only a scrambled (one-way) form of your Whop account id with your phones' random ids and the day each was last seen, never your email. Payment is handled entirely by Whop. We never see your card details.</td></tr>
+    <tr><td>If you use the AI helper (Brain dump, Ask, Top 3)</td><td>The text you send, and for Ask and Top 3, the planner items they need. That can include your notes, bills and the pay amounts you entered. While the AI helper is on, Top 3 runs once a day by itself when you open the app.</td><td>Our relay (a Google Apps Script run by Marvel Corp), which passes it to Anthropic's Claude to get the answer (<a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener">Anthropic's privacy policy</a>). The relay does not save your text. It keeps only a count of requests per day.</td></tr>
+    <tr><td>If you buy Hub AI Credits</td><td>The email you bought with and your phone's random id</td><td>Our relay, which counts the credit packs you paid for with Whop and keeps a number of questions used, under a scrambled (one-way) id - never your email.</td></tr>
+    <tr><td>If you buy Day Hub Pro</td><td>The email you bought with (or your Whop membership id), and a random id your phone makes for itself, to check the purchase is active and limit it to 3 phones</td><td>Our relay, which looks the purchase up with Whop. The relay keeps only a scrambled (one-way) form of your Whop account id with your phones' random ids and the day each was last seen, never your email. Payment is handled entirely by Whop. We never see your card details. To use a purchase on a new phone, the relay emails a 6-digit code to that address (sent from Marvel Corp's Google account); it remembers only a scrambled form of the email and phone id once the code is confirmed.</td></tr>
     <tr><td>If you open a trip map (Trip Hub, Cruise Hub)</td><td>The place names and addresses of that trip's destination, hotels, airports and bookings, and the map area on screen</td><td>OpenStreetMap (place search and the map pictures). The map code itself comes from cdnjs (Cloudflare). Places found are remembered on your phone so they are looked up once.</td></tr>
+    <tr><td>If you join a waitlist (smarvel1963-ops.github.io/hubs)</td><td>Your email and which app you're waiting for</td><td>A Google Sheet in Marvel Corp's Google account. Used only to email you when that app is ready. Ask to be removed any time at the contact below.</td></tr>
     <tr><td>If you turn on reminders</td><td>Nothing. Reminders come from your phone itself.</td><td>No one</td></tr>
   </table>
 

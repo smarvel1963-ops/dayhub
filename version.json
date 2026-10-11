@@ -1,6 +1,9 @@
 {
- "version": "1.28",
+ "version": "1.29",
  "notes": {
+  "1.29": [
+   "🗑️ Erase everything now really means everything: it also signs this phone out of Google and forgets saved purchase emails. And ⚙ → Backup & sync can now delete your Google Drive backup."
+  ],
   "1.28": [
    "🔒 Safer backups: a backup file or email can no longer slip hidden code into your app."
   ],

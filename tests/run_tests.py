@@ -3729,6 +3729,31 @@ def t_v128_safe_input(b, base):
     a.close()
 
 
+def t_v129_erase_all(b, base):
+    print("\n[v1.29 store audit L-M1: Erase forgets every sign-in on the phone; Drive backup can be deleted]")
+    a = App(b, base); setup(a)
+    keys = ["dayhub.gtok", "dayhub.autoauth", "dayhub.authnonce", "dayhub.pro", "dayhub.family", "dayhub.aipass", "hub.aicredits", "hub.geo"]
+    a.js("ks => { ks.forEach(k => localStorage.setItem(k, JSON.stringify({x: 1}))); GTOKEN = 'tok'; GTOKEN_EXP = Date.now() + 3e6; }", keys)
+    dev = a.js("deviceId()")
+    a.js("eraseAll(); eraseAll()"); a.page.wait_for_timeout(200)
+    left = a.js("ks => ks.filter(k => localStorage.getItem(k) !== null)", keys)
+    check("Erase removes tokens, purchase emails, passphrase, caches", left == [] and a.js("GTOKEN") is None, left)
+    check("...but keeps the phone's id (no second purchase spot)", a.js("deviceId()") == dev)
+    check("...and the planner is fresh", a.js("S.todos.length") == 0)
+    # Drive backup delete (fake Drive)
+    a.js("""(() => { window.__del = []; const real = window.fetch; window.fetch = async (u, o = {}) => { u = String(u);
+        if (u.startsWith('https://www.googleapis.com/drive/v3/files?')) return new Response(JSON.stringify({files: [{id: 'f123', modifiedTime: 'x'}]}), {status: 200});
+        if (u.startsWith('https://www.googleapis.com/drive/v3/files/f123') && o.method === 'DELETE') { window.__del.push(u); return new Response(null, {status: 204}); }
+        return real(u, o); };
+      DTOKEN = 'd'; DTOKEN_EXP = Date.now() + 3e6; S.sync = {on: true, last: null, dirty: false}; saveLocal(); })()""")
+    a.page.click("#settingsBtn")
+    a.page.click('[data-sync="delete"]'); a.page.wait_for_timeout(200)
+    check("Delete my Drive backup asks for a second tap first", a.js("window.__del.length") == 0 and "Tap again to delete" in a.page.inner_text("#syncBox"))
+    a.page.click('[data-sync="delete"]'); a.page.wait_for_timeout(400)
+    check("second tap deletes the Drive file and turns backup off", a.js("window.__del.length") == 1 and a.js("S.sync.on") is False, a.js("window.__del"))
+    a.close()
+
+
 def t_v122_trip_briefing(b, base):
     print("\n[v1.22 daily travel briefing: the morning brief leads with the trip + an 8 PM 'tomorrow' note]")
     a = App(b, base, path=TRIP, at="2026-10-21T06:30:00")
@@ -3805,7 +3830,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all):
             try:
                 t(b, base)
             except Exception as e:

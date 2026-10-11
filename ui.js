@@ -1582,6 +1582,7 @@ document.addEventListener("click", e => {
   if (ds.sync) {
     const a = ds.sync;
     if (a === "on") syncOn(); else if (a === "now") backupNow(); else if (a === "restore") restoreNow(); else if (a === "off") syncOff();
+    else if (a === "delete") deleteBackup();
     else if (a === "use" && CLOUD_PENDING) restoreFrom(CLOUD_PENDING);
     else if (a === "keep") { CLOUD_PENDING = null; backupNow(); }
     return;
