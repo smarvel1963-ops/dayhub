@@ -70,6 +70,16 @@
  * Day Hub Pro buyers use their free BUYER_CAP a day first, then credits.
  * New task "credits" -> {left, total} for the email (no phone slot is taken).
  * AI answers now also carry credits_left when the question was paid with a credit.
+ *
+ * v8 (10/11, first real test buy): credits come from PAYMENTS, not memberships.
+ * Measured on the live API with marvelcalls (two $0 CREDITSTEST buys):
+ *   - a second buy of the same pack does NOT make a second membership - Whop just
+ *     extends the first one, so counting memberships gave 100 for two packs;
+ *   - /memberships hides "completed" (one-time) ones unless asked by status.
+ * So the relay now reads GET /payments?account_id=&user_id=<buyer> (needs the key's
+ * payment:basic:read scope - added to "Day Hub Key" 10/11 with Scott's OK) and counts
+ * every paid, not-refunded payment for a pack: questions x quantity.
+ * (product_ids / statuses filters 400 on /payments; user_ids is IGNORED - user_id works.)
  */
 const MODEL = "claude-haiku-4-5";
 const DAILY_CAP = 200;              // requests per day, all tasks together
@@ -257,6 +267,37 @@ function buyerMems(whop, co, b, isMem, pids) {
   return { mems: mems };
 }
 
+// v8: the buyer's Whop user id(s) - same email search as buyerMems (one exact hit), or the
+// user behind a mem_ id. -> {ids} | {error} | {valid:false, status}
+function buyerUserIds(whop, co, b, isMem) {
+  if (isMem) {
+    const m = whopGet(whop, "/memberships/" + encodeURIComponent(b), {});
+    if (m.error) return m;
+    const u = m.notFound ? "" : memUser(m);
+    return u ? { ids: [u] } : { valid: false, status: "not a Whop membership id" };
+  }
+  const want = b.toLowerCase();
+  const found = whopGet(whop, "/members", { account_id: co, query: b, first: 50 });
+  if (found.error) return found;
+  const hits = (found.data || []).map(function (x) { return x.user; }).filter(function (u) { return u && u.id; });
+  let users = hits.filter(function (u) { return String(u.email || "").toLowerCase() === want; });
+  if (!users.length && hits.length === 1 && hits[0].email === undefined) users = hits;   // see buyerMems
+  if (!users.length) return { valid: false, status: "no Whop purchase with that email" };
+  return { ids: users.map(function (u) { return u.id; }) };
+}
+// A payment's buyer, whether it counts (paid, not refunded), and how many questions it bought.
+function payUser(p) { return (p && (p.user_id || (p.user && p.user.id))) || ""; }
+function payPaid(p) {
+  return p && p.status === "paid" && !/refund|dispute|chargeback|fail|void/i.test(String(p.substatus || "")) && !p.refunded_at;
+}
+function payQuestions(p, packs) {
+  const items = p.line_items && p.line_items.length ? p.line_items : [{ product_id: p.product_id, quantity: 1 }];
+  return items.reduce(function (n, li) {
+    const q = Number(packs[li.product_id]) || 0;
+    return n + q * Math.max(1, Number(li.quantity) || 1);
+  }, 0);
+}
+
 // v7 Hub AI Credits: {"prod_...": questions} from Script Property AI_CREDIT_PRODUCTS, or null (credits off).
 function creditProducts(P) {
   try { const o = JSON.parse(prop(P, "AI_CREDIT_PRODUCTS") || "null");
@@ -277,11 +318,19 @@ function creditsFor(P, buyer) {
   const cache = CacheService.getScriptCache(), ck = "C_" + keyHash(b.toLowerCase() + "|" + pids.join(",")), hit = cache.get(ck);
   let got = hit ? JSON.parse(hit) : null;
   if (!got) {
-    const r = buyerMems(whop, co, b, isMem, pids);
-    if (!r.mems) return r.error ? r : { left: 0, total: 0, status: r.status };
-    const paid = r.mems.filter(function (m) { return pids.indexOf(memProd(m)) >= 0 && CREDIT_STATUS.indexOf(m.status) >= 0; });
-    got = { total: paid.reduce(function (n, m) { return n + (Number(packs[memProd(m)]) || 0); }, 0),
-            who: paid.length ? keyHash(memUser(paid[0]) || paid[0].id) : "" };
+    const u = buyerUserIds(whop, co, b, isMem);
+    if (!u.ids) return u.error ? u : { left: 0, total: 0, status: u.status };
+    let total = 0, who = "";
+    for (let k = 0; k < u.ids.length; k++) {
+      const list = whopGet(whop, "/payments", { account_id: co, user_id: u.ids[k], first: 100 });
+      if (list.error) return list;
+      (list.data || []).forEach(function (p) {
+        if (payUser(p) !== u.ids[k] || !payPaid(p)) return;
+        const n = payQuestions(p, packs);
+        if (n > 0) { total += n; who = who || keyHash(u.ids[k]); }
+      });
+    }
+    got = { total: total, who: who };
     cache.put(ck, JSON.stringify(got), 600);
   }
   if (!got.who) return { left: 0, total: 0, status: "no Hub AI Credits with that email" };
