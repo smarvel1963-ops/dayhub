@@ -60,6 +60,16 @@
  * New Script Property, optional until the Trip Hub Pass is on sale:
  *     TRIP_PRODUCT_ID = prod_... (Trip Hub Pass)
  * product can now also be "triphub". The AI path is unchanged: Day Hub Pro only.
+ *
+ * v7 (Day Hub v1.24, Scott 10/11: "all our aps ought to have a play of you drop ai
+ * credits"; packs 100 for $2.99 / 500 for $9.99). HUB AI CREDITS = one-time Whop
+ * products that work in EVERY hub. Dormant until this Script Property is set:
+ *     AI_CREDIT_PRODUCTS = {"prod_...": 100, "prod_...": 500}   (product id -> questions)
+ * A buyer's credits = sum of their paid credit memberships x questions, minus what
+ * they used (U_<hash>, one per answered question - a failed call is never charged).
+ * Day Hub Pro buyers use their free BUYER_CAP a day first, then credits.
+ * New task "credits" -> {left, total} for the email (no phone slot is taken).
+ * AI answers now also carry credits_left when the question was paid with a credit.
  */
 const MODEL = "claude-haiku-4-5";
 const DAILY_CAP = 200;              // requests per day, all tasks together
@@ -71,6 +81,8 @@ const WHOP_COMPANY = "biz_loYMoMQKy5XhM0";   // Marvel Corp (not a secret)
 const WHOP_VERSION = "2026-09-29";   // match the key (10/3: 09-15 returned members without user.email)
 // Still paid up: "canceling" runs to the end of the period, "past_due" is Whop retrying the card.
 const OK_STATUS = ["active", "trialing", "past_due", "canceling", "completed"];   // completed = paid once (one-time / 100% code)
+// v7 credits: a pack that has run its access period (expired) was still paid for - its questions stay.
+const CREDIT_STATUS = ["active", "past_due", "canceling", "completed", "expired"];
 
 const TASKS = {
   dump: { max: 1200, system:
@@ -100,13 +112,22 @@ function doPost(e) {
     const norm = v => String(v || "").trim().replace(/\s+/g, " ").toLowerCase();
     if (req.task === "verify") return out(verifyBuyer(P, req.buyer, req.device, req.app));
     if (req.task === "release") return out(releasePhone(P, req.buyer, req.device, req.app));
+    if (req.task === "credits") return out(creditsFor(P, req.buyer));
     let keyCounter = null;                                       // set = this request is on a Pro buyer
+    let credit = null;                                           // v7: set = this request is paid with a Hub AI Credit
     if (req.buyer && !req.pass) {
       if (!/^(1|true|yes|on)$/i.test(String(prop(P, "AI_PUBLIC") || "").trim())) return out({ error: "the AI helper for Pro isn't switched on yet" });
       const v = verifyBuyer(P, req.buyer, req.device);
-      if (v.error) return out({ error: v.error });
-      if (!v.valid) return out({ error: "Day Hub Pro isn't active for this phone" });
-      keyCounter = dayKey() + "_K_" + v.who;
+      if (v.error && !creditProducts(P)) return out({ error: v.error });
+      const proKey = v.valid ? dayKey() + "_K_" + v.who : null;
+      if (proKey && Number(P.getProperty(proKey) || 0) < BUYER_CAP) keyCounter = proKey;
+      else {
+        const c = creditProducts(P) ? creditsFor(P, req.buyer) : null;
+        if (c && c.error) return out({ error: c.error });
+        if (c && c.left > 0) credit = c;
+        else if (proKey) return out({ error: "your daily AI limit is used up — try again tomorrow" + (c ? " (or add Hub AI Credits)" : "") });
+        else return out({ error: c ? "no AI questions left — add Hub AI Credits" : "Day Hub Pro isn't active for this phone" });
+      }
     } else {
       const pass = prop(P, "PASS");
       if (!pass) return out({ error: "relay has no PASS set — check the property is named exactly PASS" });
@@ -114,7 +135,8 @@ function doPost(e) {
     }
     if (req.task === "ping") { let left = DAILY_CAP - Number(P.getProperty(dayKey()) || 0);
       if (keyCounter) left = Math.min(left, BUYER_CAP - Number(P.getProperty(keyCounter) || 0));
-      return out({ ok: true, model: MODEL, left: left }); }
+      if (credit) left = Math.min(left, credit.left);
+      return out({ ok: true, model: MODEL, left: left, credits_left: credit ? credit.left : null }); }
     const t = TASKS[req.task];
     if (!t) return out({ error: "unknown task" });
     const key = prop(P, "ANTHROPIC_KEY");
@@ -144,7 +166,13 @@ function doPost(e) {
     if (code !== 200) return out({ error: "Claude said " + code + (j.error && j.error.message ? ": " + j.error.message : "") });
     if (j.stop_reason === "refusal") return out({ error: "Claude declined that one" });
     const text = (j.content || []).filter(function (b) { return b.type === "text"; }).map(function (b) { return b.text; }).join("");
-    return out({ text: text, usage: j.usage || null });
+    let creditsLeft = null;
+    if (credit) {                                                // charged only for an answer that came back
+      const l2 = LockService.getScriptLock(); l2.waitLock(5000);
+      try { const uk = "U_" + credit.who, used = Number(P.getProperty(uk) || 0) + 1;
+        P.setProperty(uk, String(used)); creditsLeft = Math.max(0, credit.total - used); } finally { l2.releaseLock(); }
+    }
+    return out({ text: text, usage: j.usage || null, credits_left: creditsLeft });
   } catch (err) {
     return out({ error: String(err && err.message || err) });
   }
@@ -173,30 +201,9 @@ function verifyBuyer(P, buyer, device, app) {
   const cache = CacheService.getScriptCache(), ck = "B_" + keyHash(b.toLowerCase() + "|" + pids.join(",")), hit = cache.get(ck);
   let res = hit ? JSON.parse(hit) : null;
   if (!res) {
-    let mems;
-    if (isMem) {
-      const m = whopGet(whop, "/memberships/" + encodeURIComponent(b), {});
-      if (m.error) return m;
-      mems = m.notFound ? [] : [m];
-    } else {
-      const want = b.toLowerCase();
-      const found = whopGet(whop, "/members", { account_id: co, query: b, first: 50 });
-      if (found.error) return found;
-      const hits = (found.data || []).map(function (x) { return x.user; }).filter(function (u) { return u && u.id; });
-      let users = hits.filter(function (u) { return String(u.email || "").toLowerCase() === want; });
-      // 10/3 measured: Whop's /members returns user WITHOUT email for a company key
-      // (user = id, username, name, profile_picture) even with member:email:read, but its
-      // search DOES match by email. A full address cannot match a name/username by
-      // accident, so exactly ONE search hit = that buyer. Several hits = refuse.
-      if (!users.length && hits.length === 1 && hits[0].email === undefined) users = hits;
-      if (!users.length) return { valid: false, status: "no Whop purchase with that email" };
-      mems = [];
-      for (let k = 0; k < users.length; k++) {
-        const list = whopGet(whop, "/memberships", { account_id: co, user_ids: users[k].id, product_ids: pids, first: 50 });
-        if (list.error) return list;
-        mems = mems.concat((list.data || []).filter(function (m) { return memUser(m) === users[k].id; }));
-      }
-    }
+    const got = buyerMems(whop, co, b, isMem, pids);
+    if (!got.mems) return got;
+    const mems = got.mems;
     const mine = mems.filter(function (m) { return pids.indexOf(memProd(m)) >= 0; });
     const good = mine.filter(function (m) { return OK_STATUS.indexOf(m.status) >= 0; });
     const m = good[0] || mine[0];
@@ -220,6 +227,66 @@ function verifyBuyer(P, buyer, device, app) {
     devs[dh] = today; P.setProperty(pk, JSON.stringify(devs));
   } finally { lock.releaseLock(); }
   return { valid: true, status: res.status, until: res.until, who: res.who, product: res.product || "dayhub" };
+}
+
+// The buyer's Whop memberships in pids (email search or mem_ id).
+// -> {mems} | {error} | {valid:false, status} (no Whop user with that email).
+function buyerMems(whop, co, b, isMem, pids) {
+  if (isMem) {
+    const m = whopGet(whop, "/memberships/" + encodeURIComponent(b), {});
+    if (m.error) return m;
+    return { mems: m.notFound ? [] : [m] };
+  }
+  const want = b.toLowerCase();
+  const found = whopGet(whop, "/members", { account_id: co, query: b, first: 50 });
+  if (found.error) return found;
+  const hits = (found.data || []).map(function (x) { return x.user; }).filter(function (u) { return u && u.id; });
+  let users = hits.filter(function (u) { return String(u.email || "").toLowerCase() === want; });
+  // 10/3 measured: Whop's /members returns user WITHOUT email for a company key
+  // (user = id, username, name, profile_picture) even with member:email:read, but its
+  // search DOES match by email. A full address cannot match a name/username by
+  // accident, so exactly ONE search hit = that buyer. Several hits = refuse.
+  if (!users.length && hits.length === 1 && hits[0].email === undefined) users = hits;
+  if (!users.length) return { valid: false, status: "no Whop purchase with that email" };
+  let mems = [];
+  for (let k = 0; k < users.length; k++) {
+    const list = whopGet(whop, "/memberships", { account_id: co, user_ids: users[k].id, product_ids: pids, first: 50 });
+    if (list.error) return list;
+    mems = mems.concat((list.data || []).filter(function (m) { return memUser(m) === users[k].id; }));
+  }
+  return { mems: mems };
+}
+
+// v7 Hub AI Credits: {"prod_...": questions} from Script Property AI_CREDIT_PRODUCTS, or null (credits off).
+function creditProducts(P) {
+  try { const o = JSON.parse(prop(P, "AI_CREDIT_PRODUCTS") || "null");
+    return o && typeof o === "object" && Object.keys(o).length ? o : null; } catch (e) { return null; }
+}
+
+// How many AI questions this buyer has left. -> {left, total, used, who} | {error} | {left:0, status}
+// Packs bought are cached 10 min (spares Whop); what was used is read fresh every time.
+function creditsFor(P, buyer) {
+  const packs = creditProducts(P);
+  if (!packs) return { left: 0, total: 0, status: "Hub AI Credits aren't on sale yet" };
+  const b = String(buyer || "").trim();
+  const isMem = /^mem_[A-Za-z0-9]{4,40}$/.test(b), isMail = /^[^@\s]{1,64}@[^@\s]{1,190}\.[^@\s]{2,}$/.test(b);
+  if (!isMem && !isMail) return { left: 0, total: 0, status: "enter the email you bought with" };
+  const whop = prop(P, "WHOP_API_KEY");
+  if (!whop) return { error: "relay has no WHOP_API_KEY yet" };
+  const co = prop(P, "WHOP_COMPANY_ID") || WHOP_COMPANY, pids = Object.keys(packs);
+  const cache = CacheService.getScriptCache(), ck = "C_" + keyHash(b.toLowerCase() + "|" + pids.join(",")), hit = cache.get(ck);
+  let got = hit ? JSON.parse(hit) : null;
+  if (!got) {
+    const r = buyerMems(whop, co, b, isMem, pids);
+    if (!r.mems) return r.error ? r : { left: 0, total: 0, status: r.status };
+    const paid = r.mems.filter(function (m) { return pids.indexOf(memProd(m)) >= 0 && CREDIT_STATUS.indexOf(m.status) >= 0; });
+    got = { total: paid.reduce(function (n, m) { return n + (Number(packs[memProd(m)]) || 0); }, 0),
+            who: paid.length ? keyHash(memUser(paid[0]) || paid[0].id) : "" };
+    cache.put(ck, JSON.stringify(got), 600);
+  }
+  if (!got.who) return { left: 0, total: 0, status: "no Hub AI Credits with that email" };
+  const used = Number(P.getProperty("U_" + got.who) || 0);
+  return { left: Math.max(0, got.total - used), total: got.total, used: used, who: got.who };
 }
 
 // "Remove from this phone": frees the phone's spot. Needs the same email/mem id
