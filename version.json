@@ -1,6 +1,9 @@
 {
- "version": "1.30",
+ "version": "1.31",
  "notes": {
+  "1.31": [
+   "🔧 Behind-the-scenes: the hidden owner settings only open on the owner's phone."
+  ],
   "1.30": [
    "🔒 Your notes stay private: the AI helper no longer reads your notes unless you tick \"Let the AI read my notes\" in ⚙ → AI helper. And the automatic daily Top 3 never uses up a paid AI credit."
   ],

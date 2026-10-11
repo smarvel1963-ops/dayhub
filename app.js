@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.30";
+const VERSION = "1.31";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -2018,7 +2018,7 @@ function forgetPhone() {
   try { if (window.google && google.accounts && google.accounts.oauth2) [GTOKEN, DTOKEN, MTOKEN].filter(Boolean)
     .filter((t, i, l) => l.indexOf(t) === i).forEach(t => google.accounts.oauth2.revoke(t, () => {})); } catch (e) { /* offline */ }
   GTOKEN = DTOKEN = MTOKEN = null; GTOKEN_EXP = DTOKEN_EXP = MTOKEN_EXP = 0;
-  [TOK_KEY, AUTO_KEY, AUTH_NONCE_KEY, PRO_KEY, FAM_KEY, "dayhub.aipass", "hub.aicredits", "hub.geo"]
+  [TOK_KEY, AUTO_KEY, AUTH_NONCE_KEY, PRO_KEY, FAM_KEY, "dayhub.aipass", "dayhub.ownerok", "hub.aicredits", "hub.geo"]
     .forEach(k => { try { localStorage.removeItem(k); sessionStorage.removeItem(k); } catch (e) { /* private mode */ } });
 }
 // v1.29: delete the backup copy in the person's own Google Drive (before, the app said "stays until you delete it"

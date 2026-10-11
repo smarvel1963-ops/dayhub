@@ -1364,7 +1364,7 @@ document.addEventListener("submit", e => {
   if (f.dataset.proform) { const k = (data.key || "").trim(); if (k) unlockPro(/@/.test(k) ? k.toLowerCase() : k); return; }
   if (f.dataset.aipass) { const pw = (data.pass || "").trim(); if (!pw) return;
     drawAiBox("checking…");
-    aiCall("ping", "", pw).then(() => { try { localStorage.setItem(AI_KEY, pw); } catch (e) { /* private mode */ } drawAiBox("connected ✓"); toast("🤖 AI helper on"); })
+    aiCall("ping", "", pw).then(() => { try { localStorage.setItem(AI_KEY, pw); localStorage.setItem("dayhub.ownerok", "1"); } catch (e) { /* private mode */ } drawAiBox("connected ✓"); toast("🤖 AI helper on"); })
       .catch(e => { drawAiBox(/passphrase/.test(e.message) ? "That passphrase doesn't match the relay's PASS" : "Couldn't reach the relay: " + e.message); });
     return; }
   if (f.dataset.paysetup) { S.payday = { ...S.payday, freq: data.freq, next: data.next, amount: Number(data.amount) > 0 ? Number(data.amount) : null };
@@ -1878,7 +1878,11 @@ catch (e) {
 }
 loadWeather();
 recheckPro();
+// v1.31 (store audit S6): the 7 taps open Owner switches only on the owner's phone - one that has checked the
+// relay passphrase (dayhub.ownerok is set when it does) - so a customer can't stumble on "Count this phone as Pro".
+const ownerOk = () => { try { return !!aiPass() || localStorage.getItem("dayhub.ownerok") === "1"; } catch (e) { return false; } };
 document.getElementById("ver").addEventListener("click", () => {
+  if (!ownerOk()) return;
   const now = Date.now(); VER_TAPS = VER_TAPS.filter(x => now - x < 4000).concat(now);
   if (VER_TAPS.length >= 7) { VER_TAPS = []; OWNER_OPEN = !OWNER_OPEN; drawOwnerBox();
     if (OWNER_OPEN) document.getElementById("ownerBox").scrollIntoView({ behavior: "smooth", block: "center" }); }
