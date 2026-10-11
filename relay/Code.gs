@@ -97,6 +97,20 @@
  *   - a "not found" answer is cached 5 min, so repeating it costs Whop nothing.
  *   - LOOKUP_CAP uncached Whop lookups a day; past it the check answers {error} - the phone treats that
  *     as "couldn't check" and keeps its grace, so a flood can't lock out a paying customer.
+ *
+ * v11 (10/11, store audit finding S2, Scott "fix 3"): knowing a buyer's EMAIL is no longer enough. A NEW phone
+ * must confirm a 6-digit code that the relay emails to that address before the email unlocks Pro or AI Credits
+ * on it. OFF until Script Property EMAIL_CODES = true (flip it only after Day Hub v1.27, which shows the code
+ * box, is live).
+ *   - task "code" {buyer, device}: emails a code ONLY if the address bought a Hub product, but answers
+ *     {sent:true} either way, so it is no customer lookup. At most 3 codes per address per hour.
+ *   - task "confirm" {buyer, device, code}: right code -> this phone is confirmed for that address (Property
+ *     V_<hash>). A code lasts 15 min and allows 5 tries.
+ *   - verify / credits / AI on an unconfirmed phone answer status "needs code" - the same for buyers and
+ *     strangers. A phone ALREADY unlocked before v11 (on the buyer's phone list) is confirmed silently, so no
+ *     paying customer is asked for a code.
+ *   - mem_ ids (a private membership id, not a public address) work as before.
+ *   - Sending mail needs Scott's one-time Allow (run authMail() in the editor).
  */
 const MODEL = "claude-haiku-4-5";
 const DAILY_CAP = 200;              // requests per day, all tasks together
@@ -104,6 +118,8 @@ const BUYER_CAP = 30;               // per Pro buyer per day (inside DAILY_CAP)
 const MAX_PHONES = 3;
 const LOOKUP_CAP = 500;             // v10: uncached Whop lookups a day (verify + credits) - flood guard
 const NOT_FOUND = "not found";      // v10: one answer for every "no purchase" reason
+const NEEDS_CODE = "needs code";    // v11: this phone hasn't confirmed the emailed code yet
+const CODE_MINUTES = 15, CODE_TRIES = 5, CODES_PER_HOUR = 3;
 const WAITLIST_CAP = 300;           // waitlist rows a day (spam guard)
 const WAITLIST_APPS = ["Home Hub", "Auto Hub", "Pet Hub", "Family Hub", "All of them"];               // phones one purchase can unlock at once
 const PHONE_DAYS = 60;              // a phone not seen this long frees its spot
@@ -143,7 +159,9 @@ function doPost(e) {
     const norm = v => String(v || "").trim().replace(/\s+/g, " ").toLowerCase();
     if (req.task === "verify") return out(verifyBuyer(P, req.buyer, req.device, req.app));
     if (req.task === "release") return out(releasePhone(P, req.buyer, req.device, req.app));
-    if (req.task === "credits") return out(creditsFor(P, req.buyer));
+    if (req.task === "credits") return out(creditsFor(P, req.buyer, req.device));
+    if (req.task === "code") return out(sendCode(P, req.buyer, req.device));
+    if (req.task === "confirm") return out(confirmCode(P, req.buyer, req.device, req.code));
     if (req.task === "waitlist") return out(waitlistAdd(P, req));
     let keyCounter = null;                                       // set = this request is on a Pro buyer
     let credit = null;                                           // v7: set = this request is paid with a Hub AI Credit
@@ -154,7 +172,8 @@ function doPost(e) {
       const proKey = v.valid ? dayKey() + "_K_" + v.who : null;
       if (proKey && Number(P.getProperty(proKey) || 0) < BUYER_CAP) keyCounter = proKey;
       else {
-        const c = creditProducts(P) ? creditsFor(P, req.buyer) : null;
+        if (v.status === NEEDS_CODE) return out({ error: "confirm your email on this phone first (⚙ → AI helper)" });
+        const c = creditProducts(P) ? creditsFor(P, req.buyer, req.device) : null;
         if (c && c.error) return out({ error: c.error });
         if (c && c.left > 0) credit = c;
         else if (proKey) return out({ error: "your daily AI limit is used up — try again tomorrow" + (c ? " (or add Hub AI Credits)" : "") });
@@ -219,6 +238,20 @@ function verifyBuyer(P, buyer, device, app) {
   if (!/^[A-Za-z0-9_-]{8,64}$/.test(dev)) return { valid: false, status: "no phone id" };
   const isMem = /^mem_[A-Za-z0-9]{4,40}$/.test(b), isMail = /^[^@\s]{1,64}@[^@\s]{1,190}\.[^@\s]{2,}$/.test(b);
   if (!isMem && !isMail) return { valid: false, status: "enter the email you bought with" };
+  const res = proLookup(P, b, isMem, app);
+  if (res.error) return res;
+  if (isMail && needsCode(P, b, dev)) {                          // v11
+    // Grandfather: a phone unlocked before v11 is on the buyer's phone list - confirm it silently.
+    const was = res.valid && JSON.parse(P.getProperty("D_" + res.who) || "{}")[keyHash(dev)];
+    if (!was) return { valid: false, status: NEEDS_CODE };      // buyer or stranger: the same answer
+    markConfirmed(P, b, dev);
+  }
+  if (!res.valid) return res;
+  return bindPhone(P, res, dev);
+}
+
+// v11: is this buyer's Pro / Pass paid up? Cached Whop answer (6 h yes, 5 min no). -> res | {error}
+function proLookup(P, b, isMem, app) {
   const whop = prop(P, "WHOP_API_KEY"), pid = prop(P, "WHOP_PRODUCT_ID");
   if (!whop || !pid) return { error: "relay has no WHOP_API_KEY / WHOP_PRODUCT_ID yet" };
   const co = prop(P, "WHOP_COMPANY_ID") || WHOP_COMPANY;
@@ -246,9 +279,11 @@ function verifyBuyer(P, buyer, device, app) {
       : { valid: false, status: NOT_FOUND };
     cache.put(ck, JSON.stringify(res), res.valid ? 6 * 3600 : 300);
   }
-  if (!res.valid) return res;
+  return res;
+}
 
-  // Phone limit: at most MAX_PHONES per buyer; a phone unseen for PHONE_DAYS frees its spot.
+// Phone limit: at most MAX_PHONES per buyer; a phone unseen for PHONE_DAYS frees its spot.
+function bindPhone(P, res, dev) {
   const lock = LockService.getScriptLock(); lock.waitLock(5000);
   try {
     const pk = "D_" + res.who, today = Utilities.formatDate(new Date(), "America/Chicago", "yyyy-MM-dd");
@@ -329,12 +364,22 @@ function creditProducts(P) {
 
 // How many AI questions this buyer has left. -> {left, total, used, who} | {error} | {left:0, status}
 // Packs bought are cached 10 min (spares Whop); what was used is read fresh every time.
-function creditsFor(P, buyer) {
+function creditsFor(P, buyer, device) {
   const packs = creditProducts(P);
   if (!packs) return { left: 0, total: 0, status: "Hub AI Credits aren't on sale yet" };
   const b = String(buyer || "").trim();
   const isMem = /^mem_[A-Za-z0-9]{4,40}$/.test(b), isMail = /^[^@\s]{1,64}@[^@\s]{1,190}\.[^@\s]{2,}$/.test(b);
   if (!isMem && !isMail) return { left: 0, total: 0, status: "enter the email you bought with" };
+  if (isMail && needsCode(P, b, String(device || "").trim())) return { left: 0, total: 0, status: NEEDS_CODE };   // v11
+  const got = creditLookup(P, b, isMem, packs);
+  if (got.error) return got;
+  if (!got.who) return { left: 0, total: 0, status: "no Hub AI Credits with that email" };
+  const used = Number(P.getProperty("U_" + got.who) || 0);
+  return { left: Math.max(0, got.total - used), total: got.total, used: used, who: got.who };
+}
+
+// v11: packs this buyer paid for, cached 10 min (5 min for "none"). -> {total, who} | {error}
+function creditLookup(P, b, isMem, packs) {
   const whop = prop(P, "WHOP_API_KEY");
   if (!whop) return { error: "relay has no WHOP_API_KEY yet" };
   const co = prop(P, "WHOP_COMPANY_ID") || WHOP_COMPANY, pids = Object.keys(packs);
@@ -344,7 +389,7 @@ function creditsFor(P, buyer) {
     if (!lookupOk(P)) return { error: "the purchase check is busy - try again later" };
     const u = buyerUserIds(whop, co, b, isMem);
     if (u.error) return u;
-    if (!u.ids) { cache.put(ck, JSON.stringify({ total: 0, who: "" }), 300); return { left: 0, total: 0, status: "no Hub AI Credits with that email" }; }
+    if (!u.ids) { got = { total: 0, who: "" }; cache.put(ck, JSON.stringify(got), 300); return got; }
     let total = 0, who = "";
     for (let k = 0; k < u.ids.length; k++) {
       const list = whopGet(whop, "/payments", { account_id: co, user_id: u.ids[k], first: 100 });
@@ -358,9 +403,7 @@ function creditsFor(P, buyer) {
     got = { total: total, who: who };
     cache.put(ck, JSON.stringify(got), 600);
   }
-  if (!got.who) return { left: 0, total: 0, status: "no Hub AI Credits with that email" };
-  const used = Number(P.getProperty("U_" + got.who) || 0);
-  return { left: Math.max(0, got.total - used), total: got.total, used: used, who: got.who };
+  return got;
 }
 
 // v10: counts uncached Whop lookups today; false once LOOKUP_CAP is reached (cleared with the day's N_ counters).
@@ -383,8 +426,63 @@ function releasePhone(P, buyer, device, app) {
     const pk = "D_" + v.who, devs = JSON.parse(P.getProperty(pk) || "{}");
     delete devs[keyHash(String(device))]; P.setProperty(pk, JSON.stringify(devs));
   } finally { lock.releaseLock(); }
+  P.deleteProperty(confirmKey(buyer, device));                  // v11: a removed phone confirms again next time
   return { ok: true };
 }
+
+// ---- v11 email codes (store audit S2) ----
+const codesOn = P => /^(1|true|yes|on)$/i.test(String(prop(P, "EMAIL_CODES") || "").trim());
+const confirmKey = (b, dev) => "V_" + keyHash(String(b || "").trim().toLowerCase() + "|" + String(dev || "").trim());
+function needsCode(P, b, dev) { return codesOn(P) && !P.getProperty(confirmKey(b, dev)); }
+function markConfirmed(P, b, dev) { P.setProperty(confirmKey(b, dev), Utilities.formatDate(new Date(), "America/Chicago", "yyyy-MM-dd")); }
+
+// Did this address buy any Hub product (Pro, a Pass or AI Credits)? Same cached lookups as verify / credits.
+function hubBuyer(P, b) {
+  for (const app of ["dayhub", "cruisehub", "triphub"]) {
+    const r = proLookup(P, b, false, app);
+    if (r.error) return r;
+    if (r.valid) return { yes: true };
+  }
+  const packs = creditProducts(P);
+  if (packs) { const c = creditLookup(P, b, false, packs); if (c.error) return c; if (c.who) return { yes: true }; }
+  return { yes: false };
+}
+
+function sendCode(P, buyer, device) {
+  if (!codesOn(P)) return { error: "email codes aren't switched on" };
+  const b = String(buyer || "").trim().toLowerCase(), dev = String(device || "").trim();
+  if (!/^[A-Za-z0-9_-]{8,64}$/.test(dev)) return { error: "no phone id" };
+  if (!/^[^@\s]{1,64}@[^@\s]{1,190}\.[^@\s]{2,}$/.test(b)) return { error: "enter the email you bought with" };
+  const cache = CacheService.getScriptCache(), rk = "R_" + keyHash(b), n = Number(cache.get(rk) || 0);
+  if (n >= CODES_PER_HOUR) return { error: "too many codes for that email - try again in an hour" };
+  cache.put(rk, String(n + 1), 3600);                           // counted for EVERY address, buyer or not
+  const hb = hubBuyer(P, b);
+  if (hb.error) return { error: "couldn't check right now - try again in a minute" };
+  if (hb.yes) {
+    if (MailApp.getRemainingDailyQuota() < 2) return { error: "couldn't send the email today - try again tomorrow" };
+    const digits = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, Utilities.getUuid() + "|" + Date.now());
+    const code = String(((((digits[0] & 255) << 16) | ((digits[1] & 255) << 8) | (digits[2] & 255)) >>> 0) % 1000000).padStart(6, "0");
+    cache.put("K_" + keyHash(b + "|" + dev), JSON.stringify({ h: keyHash("c|" + code + "|" + b + "|" + dev), n: 0 }), CODE_MINUTES * 60);
+    MailApp.sendEmail({ to: b, name: "Marvel Corp Hub apps", subject: "Your Hub app code: " + code,
+      body: "Your code is " + code + "\n\nEnter it in the app to use your purchase on this phone. It works for " + CODE_MINUTES +
+            " minutes.\n\nDidn't ask for it? Ignore this email - nobody can use your purchase without this code.\n\nMarvel Corp" });
+  }
+  return { sent: true };                                         // the same answer whether or not an email went out
+}
+
+function confirmCode(P, buyer, device, code) {
+  if (!codesOn(P)) return { ok: false };
+  const b = String(buyer || "").trim().toLowerCase(), dev = String(device || "").trim(), c = String(code || "").replace(/\D/g, "");
+  const cache = CacheService.getScriptCache(), k = "K_" + keyHash(b + "|" + dev), rec = JSON.parse(cache.get(k) || "null");
+  if (!rec || c.length !== 6) return { ok: false };
+  if (rec.n >= CODE_TRIES) { cache.remove(k); return { ok: false }; }
+  if (rec.h !== keyHash("c|" + c + "|" + b + "|" + dev)) { rec.n++; cache.put(k, JSON.stringify(rec), CODE_MINUTES * 60); return { ok: false }; }
+  cache.remove(k); markConfirmed(P, b, dev);
+  return { ok: true };
+}
+
+// Run ONCE from the editor after pasting v11: Google asks Scott to Allow "send email as you".
+function authMail() { Logger.log("emails left today: " + MailApp.getRemainingDailyQuota()); }
 
 // GET a Whop endpoint. Array params go form/explode style (a=1&a=2).
 function whopGet(whop, path, params) {
