@@ -4,7 +4,7 @@
  * NETWORK FIRST, cache as the fallback: the first build was cache-first and a
  * fix to app.js did not show until every tab closed - users would sit on an
  * old version after each update. Online = always the newest files. */
-const CACHE = "dayhub-v1.31";
+const CACHE = "dayhub-v1.32";
 const SHELL = ["./", "index.html", "styles.css", "features.js", "app.js", "scenes.js", "cruise.js", "shell.js", "trip.js", "ships.js", "ui.js", "privacy.html", "terms.html", "manifest.json", "icon-192.png", "icon-512.png", "icon-180.png"];   // Cruise Hub has its own sw.js in /cruisehub/
 self.addEventListener("install", e => {
   self.skipWaiting();
@@ -17,8 +17,7 @@ self.addEventListener("fetch", e => {
   const u = new URL(e.request.url);
   if (u.origin !== location.origin || e.request.method !== "GET") return;   // weather API: always live
   e.respondWith(fetch(e.request).then(r => {
-    const copy = r.clone();
-    caches.open(CACHE).then(c => c.put(e.request, copy));
+    if (r.ok) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }   // v1.32: never cache an error page
     return r;
   }).catch(() => caches.match(e.request, { ignoreSearch: true })));
 });

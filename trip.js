@@ -216,6 +216,11 @@ function tripSubmit(f, data) {
 // the trip's own: where you're going, each hotel, the airports of each flight, the car pick-up, stations, tickets,
 // dinners and (cruise) the port days - numbered in date order. A place that can't be found is listed, not guessed.
 const GEO_KEY = "hub.geo", LEAFLET = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/";
+// v1.32 (store audit L5): the map code is checked against cdnjs's published sha512 before it runs, so a changed copy
+// on the CDN is refused instead of running inside the app. (__dhTest = the test suite's tiny fake map, which can't match.)
+const LEAFLET_SRI = { js: "sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g==",
+  css: "sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw==" };
+function sri(el, hash) { if (!window.__dhTest) { el.integrity = hash; el.crossOrigin = "anonymous"; el.referrerPolicy = "no-referrer"; } return el; }
 let MAP = null, MAP_LOADING = null, GEO_BUSY = false;
 const geoCache = () => { try { return JSON.parse(localStorage.getItem(GEO_KEY) || "{}") || {}; } catch (e) { return {}; } };
 function geoPut(q, v) { const c = geoCache(); c[q] = v; try { localStorage.setItem(GEO_KEY, JSON.stringify(c)); } catch (e) { /* full / private */ } }
@@ -252,8 +257,8 @@ function loadLeaflet() {
   if (window.L) return Promise.resolve(window.L);
   if (MAP_LOADING) return MAP_LOADING;
   MAP_LOADING = new Promise((ok, bad) => {
-    const css = document.createElement("link"); css.rel = "stylesheet"; css.href = LEAFLET + "leaflet.min.css"; document.head.appendChild(css);
-    const s = document.createElement("script"); s.src = LEAFLET + "leaflet.min.js"; s.onload = () => ok(window.L); s.onerror = () => { MAP_LOADING = null; bad(new Error("map code")); };
+    const css = sri(document.createElement("link"), LEAFLET_SRI.css); css.rel = "stylesheet"; css.href = LEAFLET + "leaflet.min.css"; document.head.appendChild(css);
+    const s = sri(document.createElement("script"), LEAFLET_SRI.js); s.src = LEAFLET + "leaflet.min.js"; s.onload = () => ok(window.L); s.onerror = () => { MAP_LOADING = null; bad(new Error("map code")); };
     document.head.appendChild(s); });
   return MAP_LOADING;
 }

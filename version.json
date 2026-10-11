@@ -1,6 +1,9 @@
 {
- "version": "1.31",
+ "version": "1.32",
  "notes": {
+  "1.32": [
+   "🔒 Behind-the-scenes safety: the trip map code is checked before it runs, and the offline copy never saves an error page."
+  ],
   "1.31": [
    "🔧 Behind-the-scenes: the hidden owner settings only open on the owner's phone."
   ],

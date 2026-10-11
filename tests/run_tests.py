@@ -176,6 +176,7 @@ def route(ctx):
             return r.fulfill(status=204, body="")
         return r.continue_()
     ctx.route("**/*", handle)
+    ctx.add_init_script("window.__dhTest = true")   # v1.32: the fake Leaflet above can't match the real map code's integrity hash
 
 
 # ------------------------------------------------------------------ helpers
@@ -3790,6 +3791,19 @@ def t_v130_ai_privacy(b, base):
     a.close()
 
 
+def t_v132_sri_and_sw(b, base):
+    print("\n[v1.32 store audit L5/L6: map code integrity-checked; the offline copy never caches an error]")
+    a = App(b, base)
+    a.js("delete window.__dhTest")
+    a.js("(() => { window.__tags = []; const real = document.head.appendChild.bind(document.head); document.head.appendChild = el => { window.__tags.push([el.tagName, el.integrity || '', el.crossOrigin || '']); return el; }; loadLeaflet().catch(() => {}); })()")
+    tags = a.js("window.__tags")
+    check("without the test flag the map script and style carry sha512 integrity + crossorigin",
+          len(tags) == 2 and all(t[1].startswith("sha512-") and t[2] == "anonymous" for t in tags), tags)
+    swsrc = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sw.js"), encoding="utf-8").read()
+    check("service worker caches a response only when it is ok", "if (r.ok)" in swsrc)
+    a.close()
+
+
 def t_v122_trip_briefing(b, base):
     print("\n[v1.22 daily travel briefing: the morning brief leads with the trip + an 8 PM 'tomorrow' note]")
     a = App(b, base, path=TRIP, at="2026-10-21T06:30:00")
@@ -3866,7 +3880,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw):
             try:
                 t(b, base)
             except Exception as e:
