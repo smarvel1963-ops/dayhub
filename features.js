@@ -22,7 +22,7 @@ const SWITCHES = Object.freeze({
   STORE: false,       // "Get it on Google Play" link. Waits on the Play listing going live.
   CRUISE_PASS: true,  // ON 2026-10-07 (Scott: "go"). Whop prod_D1Rb57NYoYxR5 + relay v5 (deploy v10) live; unlock tested OK with the 10/7 test buy.
   TRIP_PASS: true,    // ON 2026-10-11 (Scott: "get it completed and listed today"). Whop prod_xFJeMtq6FYVgk + relay v6 (deploy v11) + TRIP_PRODUCT_ID live.
-  AI_CREDITS: false,  // Hub AI Credits (Scott 10/11: "all our aps ought to have a play of you drop ai credits"). Needs Whop packs + relay v7 + AI_CREDIT_PRODUCTS.
+  AI_CREDITS: true,   // ON 2026-10-11 (Scott "ok"). Whop packs visible, relay v8 (deploy 13) counts PAYMENTS; marvelcalls test buy = 200 questions.
 });
 
 // Scott approved 10/3: $4.99/mo or $29.99/yr, contact smarvel1963@gmail.com.
@@ -57,7 +57,7 @@ const PLAN = Object.freeze({
   // HUB AI CREDITS (Scott 10/11: 100 for $2.99 / 500 for $9.99). One-time packs, work in EVERY hub,
   // one credit per AI answer; Day Hub Pro still gets its free questions a day first. Shown while AI_CREDITS is on.
   AI_CREDITS_NAME: "Hub AI Credits",
-  // Whop one-time products (Marvel Corp, HIDDEN from the store until AI_CREDITS is on), each access auto-expires after
+  // Whop one-time products (Marvel Corp, visible 10/11), each access auto-expires after
   // 1 day so a buyer can top up again; the relay still counts expired packs. Relay v7 Script Property AI_CREDIT_PRODUCTS.
   AI_PACKS: [{ n: 100, price: "$2.99", url: "https://whop.com/commander-marvel-por-picks/hub-ai-credits-100-questions" },   // prod_PZs1nowbQqbau
              { n: 500, price: "$9.99", url: "https://whop.com/commander-marvel-por-picks/hub-ai-credits-500-questions" }],  // prod_8ZVor6HNWoWLP

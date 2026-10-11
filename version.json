@@ -1,6 +1,9 @@
 {
- "version": "1.23",
+ "version": "1.24",
  "notes": {
+  "1.24": [
+   "🤖 Hub AI Credits: ask your Hub app anything about your own day, cruise or trip — pay as you go, 100 questions for $2.99 or 500 for $9.99. Works in Day Hub, Cruise Hub and Trip Hub; credits never expire. ⚙ → AI helper."
+  ],
   "1.23": [
    "✈️ Trip Hub is open for everyone: get the Trip Hub Pass — $9.99 a year for every trip you take that year (calendar + Drive backup). Already have Day Hub Pro? It includes Trip Hub."
   ],
