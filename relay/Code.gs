@@ -117,6 +117,14 @@
  * hour", and after PASS_FAILS_DAY in a day it is shut until tomorrow. While locked, even the RIGHT passphrase
  * is refused, so a guesser learns nothing. Buyers (email / credits) are not affected.
  * Scott will also change PASS to a long random phrase (ACTIVE_TODO S8) - the limit only slows guessing down.
+ *
+ * v13 (10/11, store audit small items, Scott "cont"):
+ *   - L3 a paid AI credit is RESERVED under the lock before Claude is called (two requests at once can't both
+ *     spend the last credit) and given back if no answer comes.
+ *   - an empty request is refused BEFORE it counts against the day's cap.
+ *   - L2 the phone gets plain messages ("busy, try again"); Claude's / Apps Script's raw error text goes to the
+ *     execution log only.
+ *   - L4 the waitlist formula guard also covers a leading tab / carriage return.
  */
 const MODEL = "claude-haiku-4-5";
 const DAILY_CAP = 200;              // requests per day, all tasks together
@@ -202,39 +210,47 @@ function doPost(e) {
     const key = prop(P, "ANTHROPIC_KEY");
     if (!key) return out({ error: "relay has no API key yet" });
 
+    const input = String(req.input || "").slice(0, 16000);
+    if (!input.trim()) return out({ error: "nothing to send" });   // v13: before it counts against the cap
+
     const lock = LockService.getScriptLock(); lock.waitLock(5000);
     const n = Number(P.getProperty(dayKey()) || 0);
     if (n >= DAILY_CAP) { lock.releaseLock(); return out({ error: "daily limit reached — try again tomorrow" }); }
     const kn = keyCounter ? Number(P.getProperty(keyCounter) || 0) : 0;
     if (keyCounter && kn >= BUYER_CAP) { lock.releaseLock(); return out({ error: "your daily AI limit is used up — try again tomorrow" }); }
+    let creditUsed = null;                                       // v13: reserve the credit now, under the lock
+    if (credit) {
+      creditUsed = Number(P.getProperty("U_" + credit.who) || 0);
+      if (creditUsed >= credit.total) { lock.releaseLock(); return out({ error: "no AI questions left — add Hub AI Credits" }); }
+      P.setProperty("U_" + credit.who, String(creditUsed + 1));
+    }
     if (n === 0) clearOldCounters(P);                           // first request of the day
     P.setProperty(dayKey(), String(n + 1));
     if (keyCounter) P.setProperty(keyCounter, String(kn + 1));
     lock.releaseLock();
+    const refund = () => { if (!credit) return;                  // no answer came back: give the credit back
+      const l3 = LockService.getScriptLock(); l3.waitLock(5000);
+      try { const uk = "U_" + credit.who; P.setProperty(uk, String(Math.max(0, Number(P.getProperty(uk) || 0) - 1))); } finally { l3.releaseLock(); } };
 
     const today = /^\d{4}-\d{2}-\d{2}$/.test(req.today || "") ? req.today : Utilities.formatDate(new Date(), "America/Chicago", "yyyy-MM-dd");
     const system = t.system.split("{today}").join(today).split("{weekday}").join(String(req.weekday || "").slice(0, 10));
-    const input = String(req.input || "").slice(0, 16000);
-    if (!input.trim()) return out({ error: "nothing to send" });
-
-    const r = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
+    let r;
+    try { r = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
       method: "post", contentType: "application/json", muteHttpExceptions: true,
       headers: { "x-api-key": key, "anthropic-version": "2023-06-01" },
       payload: JSON.stringify({ model: MODEL, max_tokens: t.max, system: system, messages: [{ role: "user", content: input }] }),
-    });
+    }); } catch (fe) { refund(); throw fe; }
     const code = r.getResponseCode(), j = JSON.parse(r.getContentText() || "{}");
-    if (code !== 200) return out({ error: "Claude said " + code + (j.error && j.error.message ? ": " + j.error.message : "") });
-    if (j.stop_reason === "refusal") return out({ error: "Claude declined that one" });
+    if (code !== 200) {                                          // v13: details to the log, plain words to the phone
+      refund(); Logger.log("Claude " + code + ": " + (j.error && j.error.message || ""));
+      return out({ error: code === 429 || code >= 500 ? "the AI is busy right now — try again in a minute" : "the AI couldn't answer that one — try again" }); }
+    if (j.stop_reason === "refusal") { refund(); return out({ error: "Claude declined that one" }); }
     const text = (j.content || []).filter(function (b) { return b.type === "text"; }).map(function (b) { return b.text; }).join("");
-    let creditsLeft = null;
-    if (credit) {                                                // charged only for an answer that came back
-      const l2 = LockService.getScriptLock(); l2.waitLock(5000);
-      try { const uk = "U_" + credit.who, used = Number(P.getProperty(uk) || 0) + 1;
-        P.setProperty(uk, String(used)); creditsLeft = Math.max(0, credit.total - used); } finally { l2.releaseLock(); }
-    }
+    const creditsLeft = credit ? Math.max(0, credit.total - (creditUsed + 1)) : null;   // reserved above
     return out({ text: text, usage: j.usage || null, credits_left: creditsLeft });
   } catch (err) {
-    return out({ error: String(err && err.message || err) });
+    Logger.log("relay error: " + (err && err.stack || err));   // v13: the real error stays in the log
+    return out({ error: "something went wrong — try again in a minute" });
   }
 }
 
@@ -566,7 +582,7 @@ function waitlistAdd(P, req) {
       const rows = sh.getRange(2, 2, last - 1, 2).getValues();
       for (let i = 0; i < rows.length; i++) if (String(rows[i][0]).toLowerCase() === email && rows[i][1] === app) { cache.put(ck, "1", 21600); return { ok: true, dup: true }; }
     }
-    const cell = v => /^[=+\-@]/.test(v) ? "'" + v : v;   // never let a value become a sheet formula
+    const cell = v => /^[=+\-@\t\r]/.test(v) ? "'" + v : v;   // v13: tab / CR too   // never let a value become a sheet formula
     sh.appendRow([Utilities.formatDate(new Date(), "America/Chicago", "yyyy-MM-dd HH:mm"), cell(email), app, cell(String(req.src || "").slice(0, 40))]);
     P.setProperty(dk, String(n + 1));
     cache.put(ck, "1", 21600);
