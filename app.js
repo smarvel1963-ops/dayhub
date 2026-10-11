@@ -2573,7 +2573,7 @@ function showAsk() {
       <div class="chips up-chips">${ex.map(q => `<button class="chip" data-askq="${esc(q)}">${esc(q)}</button>`).join("")}</div>
       <div id="askOut">${ASK_LOG.map(a => `<div class="ask-q">${esc(a.q)}</div><div class="ask-a">${esc(a.a)}</div>`).join("")}</div>`
     : `<p class="fine" style="margin-top:4px">${TRAVEL ? `Ask in plain words — ${MODE === "cruise" ? `"When do we need to be back on the ship?"` : `"What time is our hotel check-in?"`} — and ${APP_NAME} answers from your own ${TW}.` : `Ask in plain words — "When's my next oil change?" — and Day Hub answers from your own planner.`}</p>
-       <ol class="steps"><li>Tap ⚙ (top right).</li><li>Find <b>🤖 AI helper</b>, type your passphrase, tap <b>Turn on</b>.</li></ol>
+       <ol class="steps"><li>Tap ⚙ (top right).</li><li>${creditsOn() ? `Find <b>🤖 AI helper</b> → get <b>${PLAN.AI_CREDITS_NAME}</b> (${PLAN.AI_PACKS.map(p => `${p.n} for ${p.price}`).join(" or ")}), then enter the email you bought with.` : `Find <b>🤖 AI helper</b>, type your passphrase, tap <b>Turn on</b>.`}</li></ol>
        <button class="btn sm" data-askclose="1" data-open="sheet">Open ⚙</button>`}
   </div>`;
   el.classList.remove("hidden");

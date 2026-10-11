@@ -787,23 +787,32 @@ const aiPass = () => { try { return localStorage.getItem(AI_KEY) || ""; } catch 
 // Pro phone sends its Whop email (+ phone id) instead and the relay gives each
 // buyer their own cap.
 // v0.53: in Cruise Hub a Day Hub Pro unlock on the same phone counts (proViaDayHub) - send that buyer.
-const aiBuyer = () => (proGood(proState()) ? proState() : readPro(DAY_PRO_KEY)).buyer || proState().buyer || "";
 // v1.23: a Cruise Hub Pass / Trip Hub Pass on its own never gets the AI - the relay only answers Day Hub Pro.
 const passOnly = () => !proGood(readPro(DAY_PRO_KEY)) && ["cruisehub", "triphub"].includes(proState().product);
-const aiByKey = () => !aiPass() && switchOn("AI_PUBLIC") && isPro() && !!aiBuyer() && !passOnly();
+// v1.24 HUB AI CREDITS (AI_CREDITS switch): one email + questions-left on this phone, shared by every hub
+// ("hub.aicredits", same storage for Day/Cruise/Trip Hub). The relay keeps the real count; this is the last answer.
+const CREDIT_KEY = "hub.aicredits";
+const creditsOn = () => switchOn("AI_CREDITS") && switchOn("AI_PUBLIC");
+const readCredits = () => readPro(CREDIT_KEY);
+const setCredits = c => { try { localStorage.setItem(CREDIT_KEY, JSON.stringify(c)); } catch (e) { /* private mode */ } };
+const proAi = () => isPro() && !passOnly();
+const proBuyer = () => (proGood(proState()) ? proState() : readPro(DAY_PRO_KEY)).buyer || proState().buyer || "";
+const aiBuyer = () => (proAi() && proBuyer()) || (creditsOn() && readCredits().buyer) || "";
+const aiByKey = () => !aiPass() && switchOn("AI_PUBLIC") && !!aiBuyer();
 const aiOn = () => !!aiPass() || aiByKey();
 async function aiCall(task, input, pass = aiPass()) {
   const t = today(), body = { task, input, today: t, weekday: parseDay(t).toLocaleDateString("en-US", { weekday: "long" }) };
   if (pass) body.pass = pass; else { body.buyer = aiBuyer(); body.device = deviceId(); }
   const r = await fetch(AI_URL, { method: "POST", body: JSON.stringify(body) });
   const j = await r.json();
+  if (typeof j.credits_left === "number") setCredits({ ...readCredits(), left: j.credits_left, checked: Date.now() });
   if (j.error) throw new Error(j.error);
   return j;
 }
 const aiJSON = text => { const m = String(text || "").match(/\{[\s\S]*\}/); return m ? JSON.parse(m[0]) : null; };
 function drawAiBox(msg) {
   const g = document.getElementById("aiBox"); if (!g) return;
-  g.innerHTML = `<h3>🤖 AI helper</h3>` + (aiByKey()
+  g.innerHTML = `<h3>🤖 AI helper</h3>` + creditsHtml() + (aiByKey() && !proAi() ? "" : aiByKey()
     ? `<div class="leg"><span>✅ Included with ${PLAN.NAME} — Brain dump, 💡 Ask and 🎯 Top 3 use AI${msg ? ` · ${esc(msg)}` : ""}</span></div>
        <div class="foot-actions"><button class="btn sm" data-ai="test">Test it</button></div>`
     : aiOn()
@@ -814,6 +823,30 @@ function drawAiBox(msg) {
        <ol class="steps"><li>Type the passphrase you saved as <b>PASS</b> in your Day Hub AI relay.</li><li>Tap <b>Turn on</b>.</li></ol>
        <form class="inline-add" data-aipass="1"><input name="pass" type="password" placeholder="Passphrase" autocomplete="off" required><button class="btn sm">Turn on</button></form>
        ${msg ? `<p class="fine" style="margin-top:6px">⚠️ ${esc(msg)}</p>` : ""}`);
+}
+
+// v1.24 Hub AI Credits block (top of the AI helper box) - pay as you go, any hub, on its own data.
+let CRED_MSG = "";
+function creditsHtml() {
+  if (!creditsOn() || aiPass()) return "";
+  const c = readCredits(), packs = PLAN.AI_PACKS.map(p => `${p.n} questions ${p.price}`).join(" · ");
+  const buy = PLAN.AI_PACKS.filter(p => p.url).map(p => `<a class="btn sm" href="${esc(p.url)}" target="_blank" rel="noopener">${p.n} for ${p.price}</a>`).join("");
+  const msg = CRED_MSG ? `<p class="fine" style="margin-top:6px">${esc(CRED_MSG)}</p>` : "";
+  if (c.buyer) return `<div class="leg"><span>🎟️ ${PLAN.AI_CREDITS_NAME} · <b>${typeof c.left === "number" ? c.left : "?"}</b> questions left · ${esc(c.buyer)}</span></div>
+      ${proAi() ? `<p class="fine" style="margin-top:4px">Your ${PLAN.NAME} questions each day come first; credits only after.</p>` : ""}
+      <div class="foot-actions">${buy}<button class="btn sm ghost" data-aicred="check">Check now</button><button class="btn sm ghost" data-aicred="remove">Remove</button></div>${msg}`;
+  return `<p class="fine" style="margin-top:0"><b>${PLAN.AI_CREDITS_NAME}</b> — ask ${APP_NAME} anything about your own ${TRAVEL ? TW : "day"}, sort a brain dump, pick today's top 3. Pay as you go: ${packs}. Works in every Hub app; credits never expire.</p>
+      ${buy ? `<div class="foot-actions">${buy}</div>` : `<p class="fine">Coming soon.</p>`}
+      <form class="inline-add" data-aicredform="1"><input name="key" type="text" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="Email you used on Whop" autocomplete="email" required><button class="btn sm">Add credits</button></form>${msg}`;
+}
+function checkCredits(buyer) {
+  CRED_MSG = "Checking…"; drawAiBox();
+  fetch(AI_URL, { method: "POST", body: JSON.stringify({ task: "credits", buyer }) }).then(r => r.json()).then(j => {
+    if (j.error) throw new Error(j.error);
+    if (j.left > 0 || j.total > 0) { setCredits({ buyer, left: j.left, checked: Date.now() }); CRED_MSG = ""; toast(`🎟️ ${j.left} AI questions ready`); }
+    else CRED_MSG = `No ${PLAN.AI_CREDITS_NAME} found for that — use the email you bought with on Whop.`;
+    drawAiBox(); render();
+  }).catch(e => { CRED_MSG = "Couldn't reach the check — try again in a minute. (" + e.message + ")"; drawAiBox(); });
 }
 
 // ------------------------------------------------------------- brain dump
@@ -1288,6 +1321,7 @@ document.addEventListener("submit", e => {
     if (tr) tr.lists[k].push({ id: uid(), text: data.text.trim(), done: false });
     save(); render(); const again = document.querySelector(`form[data-tadd="${f.dataset.tadd}"] input`); if (again) again.focus(); return; }
   if (f.dataset.ask) { askDayHub(data.q); return; }
+  if (f.dataset.aicredform) { const k = (data.key || "").trim(); if (k) checkCredits(/@/.test(k) ? k.toLowerCase() : k); return; }
   if (f.dataset.proform) { const k = (data.key || "").trim(); if (k) unlockPro(/@/.test(k) ? k.toLowerCase() : k); return; }
   if (f.dataset.aipass) { const pw = (data.pass || "").trim(); if (!pw) return;
     drawAiBox("checking…");
@@ -1327,6 +1361,8 @@ document.addEventListener("click", e => {
   if (ds.qa) { openQA(ds.qa); return; }
   if (ds.qtype) { openQA(ds.qtype); return; }
   if (ds.undo) { if (UNDO) { S = JSON.parse(UNDO); UNDO = null; save(); render(); toast("Restored ✓"); } return; }
+  if (ds.aicred === "check") { const c = readCredits(); if (c.buyer) checkCredits(c.buyer); return; }
+  if (ds.aicred === "remove") { setCredits({}); CRED_MSG = ""; drawAiBox(); render(); toast(`${PLAN.AI_CREDITS_NAME} removed from this phone`); return; }
   if (ds.pro === "check") { const p = proState(); if (p.buyer) unlockPro(p.buyer); return; }
   if (ds.pro === "remove") { const p = proState();
     if (p.buyer) fetch(AI_URL, { method: "POST", body: JSON.stringify({ task: "release", buyer: p.buyer, device: deviceId(), app: APP_ID }) }).catch(() => {});
@@ -1658,7 +1694,7 @@ function drawProBox() {
   const what = tripPass()
     ? `<p class="fine" style="margin-top:0"><b>One price for the whole year — plan as many trips as you like.</b> Already have ${PLAN.NAME}? It includes Trip Hub: enter that email below.</p>
        <ul class="pro-list"><li>🗓️ Your trip, flights, hotels and plans on your phone's calendar</li><li>☁️ Backup to your own Google Drive</li></ul>
-       <p class="fine" style="margin-top:4px">Everything else — bookings, map, Fix my trip, leave times, split the cost, packing, diary — is free forever. No ads, ever. The AI helper comes with ${PLAN.NAME}.</p>`
+       <p class="fine" style="margin-top:4px">Everything else — bookings, map, Fix my trip, leave times, split the cost, packing, diary — is free forever. No ads, ever. The AI helper comes with ${PLAN.NAME}${creditsOn() ? ` or ${PLAN.AI_CREDITS_NAME}` : ""}.</p>`
     : MODE === "trip"
     ? `<p class="fine" style="margin-top:0">Trip Hub's extras come with ${PLAN.NAME} — one purchase unlocks Day Hub, Cruise Hub and Trip Hub.</p>
        <ul class="pro-list"><li>🤖 Trip Hub AI — things to do, plan tonight, ask about your trip</li><li>🗓️ Your trip and plans on your phone's calendar</li>
@@ -1706,7 +1742,7 @@ function unlockPro(buyer) {
 // phone only, to try a feature before it goes on for everyone (features.js).
 let OWNER_OPEN = false, VER_TAPS = [];
 const OWNER_ROWS = [["PRO_GATE", "Pro gate — free vs Pro"], ["AI_PUBLIC", "AI for Whop-key holders"], ["GMAIL", "Gmail → plans"],
-  ["STORE", "Google Play link"], ["CRUISE_PASS", "Cruise Hub Pass ($9.99/yr)"], ["TRIP_PASS", "Trip Hub Pass ($9.99/yr)"], ["OWNER", "Count this phone as Pro"]];
+  ["STORE", "Google Play link"], ["CRUISE_PASS", "Cruise Hub Pass ($9.99/yr)"], ["TRIP_PASS", "Trip Hub Pass ($9.99/yr)"], ["AI_CREDITS", "Hub AI Credits (packs)"], ["OWNER", "Count this phone as Pro"]];
 // v0.46 HUB FAMILY (Scott 10/4): separate apps that work together. The steps
 // are in the box (Scott 10/2: every setting carries its own easy setup).
 function drawFamBox() {

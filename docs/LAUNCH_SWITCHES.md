@@ -23,6 +23,7 @@ don't see "Connect Gmail" (see GMAIL below).
 | `STORE` | "▶ Get it on Google Play" in ⚙ → On your home screen | The Play listing being live (step 5) |
 | `CRUISE_PASS` | Cruise Hub sells its own **Cruise Hub Pass, $9.99/year** (every cruise that year). Day Hub Pro still unlocks Cruise Hub | The Whop product + relay v5 + `CRUISE_PRODUCT_ID` (step 3b) |
 | `TRIP_PASS` | Trip Hub sells its own **Trip Hub Pass, $9.99/year** (every trip that year). Day Hub Pro still unlocks Trip Hub; the AI stays Day Hub Pro | Whop prod_xFJeMtq6FYVgk + relay v6 + `TRIP_PRODUCT_ID` (step 3c) |
+| `AI_CREDITS` | **Hub AI Credits** in every hub: 100 questions $2.99 / 500 $9.99, one-time, never expire; Day Hub Pro's free questions come first | Whop packs prod_PZs1nowbQqbau (100) + prod_8ZVor6HNWoWLP (500), HIDDEN; relay v7 (deploy v12) + `AI_CREDIT_PRODUCTS` (step 3d) |
 
 ## How to flip a switch
 - **Try it on your phone only (safe):** open Day Hub → ⚙ → scroll to the bottom → tap the
@@ -134,6 +135,21 @@ hubs; a Trip Hub Pass never opens Day Hub, Cruise Hub or the AI helper.
 3. Verify: relay `verify` with app `triphub` for an email with no purchase must say "no Trip Hub Pass or Day Hub Pro
    purchase" (proves v6 + the property are live). Full check = a 100% promo-code buy, unlock in Trip Hub ⚙.
 4. Flip `TRIP_PASS` in features.js and drop `soon` on Trip Hub in the HUBS list (ui.js).
+
+## Step 3d: Hub AI Credits (Scott 10/11: "all our aps ought to have a play of you drop ai credits"; 100/$2.99, 500/$9.99)
+Built in v1.24 behind `AI_CREDITS` (OFF). One wallet per phone ("hub.aicredits") shared by every hub; the relay keeps
+the real count (U_<hash> per buyer) and charges only for an answer that came back.
+
+1. DONE 10/11: Whop one-time products, Show discount/member count/affiliate OFF, **hidden from the store**, access
+   auto-expires after 1 day (so buyers can buy again; the relay still counts expired packs):
+   100 = `prod_PZs1nowbQqbau` whop.com/commander-marvel-por-picks/hub-ai-credits-100-questions
+   500 = `prod_8ZVor6HNWoWLP` whop.com/commander-marvel-por-picks/hub-ai-credits-500-questions
+2. DONE 10/11: relay v7 (deploy version 12, same URL) + Script Property
+   `AI_CREDIT_PRODUCTS` = `{"prod_PZs1nowbQqbau":100,"prod_8ZVor6HNWoWLP":500}`. Live-checked: task credits answers,
+   no-credit buyer told "add Hub AI Credits", Pass checks unchanged.
+3. TO DO - real test: a $0 promo code on the 100 pack, bought from a second Whop account -> any hub -> ⚙ -> AI helper ->
+   that email -> Add credits -> "100 questions left" -> ask one -> 99. Then buy again (checks Whop lets a repeat buy through).
+4. Then: flip `AI_CREDITS` in features.js and un-hide both Whop products (+ List on Discover).
 
 **Delivery text for the Cruise Hub Pass (paste into Whop):**
 

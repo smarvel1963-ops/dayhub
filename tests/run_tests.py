@@ -109,10 +109,23 @@ def route(ctx):
                     return r.fulfill(json={"valid": False, "status": "already on 3 phones — remove it from one"})
                 devs.add(body.get("device"))
                 return r.fulfill(json={"valid": True, "status": "active", "until": "2026-11-01T00:00:00Z", "who": "h1", "product": "cruisehub" if cruiser else "triphub" if tripper else "dayhub"})
+            if body.get("task") == "credits":                     # v1.24 Hub AI Credits
+                left = ctx.__dict__.setdefault("_credits", {"credit@example.com": 100})
+                n = left.get(body.get("buyer"))
+                return r.fulfill(json={"left": n, "total": 100, "used": 100 - n} if n is not None else {"left": 0, "total": 0, "status": "no Hub AI Credits with that email"})
             if body.get("task") == "release":
                 devs.discard(body.get("device"))
                 return r.fulfill(json={"ok": True})
-            if body.get("buyer") and not body.get("pass"):    # v0.40 AI on a Pro purchase
+            if body.get("buyer") and not body.get("pass") and body["buyer"] in ctx.__dict__.get("_credits", {"credit@example.com": 100}):
+                left = ctx.__dict__.setdefault("_credits", {"credit@example.com": 100})   # v1.24: paid with a credit
+                if left[body["buyer"]] <= 0:
+                    return r.fulfill(json={"error": "no AI questions left — add Hub AI Credits"})
+                if body.get("task") == "ping":
+                    return r.fulfill(json={"ok": True, "left": left[body["buyer"]], "credits_left": left[body["buyer"]]})
+                left[body["buyer"]] -= 1
+                if body.get("task") == "ask":
+                    return r.fulfill(json={"text": "Your flight leaves at 7:05 AM.", "credits_left": left[body["buyer"]]})
+            if body.get("buyer") and not body.get("pass") and body["buyer"] not in ctx.__dict__.get("_credits", {}):    # v0.40 AI on a Pro purchase
                 if body["buyer"] not in buyers or body.get("device") not in devs:
                     return r.fulfill(json={"error": "Day Hub Pro isn't active for this phone"})
                 if body.get("task") == "ping":
@@ -1166,7 +1179,7 @@ def t_v039_short_home(b, base):
 def t_v040_switches(b, base):
     print("\n[v0.40 switchboard: everything OFF by default, owner switches, Pro key, legal pages, manifest]")
     a = App(b, base); setup(a)
-    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), TRIP_PASS on (10/11), GMAIL + STORE OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS'"))
+    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), TRIP_PASS on (10/11), GMAIL + STORE OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && !SWITCHES.AI_CREDITS && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS,AI_CREDITS'"))
     check("plan: approved price, contact, Whop checkout", a.js("PLAN.MONTHLY") == "$4.99/month" and a.js("PLAN.YEARLY") == "$29.99/year" and a.js("PLAN.CONTACT_EMAIL") == "smarvel1963@gmail.com" and a.js("PLAN.WHOP_CHECKOUT_URL") == "https://whop.com/commander-marvel-por-picks/day-hub-pro")
     check("PRO_GATE on, free phone: Pro features locked, free ones open", a.js("!['ai','gcal','mail','sync'].some(can) && ['reminders','budget'].every(can)"))
     a.page.click("#settingsBtn")
@@ -3514,6 +3527,44 @@ def t_v123_trip_pass(b, base):
     a.close()
 
 
+def t_v124_ai_credits(b, base):
+    print("\n[v1.24 Hub AI Credits: pay-as-you-go AI in every hub, on that app's own data (switch OFF until the Whop packs exist)]")
+    a = App(b, base, path=TRIP)
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.page.click("#settingsBtn")
+    ai = a.page.inner_text("#aiBox")
+    check("AI_CREDITS off: no credits offer anywhere", not a.js("creditsOn()") and "Hub AI Credits" not in ai and not a.js("!!document.querySelector('[data-aicredform]')"), ai[:200])
+    a.js("setOwnerSwitch('AI_CREDITS', true); drawSettings()")
+    ai = a.page.inner_text("#aiBox")
+    check("AI_CREDITS on: offer with both packs, works in every hub", "Hub AI Credits" in ai and "100 questions $2.99" in ai and "500 questions $9.99" in ai and "every Hub app" in ai, ai[:300])
+    check("both packs have Whop buy buttons, no Coming soon", "Coming soon" not in ai and a.js("document.querySelectorAll('#aiBox a.btn[href*=\"whop.com/commander-marvel-por-picks/hub-ai-credits-\"]').length") == 2, ai[:300])
+    check("not unlocked yet: no AI", not a.js("aiOn()"))
+    a.page.fill('form[data-aicredform] [name=key]', "nobody@example.com"); a.page.click('form[data-aicredform] button'); a.page.wait_for_timeout(300)
+    check("wrong email: says so, nothing saved", "No Hub AI Credits found" in a.page.inner_text("#aiBox") and not a.js("readCredits().buyer"))
+    a.page.fill('form[data-aicredform] [name=key]', "Credit@Example.com"); a.page.click('form[data-aicredform] button'); a.page.wait_for_timeout(300)
+    ai = a.page.inner_text("#aiBox")
+    check("credits buyer: 100 left shown, AI on, email lower-cased", "100 questions left" in ai and a.js("aiOn() && aiByKey()") and a.js("readCredits().buyer") == "credit@example.com", ai[:200])
+    check("Trip Hub Pass box mentions credits as the AI option", "or Hub AI Credits" in a.page.inner_text("#proBox") or not a.js("SWITCHES.TRIP_PASS"))
+    a.page.click('[data-close="sheet"]')
+    a.js("showAsk()") if a.js("typeof showAsk === 'function'") else None
+    out = a.js("aiCall('ask', 'QUESTION: when do we fly?').then(j => j.text)")
+    check("asking spends one credit and the phone shows what's left", out and a.js("readCredits().left") == 99, a.js("readCredits()"))
+    sent = [x for x in a.ctx._relay if x.get("task") == "ask"][-1]
+    check("the AI call sends the credits email + phone id, no passphrase", sent.get("buyer") == "credit@example.com" and "pass" not in sent)
+    a.page.goto(base + "/"); a.page.wait_for_function("typeof render === 'function' && document.querySelector('#hero .greet')")
+    a.js("setOwnerSwitch('AI_CREDITS', true)")
+    check("same phone, Day Hub: the credits work there too (one wallet for every hub)", a.js("aiOn()") and a.js("readCredits().left") == 99 and not a.js("isPro()"))
+    a.ctx._credits["credit@example.com"] = 0
+    err = a.js("aiCall('ask', 'QUESTION: x').then(() => 'ok', e => e.message)")
+    check("used up: the relay refuses and the app says to add credits", "add Hub AI Credits" in err, err)
+    a.page.click("#settingsBtn")
+    a.page.click('[data-aicred="remove"]')
+    check("Remove: credits off this phone, AI off", not a.js("readCredits().buyer") and not a.js("aiOn()"))
+    a.close()
+
+
 def t_v122_trip_briefing(b, base):
     print("\n[v1.22 daily travel briefing: the morning brief leads with the trip + an 8 PM 'tomorrow' note]")
     a = App(b, base, path=TRIP, at="2026-10-21T06:30:00")
@@ -3590,7 +3641,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits):
             try:
                 t(b, base)
             except Exception as e:
