@@ -836,19 +836,49 @@ function creditsHtml() {
   const msg = CRED_MSG ? `<p class="fine" style="margin-top:6px">${esc(CRED_MSG)}</p>` : "";
   if (c.buyer) return `<div class="leg"><span>🎟️ ${PLAN.AI_CREDITS_NAME} · <b>${typeof c.left === "number" ? c.left : "?"}</b> questions left · ${esc(c.buyer)}</span></div>
       ${proAi() ? `<p class="fine" style="margin-top:4px">Your ${PLAN.NAME} questions each day come first; credits only after.</p>` : ""}
-      <div class="foot-actions">${buy}<button class="btn sm ghost" data-aicred="check">Check now</button><button class="btn sm ghost" data-aicred="remove">Remove</button></div>${msg}`;
+      <div class="foot-actions">${buy}<button class="btn sm ghost" data-aicred="check">Check now</button><button class="btn sm ghost" data-aicred="remove">Remove</button></div>${msg}${codeHtml("credits")}`;
   return `<p class="fine" style="margin-top:0"><b>${PLAN.AI_CREDITS_NAME}</b> — ask ${APP_NAME} anything about your own ${TRAVEL ? TW : "day"}, sort a brain dump, pick today's top 3. Pay as you go: ${packs}. Works in every Hub app; credits never expire.</p>
       ${buy ? `<div class="foot-actions">${buy}</div>` : `<p class="fine">Coming soon.</p>`}
-      <form class="inline-add" data-aicredform="1"><input name="key" type="text" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="Email you used on Whop" autocomplete="email" required><button class="btn sm">Add credits</button></form>${msg}`;
+      <form class="inline-add" data-aicredform="1"><input name="key" type="text" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="Email you used on Whop" autocomplete="email" required><button class="btn sm">Add credits</button></form>${msg}${codeHtml("credits")}`;
 }
 function checkCredits(buyer) {
   CRED_MSG = "Checking…"; drawAiBox();
-  fetch(AI_URL, { method: "POST", body: JSON.stringify({ task: "credits", buyer }) }).then(r => r.json()).then(j => {
+  fetch(AI_URL, { method: "POST", body: JSON.stringify({ task: "credits", buyer, device: deviceId() }) }).then(r => r.json()).then(j => {
     if (j.error) throw new Error(j.error);
+    if (j.status === "needs code") { CRED_MSG = ""; askCode(buyer, "credits"); return; }       // v1.27
     if (j.left > 0 || j.total > 0) { setCredits({ buyer, left: j.left, checked: Date.now() }); CRED_MSG = ""; toast(`🎟️ ${j.left} AI questions ready`); }
     else CRED_MSG = `No ${PLAN.AI_CREDITS_NAME} found for that — use the email you bought with on Whop.`;
     drawAiBox(); render();
   }).catch(e => { CRED_MSG = "Couldn't reach the check — try again in a minute. (" + e.message + ")"; drawAiBox(); });
+}
+
+// v1.27 (store audit S2): knowing a buyer's email is no longer enough. A NEW phone confirms the purchase email
+// with a 6-digit code the relay emails to it (the relay's EMAIL_CODES switch). Phones unlocked before keep working.
+let CODE = null;                                                // {buyer, for: "pro" | "credits", msg}
+function codeHtml(forWhat) {
+  if (!CODE || CODE.for !== forWhat) return "";
+  return `<div class="codebox"><p class="fine" style="margin-top:6px">${esc(CODE.msg)}</p>
+    <form class="inline-add" data-codeform="1"><input name="code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" aria-label="6-digit code from the email" required><button class="btn sm">Confirm</button></form>
+    <div class="foot-actions"><button class="btn sm ghost" data-code="resend">Send a new code</button><button class="btn sm ghost" data-code="cancel">Use a different email</button></div></div>`;
+}
+const relayPost = async body => (await fetch(AI_URL, { method: "POST", body: JSON.stringify(body) })).json();
+function redrawCode() { drawProBox(); drawAiBox(); }
+function askCode(buyer, forWhat) {
+  CODE = { buyer, for: forWhat, msg: "Sending a code…" }; redrawCode();
+  relayPost({ task: "code", buyer, device: deviceId() }).then(j => {
+    if (!CODE) return;
+    CODE.msg = j.error ? `⚠️ ${j.error}` : `One more step for this phone: if ${buyer} is the email you bought with, we just emailed it a 6-digit code (check spam too). Enter it below — it works for 15 minutes.`;
+    redrawCode();
+  }).catch(e => { if (CODE) { CODE.msg = "Couldn't send the code — try again in a minute. (" + e.message + ")"; redrawCode(); } });
+}
+function confirmEmailCode(code) {
+  const c = CODE; if (!c) return;
+  c.msg = "Checking the code…"; redrawCode();
+  relayPost({ task: "confirm", buyer: c.buyer, device: deviceId(), code }).then(j => {
+    if (!j.ok) { c.msg = "That code didn't work — use the newest email, or tap Send a new code."; redrawCode(); return; }
+    CODE = null; redrawCode();
+    if (c.for === "credits") checkCredits(c.buyer); else unlockPro(c.buyer);
+  }).catch(e => { c.msg = "Couldn't check the code — try again. (" + e.message + ")"; redrawCode(); });
 }
 
 // ------------------------------------------------------------- brain dump
@@ -1324,6 +1354,8 @@ document.addEventListener("submit", e => {
     if (tr) tr.lists[k].push({ id: uid(), text: data.text.trim(), done: false });
     save(); render(); const again = document.querySelector(`form[data-tadd="${f.dataset.tadd}"] input`); if (again) again.focus(); return; }
   if (f.dataset.ask) { askDayHub(data.q); return; }
+  if (f.dataset.codeform) { const k = String(data.code || "").replace(/\D/g, "");
+    if (k.length === 6) confirmEmailCode(k); else if (CODE) { CODE.msg = "Enter the 6 digits from the email."; redrawCode(); } return; }
   if (f.dataset.aicredform) { const k = (data.key || "").trim(); if (k) checkCredits(/@/.test(k) ? k.toLowerCase() : k); return; }
   if (f.dataset.proform) { const k = (data.key || "").trim(); if (k) unlockPro(/@/.test(k) ? k.toLowerCase() : k); return; }
   if (f.dataset.aipass) { const pw = (data.pass || "").trim(); if (!pw) return;
@@ -1364,6 +1396,8 @@ document.addEventListener("click", e => {
   if (ds.qa) { openQA(ds.qa); return; }
   if (ds.qtype) { openQA(ds.qtype); return; }
   if (ds.undo) { if (UNDO) { S = JSON.parse(UNDO); UNDO = null; save(); render(); toast("Restored ✓"); } return; }
+  if (ds.code === "resend") { if (CODE) askCode(CODE.buyer, CODE.for); return; }
+  if (ds.code === "cancel") { CODE = null; redrawCode(); return; }
   if (ds.aicred === "check") { const c = readCredits(); if (c.buyer) checkCredits(c.buyer); return; }
   if (ds.aicred === "remove") { setCredits({}); CRED_MSG = ""; drawAiBox(); render(); toast(`${PLAN.AI_CREDITS_NAME} removed from this phone`); return; }
   if (ds.pro === "check") { const p = proState(); if (p.buyer) unlockPro(p.buyer); return; }
@@ -1732,11 +1766,12 @@ function drawProBox() {
       `<ol class="steps"><li>Buy ${proName()} on Whop.</li><li>Enter the <b>email you used on Whop</b> below and tap <b>Unlock</b>.</li></ol>
        <form class="inline-add" data-proform="1"><input name="key" type="text" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="Email you used on Whop" value="${who}" autocomplete="email" required><button class="btn sm">Unlock</button></form>
        <p class="fine" style="margin-top:6px">Bought with a different sign-in? Your Whop membership id (starts with <b>mem_</b>, on your Whop purchase page) works too. Works on up to ${PLAN.MAX_PHONES} phones.</p>`) +
-    (PRO_MSG ? `<p class="fine" style="margin-top:6px">${esc(PRO_MSG)}</p>` : "");
+    (PRO_MSG ? `<p class="fine" style="margin-top:6px">${esc(PRO_MSG)}</p>` : "") + codeHtml("pro");
 }
 function unlockPro(buyer) {
   PRO_MSG = "Checking…"; drawProBox();
   verifyPro(buyer).then(ok => { const st = proState().status || "";
+      if (!ok && st === "needs code") { PRO_MSG = ""; askCode(buyer, "pro"); return; }   // v1.27
       PRO_MSG = ok ? "" : /phones/.test(st) ? `It's already on ${PLAN.MAX_PHONES} phones — tap Remove from this phone on one of them, then try again.`
         : `No active ${hubPass() ? `${proName()} or ${PLAN.NAME}` : PLAN.NAME} found for that — use the email you bought with on Whop (or your mem_ membership id).`;
       drawProBox(); drawAiBox(); render();

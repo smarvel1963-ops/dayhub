@@ -99,6 +99,19 @@ def route(ctx):
             ctx._relay = getattr(ctx, "_relay", []) + [body]
             buyers = ("buyer@example.com", "mem_GOOD1234")      # v0.41: Whop buyer = email (or mem_ id)
             devs = ctx.__dict__.setdefault("_devices", set())     # the relay's phone list (max 3)
+            if getattr(ctx, "_codes", False):                     # v1.27: relay EMAIL_CODES on
+                conf = ctx.__dict__.setdefault("_confirmed", set())
+                key = (body.get("buyer"), body.get("device"))
+                if body.get("task") == "code":                    # same answer for anyone; "mail" only to buyers
+                    if body.get("buyer") in ("buyer@example.com", "credit@example.com"):
+                        ctx.__dict__.setdefault("_mails", []).append(body.get("buyer"))
+                    return r.fulfill(json={"sent": True})
+                if body.get("task") == "confirm":
+                    ok = body.get("code") == "123456" and body.get("buyer") in ctx.__dict__.get("_mails", [])
+                    if ok: conf.add(key)
+                    return r.fulfill(json={"ok": ok})
+                if body.get("task") in ("verify", "credits") and "@" in str(body.get("buyer")) and key not in conf:
+                    return r.fulfill(json={"valid": False, "status": "needs code"} if body["task"] == "verify" else {"left": 0, "total": 0, "status": "needs code"})
             if body.get("task") == "verify":
                 if getattr(ctx, "_verify_down", False):
                     return r.fulfill(status=502, body="<html>Bad gateway</html>")
@@ -3653,6 +3666,48 @@ def t_v125_home_hub(b, base):
     a.close()
 
 
+def t_v127_email_codes(b, base):
+    print("\n[v1.27 store audit S2: a NEW phone confirms the purchase email with a 6-digit emailed code]")
+    a = App(b, base); setup(a)
+    a.ctx._codes = True
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.page.click("#settingsBtn")
+    a.page.fill('form[data-proform] [name=key]', "buyer@example.com"); a.page.click('form[data-proform] button'); a.page.wait_for_timeout(400)
+    pb = a.page.inner_text("#proBox")
+    check("Unlock on a new phone: not Pro yet, asks for the emailed code", not a.js("isPro()") and "6-digit code" in pb and a.js("!!document.querySelector('#proBox form[data-codeform]')"), pb[:300])
+    check("...and the relay was asked to send one, for this phone", any(x.get("task") == "code" and x.get("buyer") == "buyer@example.com" and x.get("device") == a.js("deviceId()") for x in a.ctx._relay))
+    check("the message never says whether the email bought anything", "if buyer@example.com is the email you bought with" in pb, pb[:300])
+    a.page.fill('#proBox form[data-codeform] [name=code]', "999999"); a.page.click('#proBox form[data-codeform] button'); a.page.wait_for_timeout(300)
+    check("a wrong code: still not Pro, told to use the newest email", not a.js("isPro()") and "didn't work" in a.page.inner_text("#proBox"))
+    a.page.fill('#proBox form[data-codeform] [name=code]', "123456"); a.page.click('#proBox form[data-codeform] button'); a.page.wait_for_timeout(500)
+    check("the right code: Pro unlocked, code box gone", a.js("isPro()") and not a.js("!!document.querySelector('form[data-codeform]')"), a.page.inner_text("#proBox")[:200])
+    check("a stranger's email gets the very same 'check your email' step (no customer lookup)",
+          a.js("(async () => { const j = await relayPost({task:'verify', buyer:'nobody@example.com', device: deviceId()}); return j.status; })()") == "needs code")
+    a.page.click('[data-pro="remove"]'); a.page.wait_for_timeout(300)
+    # "Use a different email" closes the step; "Send a new code" asks again
+    a.page.fill('form[data-proform] [name=key]', "someone@example.com"); a.page.click('form[data-proform] button'); a.page.wait_for_timeout(400)
+    n0 = sum(1 for x in a.ctx._relay if x.get("task") == "code")
+    a.page.click('[data-code="resend"]'); a.page.wait_for_timeout(300)
+    check("Send a new code asks the relay again", sum(1 for x in a.ctx._relay if x.get("task") == "code") == n0 + 1)
+    a.page.click('[data-code="cancel"]'); a.page.wait_for_timeout(200)
+    check("Use a different email closes the code step", not a.js("!!document.querySelector('form[data-codeform]')"))
+    a.close()
+    # credits: the same step in the AI helper box (Trip Hub)
+    a = App(b, base, path=TRIP)
+    a.ctx._codes = True
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.page.click("#settingsBtn")
+    a.page.fill('form[data-aicredform] [name=key]', "credit@example.com"); a.page.click('form[data-aicredform] button'); a.page.wait_for_timeout(400)
+    ai = a.page.inner_text("#aiBox")
+    check("credits on a new phone: no balance yet, code step in the AI box", not a.js("aiOn()") and a.js("!!document.querySelector('#aiBox form[data-codeform]')") and any(x.get("task") == "credits" and x.get("device") == a.js("deviceId()") for x in a.ctx._relay), ai[:300])
+    a.page.fill('#aiBox form[data-codeform] [name=code]', "123456"); a.page.click('#aiBox form[data-codeform] button'); a.page.wait_for_timeout(500)
+    ai = a.page.inner_text("#aiBox")
+    check("right code: 100 questions show and the AI is on", "100 questions left" in ai and a.js("aiOn()"), ai[:300])
+    a.close()
+
+
 def t_v122_trip_briefing(b, base):
     print("\n[v1.22 daily travel briefing: the morning brief leads with the trip + an 8 PM 'tomorrow' note]")
     a = App(b, base, path=TRIP, at="2026-10-21T06:30:00")
@@ -3729,7 +3784,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes):
             try:
                 t(b, base)
             except Exception as e:
