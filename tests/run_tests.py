@@ -3708,6 +3708,27 @@ def t_v127_email_codes(b, base):
     a.close()
 
 
+def t_v128_safe_input(b, base):
+    print("\n[v1.28 store audit S4/S5: email text and imported ids can't inject code]")
+    a = App(b, base); setup(a)
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.js("""S.mail.on = true; S.mail.found.push({key: 'k1', type: 'cruise', title: 'Royal Caribbean cruise', day: '2026-11-01',
+            cruise: {line: 'Royal', start: '2026-11-01', end: '2026-11-05', category: '<img src=x onerror="window.__pwn=1">'}}); save(); render();""")
+    a.page.wait_for_timeout(400)
+    check("S4: a cabin line from an email shows as text, never as code", a.js("window.__pwn") is None and a.js("!document.querySelector('#cards img[src=x]')")
+          and "<img src=x" in a.page.inner_text("#cards"), a.page.inner_text("#cards")[:200])
+    bad = 'x" onclick="window.__pwn2=1" data-y="'
+    a.js("""d => { restoreFrom({savedAt: new Date().toISOString(), data: {...JSON.parse(JSON.stringify(S)),
+            todos: [{id: d, text: 'Buy stamps', done: false}], bills: [{id: d, name: 'Phone', amount: 50, day: 5}]}}); }""", bad)
+    a.page.wait_for_timeout(400)
+    ids = a.js("[S.todos[0].id, S.bills[0].id]")
+    check("S5: a restored backup with a booby-trapped id gets a clean one", all(i and i != bad and all(ch.isalnum() or ch in "_.:-" for ch in i) for i in ids), ids)
+    check("S5: ...the records themselves are kept", a.js("S.todos[0].text") == "Buy stamps" and a.js("S.bills[0].name") == "Phone")
+    check("S5: ...and no attribute broke out on the page", a.js("!document.querySelector('[onclick]')") and a.js("window.__pwn2") is None)
+    check("S5: normal ids are untouched", a.js("(() => { const id = uid(); return normalize({todos: [{id, text: 'x'}]}).todos[0].id === id; })()"))
+    a.close()
+
+
 def t_v122_trip_briefing(b, base):
     print("\n[v1.22 daily travel briefing: the morning brief leads with the trip + an 8 PM 'tomorrow' note]")
     a = App(b, base, path=TRIP, at="2026-10-21T06:30:00")
@@ -3784,7 +3805,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input):
             try:
                 t(b, base)
             except Exception as e:

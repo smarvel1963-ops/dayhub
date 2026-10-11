@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.27";
+const VERSION = "1.28";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -139,7 +139,7 @@ function sibData() {
     FAM_RAW = raw; FAM_DATA = null;
     try { const d = JSON.parse(raw);
       if (d && typeof d === "object" && Array.isArray(d.trips))
-        FAM_DATA = { trips: d.trips.filter(t => t && typeof t === "object" && !Array.isArray(t) && t.id), adopted: Array.isArray(d.adopted) ? d.adopted : [], src };
+        FAM_DATA = { trips: safeIds(d.trips.filter(t => t && typeof t === "object" && !Array.isArray(t) && t.id)), adopted: Array.isArray(d.adopted) ? d.adopted : [], src };
     } catch (e) { /* the other hub's data is its own business - just don't show it */ }
   }
   return FAM_DATA;
@@ -238,6 +238,21 @@ function load() {
 // Start-up AND restore/import both come through here (v0.17 restore skipped it,
 // so an old backup could stop reminders). Bad or old-shape data is repaired
 // rather than allowed to blank the app: one broken entry is dropped, not fatal.
+// v1.28 (store audit S5): record ids go into the page as data-* attributes, so an id that came from an imported
+// backup, a Drive restore or the other hub's data must be plain letters / digits - anything else is replaced
+// (a booking link "bk" that isn't plain is dropped). Day Hub's own ids always pass.
+const SAFE_ID = /^[A-Za-z0-9_.:-]{1,64}$/;
+function safeIds(o, depth = 0) {
+  if (depth > 12 || !o || typeof o !== "object") return o;
+  if (Array.isArray(o)) { o.forEach(x => safeIds(x, depth + 1)); return o; }
+  for (const k of Object.keys(o)) {
+    const v = o[k];
+    if (k === "id" && (typeof v === "string" || typeof v === "number")) { if (!SAFE_ID.test(String(v))) o[k] = "r" + Math.random().toString(36).slice(2, 10); }
+    else if (k === "bk" && typeof v === "string") { if (v && !SAFE_ID.test(v)) o[k] = ""; }
+    else if (v && typeof v === "object") safeIds(v, depth + 1);
+  }
+  return o;
+}
 function normalize(raw) {
   const s = Object.assign(blank(), raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {});
   const obj = v => v && typeof v === "object" && !Array.isArray(v);
@@ -294,7 +309,7 @@ function normalize(raw) {
   s.mail = Object.assign(blank().mail, obj(s.mail) ? s.mail : {});
   if (!obj(s.mail.seen)) s.mail.seen = {};
   if (!Array.isArray(s.mail.found)) s.mail.found = [];
-  return s;
+  return safeIds(s);
 }
 function saveLocal() {
   try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (e) { /* private mode */ }

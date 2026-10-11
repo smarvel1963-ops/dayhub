@@ -1,6 +1,9 @@
 {
- "version": "1.27",
+ "version": "1.28",
  "notes": {
+  "1.28": [
+   "🔒 Safer backups: a backup file or email can no longer slip hidden code into your app."
+  ],
   "1.27": [
    "🔒 Your purchase is safer: using it on a NEW phone now asks for a 6-digit code we email you, so nobody can use your Pro or AI credits just by knowing your email. Phones you already use keep working."
   ],
