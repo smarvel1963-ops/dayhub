@@ -87,11 +87,23 @@
  * One-time setup: run setupWaitlist() from the editor (Google asks Scott to Allow Sheets), which makes
  * the sheet and saves its id in Script Property WAITLIST_SHEET_ID. Until then the task answers
  * {error:"waitlist not set up"} - the AI and Whop paths never touch the sheet.
+ *
+ * v10 (10/11, store audit finding S3 + part of S7, Scott "yes start with 1" -> fix #2): the purchase
+ * checks no longer tell a stranger WHO is a Marvel Corp customer. Marvel Corp's Whop store also sells the
+ * picks memberships, so "no Whop purchase" vs "no Day Hub Pro purchase" was a customer lookup for anyone.
+ *   - verify: every "not unlocked" case answers the SAME status ("not found"), whatever the reason
+ *     (no Whop account, no Pro, canceled/expired). Only "already on N phones" stays - the phone needs it.
+ *   - credits: "no Whop account" and "no credits" answer the same.
+ *   - a "not found" answer is cached 5 min, so repeating it costs Whop nothing.
+ *   - LOOKUP_CAP uncached Whop lookups a day; past it the check answers {error} - the phone treats that
+ *     as "couldn't check" and keeps its grace, so a flood can't lock out a paying customer.
  */
 const MODEL = "claude-haiku-4-5";
 const DAILY_CAP = 200;              // requests per day, all tasks together
 const BUYER_CAP = 30;               // per Pro buyer per day (inside DAILY_CAP)
 const MAX_PHONES = 3;
+const LOOKUP_CAP = 500;             // v10: uncached Whop lookups a day (verify + credits) - flood guard
+const NOT_FOUND = "not found";      // v10: one answer for every "no purchase" reason
 const WAITLIST_CAP = 300;           // waitlist rows a day (spam guard)
 const WAITLIST_APPS = ["Home Hub", "Auto Hub", "Pet Hub", "Family Hub", "All of them"];               // phones one purchase can unlock at once
 const PHONE_DAYS = 60;              // a phone not seen this long frees its spot
@@ -215,14 +227,15 @@ function verifyBuyer(P, buyer, device, app) {
   const pass = PASSES[app] || null;
   const cpid = pass ? prop(P, pass[0]) : null;
   const pids = cpid ? [pid, cpid] : [pid];
-  const label = cpid ? pass[1] + " or Day Hub Pro" : "Day Hub Pro";
 
   // Whop answer cached 6 h (spares Whop's API); the phone list is checked every time.
   const cache = CacheService.getScriptCache(), ck = "B_" + keyHash(b.toLowerCase() + "|" + pids.join(",")), hit = cache.get(ck);
   let res = hit ? JSON.parse(hit) : null;
   if (!res) {
+    if (!lookupOk(P)) return { error: "the purchase check is busy - try again later" };
     const got = buyerMems(whop, co, b, isMem, pids);
-    if (!got.mems) return got;
+    if (got.error) return got;
+    if (!got.mems) { cache.put(ck, JSON.stringify({ valid: false, status: NOT_FOUND }), 300); return { valid: false, status: NOT_FOUND }; }
     const mems = got.mems;
     const mine = mems.filter(function (m) { return pids.indexOf(memProd(m)) >= 0; });
     const good = mine.filter(function (m) { return OK_STATUS.indexOf(m.status) >= 0; });
@@ -230,8 +243,8 @@ function verifyBuyer(P, buyer, device, app) {
     res = good.length
       ? { valid: true, status: String(m.status), until: m.current_period_end || m.renewal_period_end || null, who: keyHash(memUser(m) || m.id),
           product: memProd(m) === pid ? "dayhub" : app }
-      : { valid: false, status: m ? String(m.status) : (isMem ? "not a " + label + " membership" : "no " + label + " purchase with that email") };
-    if (res.valid) cache.put(ck, JSON.stringify(res), 6 * 3600);
+      : { valid: false, status: NOT_FOUND };
+    cache.put(ck, JSON.stringify(res), res.valid ? 6 * 3600 : 300);
   }
   if (!res.valid) return res;
 
@@ -328,8 +341,10 @@ function creditsFor(P, buyer) {
   const cache = CacheService.getScriptCache(), ck = "C_" + keyHash(b.toLowerCase() + "|" + pids.join(",")), hit = cache.get(ck);
   let got = hit ? JSON.parse(hit) : null;
   if (!got) {
+    if (!lookupOk(P)) return { error: "the purchase check is busy - try again later" };
     const u = buyerUserIds(whop, co, b, isMem);
-    if (!u.ids) return u.error ? u : { left: 0, total: 0, status: u.status };
+    if (u.error) return u;
+    if (!u.ids) { cache.put(ck, JSON.stringify({ total: 0, who: "" }), 300); return { left: 0, total: 0, status: "no Hub AI Credits with that email" }; }
     let total = 0, who = "";
     for (let k = 0; k < u.ids.length; k++) {
       const list = whopGet(whop, "/payments", { account_id: co, user_id: u.ids[k], first: 100 });
@@ -346,6 +361,16 @@ function creditsFor(P, buyer) {
   if (!got.who) return { left: 0, total: 0, status: "no Hub AI Credits with that email" };
   const used = Number(P.getProperty("U_" + got.who) || 0);
   return { left: Math.max(0, got.total - used), total: got.total, used: used, who: got.who };
+}
+
+// v10: counts uncached Whop lookups today; false once LOOKUP_CAP is reached (cleared with the day's N_ counters).
+function lookupOk(P) {
+  const lock = LockService.getScriptLock(); lock.waitLock(5000);
+  try {
+    const k = dayKey() + "_L", n = Number(P.getProperty(k) || 0);
+    if (n >= LOOKUP_CAP) return false;
+    P.setProperty(k, String(n + 1)); return true;
+  } finally { lock.releaseLock(); }
 }
 
 // "Remove from this phone": frees the phone's spot. Needs the same email/mem id
