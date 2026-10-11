@@ -102,12 +102,13 @@ def route(ctx):
                 if getattr(ctx, "_verify_down", False):
                     return r.fulfill(status=502, body="<html>Bad gateway</html>")
                 cruiser = body.get("buyer") == "cruiser@example.com" and body.get("app") == "cruisehub"   # v0.48 Cruise Hub Pass
-                if body.get("buyer") not in buyers and not cruiser:
+                tripper = body.get("buyer") == "tripper@example.com" and body.get("app") == "triphub"     # v1.23 Trip Hub Pass
+                if body.get("buyer") not in buyers and not cruiser and not tripper:
                     return r.fulfill(json={"valid": False, "status": "no Day Hub Pro purchase with that email"})
                 if body.get("device") not in devs and len(devs) >= 3:
                     return r.fulfill(json={"valid": False, "status": "already on 3 phones — remove it from one"})
                 devs.add(body.get("device"))
-                return r.fulfill(json={"valid": True, "status": "active", "until": "2026-11-01T00:00:00Z", "who": "h1", "product": "cruisehub" if cruiser else "dayhub"})
+                return r.fulfill(json={"valid": True, "status": "active", "until": "2026-11-01T00:00:00Z", "who": "h1", "product": "cruisehub" if cruiser else "triphub" if tripper else "dayhub"})
             if body.get("task") == "release":
                 devs.discard(body.get("device"))
                 return r.fulfill(json={"ok": True})
@@ -1165,7 +1166,7 @@ def t_v039_short_home(b, base):
 def t_v040_switches(b, base):
     print("\n[v0.40 switchboard: everything OFF by default, owner switches, Pro key, legal pages, manifest]")
     a = App(b, base); setup(a)
-    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), GMAIL + STORE OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS'"))
+    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), GMAIL + STORE + TRIP_PASS OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && !SWITCHES.TRIP_PASS && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS'"))
     check("plan: approved price, contact, Whop checkout", a.js("PLAN.MONTHLY") == "$4.99/month" and a.js("PLAN.YEARLY") == "$29.99/year" and a.js("PLAN.CONTACT_EMAIL") == "smarvel1963@gmail.com" and a.js("PLAN.WHOP_CHECKOUT_URL") == "https://whop.com/commander-marvel-por-picks/day-hub-pro")
     check("PRO_GATE on, free phone: Pro features locked, free ones open", a.js("!['ai','gcal','mail','sync'].some(can) && ['reminders','budget'].every(can)"))
     a.page.click("#settingsBtn")
@@ -3472,6 +3473,46 @@ def t_v121_spend_pulse(b, base):
 
 
 
+def t_v123_trip_pass(b, base):
+    print("\n[v1.23 Trip Hub Pass: $9.99/year, every trip that year; Day Hub Pro also unlocks Trip Hub; the AI stays Day Hub Pro]")
+    a = App(b, base, path=TRIP)
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.js("setOwnerSwitch('TRIP_PASS', true)")
+    a.page.click("#settingsBtn")
+    pro = a.page.inner_text("#proBox")
+    check("TRIP_PASS on: Trip Hub Pass, $9.99/year, every trip that year, Day Hub Pro mentioned, no monthly price",
+          "Trip Hub Pass" in pro and "$9.99/year" in pro and "every trip you take that year" in pro and "as many trips as you like" in pro
+          and "Already have Day Hub Pro" in pro and "$4.99" not in pro and "Cruise Hub Pass" not in pro, pro[:400])
+    check("the Pass list does not promise the AI (it stays Day Hub Pro)", "Trip Hub AI" not in pro and "AI helper comes with Day Hub Pro" in pro)
+    check("buy button = the Trip Hub Pass checkout (or Coming soon until it's set)",
+          a.js("PLAN.TRIP_CHECKOUT_URL ? !!document.querySelector('#proBox a.btn[href=\"' + PLAN.TRIP_CHECKOUT_URL + '\"]') : true"))
+    a.page.fill('form[data-proform] [name=key]', "tripper@example.com"); a.page.click('form[data-proform] button'); a.page.wait_for_timeout(300)
+    check("Trip Hub Pass buyer: Trip Hub unlocked", a.js("isPro() && can('sync')") and "Trip Hub Pass is on" in a.page.inner_text("#proBox"), a.page.inner_text("#proBox")[:200])
+    check("verify tells the relay it's Trip Hub asking", any(x.get("task") == "verify" and x.get("app") == "triphub" for x in a.ctx._relay))
+    check("the unlock is Trip Hub's own (triphub.pro), Day Hub's untouched", a.js("JSON.parse(localStorage.getItem('triphub.pro')).product") == "triphub" and not a.js("localStorage.getItem('dayhub.pro')"))
+    check("a Pass alone does not switch the AI on (relay answers Day Hub Pro only)", not a.js("aiByKey()") and not a.js("aiOn()"))
+    a.page.click('[data-close="sheet"]')
+    a.page.goto(base + "/"); a.page.wait_for_function("typeof render === 'function' && document.querySelector('#hero .greet')")
+    check("a Trip Hub Pass does NOT unlock Day Hub (same phone)", not a.js("isPro()"))
+    a.page.goto(base + CRUISE); a.page.wait_for_function("typeof render === 'function' && document.querySelector('#hero .greet')")
+    check("...nor Cruise Hub", not a.js("isPro()"))
+    a.close()
+    # Day Hub Pro buyer: also unlocks Trip Hub, AI too
+    a = App(b, base)
+    setup(a)
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.page.click("#settingsBtn")
+    a.page.fill('form[data-proform] [name=key]', "buyer@example.com"); a.page.click('form[data-proform] button'); a.page.wait_for_timeout(300)
+    a.page.goto(base + TRIP); a.page.wait_for_function("typeof render === 'function' && document.querySelector('#hero .greet')")
+    a.js("setOwnerSwitch('TRIP_PASS', true)")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.page.click("#settingsBtn")
+    check("Day Hub Pro on this phone also unlocks Trip Hub (and its AI)", a.js("isPro() && can('sync') && aiByKey()") and "Included with your Day Hub Pro" in a.page.inner_text("#proBox"), a.page.inner_text("#proBox")[:200])
+    a.close()
+
+
 def t_v122_trip_briefing(b, base):
     print("\n[v1.22 daily travel briefing: the morning brief leads with the trip + an 8 PM 'tomorrow' note]")
     a = App(b, base, path=TRIP, at="2026-10-21T06:30:00")
@@ -3548,7 +3589,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass):
             try:
                 t(b, base)
             except Exception as e:

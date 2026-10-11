@@ -788,7 +788,9 @@ const aiPass = () => { try { return localStorage.getItem(AI_KEY) || ""; } catch 
 // buyer their own cap.
 // v0.53: in Cruise Hub a Day Hub Pro unlock on the same phone counts (proViaDayHub) - send that buyer.
 const aiBuyer = () => (proGood(proState()) ? proState() : readPro(DAY_PRO_KEY)).buyer || proState().buyer || "";
-const aiByKey = () => !aiPass() && switchOn("AI_PUBLIC") && isPro() && !!aiBuyer();
+// v1.23: a Cruise Hub Pass / Trip Hub Pass on its own never gets the AI - the relay only answers Day Hub Pro.
+const passOnly = () => !proGood(readPro(DAY_PRO_KEY)) && ["cruisehub", "triphub"].includes(proState().product);
+const aiByKey = () => !aiPass() && switchOn("AI_PUBLIC") && isPro() && !!aiBuyer() && !passOnly();
 const aiOn = () => !!aiPass() || aiByKey();
 async function aiCall(task, input, pass = aiPass()) {
   const t = today(), body = { task, input, today: t, weekday: parseDay(t).toLocaleDateString("en-US", { weekday: "long" }) };
@@ -1653,7 +1655,11 @@ function drawProBox() {
   // v0.45: Cruise Hub lists only what Cruise Hub has; it is included with Day Hub Pro (one Whop purchase).
   // v0.48: with CRUISE_PASS on, Cruise Hub sells its own Cruise Hub Pass ($9.99/year, every cruise that year).
   // v0.97: Trip Hub has no product of its own yet - Day Hub Pro unlocks it (the relay checks Day Hub Pro for any app but Cruise Hub).
-  const what = MODE === "trip"
+  const what = tripPass()
+    ? `<p class="fine" style="margin-top:0"><b>One price for the whole year — plan as many trips as you like.</b> Already have ${PLAN.NAME}? It includes Trip Hub: enter that email below.</p>
+       <ul class="pro-list"><li>🗓️ Your trip, flights, hotels and plans on your phone's calendar</li><li>☁️ Backup to your own Google Drive</li></ul>
+       <p class="fine" style="margin-top:4px">Everything else — bookings, map, Fix my trip, leave times, split the cost, packing, diary — is free forever. No ads, ever. The AI helper comes with ${PLAN.NAME}.</p>`
+    : MODE === "trip"
     ? `<p class="fine" style="margin-top:0">Trip Hub's extras come with ${PLAN.NAME} — one purchase unlocks Day Hub, Cruise Hub and Trip Hub.</p>
        <ul class="pro-list"><li>🤖 Trip Hub AI — things to do, plan tonight, ask about your trip</li><li>🗓️ Your trip and plans on your phone's calendar</li>
        <li>☁️ Backup to your own Google Drive</li></ul>
@@ -1667,14 +1673,15 @@ function drawProBox() {
     : `<ul class="pro-list"><li>🤖 AI helper — Brain dump, Ask Day Hub, Top 3</li><li>🗓️ Two-way Google Calendar sync</li>
     ${switchOn("GMAIL") ? "<li>📬 Plans found in your email</li>" : ""}<li>☁️ Backup to your own Google Drive</li></ul>
     <p class="fine" style="margin-top:4px">Everything else — every card, reminders, budget, lists, trips — is free forever. No ads, ever.</p>`;
-  const price = cruisePass() ? `<p class="fine"><b>${PLAN.CRUISE_YEARLY}</b> — every cruise you take that year.</p>` : `<p class="fine"><b>${PLAN.MONTHLY}</b> or <b>${PLAN.YEARLY}</b>.</p>`;
-  const buyUrl = cruisePass() ? PLAN.CRUISE_CHECKOUT_URL : PLAN.WHOP_CHECKOUT_URL;
+  const price = cruisePass() ? `<p class="fine"><b>${PLAN.CRUISE_YEARLY}</b> — every cruise you take that year.</p>`
+    : tripPass() ? `<p class="fine"><b>${PLAN.TRIP_YEARLY}</b> — every trip you take that year.</p>` : `<p class="fine"><b>${PLAN.MONTHLY}</b> or <b>${PLAN.YEARLY}</b>.</p>`;
+  const buyUrl = cruisePass() ? PLAN.CRUISE_CHECKOUT_URL : tripPass() ? PLAN.TRIP_CHECKOUT_URL : PLAN.WHOP_CHECKOUT_URL;
   g.innerHTML = `<h3>⭐ ${proName()}</h3>` + (ownerPhone()
     ? `<div class="leg"><span>✅ Pro — this is the owner's phone</span></div>`
     : proViaDayHub()
     ? `<div class="leg"><span>✅ Included with your ${PLAN.NAME} on this phone</span></div>`
     : isPro()
-    ? `<div class="leg"><span>✅ ${p.product === "dayhub" && cruisePass() ? `Included with ${PLAN.NAME}` : `${proName()} is on`} · ${who} · checked ${prettyDate(ymd(new Date(p.checked)))}</span></div>
+    ? `<div class="leg"><span>✅ ${p.product === "dayhub" && hubPass() ? `Included with ${PLAN.NAME}` : `${proName()} is on`} · ${who} · checked ${prettyDate(ymd(new Date(p.checked)))}</span></div>
        <div class="foot-actions"><button class="btn sm ghost" data-pro="check">Check now</button><button class="btn sm ghost" data-pro="remove">Remove from this phone</button></div>
        <p class="fine" style="margin-top:6px">One purchase works on up to ${PLAN.MAX_PHONES} phones. Removing it here frees this phone's spot.</p>`
     : what + price +
@@ -1689,7 +1696,7 @@ function unlockPro(buyer) {
   PRO_MSG = "Checking…"; drawProBox();
   verifyPro(buyer).then(ok => { const st = proState().status || "";
       PRO_MSG = ok ? "" : /phones/.test(st) ? `It's already on ${PLAN.MAX_PHONES} phones — tap Remove from this phone on one of them, then try again.`
-        : `No active ${cruisePass() ? `${PLAN.CRUISE_NAME} or ${PLAN.NAME}` : PLAN.NAME} found for that — use the email you bought with on Whop (or your mem_ membership id).`;
+        : `No active ${hubPass() ? `${proName()} or ${PLAN.NAME}` : PLAN.NAME} found for that — use the email you bought with on Whop (or your mem_ membership id).`;
       drawProBox(); drawAiBox(); render();
       if (ok) toast(`⭐ ${proName()} unlocked`); })
     .catch(e => { PRO_MSG = "Couldn't reach the check — try again in a minute. (" + e.message + ")"; drawProBox(); });
@@ -1699,7 +1706,7 @@ function unlockPro(buyer) {
 // phone only, to try a feature before it goes on for everyone (features.js).
 let OWNER_OPEN = false, VER_TAPS = [];
 const OWNER_ROWS = [["PRO_GATE", "Pro gate — free vs Pro"], ["AI_PUBLIC", "AI for Whop-key holders"], ["GMAIL", "Gmail → plans"],
-  ["STORE", "Google Play link"], ["CRUISE_PASS", "Cruise Hub Pass ($9.99/yr)"], ["OWNER", "Count this phone as Pro"]];
+  ["STORE", "Google Play link"], ["CRUISE_PASS", "Cruise Hub Pass ($9.99/yr)"], ["TRIP_PASS", "Trip Hub Pass ($9.99/yr)"], ["OWNER", "Count this phone as Pro"]];
 // v0.46 HUB FAMILY (Scott 10/4): separate apps that work together. The steps
 // are in the box (Scott 10/2: every setting carries its own easy setup).
 function drawFamBox() {

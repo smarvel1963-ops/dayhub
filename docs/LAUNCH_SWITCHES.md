@@ -22,6 +22,7 @@ don't see "Connect Gmail" (see GMAIL below).
 | `AI_PUBLIC` | The AI helper for Pro phones | Relay v4 pasted with `AI_PUBLIC=true` (step 4), and Scott's OK on the AI cost |
 | `STORE` | "▶ Get it on Google Play" in ⚙ → On your home screen | The Play listing being live (step 5) |
 | `CRUISE_PASS` | Cruise Hub sells its own **Cruise Hub Pass, $9.99/year** (every cruise that year). Day Hub Pro still unlocks Cruise Hub | The Whop product + relay v5 + `CRUISE_PRODUCT_ID` (step 3b) |
+| `TRIP_PASS` | Trip Hub sells its own **Trip Hub Pass, $9.99/year** (every trip that year). Day Hub Pro still unlocks Trip Hub; the AI stays Day Hub Pro | Whop prod_xFJeMtq6FYVgk + relay v6 + `TRIP_PRODUCT_ID` (step 3c) |
 
 ## How to flip a switch
 - **Try it on your phone only (safe):** open Day Hub → ⚙ → scroll to the bottom → tap the
@@ -121,6 +122,18 @@ a Cruise Hub Pass never opens Day Hub or the AI helper (the relay checks which a
    version line → owner switch **Cruise Hub Pass** on → ⭐ Cruise Hub Pass → the email you bought with → **Unlock** →
    "Cruise Hub Pass is on". Then open Day Hub on that phone: it must still say **Day Hub Pro**, not Pro.
 5. Flip `CRUISE_PASS` in `features.js` (Claude), un-hide the Whop product.
+
+## Step 3c: Trip Hub Pass (Scott 10/11: "get it completed and listed today", $9.99/yr - same model as 3b)
+Built in v1.23 behind `TRIP_PASS`. Unlocks **Trip Hub only** (calendar + Drive backup); Day Hub Pro unlocks all three
+hubs; a Trip Hub Pass never opens Day Hub, Cruise Hub or the AI helper.
+
+1. Whop product **Trip Hub Pass** = `prod_xFJeMtq6FYVgk` (Marvel Corp), $9.99/year renewing, created 10/11 with
+   Show discount OFF, member count OFF, affiliate OFF, no apps. Checkout https://whop.com/commander-marvel-por-picks/trip-hub-pass
+2. **Relay v6** pasted into Day Hub AI relay + Script Property `TRIP_PRODUCT_ID` = `prod_xFJeMtq6FYVgk`, then
+   Deploy → Manage deployments → ✏️ → New version (same URL). v6 changes nothing for Day Hub Pro or the Cruise Pass.
+3. Verify: relay `verify` with app `triphub` for an email with no purchase must say "no Trip Hub Pass or Day Hub Pro
+   purchase" (proves v6 + the property are live). Full check = a 100% promo-code buy, unlock in Trip Hub ⚙.
+4. Flip `TRIP_PASS` in features.js and drop `soon` on Trip Hub in the HUBS list (ui.js).
 
 **Delivery text for the Cruise Hub Pass (paste into Whop):**
 

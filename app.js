@@ -88,9 +88,12 @@ const proViaDayHub = () => TRAVEL && !proGood(proState()) && proGood(readPro(DAY
 function isPro() {
   return ownerPhone() || proGood(proState()) || proViaDayHub();
 }
-// What this app sells: Cruise Hub sells the Cruise Hub Pass once CRUISE_PASS is on; otherwise Day Hub Pro.
+// What this app sells: Cruise Hub sells the Cruise Hub Pass once CRUISE_PASS is on, Trip Hub the
+// Trip Hub Pass once TRIP_PASS is on (v1.23); otherwise Day Hub Pro.
 const cruisePass = () => MODE === "cruise" && switchOn("CRUISE_PASS");
-const proName = () => cruisePass() ? PLAN.CRUISE_NAME : PLAN.NAME;
+const tripPass = () => MODE === "trip" && switchOn("TRIP_PASS");
+const hubPass = () => cruisePass() || tripPass();
+const proName = () => cruisePass() ? PLAN.CRUISE_NAME : tripPass() ? PLAN.TRIP_NAME : PLAN.NAME;
 async function verifyPro(buyer) {                   // throws when the check can't be reached
   const j = await (await fetch(AI_URL, { method: "POST", body: JSON.stringify({ task: "verify", buyer, device: deviceId(), app: APP_ID }) })).json();
   if (typeof j.valid !== "boolean") throw new Error(j.error || "no answer");

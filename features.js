@@ -21,6 +21,7 @@ const SWITCHES = Object.freeze({
   GMAIL: false,       // Gmail -> plans. Waits on Google's restricted-scope verification.
   STORE: false,       // "Get it on Google Play" link. Waits on the Play listing going live.
   CRUISE_PASS: true,  // ON 2026-10-07 (Scott: "go"). Whop prod_D1Rb57NYoYxR5 + relay v5 (deploy v10) live; unlock tested OK with the 10/7 test buy.
+  TRIP_PASS: false,   // Trip Hub Pass (Scott 10/11: "get it completed and listed today", $9.99/yr). Needs the Whop product + relay v6 + TRIP_PRODUCT_ID.
 });
 
 // Scott approved 10/3: $4.99/mo or $29.99/yr, contact smarvel1963@gmail.com.
@@ -46,6 +47,12 @@ const PLAN = Object.freeze({
   CRUISE_YEARLY: "$9.99/year",
   // Whop product "Cruise Hub Pass" prod_D1Rb57NYoYxR5 (Marvel Corp), created 10/7, hidden until CRUISE_PASS is on.
   CRUISE_CHECKOUT_URL: "https://whop.com/commander-marvel-por-picks/cruise-hub-pass",
+  // TRIP HUB PASS (Scott 10/11, same model as the Cruise Hub Pass): $9.99/year, every trip that year.
+  // Trip Hub only; Day Hub Pro ALSO unlocks Trip Hub. The AI stays Day Hub Pro (the relay checks Day Hub Pro for AI).
+  TRIP_NAME: "Trip Hub Pass",
+  TRIP_YEARLY: "$9.99/year",
+  // Whop product "Trip Hub Pass" prod_xFJeMtq6FYVgk (Marvel Corp), created 10/11; Discover application submitted.
+  TRIP_CHECKOUT_URL: "https://whop.com/commander-marvel-por-picks/trip-hub-pass",
 });
 
 const OWNER_KEY = "dayhub.owner";

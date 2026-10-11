@@ -53,6 +53,13 @@
  * New Script Property, optional until the Cruise Hub Pass is on sale:
  *     CRUISE_PRODUCT_ID = prod_... (Cruise Hub Pass)
  * The answer also says which product matched: product "dayhub" | "cruisehub".
+ *
+ * v6 (Day Hub v1.23, Scott 10/11: Trip Hub listed, same model). TRIP HUB PASS =
+ * a third Whop product:
+ *   app "triphub" -> Trip Hub Pass OR Day Hub Pro unlocks it
+ * New Script Property, optional until the Trip Hub Pass is on sale:
+ *     TRIP_PRODUCT_ID = prod_... (Trip Hub Pass)
+ * product can now also be "triphub". The AI path is unchanged: Day Hub Pro only.
  */
 const MODEL = "claude-haiku-4-5";
 const DAILY_CAP = 200;              // requests per day, all tasks together
@@ -155,10 +162,12 @@ function verifyBuyer(P, buyer, device, app) {
   const whop = prop(P, "WHOP_API_KEY"), pid = prop(P, "WHOP_PRODUCT_ID");
   if (!whop || !pid) return { error: "relay has no WHOP_API_KEY / WHOP_PRODUCT_ID yet" };
   const co = prop(P, "WHOP_COMPANY_ID") || WHOP_COMPANY;
-  // v5: Cruise Hub accepts its own Cruise Hub Pass as well as Day Hub Pro.
-  const cpid = app === "cruisehub" ? prop(P, "CRUISE_PRODUCT_ID") : null;
+  // v5: Cruise Hub accepts its own Cruise Hub Pass as well as Day Hub Pro. v6: Trip Hub the same with its Trip Hub Pass.
+  const PASSES = { cruisehub: ["CRUISE_PRODUCT_ID", "Cruise Hub Pass"], triphub: ["TRIP_PRODUCT_ID", "Trip Hub Pass"] };
+  const pass = PASSES[app] || null;
+  const cpid = pass ? prop(P, pass[0]) : null;
   const pids = cpid ? [pid, cpid] : [pid];
-  const label = cpid ? "Cruise Hub Pass or Day Hub Pro" : "Day Hub Pro";
+  const label = cpid ? pass[1] + " or Day Hub Pro" : "Day Hub Pro";
 
   // Whop answer cached 6 h (spares Whop's API); the phone list is checked every time.
   const cache = CacheService.getScriptCache(), ck = "B_" + keyHash(b.toLowerCase() + "|" + pids.join(",")), hit = cache.get(ck);
@@ -193,7 +202,7 @@ function verifyBuyer(P, buyer, device, app) {
     const m = good[0] || mine[0];
     res = good.length
       ? { valid: true, status: String(m.status), until: m.current_period_end || m.renewal_period_end || null, who: keyHash(memUser(m) || m.id),
-          product: memProd(m) === pid ? "dayhub" : "cruisehub" }
+          product: memProd(m) === pid ? "dayhub" : app }
       : { valid: false, status: m ? String(m.status) : (isMem ? "not a " + label + " membership" : "no " + label + " purchase with that email") };
     if (res.valid) cache.put(ck, JSON.stringify(res), 6 * 3600);
   }
