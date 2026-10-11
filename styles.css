@@ -695,3 +695,25 @@ body.shell .bubbles { margin: 10px 0 12px; gap: 8px 6px; }
 .vote-who { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
 .vote-who .chip.on { outline: 2px solid var(--accent, #ffd166); }
 .vote-sc { min-width: 2.2em; text-align: right; margin-right: 6px; }
+
+/* v1.25 Home Hub (home.js): stats, space grid, setup picks, room page */
+.home-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.home-stat { background: rgba(255,255,255,.06); border-radius: 12px; padding: 10px 8px; text-align: center; }
+.home-stat b { display: block; font-size: 1.5rem; line-height: 1.1; }
+.home-stat span { display: block; font-size: .78rem; opacity: .8; }
+.home-stat small { display: block; font-size: .72rem; color: var(--accent, #ffd166); margin-top: 2px; }
+.home-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+.home-space { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px; border-radius: 14px; border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.05); color: inherit; font: inherit; cursor: pointer; text-align: center; min-height: 92px; }
+.home-space .hs-ic { font-size: 1.7rem; line-height: 1.2; }
+.home-space b { font-size: .86rem; }
+.home-space small { font-size: .72rem; opacity: .75; }
+.home-space.add { border-style: dashed; opacity: .85; }
+.home-picks { display: flex; flex-wrap: wrap; gap: 6px; }
+.home-pick { display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,.06); font-size: .85rem; cursor: pointer; }
+.home-pick input { margin: 0 2px 0 0; }
+.home-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 10px; }
+.home-tabs button { flex: 1 1 auto; }
+.home-tabs button.on { outline: 2px solid var(--accent, #ffd166); }
+.home-notes { width: 100%; box-sizing: border-box; border-radius: 12px; padding: 10px; font: inherit; background: rgba(255,255,255,.06); color: inherit; border: 1px solid rgba(255,255,255,.15); }
+.home-up { width: 100%; text-align: left; background: none; border: 0; color: inherit; font: inherit; cursor: pointer; }

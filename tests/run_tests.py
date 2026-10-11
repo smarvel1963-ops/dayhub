@@ -33,6 +33,7 @@ def check(name, cond, extra=""):
 
 CRUISE = "/../cruisehub/"     # Cruise Hub's own address, next to /dayhub/ (v0.47)
 TRIP = "/../triphub/"         # Trip Hub's own address (v0.97, app #3)
+HOMEP = "/../homehub/"        # Home Hub's own address (v1.25, app #4)
 
 
 # ------------------------------------------------------------------ server
@@ -1502,7 +1503,7 @@ def t_v050_countdown_family(b, base):
     # hub family card: last, lists the others (Trip Hub listed 10/11 - no COMING SOON)
     check("Hub family card is the last card", a.js("cardOrder().slice(-1)[0]") == "family")
     f = a.card("family")
-    check("family card: Day Hub + Trip Hub with Open, nothing coming soon, not itself", "Day Hub" in f and "Trip Hub" in f and "COMING SOON" not in f and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/triphub/\"]')") and "Cruise Hub" not in f.split("Day Hub")[0] and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/dayhub/\"]')"), f[:300])
+    check("family card: Day Hub + Trip Hub with Open, only Home Hub coming soon (v1.25), not itself", "Day Hub" in f and "Trip Hub" in f and f.count("COMING SOON") == 1 and "Home Hub" in f and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/triphub/\"]')") and "Cruise Hub" not in f.split("Day Hub")[0] and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/dayhub/\"]')"), f[:300])
     a.close()
     a = App(b, base)
     setup(a)
@@ -3563,6 +3564,76 @@ def t_v124_ai_credits(b, base):
     a.close()
 
 
+def t_v125_home_hub(b, base):
+    print("\n[v1.25 Home Hub: app #4 at /homehub/ - set up your home, rooms / outdoors / systems, each space with items, tasks, notes]")
+    a = App(b, base, path=HOMEP)
+    check("Home Hub: its own name, id, data, not a travel hub", a.js("[MODE, APP_NAME, APP_ID, STORE, TRAVEL]") == ["home", "Home Hub", "homehub", "homehub.v1", False] and a.page.title() == "Home Hub")
+    w = a.page.inner_text("#cards .welcome")
+    check("first open = Set up your home (no profession picker, no trip/cruise words)", "Welcome to Home Hub" in w and "Build my home" in w and "Property type" in w
+          and not a.js("!!document.querySelector('form[data-homesetup] select[name=pack]')") and "cruise" not in w.lower(), w[:300])
+    ticked = a.js("[...document.querySelectorAll('form[data-homesetup] input[type=checkbox]:checked')].map(i => i.name.slice(3))")
+    check("the plan's 8 spaces come ticked", sorted(ticked) == sorted(["living", "kitchen", "main_bed", "bath", "laundry", "garage", "front_yard", "backyard"]), ticked)
+    a.page.fill('form[data-homesetup] [name=name]', "Pat"); a.page.fill('form[data-homesetup] [name=city]', "72032")
+    a.page.select_option('form[data-homesetup] [name=type]', "condo")
+    a.page.check('form[data-homesetup] [name=sp_dining]'); a.page.uncheck('form[data-homesetup] [name=sp_laundry]')
+    a.page.click('form[data-homesetup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+    sp = a.js("S.house.spaces.map(s => s.key)")
+    check("built: 8 picked + 4 whole-home systems, condo", len(sp) == 12 and "dining" in sp and "laundry" not in sp and all(k in sp for k in ["hvac", "electrical", "plumbing", "security"]) and a.js("S.house.type") == "condo", sp)
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    w = a.page.inner_text("#cards")
+    check("dashboard: overview + Indoors / Outdoors / Whole-home systems, counted from what was picked", "Rooms & spaces" in w and "Indoors" in w and "Outdoors" in w
+          and "Whole-home systems" in w and a.js("document.querySelectorAll('[data-harea=indoor] [data-hspace]').length") == 5
+          and a.js("document.querySelectorAll('[data-harea=outdoor] [data-hspace]').length") == 3, w[:400])   # the plan puts Garage under Outdoors
+    check("Day Hub upkeep, bills, lists cards come along; no Day Hub profession cards", a.js("cardOrder().join()") == "weather,home,bills,todos,lists,family", a.js("cardOrder().join()"))
+    kit = a.js("S.house.spaces.find(s => s.key === 'kitchen').id")
+    a.page.click(f'[data-hspace="{kit}"]')
+    sh = a.page.inner_text("#homeSheet")
+    check("tap Kitchen: its own page with Overview / Items / Tasks / Notes", "Kitchen" in sh and all(x in sh for x in ["Overview", "Items", "Tasks", "Notes"]) and "Appliances" in sh, sh[:300])
+    a.page.click('#homeSheet [data-htab="items"]')
+    a.page.fill('#homeSheet form[data-hitem] [name=name]', "Refrigerator"); a.page.fill('#homeSheet form[data-hitem] [name=model]', "Whirlpool WRF555")
+    a.page.click('#homeSheet form[data-hitem] button'); a.page.wait_for_timeout(100)
+    check("item added to the kitchen", a.js("S.house.spaces.find(s => s.key === 'kitchen').items.map(i => i.name + '|' + i.model).join()") == "Refrigerator|Whirlpool WRF555" and "Whirlpool" in a.page.inner_text("#homeSheet"))
+    a.page.click('#homeSheet [data-htab="tasks"]')
+    a.page.fill('#homeSheet form[data-htask] [name=title]', "Clean dishwasher filter"); a.page.fill('#homeSheet form[data-htask] [name=due]', "2026-10-04")
+    a.page.select_option('#homeSheet form[data-htask] [name=every]', "3"); a.page.click('#homeSheet form[data-htask] button'); a.page.wait_for_timeout(100)
+    t = a.js("S.house.spaces.find(s => s.key === 'kitchen').tasks[0]")
+    check("task saved with due date + every 3 months", t["title"] == "Clean dishwasher filter" and t["due"] == "2026-10-04" and t["every"] == 3, t)
+    a.page.click('#homeSheet [data-hclose]')
+    w = a.page.inner_text("#cards")
+    check("dashboard Coming up shows it, tied to the kitchen", "Clean dishwasher filter" in w and "1 open" not in w and "Kitchen" in w, w[:500])
+    a.page.click(f'[data-hspace="{kit}"][data-htabgo="tasks"]')
+    a.page.click('#homeSheet [data-hdone]'); a.page.wait_for_timeout(100)
+    t = a.js("S.house.spaces.find(s => s.key === 'kitchen').tasks[0]")
+    check("done on a repeating task = next one 3 months on, stays open", t["due"] == "2027-01-04" and not t.get("done"), t)
+    a.page.click('#homeSheet [data-htab="notes"]')
+    a.page.fill('#homeSheet textarea[data-hnotes]', "Paint: Sherwin-Williams Alabaster")
+    check("notes save as you type", a.js("S.house.spaces.find(s => s.key === 'kitchen').notes") == "Paint: Sherwin-Williams Alabaster")
+    a.page.click('#homeSheet [data-htab="overview"]')
+    a.page.fill('#homeSheet form[data-hrename] [name=name]', "Main Kitchen"); a.page.fill('#homeSheet form[data-hrename] [name=floor]', "Main floor")
+    a.page.click('#homeSheet form[data-hrename] button'); a.page.wait_for_timeout(100)
+    check("rename + floor", a.js("(s => s.name + '|' + s.floor)(S.house.spaces.find(s => s.key === 'kitchen'))") == "Main Kitchen|Main floor")
+    a.page.click('#homeSheet [data-hrmspace]'); a.page.wait_for_timeout(100)
+    check("removing a space with things in it asks first (first tap keeps it)", a.js("S.house.spaces.some(s => s.key === 'kitchen')"))
+    a.page.click('#homeSheet [data-hclose]')
+    a.page.click('[data-haddspace="outdoor"]')
+    a.page.fill('#homeSheet form[data-hcustom] [name=name]', "Chicken coop"); a.page.click('#homeSheet form[data-hcustom] button'); a.page.wait_for_timeout(100)
+    check("custom outdoor space", a.js("S.house.spaces.some(s => s.name === 'Chicken coop' && s.area === 'outdoor' && s.key === 'custom')"))
+    a.page.click('#homeSheet [data-hclose]')
+    a.page.click('[data-haddspace="indoor"]'); a.page.click('#homeSheet [data-hpick="bath"]'); a.page.wait_for_timeout(100)
+    check("a 2nd bathroom from the list gets its own name", a.js("S.house.spaces.filter(s => s.key === 'bath').map(s => s.name).join()") == "Bathroom,Bathroom 2")
+    a.page.click('#homeSheet [data-hclose]')
+    check("its own data only - Day Hub's storage untouched", a.js("!!localStorage.getItem('homehub.v1') && !localStorage.getItem('dayhub.v1')"))
+    a.page.reload(); a.page.wait_for_function("typeof render === 'function' && document.querySelector('#hero .greet')")
+    check("survives a reload: same home", a.js("S.house.spaces.length") == 14 and "Rooms & spaces" in a.page.inner_text("#cards"))
+    a.close()
+    a = App(b, base)
+    setup(a)
+    f = a.js("hubRows()")
+    check("Day Hub lists Home Hub as COMING SOON (no Open button yet)", "Home Hub" in f and "COMING SOON" in f and 'href="' + a.js("HOMEHUB_URL") + '"' not in f)
+    check("Day Hub never runs home.js (not loaded, its screen unchanged)", a.js("typeof homeClick") == "undefined" and a.js("MODE") == "day")
+    a.close()
+
+
 def t_v122_trip_briefing(b, base):
     print("\n[v1.22 daily travel briefing: the morning brief leads with the trip + an 8 PM 'tomorrow' note]")
     a = App(b, base, path=TRIP, at="2026-10-21T06:30:00")
@@ -3639,7 +3710,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub):
             try:
                 t(b, base)
             except Exception as e:

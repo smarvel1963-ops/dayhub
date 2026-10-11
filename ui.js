@@ -474,6 +474,7 @@ function listCard(key, word) {
 }
 
 function welcomeHtml() {
+  if (MODE === "home" && typeof homeSetupHtml === "function") return homeSetupHtml();   // v1.25 Home Hub: set up your home
   // v0.45: Cruise Hub greets as itself and has no profession packs.
   return `<section class="card welcome"><h2>${TRAVEL ? `Welcome to ${APP_NAME} ${MODE === "cruise" ? "🚢" : "✈️"}` : "Welcome to Day Hub 👋"}</h2>
     <p>${TRAVEL ? `Two quick things, then plan your ${TW}.` : "Two quick things and your day is set."}</p>
@@ -624,6 +625,7 @@ const HUBS = [
   { id: "dayhub", name: "Day Hub", icon: "☀️", what: "Your whole day on one screen — schedule, weather, to-dos, bills.", url: BASE_URL },
   { id: "cruisehub", name: "Cruise Hub", icon: "🚢", what: "Countdown, payments, port days and all-aboard alarms.", url: CRUISE_URL },
   { id: "triphub", name: "Trip Hub", icon: "✈️", what: "Flights, hotels and road trips.", url: TRIP_URL },   // v1.23: listed 10/11 (Trip Hub Pass on sale) - no longer COMING SOON
+  { id: "homehub", name: "Home Hub", icon: "🏡", what: "Every room, outdoor space and system — items, tasks, notes.", url: HOMEHUB_URL, soon: true },   // v1.25 soon: until Scott says Home Hub is ready
 ];
 function hubRows() {
   const sd = sibData();
@@ -735,7 +737,7 @@ function render() {
     document.getElementById("cards").innerHTML = (TAB === "home" ? futureBanner() + whatsNewHtml() : "") + shellHtml(cardHtml);
     tick(); return;
   }
-  document.getElementById("cards").innerHTML = futureBanner() + whatsNewHtml() + (!S.city && !S.name ? welcomeHtml() : dayHubHomeHtml(order)) + cards +
+  document.getElementById("cards").innerHTML = futureBanner() + whatsNewHtml() + (MODE === "home" ? (typeof homeSet === "function" && homeSet() ? homeDashHtml() : welcomeHtml()) : !S.city && !S.name ? welcomeHtml() : dayHubHomeHtml(order)) + cards +
     `<button class="add-link arrange-link" data-arrange="1">↕ Arrange my screen</button>`;
   tick();
 }
@@ -1302,6 +1304,7 @@ document.addEventListener("submit", e => {
   const f = e.target; e.preventDefault();
   const data = Object.fromEntries(new FormData(f));
   if (f.id === "qaForm") { submitQA(f); return; }
+  if (typeof homeSubmit === "function" && homeSubmit(f, data)) return;     // v1.25 home.js
   if (f.dataset.setup) {
     S.name = (data.name || "").trim(); S.city = (data.city || "").trim(); S.pack = data.pack || "general";
     save(); WXDATA = null; render(); loadWeather(); toast("You're all set ✓"); return;
@@ -1480,6 +1483,7 @@ document.addEventListener("click", e => {
   if (typeof sceneClick === "function" && sceneClick(ds)) return;          // v1.10 scenes.js
   if (ds.setjump) { const el = document.getElementById(ds.setjump); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }   // v0.63
   if (typeof shellClick === "function" && shellClick(ds)) return;           // v0.58 shell.js tabs
+  if (typeof homeClick === "function" && homeClick(ds)) return;              // v1.25 home.js
   if (typeof cruiseClick === "function" && cruiseClick(ds)) return;          // v0.56 cruise.js
   if (ds.cd) { showReady(); return; }
   if (ds.rg) { showGuard(); return; }
@@ -1551,7 +1555,9 @@ document.addEventListener("click", e => {
 });
 
 document.addEventListener("input", e => {
-  const t = e.target; if (t.dataset && t.dataset.dtext !== undefined && DUMP[Number(t.dataset.dtext)]) DUMP[Number(t.dataset.dtext)].title = t.value;
+  const t = e.target;
+  if (typeof homeInput === "function" && homeInput(t)) return;              // v1.25 Home Hub notes
+  if (t.dataset && t.dataset.dtext !== undefined && DUMP[Number(t.dataset.dtext)]) DUMP[Number(t.dataset.dtext)].title = t.value;
   // v0.45: the trip's package list follows the cruise line as it's typed (presets only for their own line).
   if (t.name === "line" && t.form && t.form.id === "qaForm") { const sel = t.form.querySelector("[name=pkg]"); if (!sel) return;
     const keep = sel.value, ks = linePkgs(t.value);
