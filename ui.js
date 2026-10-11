@@ -812,6 +812,10 @@ async function aiCall(task, input, pass = aiPass()) {
   return j;
 }
 const aiJSON = text => { const m = String(text || "").match(/\{[\s\S]*\}/); return m ? JSON.parse(m[0]) : null; };
+function aiNotesHtml() {                                         // v1.30 (S10)
+  return aiOn() ? `<label class="fine" style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" data-ainotes="1" ${S.aiNotes === true ? "checked" : ""}>
+    Let the AI read my notes (off = your notes, codes and passwords are never sent)</label>` : "";
+}
 function drawAiBox(msg) {
   const g = document.getElementById("aiBox"); if (!g) return;
   g.innerHTML = `<h3>🤖 AI helper</h3>` + creditsHtml() + (aiByKey() && !proAi() ? "" : aiByKey()
@@ -824,7 +828,7 @@ function drawAiBox(msg) {
       `<p class="fine" style="margin-top:0">Smarter sorting for 🧠 Brain dump (more coming). Uses your own Claude helper — set up once:</p>
        <ol class="steps"><li>Type the passphrase you saved as <b>PASS</b> in your Day Hub AI relay.</li><li>Tap <b>Turn on</b>.</li></ol>
        <form class="inline-add" data-aipass="1"><input name="pass" type="password" placeholder="Passphrase" autocomplete="off" required><button class="btn sm">Turn on</button></form>
-       ${msg ? `<p class="fine" style="margin-top:6px">⚠️ ${esc(msg)}</p>` : ""}`);
+       ${msg ? `<p class="fine" style="margin-top:6px">⚠️ ${esc(msg)}</p>` : ""}`) + aiNotesHtml();
 }
 
 // v1.24 Hub AI Credits block (top of the AI helper box) - pay as you go, any hub, on its own data.
@@ -1602,6 +1606,7 @@ document.addEventListener("input", e => {
 document.addEventListener("change", e => {
   const t = e.target, ds = t.dataset;
   if (t.id === "importFile" && t.files && t.files[0]) { importData(t.files[0]); t.value = ""; return; }
+  if (ds.ainotes) { S.aiNotes = !!t.checked; save(); toast(t.checked ? "The AI can read your notes" : "Your notes stay off the AI"); return; }   // v1.30
   if (typeof simpleChange === "function" && simpleChange(ds, t)) return;    // v0.62 shell.js
   if (typeof cruiseChange === "function" && cruiseChange(ds, t)) return;    // v0.56 cruise.js
   if (ds.rgback) { const tr = curTrip(), pt = tr && (tr.ports || []).find(x => x.id === ds.rgback);

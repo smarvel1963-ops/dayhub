@@ -1,6 +1,9 @@
 {
- "version": "1.29",
+ "version": "1.30",
  "notes": {
+  "1.30": [
+   "🔒 Your notes stay private: the AI helper no longer reads your notes unless you tick \"Let the AI read my notes\" in ⚙ → AI helper. And the automatic daily Top 3 never uses up a paid AI credit."
+  ],
   "1.29": [
    "🗑️ Erase everything now really means everything: it also signs this phone out of Google and forgets saved purchase emails. And ⚙ → Backup & sync can now delete your Google Drive backup."
   ],

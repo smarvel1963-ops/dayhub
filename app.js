@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.29";
+const VERSION = "1.30";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -2588,7 +2588,9 @@ function aiContext() {
   out.lists = S.lists.map(l => ({ list: l.name, toGet: l.items.filter(i => !i.done).map(i => i.text) })).filter(l => l.toGet.length);
   out.packages = S.packages.filter(x => !x.delivered).map(x => ({ what: x.name, eta: x.eta || null }));
   out.routines = S.routines.map(r => ({ name: r.name, steps: r.steps.map(x => x.text), days: r.days.map(n => DOW[n]), time: r.time ? hm(r.time) : null }));
-  out.notes = S.notes.slice(-25).map(n => String(n.text).slice(0, 140));
+  // v1.30 (store audit S10): notes often hold gate codes and Wi-Fi passwords - they go to the AI only if the
+  // person ticks "Let the AI read my notes" (⚙ → AI helper). Off by default.
+  out.notes = S.aiNotes === true ? S.notes.slice(-25).map(n => String(n.text).slice(0, 140)) : [];
   out.workThisPeriod = (p => p.hrs ? { hours: fmtH(p.hrs), takeHome: money(p.net) } : null)(periodPay(periodStart(t)));
   out.weatherToday = WXDATA && WXDATA.here && WXDATA.here.day ? { hi: Math.round(WXDATA.here.day.hi), lo: Math.round(WXDATA.here.day.lo), rainFrom: WXDATA.here.day.rainFrom ? fmtTime(WXDATA.here.day.rainFrom) : null } : null;
   out.alerts = pulseItems().map(x => x.text);
@@ -2672,7 +2674,10 @@ async function top3Pick(force) {
   if (TOP3_BUSY || (!force && S.top3.day === today())) return;
   TOP3_BUSY = true;
   let items = null, ai = false;
-  if (aiOn()) {
+  // v1.30 (S10): the once-a-day automatic pick never spends a paid AI credit - only an owner phone or Pro
+  // (whose daily questions are included) uses the AI for it. Tapping "Pick my top 3" still can.
+  const autoAi = force || !!aiPass() || (typeof proAi === "function" && proAi());
+  if (aiOn() && autoAi) {
     try { const j = aiJSON((await aiCall("top3", aiContext())).text);
       items = (j && Array.isArray(j.top) ? j.top : []).filter(x => x && String(x.title || "").trim()).slice(0, 3)
         .map(x => ({ title: String(x.title).trim().slice(0, 100), why: String(x.why || "").trim().slice(0, 60) }));

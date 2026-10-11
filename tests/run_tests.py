@@ -2556,6 +2556,7 @@ def t_v098_bookings(b, base):
     a.page.wait_for_timeout(150)
     def book(kind, vals):
         a.js(f"showBookingForm('{kind}')")
+        a.page.wait_for_function("(() => { const f = document.querySelector('#bookSheet form[data-bkform]'); return f && document.activeElement === f.querySelector('input'); })()")   # 10/11 flake fix: the form focuses its first box 60 ms after opening - typing before that lands text in the wrong box
         a.page.evaluate("""v => { const f = document.querySelector('[data-bkform]'); for (const [k, x] of Object.entries(v)) {
             const el = f.querySelector(`[name=${k}]`); if (el.type === 'checkbox') el.checked = !!x; else el.value = x; } f.requestSubmit(); }""", vals)
         a.page.wait_for_timeout(150)
@@ -2579,6 +2580,7 @@ def t_v098_bookings(b, base):
     check("one detail screen: times, number, cost, map", "Departs" in det and "Lands" in det and "AA 1234" in det and "$420.00 · paid ✓" in det and a.js("!!document.querySelector('#bookSheet a[href*=\"google.com/maps\"]')"), det[:200])
     bid = a.js("S.trips[0].bookings[0].id")
     a.js(f"showBookingForm(null, '{bid}')")
+    a.page.wait_for_function("(() => { const f = document.querySelector('#bookSheet form[data-bkform]'); return f && document.activeElement === f.querySelector('input'); })()")   # 10/11 flake fix: the form focuses its first box 60 ms after opening - typing before that lands text in the wrong box
     a.page.fill('[data-bkform] [name=cost]', "380"); a.page.evaluate("document.querySelector('[data-bkform]').requestSubmit()"); a.page.wait_for_timeout(150)
     check("editing keeps one money row, new amount", a.js("S.trips[0].costs.filter(c => c.bk).map(c => c.amt)") == [380, 1150])
     a.js(f"deleteBooking('{bid}')")
@@ -3115,6 +3117,7 @@ def t_v112_leave_time(b, base):
     a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-25", "port": "Orlando, FL"})
     a.page.wait_for_timeout(150)
     a.js("showBookingForm('flight')")
+    a.page.wait_for_function("(() => { const f = document.querySelector('#bookSheet form[data-bkform]'); return f && document.activeElement === f.querySelector('input'); })()")   # 10/11 flake fix: the form focuses its first box 60 ms after opening - typing before that lands text in the wrong box
     check("flight form has the leave-time box with the airline presets", a.js("!!document.querySelector('#bookSheet details.leave-box [name=lv_drive]')") and "Domestic" in a.js("document.getElementById('bookSheet').textContent"))
     a.page.evaluate("""() => { document.querySelector('#bookSheet details.leave-box').open = true; }""")
     for k, v in {"a": "LIT", "b": "MCO", "day": "2026-10-20", "t": "07:05", "endT": "10:40", "num": "AA 1234"}.items():
@@ -3248,6 +3251,7 @@ def t_v115_cancel_refunds(b, base):
     a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-23", "port": "Orlando, FL"})
     a.page.wait_for_timeout(150)
     a.js("showBookingForm('hotel')")
+    a.page.wait_for_function("(() => { const f = document.querySelector('#bookSheet form[data-bkform]'); return f && document.activeElement === f.querySelector('input'); })()")   # 10/11 flake fix: the form focuses its first box 60 ms after opening - typing before that lands text in the wrong box
     for k, v in {"a": "Coronado Springs", "t": "15:00", "endT": "11:00", "cost": "600", "cancelBy": "2026-10-13", "phone": "407-939-1000"}.items():
         a.page.fill(f'#bookSheet [name={k}]', v)
     a.js("document.querySelector('#bookSheet form[data-bkform]').requestSubmit()"); a.page.wait_for_timeout(150)
@@ -3754,6 +3758,34 @@ def t_v129_erase_all(b, base):
     a.close()
 
 
+def t_v130_ai_privacy(b, base):
+    print("\n[v1.30 store audit S10: notes stay off the AI unless allowed; the automatic Top 3 never spends a credit]")
+    a = App(b, base); setup(a)
+    a.js("S.notes.push({id: uid(), text: 'Gate code 4321, wifi pass hunter2', pinned: false, updated: new Date().toISOString()}); save()")
+    ctx = a.js("JSON.parse(aiContext())")
+    check("notes are NOT in the AI context by default", ctx.get("notes") == [] and "hunter2" not in a.js("aiContext()"), ctx.get("notes"))
+    a.js("S.aiNotes = true")
+    check("...and are when the person allows it", "hunter2" in a.js("aiContext()"))
+    a.js("S.aiNotes = false")
+    # credits-only phone: the automatic daily pick must not call the AI
+    a.js("""localStorage.setItem('hub.aicredits', JSON.stringify({buyer: 'credit@example.com', left: 100, checked: Date.now()}));
+            S.top3 = {day: null, items: [], ai: false}; save();""")
+    check("credits-only phone: AI is on", a.js("aiOn() && !proAi()"))
+    n0 = len([x for x in a.ctx._relay if x.get("task") == "top3"]) if hasattr(a.ctx, "_relay") else 0
+    a.js("top3Pick()"); a.page.wait_for_timeout(400)
+    n1 = len([x for x in getattr(a.ctx, "_relay", []) if x.get("task") == "top3"])
+    check("automatic Top 3 on a credits-only phone: quick pick, no AI call, no credit spent", n1 == n0 and a.js("S.top3.day === today()") and a.js("S.top3.ai") is False, (n0, n1))
+    a.js("top3Pick(true)"); a.page.wait_for_timeout(400)
+    n2 = len([x for x in getattr(a.ctx, "_relay", []) if x.get("task") == "top3"])
+    check("tapping Pick my top 3 still uses the AI", n2 == n1 + 1, (n1, n2))
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.page.click("#settingsBtn")
+    check("the AI box offers the notes switch, off", a.js("!!document.querySelector('[data-ainotes]') && !document.querySelector('[data-ainotes]').checked"))
+    a.page.check('[data-ainotes]'); a.page.wait_for_timeout(100)
+    check("ticking it lets the AI read notes", a.js("S.aiNotes") is True)
+    a.close()
+
+
 def t_v122_trip_briefing(b, base):
     print("\n[v1.22 daily travel briefing: the morning brief leads with the trip + an 8 PM 'tomorrow' note]")
     a = App(b, base, path=TRIP, at="2026-10-21T06:30:00")
@@ -3830,7 +3862,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy):
             try:
                 t(b, base)
             except Exception as e:
