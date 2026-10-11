@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.25";
+const VERSION = "1.26";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -634,15 +634,40 @@ function autoRenew() {
   setAutoState({ ...st, at: Date.now() });
   const u = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   Object.entries({ client_id: GCAL_CLIENT_ID, redirect_uri: redirectUri(), response_type: "token", scope: scopes.join(" "),
-    prompt: "none", include_granted_scopes: "true", state: "dh-auto" }).forEach(([k, v]) => u.searchParams.set(k, v));
+    prompt: "none", include_granted_scopes: "true", state: newAuthState() }).forEach(([k, v]) => u.searchParams.set(k, v));
   location.replace(u.toString());
   return true;
+}
+// v1.26 (store audit 10/11, finding S1): the state used to be the fixed word "dh-auto", so a made-up link
+// "#access_token=<someone else's>&state=dh-auto" signed this phone in to THAT Google account (the calendar
+// and backup would then sync into it). Now every hop gets a fresh random state, kept on this phone for
+// 10 minutes and good for ONE return. A sign-in this phone did not start is thrown away.
+const AUTH_NONCE_KEY = "dayhub.authnonce";
+function newAuthState() {
+  const a = new Uint8Array(16); crypto.getRandomValues(a);
+  const s = "dh-auto." + Array.from(a, x => x.toString(16).padStart(2, "0")).join("");
+  const rec = JSON.stringify({ s, at: Date.now() });
+  // both: sessionStorage is this tab's own; localStorage covers a phone that comes back in a new tab
+  [sessionStorage, localStorage].forEach(st => { try { st.setItem(AUTH_NONCE_KEY, rec); } catch (e) { /* private mode */ } });
+  return s;
+}
+function takeAuthState(got) {
+  let ok = false;
+  [sessionStorage, localStorage].forEach(st => {
+    try {
+      const r = JSON.parse(st.getItem(AUTH_NONCE_KEY) || "null");
+      if (got && r && r.s === got && Date.now() - r.at < 10 * 60000) ok = true;
+      st.removeItem(AUTH_NONCE_KEY);                            // used once, match or not
+    } catch (e) { /* private mode */ }
+  });
+  return ok;
 }
 // Back from Google: take the token out of the address and tidy the address.
 function takeRedirectToken() {
   if (!/state=dh-auto/.test(location.hash)) return;
   const h = new URLSearchParams(location.hash.slice(1));
-  history.replaceState(null, "", location.pathname + location.search);
+  history.replaceState(null, "", location.pathname + location.search);   // never leave a token in the address
+  if (!takeAuthState(h.get("state") || "")) return;            // not a sign-in this phone started: ignore it
   const st = autoState();
   if (h.get("error") || !h.get("access_token")) { setAutoState({ ...st, off: true, why: h.get("error") || "no token" }); return; }
   const tok = h.get("access_token"), exp = Date.now() + ((Number(h.get("expires_in")) || 3600) - 60) * 1000;

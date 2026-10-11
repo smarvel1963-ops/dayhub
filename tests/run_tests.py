@@ -664,6 +664,25 @@ def t_v021_brief_sync(b, base):
     check("zero-tap: fresh Google sign-in on open", a.js("GTOKEN") == "tok-auto" and "access_token" not in a.page.url)
     check("zero-tap: new event reached the phone calendar", a.js("Object.values(JSON.parse(sessionStorage.getItem('__g') || '{}')).some(e => e.summary === 'Car wash')"))
     check("zero-tap: no 'Tap to sync' chip", "Tap to sync" not in a.page.inner_text("#hero"))
+    check("v1.26 S1: each hop sent a random state, used once (none left behind)",
+          a.js("!sessionStorage.getItem('dayhub.authnonce') && !localStorage.getItem('dayhub.authnonce')"))
+    # v1.26 S1 (store audit): a link carrying SOMEONE ELSE'S token must never sign this phone in
+    a.ctx._oauth = None
+    for bad in ["dh-auto", "dh-auto.00112233445566778899aabbccddeeff"]:
+        a.js("localStorage.setItem('dayhub.autoauth', JSON.stringify({at: Date.now()}))")    # no hop of our own
+        evil = urllib.parse.urlencode({"access_token": "tok-EVIL", "expires_in": "3599", "scope": a.js("GCAL_SCOPE"), "state": bad})
+        a.page.goto("about:blank")                                  # a real page load, not a same-page hash change
+        a.page.goto(base + "/#" + evil); a.page.wait_for_function("typeof GTOKEN !== 'undefined' && document.querySelector('#hero .greet')")
+        a.page.wait_for_timeout(500)
+        check(f"S1: a made-up sign-in link (state={bad[:12]}...) is ignored",
+              a.js("GTOKEN") != "tok-EVIL" and "tok-EVIL" not in (a.js("localStorage.getItem('dayhub.gtok')") or ""), a.js("GTOKEN"))
+        check(f"S1: ...and its token is wiped from the address", "access_token" not in a.page.url, a.page.url)
+    # replaying a real state a second time is refused too
+    st = a.js("newAuthState()")
+    ok1 = a.js("s => takeAuthState(s)", st); ok2 = a.js("s => takeAuthState(s)", st)
+    check("S1: a real state works once, a replay does not", ok1 is True and ok2 is False, (ok1, ok2))
+    check("S1: a stale state (over 10 min) is refused",
+          a.js("(() => { const s = newAuthState(); localStorage.setItem('dayhub.authnonce', JSON.stringify({s, at: Date.now() - 11*60000})); sessionStorage.removeItem('dayhub.authnonce'); return takeAuthState(s); })()") is False)
     a.close()
 
 

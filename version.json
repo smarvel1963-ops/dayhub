@@ -1,6 +1,9 @@
 {
- "version": "1.25",
+ "version": "1.26",
  "notes": {
+  "1.26": [
+   "🔒 Safer Google sign-in: your app now only accepts a Google sign-in it started itself, so a strange link can never connect your calendar or backup to someone else's account."
+  ],
   "1.25": [
    "🏡 Home Hub is being built — the 4th app in the Hub family: every room, outdoor space and home system in one place."
   ],
