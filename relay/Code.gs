@@ -80,11 +80,20 @@
  * payment:basic:read scope - added to "Day Hub Key" 10/11 with Scott's OK) and counts
  * every paid, not-refunded payment for a pack: questions x quantity.
  * (product_ids / statuses filters 400 on /payments; user_ids is IGNORED - user_id works.)
+ *
+ * v9 (10/11, Scott "yes to both"): task "waitlist" {email, app, src} from the Hub Series page
+ * (smarvel1963-ops.github.io/hubs/) adds ONE row to the "Hub Waitlist" Google Sheet in Scott's Drive.
+ * Append-only; checks the email shape; same email + app twice = one row; WAITLIST_CAP rows a day max.
+ * One-time setup: run setupWaitlist() from the editor (Google asks Scott to Allow Sheets), which makes
+ * the sheet and saves its id in Script Property WAITLIST_SHEET_ID. Until then the task answers
+ * {error:"waitlist not set up"} - the AI and Whop paths never touch the sheet.
  */
 const MODEL = "claude-haiku-4-5";
 const DAILY_CAP = 200;              // requests per day, all tasks together
 const BUYER_CAP = 30;               // per Pro buyer per day (inside DAILY_CAP)
-const MAX_PHONES = 3;               // phones one purchase can unlock at once
+const MAX_PHONES = 3;
+const WAITLIST_CAP = 300;           // waitlist rows a day (spam guard)
+const WAITLIST_APPS = ["Home Hub", "Auto Hub", "Pet Hub", "Family Hub", "All of them"];               // phones one purchase can unlock at once
 const PHONE_DAYS = 60;              // a phone not seen this long frees its spot
 const WHOP_API = "https://api.whop.com/api/v1";
 const WHOP_COMPANY = "biz_loYMoMQKy5XhM0";   // Marvel Corp (not a secret)
@@ -123,6 +132,7 @@ function doPost(e) {
     if (req.task === "verify") return out(verifyBuyer(P, req.buyer, req.device, req.app));
     if (req.task === "release") return out(releasePhone(P, req.buyer, req.device, req.app));
     if (req.task === "credits") return out(creditsFor(P, req.buyer));
+    if (req.task === "waitlist") return out(waitlistAdd(P, req));
     let keyCounter = null;                                       // set = this request is on a Pro buyer
     let credit = null;                                           // v7: set = this request is paid with a Hub AI Credit
     if (req.buyer && !req.pass) {
@@ -387,6 +397,44 @@ function prop(P, name) {
   const all = P.getProperties();
   for (const k in all) if (k.trim().toUpperCase() === name) return all[k];
   return null;
+}
+
+// v9 Hub Series waitlist -> one row in Scott's "Hub Waitlist" sheet. Never reads anything back out.
+function waitlistAdd(P, req) {
+  const email = String(req.email || "").trim().toLowerCase().slice(0, 190);
+  if (!/^[^@\s]{1,64}@[^@\s]{1,120}\.[^@\s]{2,}$/.test(email)) return { ok: false, error: "enter a real email" };
+  const app = WAITLIST_APPS.indexOf(String(req.app || "")) >= 0 ? String(req.app) : "All of them";
+  const id = prop(P, "WAITLIST_SHEET_ID");
+  if (!id) return { ok: false, error: "waitlist not set up" };
+  const cache = CacheService.getScriptCache(), ck = "W_" + keyHash(email + "|" + app);
+  if (cache.get(ck)) return { ok: true, dup: true };
+  const lock = LockService.getScriptLock(); lock.waitLock(5000);
+  try {
+    const dk = "W_" + dayKey(), n = Number(P.getProperty(dk) || 0);
+    if (n >= WAITLIST_CAP) return { ok: false, error: "the waitlist is busy - try again tomorrow" };
+    const sh = SpreadsheetApp.openById(id).getSheets()[0];
+    const last = sh.getLastRow();
+    if (last > 1) {                                          // already on the list for this app?
+      const rows = sh.getRange(2, 2, last - 1, 2).getValues();
+      for (let i = 0; i < rows.length; i++) if (String(rows[i][0]).toLowerCase() === email && rows[i][1] === app) { cache.put(ck, "1", 21600); return { ok: true, dup: true }; }
+    }
+    const cell = v => /^[=+\-@]/.test(v) ? "'" + v : v;   // never let a value become a sheet formula
+    sh.appendRow([Utilities.formatDate(new Date(), "America/Chicago", "yyyy-MM-dd HH:mm"), cell(email), app, cell(String(req.src || "").slice(0, 40))]);
+    P.setProperty(dk, String(n + 1));
+    cache.put(ck, "1", 21600);
+  } finally { lock.releaseLock(); }
+  return { ok: true };
+}
+
+// Run ONCE from the editor: makes the "Hub Waitlist" sheet in Scott's Drive and remembers its id.
+function setupWaitlist() {
+  const P = PropertiesService.getScriptProperties();
+  if (prop(P, "WAITLIST_SHEET_ID")) { Logger.log("already set up: " + prop(P, "WAITLIST_SHEET_ID")); return; }
+  const ss = SpreadsheetApp.create("Hub Waitlist");
+  const sh = ss.getSheets()[0]; sh.setName("Waitlist");
+  sh.appendRow(["When (CT)", "Email", "App", "From"]); sh.setFrozenRows(1);
+  P.setProperty("WAITLIST_SHEET_ID", ss.getId());
+  Logger.log("made " + ss.getUrl());
 }
 
 function doGet() { return out({ ok: true, app: "dayhub-ai-relay" }); }
