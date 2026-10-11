@@ -111,6 +111,12 @@
  *     paying customer is asked for a code.
  *   - mem_ ids (a private membership id, not a public address) work as before.
  *   - Sending mail needs Scott's one-time Allow (run authMail() in the editor).
+ *
+ * v12 (10/11, store audit finding S8, Scott "do the guess limit"): the owner passphrase can't be guessed
+ * without limit. After PASS_FAILS_HOUR wrong tries in a clock hour the passphrase path answers "try again in an
+ * hour", and after PASS_FAILS_DAY in a day it is shut until tomorrow. While locked, even the RIGHT passphrase
+ * is refused, so a guesser learns nothing. Buyers (email / credits) are not affected.
+ * Scott will also change PASS to a long random phrase (ACTIVE_TODO S8) - the limit only slows guessing down.
  */
 const MODEL = "claude-haiku-4-5";
 const DAILY_CAP = 200;              // requests per day, all tasks together
@@ -120,6 +126,7 @@ const LOOKUP_CAP = 500;             // v10: uncached Whop lookups a day (verify 
 const NOT_FOUND = "not found";      // v10: one answer for every "no purchase" reason
 const NEEDS_CODE = "needs code";    // v11: this phone hasn't confirmed the emailed code yet
 const CODE_MINUTES = 15, CODE_TRIES = 5, CODES_PER_HOUR = 3;
+const PASS_FAILS_HOUR = 20, PASS_FAILS_DAY = 100;   // v12: wrong owner passphrases before the lock
 const WAITLIST_CAP = 300;           // waitlist rows a day (spam guard)
 const WAITLIST_APPS = ["Home Hub", "Auto Hub", "Pet Hub", "Family Hub", "All of them"];               // phones one purchase can unlock at once
 const PHONE_DAYS = 60;              // a phone not seen this long frees its spot
@@ -182,7 +189,9 @@ function doPost(e) {
     } else {
       const pass = prop(P, "PASS");
       if (!pass) return out({ error: "relay has no PASS set — check the property is named exactly PASS" });
-      if (!req.pass || norm(req.pass) !== norm(pass)) return out({ error: "wrong passphrase" });
+      const locked = passLocked(P);                              // v12: checked BEFORE comparing
+      if (locked) return out({ error: locked });
+      if (!req.pass || norm(req.pass) !== norm(pass)) { passFailed(P); return out({ error: "wrong passphrase" }); }
     }
     if (req.task === "ping") { let left = DAILY_CAP - Number(P.getProperty(dayKey()) || 0);
       if (keyCounter) left = Math.min(left, BUYER_CAP - Number(P.getProperty(keyCounter) || 0));
@@ -479,6 +488,22 @@ function confirmCode(P, buyer, device, code) {
   if (rec.h !== keyHash("c|" + c + "|" + b + "|" + dev)) { rec.n++; cache.put(k, JSON.stringify(rec), CODE_MINUTES * 60); return { ok: false }; }
   cache.remove(k); markConfirmed(P, b, dev);
   return { ok: true };
+}
+
+// ---- v12 owner-passphrase guess limit (store audit S8) ----
+const hourKey = () => "PF_" + Utilities.formatDate(new Date(), "America/Chicago", "yyyy-MM-dd-HH");
+function passLocked(P) {
+  if (Number(P.getProperty(dayKey() + "_PF") || 0) >= PASS_FAILS_DAY) return "too many wrong passphrases today - locked until tomorrow";
+  if (Number(CacheService.getScriptCache().get(hourKey()) || 0) >= PASS_FAILS_HOUR) return "too many wrong passphrases - try again in an hour";
+  return "";
+}
+function passFailed(P) {
+  const lock = LockService.getScriptLock(); lock.waitLock(5000);
+  try {
+    const cache = CacheService.getScriptCache(), hk = hourKey(), dk = dayKey() + "_PF";
+    cache.put(hk, String(Number(cache.get(hk) || 0) + 1), 3600);
+    P.setProperty(dk, String(Number(P.getProperty(dk) || 0) + 1));   // N_<day>_PF: cleared with the day's counters
+  } finally { lock.releaseLock(); }
 }
 
 // Run ONCE from the editor after pasting v11: Google asks Scott to Allow "send email as you".
