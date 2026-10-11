@@ -623,7 +623,7 @@ function showReady() {
 const HUBS = [
   { id: "dayhub", name: "Day Hub", icon: "☀️", what: "Your whole day on one screen — schedule, weather, to-dos, bills.", url: BASE_URL },
   { id: "cruisehub", name: "Cruise Hub", icon: "🚢", what: "Countdown, payments, port days and all-aboard alarms.", url: CRUISE_URL },
-  { id: "triphub", name: "Trip Hub", icon: "✈️", what: "Flights, hotels and road trips.", url: TRIP_URL, soon: true },   // soon: until Trip Hub V1 is ready to show
+  { id: "triphub", name: "Trip Hub", icon: "✈️", what: "Flights, hotels and road trips.", url: TRIP_URL },   // v1.23: listed 10/11 (Trip Hub Pass on sale) - no longer COMING SOON
 ];
 function hubRows() {
   const sd = sibData();

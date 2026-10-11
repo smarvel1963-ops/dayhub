@@ -1166,7 +1166,7 @@ def t_v039_short_home(b, base):
 def t_v040_switches(b, base):
     print("\n[v0.40 switchboard: everything OFF by default, owner switches, Pro key, legal pages, manifest]")
     a = App(b, base); setup(a)
-    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), GMAIL + STORE + TRIP_PASS OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && !SWITCHES.TRIP_PASS && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS'"))
+    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), TRIP_PASS on (10/11), GMAIL + STORE OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS'"))
     check("plan: approved price, contact, Whop checkout", a.js("PLAN.MONTHLY") == "$4.99/month" and a.js("PLAN.YEARLY") == "$29.99/year" and a.js("PLAN.CONTACT_EMAIL") == "smarvel1963@gmail.com" and a.js("PLAN.WHOP_CHECKOUT_URL") == "https://whop.com/commander-marvel-por-picks/day-hub-pro")
     check("PRO_GATE on, free phone: Pro features locked, free ones open", a.js("!['ai','gcal','mail','sync'].some(can) && ['reminders','budget'].every(can)"))
     a.page.click("#settingsBtn")
@@ -1486,10 +1486,10 @@ def t_v050_countdown_family(b, base):
     a.js("curTrip().ports = [{ id: 'p1', name: 'Grand Turk', day: '2026-11-14', allAboard: '16:30', boarded: '2026-11-14' }]; save(); render()")
     h = a.page.inner_text("#hero")
     check("on board: DAY 3 OF 8 + today's port and all-aboard", "DAY 3 OF 8" in h and "Grand Turk" in h and "all aboard 4:30" in h.lower(), h[:300])
-    # hub family card: last, lists the others, Trip Hub coming soon
+    # hub family card: last, lists the others (Trip Hub listed 10/11 - no COMING SOON)
     check("Hub family card is the last card", a.js("cardOrder().slice(-1)[0]") == "family")
     f = a.card("family")
-    check("family card: Day Hub with Open, Trip Hub coming soon, not itself", "Day Hub" in f and "Trip Hub" in f and "COMING SOON" in f and "Cruise Hub" not in f.split("Day Hub")[0] and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/dayhub/\"]')"), f[:300])
+    check("family card: Day Hub + Trip Hub with Open, nothing coming soon, not itself", "Day Hub" in f and "Trip Hub" in f and "COMING SOON" not in f and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/triphub/\"]')") and "Cruise Hub" not in f.split("Day Hub")[0] and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/dayhub/\"]')"), f[:300])
     a.close()
     a = App(b, base)
     setup(a)
@@ -2490,7 +2490,8 @@ def t_v097_trip_hub(b, base):
     a.js("hideSheet('helpSheet')")
     a.page.click("#settingsBtn")
     pro = a.page.inner_text("#proBox")
-    check("Pro box: Day Hub Pro unlocks Trip Hub, no Cruise Hub Pass", "Trip Hub's extras come with Day Hub Pro" in pro and "Cruise Hub Pass" not in pro and "$9.99" not in pro, pro[:200])
+    check("Pro box (TRIP_PASS on 10/11): sells the Trip Hub Pass $9.99/yr, no Cruise Hub Pass, buy link to Whop", "Trip Hub Pass" in pro and "$9.99/year" in pro and "Cruise Hub Pass" not in pro
+          and a.js("!!document.querySelector('#proBox a.btn[href*=\"whop.com/commander-marvel-por-picks/trip-hub-pass\"]')"), pro[:200])
     check("Day Hub's data untouched, family = Day Hub", a.js("localStorage.getItem('dayhub.v1')") is None and a.js("SIB.id") == "dayhub")
     a.page.click('[data-close="sheet"]')
     a.close()

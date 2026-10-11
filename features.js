@@ -21,7 +21,7 @@ const SWITCHES = Object.freeze({
   GMAIL: false,       // Gmail -> plans. Waits on Google's restricted-scope verification.
   STORE: false,       // "Get it on Google Play" link. Waits on the Play listing going live.
   CRUISE_PASS: true,  // ON 2026-10-07 (Scott: "go"). Whop prod_D1Rb57NYoYxR5 + relay v5 (deploy v10) live; unlock tested OK with the 10/7 test buy.
-  TRIP_PASS: false,   // Trip Hub Pass (Scott 10/11: "get it completed and listed today", $9.99/yr). Needs the Whop product + relay v6 + TRIP_PRODUCT_ID.
+  TRIP_PASS: true,    // ON 2026-10-11 (Scott: "get it completed and listed today"). Whop prod_xFJeMtq6FYVgk + relay v6 (deploy v11) + TRIP_PRODUCT_ID live.
 });
 
 // Scott approved 10/3: $4.99/mo or $29.99/yr, contact smarvel1963@gmail.com.

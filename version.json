@@ -1,6 +1,9 @@
 {
- "version": "1.22",
+ "version": "1.23",
  "notes": {
+  "1.23": [
+   "✈️ Trip Hub is open for everyone: get the Trip Hub Pass — $9.99 a year for every trip you take that year (calendar + Drive backup). Already have Day Hub Pro? It includes Trip Hub."
+  ],
   "1.22": [
    "🌙 Daily travel briefing: on trip days your morning note leads with the trip — day 2 of 7, when to leave first, check-out, what's planned, today's budget. And at 8 PM the night before, a 'Tomorrow' note with your first three things and their times."
   ],
