@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.34";
+const VERSION = "1.35";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -29,17 +29,18 @@ const VERSION = "1.34";
 // and Trip Hub are the TRAVEL hubs - same trip-first screen; cruise-only parts
 // (ports, ships, the Cruise Hub Pass, taking over Day Hub's cruises) stay "cruise".
 // HOME HUB (Scott 10/11, app #4): window.DH_MODE = "home" at /homehub/ + home.js. NOT a travel hub - it runs the
-// Day Hub card screen with its own home-first top (rooms, outdoor spaces, whole-home systems).
-const MODE = ["cruise", "trip", "home"].includes(window.DH_MODE) ? window.DH_MODE : "day";
+// Day Hub card screen with its own home-first top (rooms, outdoor spaces, whole-home systems). AUTO HUB (10/14, app #5): "auto" + auto.js.
+const MODE = ["cruise", "trip", "home", "auto"].includes(window.DH_MODE) ? window.DH_MODE : "day";
 const TRAVEL = MODE === "cruise" || MODE === "trip";
 const TW = MODE === "cruise" ? "cruise" : "trip";                // the word this hub uses for its trips
-const APP_NAME = { cruise: "Cruise Hub", trip: "Trip Hub", home: "Home Hub" }[MODE] || "Day Hub";
+const APP_NAME = { cruise: "Cruise Hub", trip: "Trip Hub", home: "Home Hub", auto: "Auto Hub" }[MODE] || "Day Hub";
 const BASE_URL = new URL(".", (document.currentScript && document.currentScript.src) || location.href).href;   // where app.js lives
-const APP_ID = { cruise: "cruisehub", trip: "triphub", home: "homehub" }[MODE] || "dayhub";
+const APP_ID = { cruise: "cruisehub", trip: "triphub", home: "homehub", auto: "autohub" }[MODE] || "dayhub";
 const CRUISE_URL = new URL("../cruisehub/", BASE_URL).href;    // Cruise Hub's own address (repo smarvel1963-ops/cruisehub)
 const TRIP_URL = new URL("../triphub/", BASE_URL).href;        // Trip Hub's own address (repo smarvel1963-ops/triphub)
 const HOMEHUB_URL = new URL("../homehub/", BASE_URL).href;    // Home Hub's own address (repo smarvel1963-ops/homehub)
-const HOME_URL = { cruise: CRUISE_URL, trip: TRIP_URL, home: HOMEHUB_URL }[MODE] || BASE_URL;     // this app's own folder (its sw.js lives here)
+const AUTOHUB_URL = new URL("../autohub/", BASE_URL).href;    // Auto Hub's own address (repo smarvel1963-ops/autohub)
+const HOME_URL = { cruise: CRUISE_URL, trip: TRIP_URL, home: HOMEHUB_URL, auto: AUTOHUB_URL }[MODE] || BASE_URL;     // this app's own folder (its sw.js lives here)
 
 const STORE = APP_ID + ".v1";
 const WX = "https://api.open-meteo.com/v1/forecast";
@@ -125,7 +126,7 @@ const gmailAllowed = () => switchOn("GMAIL") || S.mail.on || !!S.mail.found.leng
 // reminders and bills, and in the Trips card as a row with an Open button.
 // A cruise Cruise Hub took over from Day Hub (S.adopted) is shown from Cruise
 // Hub in both, so there is one live copy. Off: Settings -> Hub family.
-const SIB = TRAVEL || MODE === "home"
+const SIB = TRAVEL || MODE === "home" || MODE === "auto"
   ? { id: "dayhub", name: "Day Hub", store: "dayhub.v1", file: "dayhub.json", url: BASE_URL, icon: "☀️" }
   : { id: "cruisehub", name: "Cruise Hub", store: "cruisehub.v1", file: "cruisehub.json", url: CRUISE_URL, icon: "🚢" };
 const FAM_KEY = APP_ID + ".family";              // the other hub's trips from its Drive backup (a cache)
@@ -184,7 +185,7 @@ async function famDriveRefresh() {
 }
 
 // ---------------------------------------------------------------- packs
-const BASE = TRAVEL ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : MODE === "home" ? ["weather", "home", "bills", "todos", "lists"] : ["inbox", "trips", "top3", "schedule", "errands", "leave", "routines", "reset", "tomorrow", "work", "payday", "budget", "weather", "todos", "notes", "future", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
+const BASE = TRAVEL ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : MODE === "home" ? ["weather", "home", "bills", "todos", "lists"] : MODE === "auto" ? ["weather", "bills", "todos", "lists"] : ["inbox", "trips", "top3", "schedule", "errands", "leave", "routines", "reset", "tomorrow", "work", "payday", "budget", "weather", "todos", "notes", "future", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
 const PACKS = {
   general:  { label: "General",              cards: [] },
   trucker:  { label: "Trucker / Dispatcher", cards: ["route", "loads"] },
@@ -349,7 +350,7 @@ const money = n => "$" + Number(n || 0).toLocaleString("en-US", { minimumFractio
 const buzz = () => { try { navigator.vibrate && navigator.vibrate(8); } catch (e) { /* no haptics */ } };
 
 function cardOrder() {
-  const want = [...BASE, ...(TRAVEL || MODE === "home" ? [] : PACKS[S.pack].cards), "family"];   // v0.50 Hub family card: always last
+  const want = [...BASE, ...(TRAVEL || MODE === "home" || MODE === "auto" ? [] : PACKS[S.pack].cards), "family"];   // v0.50 Hub family card: always last
   let order = (S.order || []).filter(k => want.includes(k));
   // A card new in this version goes to its DEFAULT place, not to the bottom
   // of someone's saved order.

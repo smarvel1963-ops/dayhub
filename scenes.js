@@ -19,7 +19,7 @@
  */
 "use strict";
 
-const SCENE_FOR = { day: "weather", cruise: "ocean", trip: "travel", home: "weather" };   // v0.97 Trip Hub: skyline + plane; v1.25 Home Hub: live weather
+const SCENE_FOR = { day: "weather", cruise: "ocean", trip: "travel", home: "weather", auto: "weather" };   // v0.97 Trip Hub: skyline + plane; v1.25 Home Hub: live weather
 let SCENE_KEY = null;
 
 // What the sky is doing: clear | cloudy | rain | snow | storm | fog (WMO codes, Open-Meteo).

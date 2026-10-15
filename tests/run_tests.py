@@ -34,6 +34,7 @@ def check(name, cond, extra=""):
 CRUISE = "/../cruisehub/"     # Cruise Hub's own address, next to /dayhub/ (v0.47)
 TRIP = "/../triphub/"         # Trip Hub's own address (v0.97, app #3)
 HOMEP = "/../homehub/"        # Home Hub's own address (v1.25, app #4)
+AUTOP = "/../autohub/"        # Auto Hub's own address (v1.35, app #5)
 
 
 # ------------------------------------------------------------------ server
@@ -172,6 +173,14 @@ def route(ctx):
                 frag = urllib.parse.urlencode({"error": "interaction_required", "state": q["state"][0]})
             ctx._oauth_hits = getattr(ctx, "_oauth_hits", 0) + 1
             return r.fulfill(status=302, headers={"Location": back + "#" + frag})
+        if u.netloc == "vpic.nhtsa.dot.gov":        # v1.35 Auto Hub VIN lookup
+            if "BAD" in u.path: return r.fulfill(json={"Results": [{"Make": "", "ModelYear": "", "ErrorCode": "11"}]})
+            return r.fulfill(json={"Results": [{"ModelYear": "2020", "Make": "FORD", "Model": "Mustang", "Trim": "GT Premium", "DisplacementL": "5.0",
+                                                "EngineCylinders": "8", "FuelTypePrimary": "Gasoline", "BodyClass": "Coupe"}]})
+        if u.netloc == "api.nhtsa.gov":              # v1.35 Auto Hub recalls
+            return r.fulfill(json={"Count": 2, "results": [
+                {"NHTSACampaignNumber": "20V306000", "Component": "FORWARD COLLISION AVOIDANCE: CAMERA", "Summary": "Camera may not work.", "Remedy": "Dealer updates software.", "parkIt": False},
+                {"NHTSACampaignNumber": "21V100000", "Component": "FUEL SYSTEM", "Summary": "Fuel may leak.", "Remedy": "Dealer replaces the line.", "parkIt": True}]})
         if "fonts.g" in u.netloc or "accounts.google.com" in u.netloc:
             return r.fulfill(status=204, body="")
         return r.continue_()
@@ -1213,7 +1222,7 @@ def t_v039_short_home(b, base):
 def t_v040_switches(b, base):
     print("\n[v0.40 switchboard: everything OFF by default, owner switches, Pro key, legal pages, manifest]")
     a = App(b, base); setup(a)
-    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), TRIP_PASS + AI_CREDITS on (10/11), GMAIL + STORE OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && SWITCHES.AI_CREDITS === true && SWITCHES.HOME_VALUE === true && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS,AI_CREDITS,HOME_VALUE'"))
+    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), TRIP_PASS + AI_CREDITS on (10/11), GMAIL + STORE OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && SWITCHES.AI_CREDITS === true && SWITCHES.HOME_VALUE === true && !SWITCHES.AUTO_PASS && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS,AI_CREDITS,AUTO_PASS,HOME_VALUE'"))
     check("plan: approved price, contact, Whop checkout", a.js("PLAN.MONTHLY") == "$4.99/month" and a.js("PLAN.YEARLY") == "$29.99/year" and a.js("PLAN.CONTACT_EMAIL") == "smarvel1963@gmail.com" and a.js("PLAN.WHOP_CHECKOUT_URL") == "https://whop.com/commander-marvel-por-picks/day-hub-pro")
     check("PRO_GATE on, free phone: Pro features locked, free ones open", a.js("!['ai','gcal','mail','sync'].some(can) && ['reminders','budget'].every(can)"))
     a.page.click("#settingsBtn")
@@ -3714,6 +3723,62 @@ def t_v133_home_value(b, base):
     a.close()
 
 
+def t_v135_auto_hub(b, base):
+    print("\n[v1.35 Auto Hub: app #5 at /autohub/ - garage, VIN lookup, maintenance by miles or months, fuel/MPG, recalls]")
+    a = App(b, base, path=AUTOP)
+    check("Auto Hub: its own name, id, data, not a travel hub", a.js("[MODE, APP_NAME, APP_ID, STORE, TRAVEL]") == ["auto", "Auto Hub", "autohub", "autohub.v1", False] and a.page.title() == "Auto Hub")
+    w = a.page.inner_text("#cards .welcome")
+    check("first open = add your first car", "Welcome to Auto Hub" in w and "Add my car" in w and "VIN" in a.page.inner_html("#cards .welcome"), w[:200])
+    a.page.fill('form[data-autosetup] [name=city]', "72032"); a.page.fill('form[data-autosetup] [name=vin]', "1FA6P8")
+    a.page.click('form[data-autosetup] button'); a.page.wait_for_timeout(100)
+    check("a short VIN is refused with a reason, and what was typed stays", "17 letters" in a.page.inner_text("#autoMsg") and a.page.input_value('form[data-autosetup] [name=city]') == "72032")
+    a.page.fill('form[data-autosetup] [name=vin]', "1fa6p8cf0l5100001"); a.page.fill('form[data-autosetup] [name=miles]', "30,000")
+    a.page.click('form[data-autosetup] button'); a.page.wait_for_function("S.garage && S.garage.cars.length === 1")
+    c = a.js("S.garage.cars[0]")
+    check("VIN fills year / make / model / trim / engine (NHTSA)", [c["vin"], c["year"], c["make"], c["model"], c["trim"], c["miles"]] == ["1FA6P8CF0L5100001", "2020", "Ford", "Mustang", "GT Premium", 30000] and "5.0L" in c["engine"], c)
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    w = a.page.inner_text("#cards")
+    check("dashboard: My Garage with the car + Coming up; no Day Hub car-upkeep card", "My Garage" in w and "2020 Ford Mustang" in w and "30,000 mi" in w and a.js("cardOrder().join()") == "weather,bills,todos,lists,family", (a.js("cardOrder().join()"), w[:300]))
+    cid = c["id"]
+    a.page.click(f'[data-acar="{cid}"]'); a.page.click('#autoSheet [data-atab="service"]')
+    a.page.select_option('#autoSheet form[data-aservice] [name=kind]', "oil"); a.page.fill('#autoSheet form[data-aservice] [name=date]', "2026-09-01")
+    a.page.fill('#autoSheet form[data-aservice] [name=miles]', "30000"); a.page.fill('#autoSheet form[data-aservice] [name=cost]', "49.99")
+    a.page.click('#autoSheet form[data-aservice] button'); a.page.wait_for_timeout(100)
+    d = a.js(f"serviceDue(carById('{cid}'), 'oil', today())")
+    check("oil change due at +5,000 mi or +6 months, whichever first", d["dueMiles"] == 35000 and d["dueDate"] == "2027-03-01" and not d["late"], d)
+    a.page.select_option('#autoSheet form[data-aservice] [name=kind]', "brakes"); a.page.fill('#autoSheet form[data-aservice] [name=date]', "2025-01-01")
+    a.page.fill('#autoSheet form[data-aservice] [name=miles]', "10000"); a.page.click('#autoSheet form[data-aservice] button'); a.page.wait_for_timeout(100)
+    d = a.js(f"serviceDue(carById('{cid}'), 'brakes', today())")
+    check("brake check from 20,000 mi / 21 months ago = overdue, shown first", d["late"] and a.js(f"carDue(carById('{cid}'), today())[0].key") == "brakes" and "mi over" in a.page.inner_text("#autoSheet"), d)
+    a.page.click('#autoSheet [data-atab="fuel"]')
+    for m, g, cost in (("30000", "12", "40"), ("30360", "12", "42")):
+        a.page.fill('#autoSheet form[data-afuel] [name=miles]', m); a.page.fill('#autoSheet form[data-afuel] [name=gal]', g); a.page.fill('#autoSheet form[data-afuel] [name=cost]', cost)
+        a.page.click('#autoSheet form[data-afuel] button'); a.page.wait_for_timeout(100)
+    f = a.js(f"fuelStats(carById('{cid}'))")
+    check("fuel: 360 miles on 12 gallons = 30.0 MPG, $0.12 a mile; odometer moves the car's miles", round(f["mpg"], 1) == 30.0 and round(f["perMile"], 2) == 0.12 and a.js(f"carById('{cid}').miles") == 30360 and "30.0" in a.page.inner_text("#autoSheet"), f)
+    a.page.click('#autoSheet [data-atab="recalls"]'); a.page.click('#autoSheet [data-arecall]')
+    a.page.wait_for_function(f"carById('{cid}').recalls && !AUTO_BUSY")
+    t = a.page.inner_text("#autoSheet")
+    check("recalls: NHTSA list for the car, PARK IT flagged, free-repair note", a.js(f"carById('{cid}').recalls.list.length") == 2 and "PARK IT" in t and "free" in t, t[:300])
+    a.page.click('#autoSheet [data-arfix="20V306000"]'); a.page.wait_for_timeout(50)
+    check("tick a recall as fixed = 1 open left", a.js(f"openRecalls(carById('{cid}')).length") == 1)
+    a.page.click('#autoSheet [data-aclose]')
+    check("dashboard shows the overdue service and the open recall", "Brake check" in a.page.inner_text("#cards") and "1 recall" in a.page.inner_text("#cards"))
+    a.page.click('[data-aaddcar]')
+    a.page.fill('#autoSheet form[data-anewcar] [name=year]', "2018"); a.page.fill('#autoSheet form[data-anewcar] [name=make]', "toyota"); a.page.fill('#autoSheet form[data-anewcar] [name=model]', "Camry")
+    a.page.click('#autoSheet form[data-anewcar] button'); a.page.wait_for_function("S.garage.cars.length === 2")
+    check("2nd car typed by hand (AUTO_PASS off = no car limit), make tidied", a.js("S.garage.cars[1].make + ' ' + S.garage.cars[1].model") == "Toyota Camry")
+    a.page.click('#autoSheet [data-aclose]')
+    a.js("setOwnerSwitch('AUTO_PASS', true)"); a.page.click('[data-aaddcar]')
+    t = a.page.inner_text("#autoSheet")
+    check("AUTO_PASS on, not Pro: free keeps 1 car, offers Auto Hub Pro $2.99/month with 30 days free", "1 car" in t and "$2.99/month" in t and "30 days free" in t and not a.js("!!document.querySelector('form[data-anewcar]')"), t[:300])
+    a.js("setOwnerSwitch('AUTO_PASS', false)"); a.page.click('#autoSheet [data-aclose]')
+    check("its own data only - Day Hub's storage untouched", a.js("!!localStorage.getItem('autohub.v1') && !localStorage.getItem('dayhub.v1')"))
+    a.page.reload(); a.page.wait_for_function("typeof render === 'function' && document.querySelector('#hero .greet')")
+    check("survives a reload: same garage", a.js("S.garage.cars.length") == 2 and "My Garage" in a.page.inner_text("#cards"))
+    a.close()
+
+
 def t_v127_email_codes(b, base):
     print("\n[v1.27 store audit S2: a NEW phone confirms the purchase email with a 6-digit emailed code]")
     a = App(b, base); setup(a)
@@ -3919,7 +3984,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub):
             try:
                 t(b, base)
             except Exception as e:
