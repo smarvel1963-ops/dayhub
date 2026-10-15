@@ -1,6 +1,10 @@
 {
- "version": "1.33",
+ "version": "1.34",
  "notes": {
+  "1.34": [
+   "💲 New in Home Hub: Hub Predicted Value. Enter your ZIP and square feet and see what your home is worth, priced from recent sales near you.",
+   "🚗 Auto Hub is coming soon to the Hub family."
+  ],
   "1.33": [
    "🔧 Behind-the-scenes: groundwork for a new Home Hub feature."
   ],

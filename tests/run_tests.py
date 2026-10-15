@@ -1213,7 +1213,7 @@ def t_v039_short_home(b, base):
 def t_v040_switches(b, base):
     print("\n[v0.40 switchboard: everything OFF by default, owner switches, Pro key, legal pages, manifest]")
     a = App(b, base); setup(a)
-    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), TRIP_PASS + AI_CREDITS on (10/11), GMAIL + STORE OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && SWITCHES.AI_CREDITS === true && !SWITCHES.HOME_VALUE && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS,AI_CREDITS,HOME_VALUE'"))
+    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), TRIP_PASS + AI_CREDITS on (10/11), GMAIL + STORE OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && SWITCHES.AI_CREDITS === true && SWITCHES.HOME_VALUE === true && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS,AI_CREDITS,HOME_VALUE'"))
     check("plan: approved price, contact, Whop checkout", a.js("PLAN.MONTHLY") == "$4.99/month" and a.js("PLAN.YEARLY") == "$29.99/year" and a.js("PLAN.CONTACT_EMAIL") == "smarvel1963@gmail.com" and a.js("PLAN.WHOP_CHECKOUT_URL") == "https://whop.com/commander-marvel-por-picks/day-hub-pro")
     check("PRO_GATE on, free phone: Pro features locked, free ones open", a.js("!['ai','gcal','mail','sync'].some(can) && ['reminders','budget'].every(can)"))
     a.page.click("#settingsBtn")
@@ -1540,7 +1540,7 @@ def t_v050_countdown_family(b, base):
     # hub family card: last, lists the others (Trip Hub listed 10/11 - no COMING SOON)
     check("Hub family card is the last card", a.js("cardOrder().slice(-1)[0]") == "family")
     f = a.card("family")
-    check("family card: Day Hub + Trip Hub + Home Hub with Open (Home Hub listed v1.33), nothing coming soon, not itself", "Day Hub" in f and "Trip Hub" in f and f.count("COMING SOON") == 0 and "Home Hub" in f and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/homehub/\"]')") and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/triphub/\"]')") and "Cruise Hub" not in f.split("Day Hub")[0] and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/dayhub/\"]')"), f[:300])
+    check("family card: Day Hub + Trip Hub + Home Hub with Open (Home Hub listed v1.33), only Auto Hub coming soon (v1.34), not itself", "Day Hub" in f and "Trip Hub" in f and f.count("COMING SOON") == 1 and "Auto Hub" in f and "Home Hub" in f and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/homehub/\"]')") and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/triphub/\"]')") and "Cruise Hub" not in f.split("Day Hub")[0] and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/dayhub/\"]')"), f[:300])
     a.close()
     a = App(b, base)
     setup(a)
@@ -3670,13 +3670,13 @@ def t_v125_home_hub(b, base):
     a = App(b, base)
     setup(a)
     f = a.js("hubRows()")
-    check("Day Hub lists Home Hub with an Open button (v1.33, no longer COMING SOON)", "Home Hub" in f and "COMING SOON" not in f and 'href="' + a.js("HOMEHUB_URL") + '"' in f, f[:400])
+    check("Day Hub lists Home Hub with an Open button (v1.33); only Auto Hub is COMING SOON (v1.34)", "Home Hub" in f and f.count("COMING SOON") == 1 and "Auto Hub" in f and 'href="' + a.js("HOMEHUB_URL") + '"' in f, f[:400])
     check("Day Hub never runs home.js (not loaded, its screen unchanged)", a.js("typeof homeClick") == "undefined" and a.js("MODE") == "day")
     a.close()
 
 
 def t_v133_home_value(b, base):
-    print("\n[v1.33 Home Hub: Hub Predicted Value card - behind HOME_VALUE (OFF), priced from Redfin ZIP data]")
+    print("\n[v1.33 Home Hub: Hub Predicted Value card - HOME_VALUE on 10/14, priced from Redfin ZIP data]")
     a = App(b, base, path=HOMEP)
     shard = {"72032": {"all": [150, 300000, 40, 0.06, "2026-05-31"], "sfr": [400, 900000, 1, 0, "2025-09-30"], "condo": [160, 250000, 5, 0.0, "2026-05-31"]},
              "72034": {"all": [130, 260000, 20, 0.02, "2026-04-30"]}}
@@ -3685,14 +3685,13 @@ def t_v133_home_value(b, base):
     a.page.fill('form[data-homesetup] [name=city]', "72032"); a.page.click('form[data-homesetup] button')
     a.page.wait_for_function("S.house && S.house.spaces.length")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
-    check("switch OFF: no Hub Predicted Value card", not a.js("!!document.getElementById('hpvCard')") and "Predicted Value" not in a.page.inner_text("#cards"))
+    check("on for everyone (10/14): the Hub Predicted Value card is on the dashboard", a.js("!!document.getElementById('hpvCard')") and "Predicted Value" in a.page.inner_text("#cards"))
     e = a.js("hpvEstimate([150, 300000, 40, 0.06, '2026-05-31'], {sqft: 2000, cond: 'avg'}, false, '2026-10-14')")
     check("math: $150/sq ft x 2,000 typical-size, +6%/yr for 5 months = $308k, range +/-8%", e["est"] == 308000 and e["low"] == 283000 and e["high"] == 332000 and e["size"] == 1, e)
     e = a.js("hpvEstimate([150, 300000, 4, 0, '2026-05-31'], {sqft: 4000, cond: 'work'}, false, '2026-05-31')")
     check("big house costs less per sq ft (capped -15%), needs work -12%, few sales = +/-15%", abs(e["size"] - 2 ** -0.2) < 1e-9 and e["shape"] == 0.88 and e["spread"] == 0.15, e)
-    a.js("setOwnerSwitch('HOME_VALUE', true); render()")
     w = a.page.inner_text("#hpvCard")
-    check("switch ON (this phone): the card asks for the home, ZIP prefilled from setup", "Hub Predicted Value" in w and a.js("document.querySelector('form[data-hpvform] [name=zip]').value") == "72032", w[:200])
+    check("the card asks for the home, ZIP prefilled from setup", "Hub Predicted Value" in w and a.js("document.querySelector('form[data-hpvform] [name=zip]').value") == "72032", w[:200])
     a.page.fill('form[data-hpvform] [name=sqft]', "2000"); a.page.click('form[data-hpvform] button')
     a.page.wait_for_function("S.house.value && S.house.value.est")
     v = a.js("S.house.value")
