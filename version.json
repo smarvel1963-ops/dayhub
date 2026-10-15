@@ -1,6 +1,9 @@
 {
- "version": "1.37",
+ "version": "1.38",
  "notes": {
+  "1.38": [
+   "🚗 New in the Hub family: Auto Hub. Your cars, service due by miles or months, fuel and MPG, free recall checks, insurance and registration reminders, extras, a journal and a build sheet. Find it in ⚙ → Hub family."
+  ],
   "1.37": [
    "🔧 Behind-the-scenes: Auto Hub reminders."
   ],

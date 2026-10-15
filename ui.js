@@ -627,7 +627,7 @@ const HUBS = [
   { id: "cruisehub", name: "Cruise Hub", icon: "🚢", what: "Countdown, payments, port days and all-aboard alarms.", url: CRUISE_URL },
   { id: "triphub", name: "Trip Hub", icon: "✈️", what: "Flights, hotels and road trips.", url: TRIP_URL },   // v1.23: listed 10/11 (Trip Hub Pass on sale) - no longer COMING SOON
   { id: "homehub", name: "Home Hub", icon: "🏡", what: "Every room, outdoor space and system — items, tasks, notes.", url: HOMEHUB_URL },   // v1.33: listed 10/14 (Scott: "complete home hubs") - no longer COMING SOON
-  { id: "autohub", name: "Auto Hub", icon: "🚗", what: "Your cars — maintenance, repairs, insurance and what they're worth.", url: AUTOHUB_URL, soon: true },   // v1.34 (Scott 10/14: "list auto hub as coming soon")
+  { id: "autohub", name: "Auto Hub", icon: "🚗", what: "Your cars — maintenance, repairs, insurance and what they're worth.", url: AUTOHUB_URL },   // v1.34 COMING SOON; v1.38 listed 10/14 (Scott: "yes do 1-5")
 ];
 function hubRows() {
   const sd = sibData();
@@ -792,7 +792,7 @@ const aiPass = () => { try { return localStorage.getItem(AI_KEY) || ""; } catch 
 // buyer their own cap.
 // v0.53: in Cruise Hub a Day Hub Pro unlock on the same phone counts (proViaDayHub) - send that buyer.
 // v1.23: a Cruise Hub Pass / Trip Hub Pass on its own never gets the AI - the relay only answers Day Hub Pro.
-const passOnly = () => !proGood(readPro(DAY_PRO_KEY)) && ["cruisehub", "triphub"].includes(proState().product);
+const passOnly = () => !proGood(readPro(DAY_PRO_KEY)) && ["cruisehub", "triphub", "autohub"].includes(proState().product);
 // v1.24 HUB AI CREDITS (AI_CREDITS switch): one email + questions-left on this phone, shared by every hub
 // ("hub.aicredits", same storage for Day/Cruise/Trip Hub). The relay keeps the real count; this is the last answer.
 const CREDIT_KEY = "hub.aicredits";
@@ -1743,7 +1743,11 @@ function drawProBox() {
   // v0.45: Cruise Hub lists only what Cruise Hub has; it is included with Day Hub Pro (one Whop purchase).
   // v0.48: with CRUISE_PASS on, Cruise Hub sells its own Cruise Hub Pass ($9.99/year, every cruise that year).
   // v0.97: Trip Hub has no product of its own yet - Day Hub Pro unlocks it (the relay checks Day Hub Pro for any app but Cruise Hub).
-  const what = tripPass()
+  const what = autoPass()
+    ? `<p class="fine" style="margin-top:0"><b>Every car you own, looked after.</b> Free Auto Hub keeps 1 car with everything in it. Already have ${PLAN.NAME}? It includes Auto Hub: enter that email below.</p>
+       <ul class="pro-list"><li>🚗 Unlimited cars - the whole family's, plus the truck and the boat trailer</li><li>☁️ Backup to your own Google Drive</li></ul>
+       <p class="fine" style="margin-top:4px">Service, fuel, recalls, papers, extras, journal and the build sheet are free on your first car. No ads, ever.</p>`
+    : tripPass()
     ? `<p class="fine" style="margin-top:0"><b>One price for the whole year — plan as many trips as you like.</b> Already have ${PLAN.NAME}? It includes Trip Hub: enter that email below.</p>
        <ul class="pro-list"><li>🗓️ Your trip, flights, hotels and plans on your phone's calendar</li><li>☁️ Backup to your own Google Drive</li></ul>
        <p class="fine" style="margin-top:4px">Everything else — bookings, map, Fix my trip, leave times, split the cost, packing, diary — is free forever. No ads, ever. The AI helper comes with ${PLAN.NAME}${creditsOn() ? ` or ${PLAN.AI_CREDITS_NAME}` : ""}.</p>`
@@ -1761,9 +1765,10 @@ function drawProBox() {
     : `<ul class="pro-list"><li>🤖 AI helper — Brain dump, Ask Day Hub, Top 3</li><li>🗓️ Two-way Google Calendar sync</li>
     ${switchOn("GMAIL") ? "<li>📬 Plans found in your email</li>" : ""}<li>☁️ Backup to your own Google Drive</li></ul>
     <p class="fine" style="margin-top:4px">Everything else — every card, reminders, budget, lists, trips — is free forever. No ads, ever.</p>`;
-  const price = cruisePass() ? `<p class="fine"><b>${PLAN.CRUISE_YEARLY}</b> — every cruise you take that year.</p>`
+  const price = autoPass() ? `<p class="fine"><b>${PLAN.AUTO_MONTHLY}</b> — 30 days free, cancel any time on Whop.</p>`
+    : cruisePass() ? `<p class="fine"><b>${PLAN.CRUISE_YEARLY}</b> — every cruise you take that year.</p>`
     : tripPass() ? `<p class="fine"><b>${PLAN.TRIP_YEARLY}</b> — every trip you take that year.</p>` : `<p class="fine"><b>${PLAN.MONTHLY}</b> or <b>${PLAN.YEARLY}</b>.</p>`;
-  const buyUrl = cruisePass() ? PLAN.CRUISE_CHECKOUT_URL : tripPass() ? PLAN.TRIP_CHECKOUT_URL : PLAN.WHOP_CHECKOUT_URL;
+  const buyUrl = autoPass() ? PLAN.AUTO_CHECKOUT_URL : cruisePass() ? PLAN.CRUISE_CHECKOUT_URL : tripPass() ? PLAN.TRIP_CHECKOUT_URL : PLAN.WHOP_CHECKOUT_URL;
   g.innerHTML = `<h3>⭐ ${proName()}</h3>` + (ownerPhone()
     ? `<div class="leg"><span>✅ Pro — this is the owner's phone</span></div>`
     : proViaDayHub()

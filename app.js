@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.37";
+const VERSION = "1.38";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -88,7 +88,7 @@ function deviceId() {
 // passphrase (or with the OWNER owner-switch) counts as Pro.
 const ownerPhone = () => !!aiPass() || !!ownerSwitches().OWNER;
 const proGood = p => !!(p.buyer && p.ok && Date.now() < (p.checked || 0) + (PLAN.RECHECK_DAYS + PLAN.GRACE_DAYS) * DAY_MS);
-const proViaDayHub = () => TRAVEL && !proGood(proState()) && proGood(readPro(DAY_PRO_KEY));
+const proViaDayHub = () => (TRAVEL || MODE === "auto") && !proGood(proState()) && proGood(readPro(DAY_PRO_KEY));   // v1.38: Day Hub Pro unlocks Auto Hub too
 function isPro() {
   return ownerPhone() || proGood(proState()) || proViaDayHub();
 }
@@ -96,8 +96,9 @@ function isPro() {
 // Trip Hub Pass once TRIP_PASS is on (v1.23); otherwise Day Hub Pro.
 const cruisePass = () => MODE === "cruise" && switchOn("CRUISE_PASS");
 const tripPass = () => MODE === "trip" && switchOn("TRIP_PASS");
-const hubPass = () => cruisePass() || tripPass();
-const proName = () => cruisePass() ? PLAN.CRUISE_NAME : tripPass() ? PLAN.TRIP_NAME : PLAN.NAME;
+const autoPass = () => MODE === "auto" && switchOn("AUTO_PASS");   // v1.38 Auto Hub Pro, $2.99/month
+const hubPass = () => cruisePass() || tripPass() || autoPass();
+const proName = () => cruisePass() ? PLAN.CRUISE_NAME : tripPass() ? PLAN.TRIP_NAME : autoPass() ? PLAN.AUTO_NAME : PLAN.NAME;
 async function verifyPro(buyer) {                   // throws when the check can't be reached
   const j = await (await fetch(AI_URL, { method: "POST", body: JSON.stringify({ task: "verify", buyer, device: deviceId(), app: APP_ID }) })).json();
   if (typeof j.valid !== "boolean") throw new Error(j.error || "no answer");

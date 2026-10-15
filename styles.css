@@ -723,3 +723,10 @@ body.shell .bubbles { margin: 10px 0 12px; gap: 8px 6px; }
 .hpv-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .hpv-row input { min-width: 0; }
 .hpv-ai { background: rgba(255,255,255,.06); border-radius: 12px; padding: 10px 12px; margin-top: 10px; font-size: .92rem; line-height: 1.45; }
+
+/* v1.38 Auto Hub: one scrolling row of tabs, interval editor */
+.auto-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.auto-tabs::-webkit-scrollbar { display: none; }
+.auto-tabs button { flex: 0 0 auto; }
+.auto-every { margin-top: 8px; }
+.auto-every summary { cursor: pointer; list-style: none; }

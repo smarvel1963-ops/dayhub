@@ -23,7 +23,7 @@ const SWITCHES = Object.freeze({
   CRUISE_PASS: true,  // ON 2026-10-07 (Scott: "go"). Whop prod_D1Rb57NYoYxR5 + relay v5 (deploy v10) live; unlock tested OK with the 10/7 test buy.
   TRIP_PASS: true,    // ON 2026-10-11 (Scott: "get it completed and listed today"). Whop prod_xFJeMtq6FYVgk + relay v6 (deploy v11) + TRIP_PRODUCT_ID live.
   AI_CREDITS: true,   // ON 2026-10-11 (Scott "ok"). Whop packs visible, relay v8 (deploy 13) counts PAYMENTS; marvelcalls test buy = 200 questions.
-  AUTO_PASS: false,   // Auto Hub Pro $2.99/mo (Scott 10/14), 30-day free trial. Waits on the Whop product + relay knowing it. OFF = Auto Hub all free.
+  AUTO_PASS: true,    // ON 2026-10-14 (Scott "yes do 1-5"). Whop "Auto Hub Pro" prod_JZvlJLr71aVz4 $2.99/mo, 30-day trial; relay v14 (deploy 19). Free = 1 car.
   HOME_VALUE: true,   // ON 2026-10-14 (Scott: "get it done"). Home Hub "Hub Predicted Value" card (homevalue.js), Redfin ZIP data in hpv/.
 });
 
@@ -64,7 +64,7 @@ const PLAN = Object.freeze({
   // AUTO HUB PRO (Scott 10/14: "2.99 month"). Auto Hub only; free = 1 car. Shown while AUTO_PASS is on.
   AUTO_NAME: "Auto Hub Pro",
   AUTO_MONTHLY: "$2.99/month",
-  AUTO_CHECKOUT_URL: "",
+  AUTO_CHECKOUT_URL: "https://whop.com/commander-marvel-por-picks/auto-hub-pro",   // prod_JZvlJLr71aVz4
   AI_PACKS: [{ n: 100, price: "$2.99", url: "https://whop.com/commander-marvel-por-picks/hub-ai-credits-100-questions" },   // prod_PZs1nowbQqbau
              { n: 500, price: "$9.99", url: "https://whop.com/commander-marvel-por-picks/hub-ai-credits-500-questions" }],  // prod_8ZVor6HNWoWLP
 });

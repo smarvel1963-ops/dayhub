@@ -24,7 +24,7 @@ const AUTO_SERVICES = [
   ["wipers", "🧽", "Wiper blades", 0, 12], ["inspect", "📋", "Inspection", 0, 12], ["coolant", "❄️", "Coolant", 50000, 60],
   ["trans", "⚙️", "Transmission fluid", 60000, 60], ["plugs", "⚡", "Spark plugs", 100000, 0], ["tires", "🛞", "New tires", 50000, 72],
   ["other", "🔧", "Other repair", 0, 0]];
-const AUTO_TABS = [["overview", "🚗", "Overview"], ["service", "🧰", "Service"], ["fuel", "⛽", "Fuel"], ["papers", "📄", "Papers"], ["extras", "🔧", "Extras"], ["recalls", "⚠️", "Recalls"]];
+const AUTO_TABS = [["overview", "🚗", "Overview"], ["service", "🧰", "Service"], ["fuel", "⛽", "Fuel"], ["papers", "📄", "Papers"], ["extras", "🔧", "Extras"], ["recalls", "⚠️", "Recalls"], ["journal", "📖", "Journal"]];
 // key, icon, name, months a renewal usually runs (the Renewed button adds this)
 const AUTO_PAPERS = [["insurance", "🛡️", "Insurance", 6], ["registration", "🪪", "Registration", 12], ["inspection", "📋", "Inspection sticker", 12],
   ["warranty", "🧾", "Warranty", 12], ["loan", "🏦", "Loan / lease", 1], ["roadside", "🚨", "Roadside plan", 12], ["other", "📁", "Other", 12]];
@@ -39,7 +39,7 @@ const svc = k => AUTO_SERVICES.find(s => s[0] === k) || AUTO_SERVICES[AUTO_SERVI
 function garage() {
   if (!S.garage || typeof S.garage !== "object") S.garage = { cars: [] };
   if (!Array.isArray(S.garage.cars)) S.garage.cars = [];
-  S.garage.cars.forEach(c => { ["services", "fuel", "odo", "papers", "extras"].forEach(k => { c[k] = Array.isArray(c[k]) ? c[k] : []; });
+  S.garage.cars.forEach(c => { ["services", "fuel", "odo", "papers", "extras", "notes"].forEach(k => { c[k] = Array.isArray(c[k]) ? c[k] : []; });
     c.recallDone = c.recallDone && typeof c.recallDone === "object" ? c.recallDone : {}; });
   return S.garage;
 }
@@ -61,8 +61,9 @@ function milesPerDay(c) {
   return days >= 14 && d > 0 ? d / days : 33;
 }
 // Next due for one service on one car: from the last logged one, at +miles or +months, whichever comes first.
+const intervalOf = (c, key) => (c.every && Array.isArray(c.every[key]) ? c.every[key] : svc(key).slice(3, 5));   // v1.38 the owner's own, else typical
 function serviceDue(c, key, onDay) {
-  const [, , , everyMi, everyMo] = svc(key);
+  const [everyMi, everyMo] = intervalOf(c, key);
   const last = c.services.filter(s => s.kind === key).sort((a, b) => (b.date + String(b.miles).padStart(8, "0")).localeCompare(a.date + String(a.miles).padStart(8, "0")))[0];
   if (!last || (!everyMi && !everyMo)) return { key, last: last || null, logged: !!last };
   const dueMiles = everyMi && last.miles != null ? last.miles + everyMi : null;
@@ -74,7 +75,7 @@ function serviceDue(c, key, onDay) {
   return { key, last, logged: true, dueMiles, dueDate, leftMi, days, late: days < 0 || (leftMi != null && leftMi <= 0), soon: days <= 30 || (leftMi != null && leftMi <= 500) };
 }
 function carDue(c, onDay) {
-  return AUTO_SERVICES.filter(s => s[3] || s[4]).map(s => serviceDue(c, s[0], onDay)).filter(d => d.logged && isFinite(d.days)).sort((a, b) => a.days - b.days);
+  return AUTO_SERVICES.filter(s => intervalOf(c, s[0])[0] || intervalOf(c, s[0])[1]).map(s => serviceDue(c, s[0], onDay)).filter(d => d.logged && isFinite(d.days)).sort((a, b) => a.days - b.days);
 }
 // Fuel: every fill-up is treated as a full tank. MPG = miles since the last fill / gallons put in now.
 function fuelStats(c) {
@@ -118,6 +119,35 @@ function buildSheet(c, withVin) {
   const f = fuelStats(c); if (f.mpg) L.push(`Average MPG (owner's log): ${f.mpg.toFixed(1)}`);
   L.push("", "Kept with Auto Hub by Marvel Corp");
   return L.filter((x, i, a) => !(x === "" && a[i - 1] === "")).join("\n").trim();
+}
+// One timeline of everything logged on a car, newest first (v1.38 Vehicle Journal).
+function carJournal(c) {
+  const J = [];
+  if (c.added) J.push({ date: c.added, icon: "🚗", text: `Added to Auto Hub`, sub: c.miles != null && c.odo[0] ? `${miles(c.odo[0].miles)} mi` : "" });
+  c.services.forEach(s => J.push({ date: s.date, icon: svc(s.kind)[1], text: svc(s.kind)[2], sub: [s.miles != null ? `${miles(s.miles)} mi` : "", s.cost ? money(s.cost) : "", s.note].filter(Boolean).join(" · ") }));
+  c.fuel.forEach(x => J.push({ date: x.date, icon: "⛽", text: `Fill-up, ${x.gal} gal`, sub: [`${miles(x.miles)} mi`, x.cost ? money(x.cost) : ""].filter(Boolean).join(" · ") }));
+  c.papers.forEach(x => { if (x.paid) J.push({ date: x.paid, icon: paper(x.kind)[1], text: `${x.name || paper(x.kind)[2]} paid`, sub: [x.cost ? money(x.cost) : "", x.expires ? `good to ${aDate(x.expires)}` : ""].filter(Boolean).join(" · ") }); });
+  c.extras.filter(x => x.status === "installed" && x.date).forEach(x => J.push({ date: x.date, icon: xcat(x.cat)[1], text: `${x.name} installed`, sub: [x.miles != null ? `${miles(x.miles)} mi` : "", x.cost ? money(x.cost) : ""].filter(Boolean).join(" · ") }));
+  (c.notes || []).forEach(n => J.push({ date: n.date, icon: "📝", text: n.text, sub: "", note: n.id }));
+  return J.filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x.date || "")).sort((a, b) => b.date.localeCompare(a.date));
+}
+// The build sheet as a printable page - the phone's Print / Share -> Save as PDF makes the file (v1.38).
+function buildSheetHtml(c, withVin) {
+  const e = esc, f = fuelStats(c), inst = c.extras.filter(x => x.status === "installed");
+  const svcRows = c.services.slice().sort((a, b) => b.date.localeCompare(a.date)).map(s => `<tr><td>${e(aDate(s.date))}</td><td>${e(svc(s.kind)[2])}</td><td>${s.miles != null ? miles(s.miles) : ""}</td><td>${e(s.note || "")}</td></tr>`).join("");
+  const exRows = inst.map(x => `<tr><td>${e(xcat(x.cat)[2])}</td><td>${e(x.name)}</td><td>${x.date ? e(aDate(x.date)) : ""}</td><td>${e(x.note || "")}</td></tr>`).join("");
+  const spec = [["Year / make / model", [c.year, c.make, c.model].filter(Boolean).join(" ")], ["Trim", c.trim], ["Engine", c.engine], ["Body", c.body],
+    ["Miles", c.miles != null ? miles(c.miles) : ""], ["VIN", withVin ? c.vin : ""], ["Average MPG (owner's log)", f.mpg ? f.mpg.toFixed(1) : ""]].filter(r => r[1]);
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${e(carName(c))} - build sheet</title>
+<style>body{font:14px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;color:#111;margin:28px;max-width:760px}h1{font-size:24px;margin:0}h2{font-size:15px;margin:22px 0 6px;border-bottom:2px solid #0b1f4d;padding-bottom:3px;color:#0b1f4d}
+.sub{color:#555;margin:2px 0 14px}table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:5px 6px;border-bottom:1px solid #ddd;vertical-align:top}th{font-size:12px;color:#555}
+.spec td:first-child{color:#555;width:38%}.foot{margin-top:26px;color:#777;font-size:12px}@media print{body{margin:12mm}}</style></head><body>
+<h1>🚗 ${e(carName(c))}</h1><p class="sub">${e([c.trim, c.engine].filter(Boolean).join(" · "))}</p>
+<h2>Vehicle</h2><table class="spec">${spec.map(r => `<tr><td>${e(r[0])}</td><td>${e(r[1])}</td></tr>`).join("")}</table>
+${svcRows ? `<h2>Service history</h2><table><tr><th>Date</th><th>Service</th><th>Miles</th><th>Note</th></tr>${svcRows}</table>` : ""}
+${exRows ? `<h2>Extras &amp; upgrades</h2><table><tr><th>Kind</th><th>Part</th><th>Installed</th><th>Note</th></tr>${exRows}</table>` : ""}
+${c.recalls && c.recalls.list.length ? `<h2>Safety recalls</h2><p>${c.recalls.list.length} recall${c.recalls.list.length === 1 ? "" : "s"} for this year, make and model (NHTSA, checked ${e(aDate(c.recalls.at))}); ${c.recalls.list.filter(r => c.recallDone[r.id]).length} marked fixed by the owner.</p>` : ""}
+<p class="foot">Kept with Auto Hub by Marvel Corp · ${e(aDate(today()))} · owner-entered records</p></body></html>`;
 }
 function addMonthsDay(day, n) {
   const d = parseDay(day), x = new Date(d.getFullYear(), d.getMonth() + Number(n), 1), last = new Date(x.getFullYear(), x.getMonth() + 1, 0).getDate();
@@ -213,14 +243,14 @@ function showCar(id, tab) {
   el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
     <div class="sheet-head"><h2>🚗 ${esc(carName(c))}</h2><button class="icon-btn" data-aclose="1" aria-label="Close">✕</button></div>
     <p class="sub" style="margin-top:-6px">${esc([c.trim, c.engine].filter(Boolean).join(" · ") || [c.year, c.make, c.model].filter(Boolean).join(" "))}</p>
-    <nav class="seg home-tabs">${AUTO_TABS.map(([k, i, l]) => `<button class="${AUTO_TAB === k ? "on" : ""}" data-atab="${k}">${i} ${l}</button>`).join("")}</nav>
+    <nav class="seg home-tabs auto-tabs">${AUTO_TABS.map(([k, i, l]) => `<button class="${AUTO_TAB === k ? "on" : ""}" data-atab="${k}">${i} ${l}</button>`).join("")}</nav>
     <div class="home-pane">${carPane(c)}</div><p class="fine" id="autoMsg">${AUTO_MSG ? "⚠️ " + esc(AUTO_MSG) : ""}</p></div>`;
   el.classList.remove("hidden");
 }
 function carPane(c) {
   const t = today();
   if (AUTO_TAB === "service") {
-    const due = AUTO_SERVICES.filter(s => s[3] || s[4]).map(s => serviceDue(c, s[0], t));
+    const due = AUTO_SERVICES.filter(s => intervalOf(c, s[0])[0] || intervalOf(c, s[0])[1]).map(s => serviceDue(c, s[0], t));
     const logged = due.filter(d => d.logged).sort((a, b) => (isFinite(a.days) ? a.days : 1e9) - (isFinite(b.days) ? b.days : 1e9)), never = due.filter(d => !d.logged);
     const hist = c.services.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12);
     return `${logged.map(d => { const s = svc(d.key); return `<div class="row"><span class="ci">${s[1]}</span><div class="grow"><b>${esc(s[2])}</b>
@@ -230,7 +260,13 @@ function carPane(c) {
         <div class="hpv-row"><input type="date" name="date" value="${t}" aria-label="Date"><input name="miles" inputmode="numeric" placeholder="Miles" value="${c.miles != null ? c.miles : ""}" aria-label="Miles">
         <input name="cost" inputmode="decimal" placeholder="Cost $" aria-label="Cost"></div>
         <input name="note" placeholder="Note or shop (optional)"><button class="btn sm">Log it</button></form>
-      <p class="fine">Typical intervals: miles or months, whichever comes first. Your owner's manual wins.</p>
+      <p class="fine">Typical intervals: miles or months, whichever comes first. Your owner's manual wins - set your own below.</p>
+      <details class="auto-every"><summary class="fine"><b>⚙ Your own intervals</b>${c.every && Object.keys(c.every).length ? ` · ${Object.keys(c.every).length} set` : ""}</summary>
+        ${c.every ? Object.entries(c.every).map(([k, v]) => `<div class="row"><span class="ci">${svc(k)[1]}</span><div class="grow">${esc(svc(k)[2])}<span class="sub">every ${v[0] ? `${miles(v[0])} mi` : ""}${v[0] && v[1] ? " or " : ""}${v[1] ? `${v[1]} months` : ""}${!v[0] && !v[1] ? "- not tracked" : ""}</span></div>
+          <button class="btn sm ghost" data-aeveryreset="${k}">Typical</button></div>`).join("") : ""}
+        <form class="qa-form" data-aevery="${c.id}"><select name="kind" aria-label="Service">${AUTO_SERVICES.filter(s => s[0] !== "other").map(([k, i, l, mi, mo]) => `<option value="${k}">${i} ${l} (typical ${mi ? miles(mi) + " mi" : ""}${mi && mo ? " / " : ""}${mo ? mo + " mo" : ""})</option>`).join("")}</select>
+          <div class="two"><input name="mi" inputmode="numeric" placeholder="Every … miles" aria-label="Every how many miles"><input name="mo" inputmode="numeric" placeholder="or … months" aria-label="Or every how many months"></div>
+          <button class="btn sm ghost">Save interval</button></form></details>
       ${hist.length ? `<p class="sub" style="margin-top:10px"><b>History</b></p>${hist.map(s => `<div class="row"><span class="ci">${svc(s.kind)[1]}</span><div class="grow">${esc(svc(s.kind)[2])}
         <span class="sub">${aDate(s.date)}${s.miles != null ? ` · ${miles(s.miles)} mi` : ""}${s.cost ? ` · ${money(s.cost)}` : ""}${s.note ? ` · ${esc(s.note)}` : ""}</span></div>
         <button class="icon-btn" data-adel="service:${s.id}" aria-label="Remove">✕</button></div>`).join("")}` : ""}`;
@@ -276,6 +312,15 @@ function carPane(c) {
           <input name="cost" inputmode="decimal" placeholder="Cost $" aria-label="Cost"><select name="status" aria-label="Installed or wishlist"><option value="installed">Installed</option><option value="wish">Wishlist</option></select></div>
         <input name="note" placeholder="Brand, shop, notes (optional)"><button class="btn sm">Add</button></form>`;
   }
+  if (AUTO_TAB === "journal") {
+    const items = carJournal(c);
+    let month = "";
+    return `<form class="qa-form" data-anote="${c.id}"><input name="text" placeholder="Add to the journal, e.g. Took it to the Hot Springs car show" required>
+        <div class="two"><input type="date" name="date" value="${t}" aria-label="Date"><button class="btn sm">Add note</button></div></form>
+      ${items.length ? items.map(x => { const m = x.date.slice(0, 7), head = m !== month ? `<p class="sub" style="margin:12px 0 4px"><b>${parseDay(x.date).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</b></p>` : ""; month = m;
+        return head + `<div class="row"><span class="ci">${x.icon}</span><div class="grow">${esc(x.text)}<span class="sub">${aDate(x.date)}${x.sub ? ` · ${esc(x.sub)}` : ""}</span></div>${x.note ? `<button class="icon-btn" data-adel="note:${x.note}" aria-label="Remove">✕</button>` : ""}</div>`; }).join("")
+        : `<p class="fine">Everything you log shows here as one timeline - services, fill-ups, papers, extras, and your own notes.</p>`}`;
+  }
   if (AUTO_TAB === "recalls") {
     if (AUTO_BUSY) return `<p class="fine">Checking the government recall list…</p>`;
     if (!c.recalls) return `<p class="fine" style="margin-top:0">Check for safety recalls on every ${esc([c.year, c.make, c.model].filter(Boolean).join(" ") || "car like yours")} (NHTSA, free).</p>
@@ -301,7 +346,7 @@ function carPane(c) {
     <p class="sub" style="margin:12px 0 4px"><b>📄 Build sheet</b></p>
     <p class="fine" style="margin-top:0">Everything about this car in one block of text - for a car club, a show, or a listing when you sell.</p>
     <label class="fine" style="display:flex;gap:8px;align-items:center;justify-content:flex-start;margin:4px 0 8px"><input type="checkbox" id="aVinShare" style="width:auto;flex:none;margin:0"><span>Include the VIN</span></label>
-    <div class="foot-actions"><button class="btn sm" data-asheet="${c.id}">Share build sheet</button></div>
+    <div class="foot-actions"><button class="btn sm" data-asheet="${c.id}">Share build sheet</button><button class="btn sm ghost" data-apdf="${c.id}">Save as PDF</button></div>
     <p class="sub" style="margin:12px 0 4px"><b>Details</b></p>
     <form class="qa-form" data-aedit="${c.id}">${carFormFields(c)}<button class="btn sm ghost">Save details</button></form>
     ${c.body || c.engine ? `<p class="fine">${esc([c.body, c.engine].filter(Boolean).join(" · "))}</p>` : ""}
@@ -335,7 +380,7 @@ async function carFromForm(data) {
 }
 function newCar(f) {
   const c = { id: uid(), vin: f.vin, year: f.year, make: f.make, model: f.model, trim: f.trim || "", engine: f.engine || "", body: f.body || "", nick: f.nick,
-    miles: null, services: [], fuel: [], odo: [], papers: [], extras: [], recallDone: {}, added: today() };
+    miles: null, services: [], fuel: [], odo: [], papers: [], extras: [], notes: [], recallDone: {}, added: today() };
   setMiles(c, f.miles, today()); return c;
 }
 
@@ -351,7 +396,7 @@ function autoClick(ds) {
     save(); showCar(c.id); render(); return true; }
   if (ds.adel && AUTO_OPEN) { const c = carById(AUTO_OPEN); if (!c) return true; const [kind, id] = ds.adel.split(":");
     if (kind === "service") c.services = c.services.filter(x => x.id !== id); else if (kind === "fuel") c.fuel = c.fuel.filter(x => x.id !== id);
-    else if (kind === "paper") c.papers = c.papers.filter(x => x.id !== id); else if (kind === "extra") c.extras = c.extras.filter(x => x.id !== id);
+    else if (kind === "paper") c.papers = c.papers.filter(x => x.id !== id); else if (kind === "extra") c.extras = c.extras.filter(x => x.id !== id); else if (kind === "note") c.notes = c.notes.filter(x => x.id !== id);
     save(); showCar(c.id); render(); return true; }
   if (ds.arenew && AUTO_OPEN) { const c = carById(AUTO_OPEN), x = c && c.papers.find(y => y.id === ds.arenew); if (!x) return true;
     const from = x.expires && x.expires > today() ? x.expires : today(); x.expires = addMonthsDay(from, paper(x.kind)[3]); x.paid = today();
@@ -363,6 +408,13 @@ function autoClick(ds) {
     if (navigator.share) navigator.share({ title: carName(c), text }).catch(() => {});
     else if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => toast("📋 Build sheet copied"), () => toast("Couldn't copy - try again"));
     return true; }
+  if (ds.apdf) { const c = carById(ds.apdf); if (!c) return true; const box = document.getElementById("aVinShare");
+    const w = window.open("", "_blank");
+    if (!w) { toast("Allow pop-ups for this page to save the PDF"); return true; }
+    w.document.write(buildSheetHtml(c, !!(box && box.checked))); w.document.close(); w.focus(); setTimeout(() => { try { w.print(); } catch (e) { /* the page can still be saved */ } }, 400);
+    return true; }
+  if (ds.aeveryreset && AUTO_OPEN) { const c = carById(AUTO_OPEN); if (!c || !c.every) return true; delete c.every[ds.aeveryreset];
+    save(); showCar(c.id, "service"); render(); toast("Back to the typical interval"); return true; }
   if (ds.armcar) { const c = carById(ds.armcar); if (!c) return true;
     if (AUTO_RM !== c.id && (c.services.length || c.fuel.length)) { AUTO_RM = c.id; setTimeout(() => { if (AUTO_RM === c.id) AUTO_RM = null; }, 5000);
       toast(`${carName(c)} has ${c.services.length} services and ${c.fuel.length} fill-ups. Tap Remove again to delete it.`); return true; }
@@ -412,6 +464,13 @@ function autoSubmit(f, data) {
   if (f.dataset.avalue) { const c = carById(f.dataset.avalue); if (!c) return true; const paid = num(data.paid);
     if (!paid || !/^\d{4}-\d{2}-\d{2}$/.test(data.boughtOn || "")) { AUTO_MSG = "Add what you paid and the day you bought it."; autoMsgShow(); return true; }
     c.paid = paid; c.boughtOn = data.boughtOn; AUTO_MSG = ""; save(); showCar(c.id); render(); toast("💲 Value worked out"); return true; }
+  if (f.dataset.aevery) { const c = carById(f.dataset.aevery); if (!c) return true;
+    const kind = AUTO_SERVICES.some(s => s[0] === data.kind && s[0] !== "other") ? data.kind : null, mi = toMiles(data.mi) || 0, mo = Math.min(240, Math.round(num(data.mo)));
+    if (!kind || (!mi && !mo)) { AUTO_MSG = "Type miles, months or both."; autoMsgShow(); return true; }
+    c.every = c.every && typeof c.every === "object" ? c.every : {}; c.every[kind] = [mi, mo]; AUTO_MSG = "";
+    save(); showCar(c.id, "service"); render(); toast(`${svc(kind)[1]} ${svc(kind)[2]}: every ${mi ? miles(mi) + " mi" : ""}${mi && mo ? " or " : ""}${mo ? mo + " months" : ""}`); return true; }
+  if (f.dataset.anote) { const c = carById(f.dataset.anote), text = String(data.text || "").trim(); if (!c || !text) return true;
+    c.notes.push({ id: uid(), date: day(data.date), text: text.slice(0, 200) }); save(); showCar(c.id, "journal"); render(); toast("📖 Added to the journal"); return true; }
   if (f.dataset.afuel) { const c = carById(f.dataset.afuel), m = toMiles(data.miles), gal = num(data.gal); if (!c) return true;
     if (m == null || !gal) { AUTO_MSG = "Add the odometer and the gallons."; autoMsgShow(); return true; }
     const d = day(data.date); c.fuel.push({ id: uid(), date: d, miles: m, gal, cost: num(data.cost) });

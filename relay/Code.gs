@@ -281,9 +281,10 @@ function proLookup(P, b, isMem, app) {
   if (!whop || !pid) return { error: "relay has no WHOP_API_KEY / WHOP_PRODUCT_ID yet" };
   const co = prop(P, "WHOP_COMPANY_ID") || WHOP_COMPANY;
   // v5: Cruise Hub accepts its own Cruise Hub Pass as well as Day Hub Pro. v6: Trip Hub the same with its Trip Hub Pass.
-  const PASSES = { cruisehub: ["CRUISE_PRODUCT_ID", "Cruise Hub Pass"], triphub: ["TRIP_PRODUCT_ID", "Trip Hub Pass"] };
+  // v14 (Auto Hub v1.38): Auto Hub accepts its own Auto Hub Pro ($2.99/mo) as well as Day Hub Pro.
+  const PASSES = { cruisehub: ["CRUISE_PRODUCT_ID", "Cruise Hub Pass"], triphub: ["TRIP_PRODUCT_ID", "Trip Hub Pass"], autohub: ["AUTO_PRODUCT_ID", "Auto Hub Pro", "prod_JZvlJLr71aVz4"] };   // 3rd = default id (public, on the checkout page); a Script Property overrides it
   const pass = PASSES[app] || null;
-  const cpid = pass ? prop(P, pass[0]) : null;
+  const cpid = pass ? (prop(P, pass[0]) || pass[2] || null) : null;
   const pids = cpid ? [pid, cpid] : [pid];
 
   // Whop answer cached 6 h (spares Whop's API); the phone list is checked every time.
