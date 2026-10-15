@@ -3767,7 +3767,7 @@ def t_v135_auto_hub(b, base):
     a.page.click('[data-aaddcar]')
     a.page.fill('#autoSheet form[data-anewcar] [name=year]', "2018"); a.page.fill('#autoSheet form[data-anewcar] [name=make]', "toyota"); a.page.fill('#autoSheet form[data-anewcar] [name=model]', "Camry")
     a.page.click('#autoSheet form[data-anewcar] button'); a.page.wait_for_function("S.garage.cars.length === 2")
-    check("2nd car typed by hand (AUTO_PASS off = no car limit), make tidied", a.js("S.garage.cars[1].make + ' ' + S.garage.cars[1].model") == "Toyota Camry")
+    check("2nd car typed by hand (AUTO_PASS off = no car limit), make tidied; blank miles = not set (never 0)", a.js("S.garage.cars[1].make + ' ' + S.garage.cars[1].model") == "Toyota Camry" and a.js("S.garage.cars[1].miles") is None and a.js("toMiles('')") is None and a.js("toMiles('0')") == 0)
     a.page.click('#autoSheet [data-aclose]')
     a.js("setOwnerSwitch('AUTO_PASS', true)"); a.page.click('[data-aaddcar]')
     t = a.page.inner_text("#autoSheet")
@@ -3776,6 +3776,51 @@ def t_v135_auto_hub(b, base):
     check("its own data only - Day Hub's storage untouched", a.js("!!localStorage.getItem('autohub.v1') && !localStorage.getItem('dayhub.v1')"))
     a.page.reload(); a.page.wait_for_function("typeof render === 'function' && document.querySelector('#hero .greet')")
     check("survives a reload: same garage", a.js("S.garage.cars.length") == 2 and "My Garage" in a.page.inner_text("#cards"))
+    a.close()
+
+
+def t_v136_auto_more(b, base):
+    print("\n[v1.36 Auto Hub release 2: papers + reminders, extras garage, cost to own, value, build sheet, VIN barcode]")
+    a = App(b, base, path=AUTOP)
+    a.page.fill('form[data-autosetup] [name=city]', "72032"); a.page.fill('form[data-autosetup] [name=vin]', "1FA6P8CF0L5100001"); a.page.fill('form[data-autosetup] [name=miles]', "30000")
+    a.page.click('form[data-autosetup] button'); a.page.wait_for_function("S.garage && S.garage.cars.length === 1")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    cid = a.js("S.garage.cars[0].id"); C = f"carById('{cid}')"
+    check("dates carry the year when it is not this year", "2025" in a.js("aDate('2025-01-01')") and "2026" not in a.js("aDate('2026-10-20')"))
+    a.page.click(f'[data-acar="{cid}"]'); a.page.click('#autoSheet [data-atab="papers"]')
+    a.page.select_option('#autoSheet form[data-apaper] [name=kind]', "insurance"); a.page.fill('#autoSheet form[data-apaper] [name=name]', "State Farm")
+    a.page.fill('#autoSheet form[data-apaper] [name=expires]', "2026-10-20"); a.page.fill('#autoSheet form[data-apaper] [name=cost]', "600")
+    a.page.click('#autoSheet form[data-apaper] button'); a.page.wait_for_timeout(100)
+    a.page.click('#autoSheet [data-aclose]')
+    w = a.page.inner_text("#cards")
+    check("insurance expiring in 19 days shows in Coming up and on the car", "State Farm" in w and "expires Oct 20" in w and "renew soon" in w, w[:400])
+    a.page.click(f'[data-acar="{cid}"][data-atabgo="papers"]'); a.page.click('#autoSheet [data-arenew]'); a.page.wait_for_timeout(100)
+    x = a.js(f"{C}.papers[0]")
+    check("Renewed: insurance moves on 6 months and drops off Coming up", x["expires"] == "2027-04-20" and x["paid"] == "2026-10-01" and a.js(f"papersSoon({C}, today()).length") == 0, x)
+    a.page.click('#autoSheet [data-atab="extras"]')
+    for name, cat, cost, st in (("Window tint", "exterior", "350", "installed"), ("Performance exhaust", "performance", "1800", "wish")):
+        a.page.fill('#autoSheet form[data-aextra] [name=name]', name); a.page.select_option('#autoSheet form[data-aextra] [name=cat]', cat)
+        a.page.fill('#autoSheet form[data-aextra] [name=cost]', cost); a.page.select_option('#autoSheet form[data-aextra] [name=status]', st)
+        a.page.click('#autoSheet form[data-aextra] button'); a.page.wait_for_timeout(100)
+    t = a.page.inner_text("#autoSheet")
+    check("extras: 1 installed, $350 invested, $1,800 wishlist", "$350" in t and "$1,800" in t and "Wishlist" in t, t[:300])
+    a.page.click('#autoSheet [data-ainstall]'); a.page.wait_for_timeout(100)
+    check("wishlist item marked Installed gets today's date and the car's miles", a.js(f"{C}.extras.filter(x => x.status === 'installed').length") == 2 and a.js(f"{C}.extras[1].date") == "2026-10-01" and a.js(f"{C}.extras[1].miles") == 30000)
+    a.js(f"(c => {{ c.services.push({{id: 'q1', kind: 'oil', date: '2026-09-01', miles: 29500, cost: 50}}); c.services.push({{id: 'q2', kind: 'brakes', date: '2024-01-01', miles: 9000, cost: 300}});"
+         f" c.fuel.push({{id: 'f1', date: '2026-09-20', miles: 29700, gal: 12, cost: 40}}); c.fuel.push({{id: 'f2', date: '2026-10-01', miles: 30000, gal: 10, cost: 42}}); save(); }})({C})")
+    o = a.js(f"ownCost({C}, today())")
+    check("cost to own, last 12 months: service $50 + fuel $82 + insurance $600 = $732 (the 2024 brake job is outside)", o["total"] == 732 and o["service"] == 50 and o["fuel"] == 82 and o["papers"] == 600, o)
+    a.page.click('#autoSheet [data-atab="overview"]')
+    a.page.fill('#autoSheet form[data-avalue] [name=paid]', "30000"); a.page.fill('#autoSheet form[data-avalue] [name=boughtOn]', "2022-10-01")
+    a.page.click('#autoSheet form[data-avalue] button'); a.page.wait_for_timeout(100)
+    v = a.js(f"carValue({C}, today())"); t = a.page.inner_text("#autoSheet")
+    check("value: $30,000 paid 4 years ago on a 2020 car = a lower, rounded estimate with a range, labelled rough", v and 12000 < v["est"] < 25000 and v["low"] < v["est"] < v["high"] and v["est"] % 100 == 0
+          and "What it's worth" in t and "not a dealer quote" in t and "Cost to own" in t, v)
+    sheet = a.js(f"buildSheet({C}, false)")
+    check("build sheet: car, service, extras, MPG; no VIN unless asked", "2020 Ford Mustang" in sheet and "Window tint" in sheet and "Oil change" in sheet and "MPG" in sheet
+          and "1FA6P8CF0L5100001" not in sheet and "1FA6P8CF0L5100001" in a.js(f"buildSheet({C}, true)"), sheet[:300])
+    check("VIN from a barcode: drops the leading I and anything not a VIN", a.js("vinFromCodes(['I1FA6P8CF0L5100001'])") == "1FA6P8CF0L5100001" and a.js("vinFromCodes(['hello'])") == "")
+    check("scan button only where the browser reads barcodes", a.js("('BarcodeDetector' in window) === !!document.querySelector('[data-avinscan]')"))
     a.close()
 
 
@@ -3984,7 +4029,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more):
             try:
                 t(b, base)
             except Exception as e:
