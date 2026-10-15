@@ -3821,6 +3821,9 @@ def t_v136_auto_more(b, base):
           and "1FA6P8CF0L5100001" not in sheet and "1FA6P8CF0L5100001" in a.js(f"buildSheet({C}, true)"), sheet[:300])
     check("VIN from a barcode: drops the leading I and anything not a VIN", a.js("vinFromCodes(['I1FA6P8CF0L5100001'])") == "1FA6P8CF0L5100001" and a.js("vinFromCodes(['hello'])") == "")
     check("scan button only where the browser reads barcodes", a.js("('BarcodeDetector' in window) === !!document.querySelector('[data-avinscan]')"))
+    a.js(f"(c => {{ c.papers.push({{id: 'p9', kind: 'registration', name: '', expires: '2026-09-25', cost: 0}}); c.recalls = {{at: today(), list: [{{id: 'R1', part: 'Fuel System', summary: 'x', remedy: 'y', park: true}}]}}; save(); }})({C})")
+    pl = a.js("pulseItems().map(x => x.text).join(' | ')")
+    check("Life pulse: expired registration + park-it recall + overdue brakes reach the pulse (and the morning brief)", "Registration for the 2020 Ford Mustang has expired" in pl and "park it" in pl and "Brake check is due" in pl, pl[:400])
     a.close()
 
 

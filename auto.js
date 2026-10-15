@@ -438,3 +438,15 @@ function vinFromCodes(codes) {
   for (const raw of codes) { const m = String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "").match(/[A-HJ-NPR-Z0-9]{17}/); if (m) return m[0]; }
   return "";
 }
+
+// v1.37 Life pulse (app.js pulseItems calls this in Auto Hub): what needs the owner now. Each line taps through to the car.
+function autoPulse(add) {
+  if (MODE !== "auto" || !autoSet()) return;
+  const t = today();
+  garage().cars.forEach(c => {
+    carDue(c, t).filter(d => d.late).forEach(d => add(6, svc(d.key)[1], `${svc(d.key)[2]} is due on the ${carName(c)} (${dueWords(d)})`, null));
+    c.papers.filter(x => x.expires && daysUntil(x.expires) <= 7).forEach(x => { const n = daysUntil(x.expires);
+      add(n < 0 ? 12 : 8, paper(x.kind)[1], `${x.name || paper(x.kind)[2]} for the ${carName(c)} ${n < 0 ? "has expired" : n === 0 ? "expires today" : `expires ${aDate(x.expires)}`}`, null); });
+    openRecalls(c).filter(r => r.park).forEach(r => add(15, "🚨", `Safety recall on the ${carName(c)}: ${r.part} - park it until the dealer fixes it`, null));
+  });
+}

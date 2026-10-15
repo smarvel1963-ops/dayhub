@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.36";
+const VERSION = "1.37";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -2542,6 +2542,7 @@ function pulseItems() {
   openReturns().filter(r => daysUntil(r.by) <= 2).forEach(r => add(daysUntil(r.by) < 0 ? 4 : 8, "↩️", `Return ${r.what} — ${retWhen(r)}${r.amount ? ` (${money(r.amount)})` : ""}`, "packages"));
   { const nx = payNext(); if (nx && daysUntil(nx) <= 3) { const pa = payAmount(), c = dueBetween(nx, payAfter(nx)), tot = c.reduce((x, o) => x + o.amt, 0);
       if (pa.amt && pa.amt < tot) add(10, "💵", `Next check comes up ${money(tot - pa.amt)} short of the bills it covers`, "payday"); } }
+  if (typeof autoPulse === "function") autoPulse(add);                  // v1.37 Auto Hub: overdue service, papers running out, park-it recalls
   return out.sort((a, b) => b.pts - a.pts);
 }
 function pulseScore() { return Math.max(0, 100 - pulseItems().reduce((n, x) => n + x.pts, 0)); }

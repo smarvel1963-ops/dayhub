@@ -1,6 +1,9 @@
 {
- "version": "1.36",
+ "version": "1.37",
  "notes": {
+  "1.37": [
+   "🔧 Behind-the-scenes: Auto Hub reminders."
+  ],
   "1.36": [
    "🔧 Behind-the-scenes: more Auto Hub groundwork."
   ],
