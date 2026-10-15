@@ -1,6 +1,9 @@
 {
- "version": "1.32",
+ "version": "1.33",
  "notes": {
+  "1.33": [
+   "🔧 Behind-the-scenes: groundwork for a new Home Hub feature."
+  ],
   "1.32": [
    "🔒 Behind-the-scenes safety: the trip map code is checked before it runs, and the offline copy never saves an error page."
   ],

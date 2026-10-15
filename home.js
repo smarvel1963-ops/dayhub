@@ -105,6 +105,7 @@ function homeDashHtml() {
   return `<section class="card home-dash"><h3><span class="ci">🏡</span>${esc(typeName.replace(/^\S+\s/, "My "))}<span class="meta">Property overview</span></h3>
     <div class="body"><div class="home-stats">${tile(sp.length, "Rooms & spaces")}${tile(items, "Items tracked")}${tile(tasks, "Open tasks", soon ? `${soon} due soon` : "")}</div>
     <p class="sub" style="margin:12px 0 6px"><b>⏰ Coming up</b></p>${upHtml}</div></section>`
+    + (typeof hpvCardHtml === "function" ? hpvCardHtml() : "")
     + HOME_AREAS.map(([area, label]) => homeAreaHtml(area, label)).join("");
 }
 function homeAreaHtml(area, label) {

@@ -23,6 +23,7 @@ const SWITCHES = Object.freeze({
   CRUISE_PASS: true,  // ON 2026-10-07 (Scott: "go"). Whop prod_D1Rb57NYoYxR5 + relay v5 (deploy v10) live; unlock tested OK with the 10/7 test buy.
   TRIP_PASS: true,    // ON 2026-10-11 (Scott: "get it completed and listed today"). Whop prod_xFJeMtq6FYVgk + relay v6 (deploy v11) + TRIP_PRODUCT_ID live.
   AI_CREDITS: true,   // ON 2026-10-11 (Scott "ok"). Whop packs visible, relay v8 (deploy 13) counts PAYMENTS; marvelcalls test buy = 200 questions.
+  HOME_VALUE: false,  // Home Hub "Hub Predicted Value" card (homevalue.js, Scott 10/14). Waits on Scott trying it on his phone (Owner switches).
 });
 
 // Scott approved 10/3: $4.99/mo or $29.99/yr, contact smarvel1963@gmail.com.

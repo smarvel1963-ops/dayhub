@@ -24,6 +24,7 @@ don't see "Connect Gmail" (see GMAIL below).
 | `CRUISE_PASS` | Cruise Hub sells its own **Cruise Hub Pass, $9.99/year** (every cruise that year). Day Hub Pro still unlocks Cruise Hub | The Whop product + relay v5 + `CRUISE_PRODUCT_ID` (step 3b) |
 | `TRIP_PASS` | Trip Hub sells its own **Trip Hub Pass, $9.99/year** (every trip that year). Day Hub Pro still unlocks Trip Hub; the AI stays Day Hub Pro | Whop prod_xFJeMtq6FYVgk + relay v6 + `TRIP_PRODUCT_ID` (step 3c) |
 | `AI_CREDITS` | **Hub AI Credits** in every hub: 100 questions $2.99 / 500 $9.99, one-time, never expire; Day Hub Pro's free questions come first | Whop packs prod_PZs1nowbQqbau (100) + prod_8ZVor6HNWoWLP (500), HIDDEN; relay v7 (deploy v12) + `AI_CREDIT_PRODUCTS` (step 3d) |
+| `HOME_VALUE` | Home Hub's **💲 Hub Predicted Value** card (v1.33, `homevalue.js`): ZIP + sq ft + beds/baths/year/condition → a value and likely range from Redfin Data Center ZIP sales (`hpv/`, rebuilt by `python tools/build_hpv_data.py`; data through May 2026). 🤖 Explain uses the AI (credits) | Scott trying it on his phone (Owner switches → "Home Hub: Hub Predicted Value") and saying the number looks right |
 
 ## How to flip a switch
 - **Try it on your phone only (safe):** open Day Hub → ⚙ → scroll to the bottom → tap the

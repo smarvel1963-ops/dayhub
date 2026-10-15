@@ -625,7 +625,7 @@ const HUBS = [
   { id: "dayhub", name: "Day Hub", icon: "☀️", what: "Your whole day on one screen — schedule, weather, to-dos, bills.", url: BASE_URL },
   { id: "cruisehub", name: "Cruise Hub", icon: "🚢", what: "Countdown, payments, port days and all-aboard alarms.", url: CRUISE_URL },
   { id: "triphub", name: "Trip Hub", icon: "✈️", what: "Flights, hotels and road trips.", url: TRIP_URL },   // v1.23: listed 10/11 (Trip Hub Pass on sale) - no longer COMING SOON
-  { id: "homehub", name: "Home Hub", icon: "🏡", what: "Every room, outdoor space and system — items, tasks, notes.", url: HOMEHUB_URL, soon: true },   // v1.25 soon: until Scott says Home Hub is ready
+  { id: "homehub", name: "Home Hub", icon: "🏡", what: "Every room, outdoor space and system — items, tasks, notes.", url: HOMEHUB_URL },   // v1.33: listed 10/14 (Scott: "complete home hubs") - no longer COMING SOON
 ];
 function hubRows() {
   const sd = sibData();
@@ -1338,6 +1338,7 @@ document.addEventListener("submit", e => {
   const f = e.target; e.preventDefault();
   const data = Object.fromEntries(new FormData(f));
   if (f.id === "qaForm") { submitQA(f); return; }
+  if (typeof hpvSubmit === "function" && hpvSubmit(f, data)) return;       // v1.33 homevalue.js
   if (typeof homeSubmit === "function" && homeSubmit(f, data)) return;     // v1.25 home.js
   if (f.dataset.setup) {
     S.name = (data.name || "").trim(); S.city = (data.city || "").trim(); S.pack = data.pack || "general";
@@ -1521,6 +1522,7 @@ document.addEventListener("click", e => {
   if (typeof sceneClick === "function" && sceneClick(ds)) return;          // v1.10 scenes.js
   if (ds.setjump) { const el = document.getElementById(ds.setjump); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }   // v0.63
   if (typeof shellClick === "function" && shellClick(ds)) return;           // v0.58 shell.js tabs
+  if (typeof hpvClick === "function" && hpvClick(ds)) return;                // v1.33 homevalue.js
   if (typeof homeClick === "function" && homeClick(ds)) return;              // v1.25 home.js
   if (typeof cruiseClick === "function" && cruiseClick(ds)) return;          // v0.56 cruise.js
   if (ds.cd) { showReady(); return; }
@@ -1789,7 +1791,7 @@ function unlockPro(buyer) {
 // phone only, to try a feature before it goes on for everyone (features.js).
 let OWNER_OPEN = false, VER_TAPS = [];
 const OWNER_ROWS = [["PRO_GATE", "Pro gate — free vs Pro"], ["AI_PUBLIC", "AI for Whop-key holders"], ["GMAIL", "Gmail → plans"],
-  ["STORE", "Google Play link"], ["CRUISE_PASS", "Cruise Hub Pass ($9.99/yr)"], ["TRIP_PASS", "Trip Hub Pass ($9.99/yr)"], ["AI_CREDITS", "Hub AI Credits (packs)"], ["OWNER", "Count this phone as Pro"]];
+  ["STORE", "Google Play link"], ["CRUISE_PASS", "Cruise Hub Pass ($9.99/yr)"], ["TRIP_PASS", "Trip Hub Pass ($9.99/yr)"], ["AI_CREDITS", "Hub AI Credits (packs)"], ["HOME_VALUE", "Home Hub: Hub Predicted Value"], ["OWNER", "Count this phone as Pro"]];
 // v0.46 HUB FAMILY (Scott 10/4): separate apps that work together. The steps
 // are in the box (Scott 10/2: every setting carries its own easy setup).
 function drawFamBox() {

@@ -1213,7 +1213,7 @@ def t_v039_short_home(b, base):
 def t_v040_switches(b, base):
     print("\n[v0.40 switchboard: everything OFF by default, owner switches, Pro key, legal pages, manifest]")
     a = App(b, base); setup(a)
-    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), TRIP_PASS + AI_CREDITS on (10/11), GMAIL + STORE OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && SWITCHES.AI_CREDITS === true && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS,AI_CREDITS'"))
+    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), TRIP_PASS + AI_CREDITS on (10/11), GMAIL + STORE OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && SWITCHES.AI_CREDITS === true && !SWITCHES.HOME_VALUE && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS,AI_CREDITS,HOME_VALUE'"))
     check("plan: approved price, contact, Whop checkout", a.js("PLAN.MONTHLY") == "$4.99/month" and a.js("PLAN.YEARLY") == "$29.99/year" and a.js("PLAN.CONTACT_EMAIL") == "smarvel1963@gmail.com" and a.js("PLAN.WHOP_CHECKOUT_URL") == "https://whop.com/commander-marvel-por-picks/day-hub-pro")
     check("PRO_GATE on, free phone: Pro features locked, free ones open", a.js("!['ai','gcal','mail','sync'].some(can) && ['reminders','budget'].every(can)"))
     a.page.click("#settingsBtn")
@@ -1540,7 +1540,7 @@ def t_v050_countdown_family(b, base):
     # hub family card: last, lists the others (Trip Hub listed 10/11 - no COMING SOON)
     check("Hub family card is the last card", a.js("cardOrder().slice(-1)[0]") == "family")
     f = a.card("family")
-    check("family card: Day Hub + Trip Hub with Open, only Home Hub coming soon (v1.25), not itself", "Day Hub" in f and "Trip Hub" in f and f.count("COMING SOON") == 1 and "Home Hub" in f and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/triphub/\"]')") and "Cruise Hub" not in f.split("Day Hub")[0] and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/dayhub/\"]')"), f[:300])
+    check("family card: Day Hub + Trip Hub + Home Hub with Open (Home Hub listed v1.33), nothing coming soon, not itself", "Day Hub" in f and "Trip Hub" in f and f.count("COMING SOON") == 0 and "Home Hub" in f and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/homehub/\"]')") and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/triphub/\"]')") and "Cruise Hub" not in f.split("Day Hub")[0] and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/dayhub/\"]')"), f[:300])
     a.close()
     a = App(b, base)
     setup(a)
@@ -3670,8 +3670,48 @@ def t_v125_home_hub(b, base):
     a = App(b, base)
     setup(a)
     f = a.js("hubRows()")
-    check("Day Hub lists Home Hub as COMING SOON (no Open button yet)", "Home Hub" in f and "COMING SOON" in f and 'href="' + a.js("HOMEHUB_URL") + '"' not in f)
+    check("Day Hub lists Home Hub with an Open button (v1.33, no longer COMING SOON)", "Home Hub" in f and "COMING SOON" not in f and 'href="' + a.js("HOMEHUB_URL") + '"' in f, f[:400])
     check("Day Hub never runs home.js (not loaded, its screen unchanged)", a.js("typeof homeClick") == "undefined" and a.js("MODE") == "day")
+    a.close()
+
+
+def t_v133_home_value(b, base):
+    print("\n[v1.33 Home Hub: Hub Predicted Value card - behind HOME_VALUE (OFF), priced from Redfin ZIP data]")
+    a = App(b, base, path=HOMEP)
+    shard = {"72032": {"all": [150, 300000, 40, 0.06, "2026-05-31"], "sfr": [400, 900000, 1, 0, "2025-09-30"], "condo": [160, 250000, 5, 0.0, "2026-05-31"]},
+             "72034": {"all": [130, 260000, 20, 0.02, "2026-04-30"]}}
+    a.ctx.route("**/dayhub/hpv/720.json", lambda r: r.fulfill(json=shard))     # ctx, not page: the service worker makes the fetch
+    a.ctx.route("**/dayhub/hpv/999.json", lambda r: r.fulfill(json={}))   # an area with no rows
+    a.page.fill('form[data-homesetup] [name=city]', "72032"); a.page.click('form[data-homesetup] button')
+    a.page.wait_for_function("S.house && S.house.spaces.length")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    check("switch OFF: no Hub Predicted Value card", not a.js("!!document.getElementById('hpvCard')") and "Predicted Value" not in a.page.inner_text("#cards"))
+    e = a.js("hpvEstimate([150, 300000, 40, 0.06, '2026-05-31'], {sqft: 2000, cond: 'avg'}, false, '2026-10-14')")
+    check("math: $150/sq ft x 2,000 typical-size, +6%/yr for 5 months = $308k, range +/-8%", e["est"] == 308000 and e["low"] == 283000 and e["high"] == 332000 and e["size"] == 1, e)
+    e = a.js("hpvEstimate([150, 300000, 4, 0, '2026-05-31'], {sqft: 4000, cond: 'work'}, false, '2026-05-31')")
+    check("big house costs less per sq ft (capped -15%), needs work -12%, few sales = +/-15%", abs(e["size"] - 2 ** -0.2) < 1e-9 and e["shape"] == 0.88 and e["spread"] == 0.15, e)
+    a.js("setOwnerSwitch('HOME_VALUE', true); render()")
+    w = a.page.inner_text("#hpvCard")
+    check("switch ON (this phone): the card asks for the home, ZIP prefilled from setup", "Hub Predicted Value" in w and a.js("document.querySelector('form[data-hpvform] [name=zip]').value") == "72032", w[:200])
+    a.page.fill('form[data-hpvform] [name=sqft]', "2000"); a.page.click('form[data-hpvform] button')
+    a.page.wait_for_function("S.house.value && S.house.value.est")
+    v = a.js("S.house.value")
+    want = a.js("hpvEstimate([150, 300000, 40, 0.06, '2026-05-31'], {sqft: 2000, cond: 'avg'}, false, today()).est")
+    w = a.page.inner_text("#hpvCard")
+    check("house skips a thin, old single-family row (1 sale) and uses the ZIP's all-homes row and shows the value + range + source", v["est"] == want and not v["area"] and "$" + format(want, ",") in w and "Likely range" in w and "Redfin" in w and "not an appraisal" in w, (v, w[:300]))
+    a.page.click('[data-hpv="edit"]'); a.page.fill('form[data-hpvform] [name=zip]', "72099"); a.page.click('form[data-hpvform] button')
+    a.page.wait_for_function("S.house.value.zip === '72099'")
+    check("ZIP not in the data = wider-area blend, range +/-20%, said on screen", a.js("S.house.value.area && S.house.value.spread === 0.2") and "wider area" in a.page.inner_text("#hpvCard"))
+    a.page.click('[data-hpv="edit"]'); a.page.fill('form[data-hpvform] [name=zip]', "99999"); a.page.click('form[data-hpvform] button')
+    a.page.wait_for_function("!HPV_BUSY"); a.page.wait_for_timeout(50)
+    check("no data for the area = a plain message, the old value is kept", "No recent home sales data for 99999" in a.page.inner_text("#hpvCard") or a.js("S.house.value.zip") == "72099")
+    a.page.click('[data-hpv="cancel"]') if a.js("!!document.querySelector('[data-hpv=cancel]')") else None
+    a.page.click('[data-hpv="explain"]'); a.page.wait_for_timeout(50)
+    check("Explain with no AI = points to Hub AI Credits, nothing sent", "Hub AI Credits" in a.page.inner_text("#hpvCard"))
+    a.page.click('[data-hpv="edit"]'); a.page.fill('form[data-hpvform] [name=sqft]', "12"); a.page.click('form[data-hpvform] button'); a.page.wait_for_timeout(50)
+    check("bad square feet is refused with a reason", "between 300 and 20,000" in a.page.inner_text("#hpvCard"))
+    a.page.reload(); a.page.wait_for_function("typeof render === 'function' && document.querySelector('#hero .greet')")
+    check("value survives a reload", a.js("S.house.value.zip") == "72099" and "Hub Predicted Value" in a.page.inner_text("#cards"))
     a.close()
 
 
@@ -3880,7 +3920,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value):
             try:
                 t(b, base)
             except Exception as e:

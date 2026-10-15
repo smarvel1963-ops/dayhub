@@ -717,3 +717,9 @@ body.shell .bubbles { margin: 10px 0 12px; gap: 8px 6px; }
 .home-tabs button.on { outline: 2px solid var(--accent, #ffd166); }
 .home-notes { width: 100%; box-sizing: border-box; border-radius: 12px; padding: 10px; font: inherit; background: rgba(255,255,255,.06); color: inherit; border: 1px solid rgba(255,255,255,.15); }
 .home-up { width: 100%; text-align: left; background: none; border: 0; color: inherit; font: inherit; cursor: pointer; }
+
+/* v1.33 Hub Predicted Value (homevalue.js) */
+.hpv-big { font-size: 2.3rem; font-weight: 800; line-height: 1.1; margin: 4px 0 0; letter-spacing: -.01em; }
+.hpv-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.hpv-row input { min-width: 0; }
+.hpv-ai { background: rgba(255,255,255,.06); border-radius: 12px; padding: 10px 12px; margin-top: 10px; font-size: .92rem; line-height: 1.45; }
