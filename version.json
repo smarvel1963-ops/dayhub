@@ -1,6 +1,10 @@
 {
- "version": "1.38",
+ "version": "1.39",
  "notes": {
+  "1.39": [
+   "🚗 Auto Hub: tap 💡 and ask about your cars - \"when did I last change the oil?\", \"what's due this month?\" (uses AI credits).",
+   "🛣️ Auto Hub: what a trip will cost in gas, from your car's own MPG (Fuel tab)."
+  ],
   "1.38": [
    "🚗 New in the Hub family: Auto Hub. Your cars, service due by miles or months, fuel and MPG, free recall checks, insurance and registration reminders, extras, a journal and a build sheet. Find it in ⚙ → Hub family."
   ],

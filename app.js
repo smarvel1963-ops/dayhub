@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.38";
+const VERSION = "1.39";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -2600,8 +2600,9 @@ function aiContext() {
   out.futureMe = S.future.map(f => ({ saved: f.created.slice(0, 10), note: f.text }));
   { const tr = curTrip(); if (tr) out.trip = tripContext(tr); }          // v0.53: the trip / cruise, for Ask Cruise Hub
   if (S.prefs && !S.prefs.skipped) out.travelStyle = { travelingWith: S.prefs.with || undefined, loves: S.prefs.loves, top3: S.prefs.top3 };   // v0.60
-  let j = JSON.stringify(out);
-  if (j.length > 14000) { out.notes = out.notes.slice(-5); out.schedule = out.schedule.filter(x => x.day <= d(7)); j = JSON.stringify(out); }
+  const pack = () => JSON.stringify(MODE === "auto" && typeof autoContext === "function" ? { garage: autoContext(), ...out } : out);   // v1.39 Ask Auto Hub
+  let j = pack();
+  if (j.length > 14000) { out.notes = out.notes.slice(-5); out.schedule = out.schedule.filter(x => x.day <= d(7)); j = pack(); }
   return j.slice(0, 15000);
 }
 // v0.53 (V1 step 2, Ask Cruise Hub): the current trip as FACTS for the AI - dates, ports, all-aboard
@@ -2660,7 +2661,7 @@ async function askDayHub(q) {
   q = String(q || "").trim(); if (!q || ASK_BUSY) return;
   ASK_BUSY = true; ASK_LOG.unshift({ q, a: "…thinking" }); showAsk();
   // Cruise Hub: the relay's "ask" job answers only from the JSON; the trip block holds the cruise facts.
-  const lead = TRAVEL ? `(Asked in ${APP_NAME} - answer about my ${TW}, using the "trip" section first.) ` : "";
+  const lead = TRAVEL ? `(Asked in ${APP_NAME} - answer about my ${TW}, using the "trip" section first.) ` : MODE === "auto" ? `(Asked in Auto Hub - answer about my cars, using the "garage" section first. Say plainly when something isn't logged.) ` : "";
   try { ASK_LOG[0].a = String((await aiCall("ask", `QUESTION: ${lead}${q}\n\nMY PLANNER (JSON):\n${aiContext()}`)).text || "").trim() || `I couldn't find that in your ${TRAVEL ? TW : "planner"}.`; }
   catch (e) { ASK_LOG[0].a = `⚠️ ${/passphrase/.test(e.message) ? "The AI helper's passphrase changed — set it again in ⚙" : "Couldn't reach the AI helper right now. Try again in a minute."}`; }
   ASK_LOG = ASK_LOG.slice(0, 6); ASK_BUSY = false; showAsk();

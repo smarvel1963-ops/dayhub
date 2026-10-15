@@ -3863,6 +3863,19 @@ def t_v138_auto_finish(b, base):
     a.page.wait_for_timeout(200)
     pb = a.page.inner_text("#proBox") if a.js("!!document.getElementById('proBox')") else ""
     check("Auto Hub Pro box: its own name, $2.99/month, 30 days free, Day Hub Pro also counts", "Auto Hub Pro" in pb and "$2.99/month" in pb and "30 days free" in pb and "Day Hub Pro" in pb, pb[:300])
+    g = a.js("JSON.parse(aiContext())")
+    first = list(g.keys())[0]; car = g["garage"][0]
+    check("Ask Auto Hub: the garage goes first in what the AI reads - due, history, fuel, extras; no VIN", first == "garage" and car["car"] == "2020 Ford Mustang" and car["milesNow"] == 30000
+          and any(x["what"] == "Oil change" and x["note"] == "Jiffy Lube" for x in car["serviceHistory"]) and car["extras"][0]["name"] == "Window tint" and "1FA6P8CF0L5100001" not in a.js("aiContext()"), car)
+    e = a.js("tripCost(250, 3.20, 25, true)")
+    check("trip cost: 250 mi each way at 25 MPG and $3.20 = 20 gallons, $64.00", e["miles"] == 500 and abs(e["gallons"] - 20) < 1e-9 and abs(e["cost"] - 64) < 1e-9, e)
+    a.page.click("[data-close=sheet]") if a.js("!document.getElementById('sheet').classList.contains('hidden')") else None
+    a.page.click(f'[data-acar="{cid}"]'); a.page.click('#autoSheet [data-atab="fuel"]')
+    a.js("document.querySelector('#autoSheet details.auto-every').open = true")
+    a.page.fill('#autoSheet form[data-atrip] [name=miles]', "100"); a.page.fill('#autoSheet form[data-atrip] [name=price]', "3.00"); a.page.fill('#autoSheet form[data-atrip] [name=mpg]', "20")
+    a.page.click('#autoSheet form[data-atrip] button'); a.page.wait_for_timeout(100)
+    t = a.page.inner_text("#autoSheet")
+    check("trip box (no MPG logged yet): 100 mi round trip at 20 MPG, $3.00 = $30.00, gas price remembered", "$30.00" in t and "200 miles" in t and a.js("S.garage.gas") == 3, t[:300])
     a.js("setOwnerSwitch('AUTO_PASS', false)")
     a.close()
 

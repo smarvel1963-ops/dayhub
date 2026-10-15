@@ -33,7 +33,7 @@ const paper = k => AUTO_PAPERS.find(x => x[0] === k) || AUTO_PAPERS[AUTO_PAPERS.
 const xcat = k => AUTO_EXTRA_CATS.find(x => x[0] === k) || AUTO_EXTRA_CATS[AUTO_EXTRA_CATS.length - 1];
 // A date with its year when it is not this year ("Jan 1, 2025").
 const aDate = d => d ? prettyDate(d) + (String(d).slice(0, 4) !== today().slice(0, 4) ? ", " + String(d).slice(0, 4) : "") : "";
-let AUTO_OPEN = null, AUTO_TAB = "overview", AUTO_BUSY = false, AUTO_MSG = "";
+let AUTO_OPEN = null, AUTO_TAB = "overview", AUTO_BUSY = false, AUTO_MSG = "", AUTO_TRIP = null;
 
 const svc = k => AUTO_SERVICES.find(s => s[0] === k) || AUTO_SERVICES[AUTO_SERVICES.length - 1];
 function garage() {
@@ -148,6 +148,30 @@ ${svcRows ? `<h2>Service history</h2><table><tr><th>Date</th><th>Service</th><th
 ${exRows ? `<h2>Extras &amp; upgrades</h2><table><tr><th>Kind</th><th>Part</th><th>Installed</th><th>Note</th></tr>${exRows}</table>` : ""}
 ${c.recalls && c.recalls.list.length ? `<h2>Safety recalls</h2><p>${c.recalls.list.length} recall${c.recalls.list.length === 1 ? "" : "s"} for this year, make and model (NHTSA, checked ${e(aDate(c.recalls.at))}); ${c.recalls.list.filter(r => c.recallDone[r.id]).length} marked fixed by the owner.</p>` : ""}
 <p class="foot">Kept with Auto Hub by Marvel Corp · ${e(aDate(today()))} · owner-entered records</p></body></html>`;
+}
+// v1.39 Ask Auto Hub: the garage as FACTS for the AI (app.js aiContext puts this first). No VIN, no policy numbers.
+function autoContext() {
+  if (!autoSet()) return [];
+  const t = today();
+  return garage().cars.map(c => { const f = fuelStats(c), o = ownCost(c, t), v = carValue(c, t);
+    return { car: carName(c), year: c.year, make: c.make, model: c.model, trim: c.trim || undefined, engine: c.engine || undefined,
+      milesNow: c.miles, milesPerDayDriven: Math.round(milesPerDay(c)),
+      due: carDue(c, t).map(d => ({ service: svc(d.key)[2], dueAtMiles: d.dueMiles, dueBy: d.dueDate, overdue: !!d.late, lastDone: d.last.date })),
+      neverLogged: AUTO_SERVICES.filter(x => (intervalOf(c, x[0])[0] || intervalOf(c, x[0])[1]) && !c.services.some(y => y.kind === x[0])).map(x => x[2]),
+      ownIntervals: c.every || undefined,
+      serviceHistory: c.services.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 15).map(x => ({ date: x.date, what: svc(x.kind)[2], miles: x.miles, cost: x.cost || undefined, note: x.note || undefined })),
+      fuel: { avgMpg: f.mpg ? +f.mpg.toFixed(1) : null, costPerMile: f.perMile ? +f.perMile.toFixed(3) : null, last30Days: +f.month.toFixed(2), fillUps: f.fills },
+      papers: c.papers.map(x => ({ what: paper(x.kind)[2], name: x.name || undefined, expires: x.expires || null })),
+      extras: c.extras.map(x => ({ name: x.name, status: x.status, cost: x.cost || undefined, installed: x.date || undefined })),
+      openRecalls: openRecalls(c).map(r => ({ part: r.part, parkIt: !!r.park })), recallsChecked: c.recalls ? c.recalls.at : null,
+      costToOwnLast12Months: o.total ? +o.total.toFixed(2) : 0, roughValue: v ? { estimate: v.est, low: v.low, high: v.high, from: "what the owner paid" } : null,
+      journal: (c.notes || []).slice(-5).map(n => ({ date: n.date, note: n.text })) }; });
+}
+// v1.39 Road Trip Center, step 1: fuel cost for a trip from this car's own MPG (or a typed one until the log has it).
+function tripCost(milesOneWay, price, mpg, round) {
+  if (!(milesOneWay > 0) || !(price > 0) || !(mpg > 0)) return null;
+  const miles = milesOneWay * (round ? 2 : 1), gallons = miles / mpg;
+  return { miles, gallons, cost: gallons * price };
 }
 function addMonthsDay(day, n) {
   const d = parseDay(day), x = new Date(d.getFullYear(), d.getMonth() + Number(n), 1), last = new Date(x.getFullYear(), x.getMonth() + 1, 0).getDate();
@@ -273,7 +297,15 @@ function carPane(c) {
   }
   if (AUTO_TAB === "fuel") {
     const f = fuelStats(c), hist = c.fuel.slice().sort((a, b) => b.miles - a.miles).slice(0, 10), mpgOf = id => (f.rows.find(r => r.id === id) || {}).mpg;
-    return `<div class="home-stats"><div class="home-stat"><b>${f.mpg ? f.mpg.toFixed(1) : "–"}</b><span>avg MPG</span></div>
+    const tr = AUTO_TRIP && AUTO_TRIP.car === c.id ? AUTO_TRIP : null;
+    const tripBox = `<details class="auto-every" ${tr ? "open" : ""}><summary class="fine"><b>🛣️ What will a trip cost in gas?</b></summary>
+      <form class="qa-form" data-atrip="${c.id}"><div class="hpv-row"><input name="miles" inputmode="numeric" placeholder="Miles one way" value="${tr ? tr.oneWay : ""}" aria-label="Trip miles one way" required>
+        <input name="price" inputmode="decimal" placeholder="$ a gallon" value="${garage().gas || ""}" aria-label="Gas price a gallon" required>
+        ${f.mpg ? `<span class="fine" style="align-self:center">${f.mpg.toFixed(1)} MPG</span>` : `<input name="mpg" inputmode="decimal" placeholder="MPG" value="${tr && tr.mpg ? tr.mpg : ""}" aria-label="Miles per gallon" required>`}</div>
+        <label class="fine" style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" name="round" style="width:auto;flex:none;margin:0" ${!tr || tr.round ? "checked" : ""}><span>Round trip</span></label>
+        <button class="btn sm">Work it out</button></form>
+      ${tr && tr.res ? `<div class="row"><div class="grow"><b>${money(tr.res.cost)}</b><span class="sub">${miles(tr.res.miles)} miles · ${tr.res.gallons.toFixed(1)} gallons at ${money(tr.price)} · ${tr.mpg.toFixed(1)} MPG${f.mpg ? " (your log)" : ""}</span></div></div>` : ""}</details>`;
+    return `${tripBox}<div class="home-stats"><div class="home-stat"><b>${f.mpg ? f.mpg.toFixed(1) : "–"}</b><span>avg MPG</span></div>
         <div class="home-stat"><b>${f.perMile ? "$" + f.perMile.toFixed(2) : "–"}</b><span>fuel per mile</span></div><div class="home-stat"><b>${money(f.month).replace(/\.00$/, "")}</b><span>last 30 days</span></div></div>
       ${f.fills < 2 ? `<p class="fine">MPG shows from your 2nd fill-up. Fill the tank all the way each time.</p>` : ""}
       <form class="qa-form" data-afuel="${c.id}"><div class="hpv-row"><input name="miles" inputmode="numeric" placeholder="Odometer" aria-label="Odometer" required>
@@ -471,6 +503,12 @@ function autoSubmit(f, data) {
     save(); showCar(c.id, "service"); render(); toast(`${svc(kind)[1]} ${svc(kind)[2]}: every ${mi ? miles(mi) + " mi" : ""}${mi && mo ? " or " : ""}${mo ? mo + " months" : ""}`); return true; }
   if (f.dataset.anote) { const c = carById(f.dataset.anote), text = String(data.text || "").trim(); if (!c || !text) return true;
     c.notes.push({ id: uid(), date: day(data.date), text: text.slice(0, 200) }); save(); showCar(c.id, "journal"); render(); toast("📖 Added to the journal"); return true; }
+  if (f.dataset.atrip) { const c = carById(f.dataset.atrip); if (!c) return true;
+    const st = fuelStats(c), mpg = st.mpg || num(data.mpg), oneWay = toMiles(data.miles) || 0, price = num(data.price), round = !!data.round;
+    const res = tripCost(oneWay, price, mpg, round);
+    if (!res) { AUTO_MSG = "Add the miles, the gas price" + (st.mpg ? "." : " and the MPG."); autoMsgShow(); return true; }
+    garage().gas = price; AUTO_TRIP = { car: c.id, oneWay, price, mpg, round, res }; AUTO_MSG = "";
+    save(); showCar(c.id, "fuel"); return true; }
   if (f.dataset.afuel) { const c = carById(f.dataset.afuel), m = toMiles(data.miles), gal = num(data.gal); if (!c) return true;
     if (m == null || !gal) { AUTO_MSG = "Add the odometer and the gallons."; autoMsgShow(); return true; }
     const d = day(data.date); c.fuel.push({ id: uid(), date: d, miles: m, gal, cost: num(data.cost) });
