@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.40";
+const VERSION = "1.41";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -1531,6 +1531,8 @@ function drawMailBox() {
 // after updating the WHAT'S NEW card lists the changes once.
 // RELEASE RULE: every push bumps VERSION here AND version.json, with notes.
 let UPDATE = null, NOTES = null;
+// v1.41: one version.json serves every hub. A note that starts with another hub's name ("🚗 Auto Hub: ...") shows only in that hub.
+const noteForMe = x => { const m = String(x).match(/^[^A-Za-z]*((?:Day|Cruise|Trip|Home|Auto) Hub):/); return !m || m[1] === APP_NAME; };
 async function checkUpdate() {
   try {
     const r = await fetch(new URL(`version.json?x=${Date.now()}`, BASE_URL), { cache: "no-store" });
@@ -1540,7 +1542,7 @@ async function checkUpdate() {
       const first = !UPDATE; UPDATE = j; render();
       if (first && S.remind.on && S.lastNotifiedVersion !== j.version) {
         S.lastNotifiedVersion = j.version; saveLocal();
-        notify("✨ Day Hub update ready", (j.notes && j.notes[j.version] || ["Tap to get the newest version."])[0], "dh-update");
+        notify("✨ Day Hub update ready", ((j.notes && j.notes[j.version] || []).filter(noteForMe)[0] || "Tap to get the newest version."), "dh-update");
       }
     } else if (S.seenVersion !== VERSION) render();          // notes arrived: show WHAT'S NEW
   } catch (e) { /* offline - try again later */ }
@@ -1558,7 +1560,7 @@ function whatsNewHtml() {
   const vers = Object.keys(NOTES).filter(v => v.localeCompare(S.seenVersion, undefined, { numeric: true }) > 0 &&
                                               v.localeCompare(VERSION, undefined, { numeric: true }) <= 0)
     .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
-  const items = vers.flatMap(v => NOTES[v]).slice(0, 8);
+  const items = vers.flatMap(v => NOTES[v]).filter(noteForMe).slice(0, 8);
   if (!items.length) { S.seenVersion = VERSION; saveLocal(); return ""; }
   return `<section class="card whatsnew"><h3><span class="ci">✨</span>What's new in ${APP_NAME} ${VERSION}</h3>
     <div class="body">${items.map(x => `<div class="today-line">• ${esc(x)}</div>`).join("")}

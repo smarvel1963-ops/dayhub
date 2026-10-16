@@ -3987,7 +3987,12 @@ def t_v140_auto_complete(b, base):
     with a.page.expect_download() as dl:
         a.page.click('#autoSheet [data-acard]')
     check("Picture card: a PNG made on the phone (download where the phone can't share files)", dl.value.suggested_filename == "2020_Ford_Mustang.png")
+    check("v1.41 bottom tab bar: the car's tabs come after its page", a.js("!!document.querySelector('#autoSheet .home-pane + p + nav.auto-tabs')"))
+    check("v1.41 What's new: another hub's notes stay in that hub", a.js("[noteForMe('🚗 Auto Hub: x'), noteForMe('🏡 Home Hub: y'), noteForMe('🚢 Cruise Hub: z'), noteForMe('Fix: everyone')].join()") == "true,false,false,true")
     a.close()
+    h = App(b, base, path=HOMEP)
+    check("v1.41 Home Hub never lists Auto Hub's notes", not h.js("noteForMe('🚗 Auto Hub: Photos')") and h.js("APP_NAME") == "Home Hub")
+    h.close()
 
 
 def t_v127_email_codes(b, base):

@@ -280,9 +280,10 @@ function showCar(id, tab) {
   el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
     <div class="sheet-head"><h2>🚗 ${esc(carName(c))}</h2><button class="icon-btn" data-aclose="1" aria-label="Close">✕</button></div>
     <p class="sub" style="margin-top:-6px">${esc([c.trim, c.engine].filter(Boolean).join(" · ") || [c.year, c.make, c.model].filter(Boolean).join(" "))}</p>
-    <nav class="seg home-tabs auto-tabs">${AUTO_TABS.map(([k, i, l]) => `<button class="${AUTO_TAB === k ? "on" : ""}" data-atab="${k}">${i} ${l}</button>`).join("")}</nav>
-    <div class="home-pane">${carPane(c)}</div><p class="fine" id="autoMsg">${AUTO_MSG ? "⚠️ " + esc(AUTO_MSG) : ""}</p></div>`;
+    <div class="home-pane">${carPane(c)}</div><p class="fine" id="autoMsg">${AUTO_MSG ? "⚠️ " + esc(AUTO_MSG) : ""}</p>
+    <nav class="auto-tabs" aria-label="${esc(carName(c))}">${AUTO_TABS.map(([k, i, l]) => `<button class="${AUTO_TAB === k ? "on" : ""}" data-atab="${k}" aria-current="${AUTO_TAB === k ? "page" : "false"}"><span>${i}</span>${l}</button>`).join("")}</nav></div>`;   // v1.41 Scott: tabs at the bottom like the other hubs
   el.classList.remove("hidden"); fillPhotos();
+  const on = el.querySelector(".auto-tabs .on"); if (on && on.scrollIntoView) on.scrollIntoView({ block: "nearest", inline: "nearest" });
 }
 function carPane(c) {
   const t = today();

@@ -1,6 +1,10 @@
 {
- "version": "1.40",
+ "version": "1.41",
  "notes": {
+  "1.41": [
+   "🚗 Auto Hub: a car's tabs (Overview, Service, Fuel…) now sit in a bar along the bottom, like the other Hub apps.",
+   "Fix: What's new now lists only the changes for the app you're in."
+  ],
   "1.40": [
    "📷 Auto Hub: Photos for every car - the car, before & after, receipts. The first one becomes its cover.",
    "📷 Auto Hub: Smart Scan - snap an odometer, receipt, gas pump or insurance card; we read it, you check it, it's filed (uses AI credits).",
