@@ -804,8 +804,8 @@ const proBuyer = () => (proGood(proState()) ? proState() : readPro(DAY_PRO_KEY))
 const aiBuyer = () => (proAi() && proBuyer()) || (creditsOn() && readCredits().buyer) || "";
 const aiByKey = () => !aiPass() && switchOn("AI_PUBLIC") && !!aiBuyer();
 const aiOn = () => !!aiPass() || aiByKey();
-async function aiCall(task, input, pass = aiPass()) {
-  const t = today(), body = { task, input, today: t, weekday: parseDay(t).toLocaleDateString("en-US", { weekday: "long" }) };
+async function aiCall(task, input, pass = aiPass(), extra = {}) {   // v1.40 extra: { image } for Auto Hub's scan / mech
+  const t = today(), body = { ...extra, task, input, today: t, weekday: parseDay(t).toLocaleDateString("en-US", { weekday: "long" }) };
   if (pass) body.pass = pass; else { body.buyer = aiBuyer(); body.device = deviceId(); }
   const r = await fetch(AI_URL, { method: "POST", body: JSON.stringify(body) });
   const j = await r.json();

@@ -10,6 +10,12 @@
  * warranty / inspection with expiry reminders), Extras Garage (installed + wishlist, plan's Extras Hub), cost to own,
  * a rough value estimate from what the owner paid, a shareable build sheet (VIN left out unless ticked), and a VIN
  * barcode scan where the phone's browser can read barcodes (BarcodeDetector; Android Chrome).
+ * Release 3 (v1.40, Scott 10/15 "finish auto hub"): Photos (gallery, cover, before/after, receipts - kept on this phone in
+ * IndexedDB, not in the backup), Smart Scan (a photo of an odometer / receipt / gas pump / VIN / insurance card is read by
+ * the AI relay's "scan" job, then a REVIEW screen - never saved from the AI alone), AI Mechanic (relay "mech": causes,
+ * urgency, rough cost, never a diagnosis) with Find a shop (a maps search near the owner's city), Road Trip Center
+ * (gas cost + a before-you-go checklist that checks the car's own log + Log the trip), Share & sell (a picture card,
+ * listing text with an asking price - the owner posts it; no posting into Marketplace / Craigslist, they have no API).
  * Pro (Scott 10/14: $2.99/month) is the AUTO_PASS switch (features.js, OFF): while off everything is free. When on,
  * free = 1 car. Everything lives in S.garage on this phone. Intervals are typical ones, labelled as such - never a
  * promise about a particular car.
@@ -24,7 +30,7 @@ const AUTO_SERVICES = [
   ["wipers", "🧽", "Wiper blades", 0, 12], ["inspect", "📋", "Inspection", 0, 12], ["coolant", "❄️", "Coolant", 50000, 60],
   ["trans", "⚙️", "Transmission fluid", 60000, 60], ["plugs", "⚡", "Spark plugs", 100000, 0], ["tires", "🛞", "New tires", 50000, 72],
   ["other", "🔧", "Other repair", 0, 0]];
-const AUTO_TABS = [["overview", "🚗", "Overview"], ["service", "🧰", "Service"], ["fuel", "⛽", "Fuel"], ["papers", "📄", "Papers"], ["extras", "🔧", "Extras"], ["recalls", "⚠️", "Recalls"], ["journal", "📖", "Journal"]];
+const AUTO_TABS = [["overview", "🚗", "Overview"], ["service", "🧰", "Service"], ["fuel", "⛽", "Fuel"], ["papers", "📄", "Papers"], ["extras", "🔧", "Extras"], ["photos", "📷", "Photos"], ["mech", "🩺", "Mechanic"], ["recalls", "⚠️", "Recalls"], ["journal", "📖", "Journal"]];
 // key, icon, name, months a renewal usually runs (the Renewed button adds this)
 const AUTO_PAPERS = [["insurance", "🛡️", "Insurance", 6], ["registration", "🪪", "Registration", 12], ["inspection", "📋", "Inspection sticker", 12],
   ["warranty", "🧾", "Warranty", 12], ["loan", "🏦", "Loan / lease", 1], ["roadside", "🚨", "Roadside plan", 12], ["other", "📁", "Other", 12]];
@@ -34,13 +40,15 @@ const xcat = k => AUTO_EXTRA_CATS.find(x => x[0] === k) || AUTO_EXTRA_CATS[AUTO_
 // A date with its year when it is not this year ("Jan 1, 2025").
 const aDate = d => d ? prettyDate(d) + (String(d).slice(0, 4) !== today().slice(0, 4) ? ", " + String(d).slice(0, 4) : "") : "";
 let AUTO_OPEN = null, AUTO_TAB = "overview", AUTO_BUSY = false, AUTO_MSG = "", AUTO_TRIP = null;
+let AUTO_TRIPOPEN = false, AUTO_VIEW = null, AUTO_SCAN = null, AUTO_ASKING = false, AUTO_MECHPIC = "";   // v1.40
 
 const svc = k => AUTO_SERVICES.find(s => s[0] === k) || AUTO_SERVICES[AUTO_SERVICES.length - 1];
 function garage() {
   if (!S.garage || typeof S.garage !== "object") S.garage = { cars: [] };
   if (!Array.isArray(S.garage.cars)) S.garage.cars = [];
-  S.garage.cars.forEach(c => { ["services", "fuel", "odo", "papers", "extras", "notes"].forEach(k => { c[k] = Array.isArray(c[k]) ? c[k] : []; });
-    c.recallDone = c.recallDone && typeof c.recallDone === "object" ? c.recallDone : {}; });
+  S.garage.cars.forEach(c => { ["services", "fuel", "odo", "papers", "extras", "notes", "photos", "mech"].forEach(k => { c[k] = Array.isArray(c[k]) ? c[k] : []; });
+    c.recallDone = c.recallDone && typeof c.recallDone === "object" ? c.recallDone : {};
+    c.tripCheck = c.tripCheck && typeof c.tripCheck === "object" ? c.tripCheck : {}; });
   return S.garage;
 }
 const autoSet = () => !!(S.garage && S.garage.cars && S.garage.cars.length);
@@ -153,8 +161,12 @@ ${c.recalls && c.recalls.list.length ? `<h2>Safety recalls</h2><p>${c.recalls.li
 function autoContext() {
   if (!autoSet()) return [];
   const t = today();
-  return garage().cars.map(c => { const f = fuelStats(c), o = ownCost(c, t), v = carValue(c, t);
-    return { car: carName(c), year: c.year, make: c.make, model: c.model, trim: c.trim || undefined, engine: c.engine || undefined,
+  return garage().cars.map(c => autoFacts(c, t));
+}
+// One car's facts for the AI (Ask Auto Hub, AI Mechanic). No VIN, no policy numbers.
+function autoFacts(c, t) {
+  const f = fuelStats(c), o = ownCost(c, t), v = carValue(c, t);
+  return { car: carName(c), year: c.year, make: c.make, model: c.model, trim: c.trim || undefined, engine: c.engine || undefined,
       milesNow: c.miles, milesPerDayDriven: Math.round(milesPerDay(c)),
       due: carDue(c, t).map(d => ({ service: svc(d.key)[2], dueAtMiles: d.dueMiles, dueBy: d.dueDate, overdue: !!d.late, lastDone: d.last.date })),
       neverLogged: AUTO_SERVICES.filter(x => (intervalOf(c, x[0])[0] || intervalOf(c, x[0])[1]) && !c.services.some(y => y.kind === x[0])).map(x => x[2]),
@@ -165,7 +177,7 @@ function autoContext() {
       extras: c.extras.map(x => ({ name: x.name, status: x.status, cost: x.cost || undefined, installed: x.date || undefined })),
       openRecalls: openRecalls(c).map(r => ({ part: r.part, parkIt: !!r.park })), recallsChecked: c.recalls ? c.recalls.at : null,
       costToOwnLast12Months: o.total ? +o.total.toFixed(2) : 0, roughValue: v ? { estimate: v.est, low: v.low, high: v.high, from: "what the owner paid" } : null,
-      journal: (c.notes || []).slice(-5).map(n => ({ date: n.date, note: n.text })) }; });
+      journal: (c.notes || []).slice(-5).map(n => ({ date: n.date, note: n.text })) };
 }
 // v1.39 Road Trip Center, step 1: fuel cost for a trip from this car's own MPG (or a typed one until the log has it).
 function tripCost(milesOneWay, price, mpg, round) {
@@ -239,9 +251,10 @@ function autoDashHtml() {
       <span class="pill ${n < 0 ? "late" : "soon"}">${n < 0 ? "expired" : n === 0 ? "expires today" : `expires ${aDate(x.expires)}`}</span></button>`; }).join("");
   return `<section class="card home-dash"><h3><span class="ci">🚗</span>My Garage<span class="meta">${cars.length} car${cars.length === 1 ? "" : "s"}</span></h3>
     <div class="body"><div class="home-grid">${cars.map(c => { const late = carDue(c, t).filter(d => d.late).length, rc = openRecalls(c).length;
-      return `<button class="home-space" data-acar="${c.id}"><span class="hs-ic">🚗</span><b>${esc(carName(c))}</b><small>${c.miles != null ? miles(c.miles) + " mi" : "miles not set"}</small>
+      return `<button class="home-space" data-acar="${c.id}">${c.thumb ? `<img class="auto-thumb" src="${c.thumb}" alt="">` : `<span class="hs-ic">🚗</span>`}<b>${esc(carName(c))}</b><small>${c.miles != null ? miles(c.miles) + " mi" : "miles not set"}</small>
         ${late ? `<small>⏰ ${late} due</small>` : ""}${rc ? `<small>⚠️ ${rc} recall${rc === 1 ? "" : "s"}</small>` : ""}${papersSoon(c, t).length ? `<small>📄 renew soon</small>` : ""}</button>`; }).join("")}
       <button class="home-space add" data-aaddcar="1"><span class="hs-ic">＋</span><b>Add</b><small>a car</small></button></div>
+    ${scanBtn("")}
     ${recalls ? `<p class="fine" style="margin-top:8px">⚠️ ${recalls} open safety recall${recalls === 1 ? "" : "s"} across your cars. Recall repairs are free at the dealer.</p>` : ""}
     <p class="sub" style="margin:12px 0 6px"><b>⏰ Coming up</b></p>${papersHtml}${dueHtml}</div></section>`;
 }
@@ -259,7 +272,7 @@ function autoSheet() {
   if (!el) { el = document.createElement("div"); el.id = "autoSheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); document.body.appendChild(el); }
   return el;
 }
-function hideAutoSheet() { const el = document.getElementById("autoSheet"); if (el) el.classList.add("hidden"); AUTO_OPEN = null; AUTO_MSG = ""; }
+function hideAutoSheet() { const el = document.getElementById("autoSheet"); if (el) el.classList.add("hidden"); AUTO_OPEN = null; AUTO_MSG = ""; AUTO_SCAN = null; AUTO_VIEW = null; }
 function showCar(id, tab) {
   const c = carById(id); if (!c) return;
   AUTO_OPEN = id; if (tab) AUTO_TAB = tab;
@@ -269,10 +282,12 @@ function showCar(id, tab) {
     <p class="sub" style="margin-top:-6px">${esc([c.trim, c.engine].filter(Boolean).join(" · ") || [c.year, c.make, c.model].filter(Boolean).join(" "))}</p>
     <nav class="seg home-tabs auto-tabs">${AUTO_TABS.map(([k, i, l]) => `<button class="${AUTO_TAB === k ? "on" : ""}" data-atab="${k}">${i} ${l}</button>`).join("")}</nav>
     <div class="home-pane">${carPane(c)}</div><p class="fine" id="autoMsg">${AUTO_MSG ? "⚠️ " + esc(AUTO_MSG) : ""}</p></div>`;
-  el.classList.remove("hidden");
+  el.classList.remove("hidden"); fillPhotos();
 }
 function carPane(c) {
   const t = today();
+  if (AUTO_TAB === "photos") return photosPane(c);
+  if (AUTO_TAB === "mech") return mechPane(c);
   if (AUTO_TAB === "service") {
     const due = AUTO_SERVICES.filter(s => intervalOf(c, s[0])[0] || intervalOf(c, s[0])[1]).map(s => serviceDue(c, s[0], t));
     const logged = due.filter(d => d.logged).sort((a, b) => (isFinite(a.days) ? a.days : 1e9) - (isFinite(b.days) ? b.days : 1e9)), never = due.filter(d => !d.logged);
@@ -298,13 +313,14 @@ function carPane(c) {
   if (AUTO_TAB === "fuel") {
     const f = fuelStats(c), hist = c.fuel.slice().sort((a, b) => b.miles - a.miles).slice(0, 10), mpgOf = id => (f.rows.find(r => r.id === id) || {}).mpg;
     const tr = AUTO_TRIP && AUTO_TRIP.car === c.id ? AUTO_TRIP : null;
-    const tripBox = `<details class="auto-every" ${tr ? "open" : ""}><summary class="fine"><b>🛣️ What will a trip cost in gas?</b></summary>
+    const tripBox = `<details class="auto-every" ${tr || AUTO_TRIPOPEN ? "open" : ""}><summary class="fine"><b>🛣️ Road trip: gas cost + before you go</b></summary>
       <form class="qa-form" data-atrip="${c.id}"><div class="hpv-row"><input name="miles" inputmode="numeric" placeholder="Miles one way" value="${tr ? tr.oneWay : ""}" aria-label="Trip miles one way" required>
         <input name="price" inputmode="decimal" placeholder="$ a gallon" value="${garage().gas || ""}" aria-label="Gas price a gallon" required>
         ${f.mpg ? `<span class="fine" style="align-self:center">${f.mpg.toFixed(1)} MPG</span>` : `<input name="mpg" inputmode="decimal" placeholder="MPG" value="${tr && tr.mpg ? tr.mpg : ""}" aria-label="Miles per gallon" required>`}</div>
         <label class="fine" style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" name="round" style="width:auto;flex:none;margin:0" ${!tr || tr.round ? "checked" : ""}><span>Round trip</span></label>
         <button class="btn sm">Work it out</button></form>
-      ${tr && tr.res ? `<div class="row"><div class="grow"><b>${money(tr.res.cost)}</b><span class="sub">${miles(tr.res.miles)} miles · ${tr.res.gallons.toFixed(1)} gallons at ${money(tr.price)} · ${tr.mpg.toFixed(1)} MPG${f.mpg ? " (your log)" : ""}</span></div></div>` : ""}</details>`;
+      ${tr && tr.res ? `<div class="row"><div class="grow"><b>${money(tr.res.cost)}</b><span class="sub">${miles(tr.res.miles)} miles · ${tr.res.gallons.toFixed(1)} gallons at ${money(tr.price)} · ${tr.mpg.toFixed(1)} MPG${f.mpg ? " (your log)" : ""}</span></div>
+        <button class="btn sm ghost" data-atriplog="${c.id}">Log the trip</button></div>` : ""}${tripCheckHtml(c)}</details>`;
     return `${tripBox}<div class="home-stats"><div class="home-stat"><b>${f.mpg ? f.mpg.toFixed(1) : "–"}</b><span>avg MPG</span></div>
         <div class="home-stat"><b>${f.perMile ? "$" + f.perMile.toFixed(2) : "–"}</b><span>fuel per mile</span></div><div class="home-stat"><b>${money(f.month).replace(/\.00$/, "")}</b><span>last 30 days</span></div></div>
       ${f.fills < 2 ? `<p class="fine">MPG shows from your 2nd fill-up. Fill the tank all the way each time.</p>` : ""}
@@ -367,6 +383,7 @@ function carPane(c) {
   return `<div class="home-stats"><div class="home-stat"><b>${c.miles != null ? miles(c.miles) : "–"}</b><span>miles</span></div>
       <div class="home-stat"><b>${f.mpg ? f.mpg.toFixed(1) : "–"}</b><span>avg MPG</span></div><div class="home-stat"><b>${money(spent).replace(/\.00$/, "")}</b><span>service spend</span></div></div>
     <form class="qa-form" data-amiles="${c.id}" style="margin-top:10px"><div class="two"><input name="miles" inputmode="numeric" placeholder="Miles on it now" aria-label="Miles now"><button class="btn sm">Update miles</button></div></form>
+    ${scanBtn(c.id)}
     ${(o => o.total ? `<p class="sub" style="margin:12px 0 4px"><b>💰 Cost to own, last 12 months</b></p>
       <div class="row"><div class="grow"><b>${money(o.total).replace(/\.00$/, "")}</b><span class="sub">about ${money(o.month).replace(/\.00$/, "")} a month${o.perMile ? ` · ${money(o.perMile)} a mile` : ""}</span>
       <span class="sub">Service ${money(o.service).replace(/\.00$/, "")} · Fuel ${money(o.fuel).replace(/\.00$/, "")} · Papers ${money(o.papers).replace(/\.00$/, "")}</span></div></div>` : "")(ownCost(c, today()))}
@@ -375,15 +392,231 @@ function carPane(c) {
       <p class="fine">A rough estimate from what you paid, usual yearly drop and your miles - not a dealer quote. Condition, options and your area move the real price.</p>` : "")(carValue(c, today()))}
     <form class="qa-form" data-avalue="${c.id}"><div class="hpv-row"><label class="field">Paid $ <input name="paid" inputmode="decimal" placeholder="e.g. 30000" value="${c.paid || ""}"></label>
       <label class="field">Bought <input type="date" name="boughtOn" value="${esc(c.boughtOn || "")}"></label><button class="btn sm ghost">${c.paid ? "Update" : "Estimate"}</button></div></form>
-    <p class="sub" style="margin:12px 0 4px"><b>📄 Build sheet</b></p>
-    <p class="fine" style="margin-top:0">Everything about this car in one block of text - for a car club, a show, or a listing when you sell.</p>
+    <p class="sub" style="margin:12px 0 4px"><b>📣 Share &amp; sell</b></p>
+    <p class="fine" style="margin-top:0">This car in one go - a picture card, the build sheet, a PDF, or a ready-made listing when you sell. You post it; nothing goes online by itself.</p>
+    <form class="qa-form" data-aprice="${c.id}"><div class="two"><input name="price" inputmode="decimal" placeholder="Asking price $ (only if selling)" value="${c.price || ""}" aria-label="Asking price"><button class="btn sm ghost">${c.price ? "Update" : "Save price"}</button></div></form>
     <label class="fine" style="display:flex;gap:8px;align-items:center;justify-content:flex-start;margin:4px 0 8px"><input type="checkbox" id="aVinShare" style="width:auto;flex:none;margin:0"><span>Include the VIN</span></label>
-    <div class="foot-actions"><button class="btn sm" data-asheet="${c.id}">Share build sheet</button><button class="btn sm ghost" data-apdf="${c.id}">Save as PDF</button></div>
+    <div class="foot-actions"><button class="btn sm" data-acard="${c.id}">Picture card</button><button class="btn sm ghost" data-asheet="${c.id}">Share build sheet</button><button class="btn sm ghost" data-apdf="${c.id}">Save as PDF</button>${c.price ? `<button class="btn sm ghost" data-alist="${c.id}">For-sale listing</button>` : ""}</div>
     <p class="sub" style="margin:12px 0 4px"><b>Details</b></p>
     <form class="qa-form" data-aedit="${c.id}">${carFormFields(c)}<button class="btn sm ghost">Save details</button></form>
     ${c.body || c.engine ? `<p class="fine">${esc([c.body, c.engine].filter(Boolean).join(" · "))}</p>` : ""}
     <button class="btn sm ghost" data-armcar="${c.id}" style="margin-top:10px">Remove this car</button>`;
 }
+
+// ------------------------------------------------------------ v1.40 photos (IndexedDB on this phone; S keeps only the list)
+const PHOTO_TAGS = [["car", "🚗", "The car"], ["before", "⏪", "Before"], ["after", "⏩", "After"], ["receipt", "🧾", "Receipt"], ["paper", "📄", "Paper"], ["damage", "💥", "Damage"], ["other", "📷", "Other"]];
+const ptag = k => PHOTO_TAGS.find(x => x[0] === k) || PHOTO_TAGS[PHOTO_TAGS.length - 1];
+const PHOTO_CACHE = {};
+function photoDb() {
+  return new Promise((ok, no) => { const r = indexedDB.open("autohub.photos", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("p", { keyPath: "id" }); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
+}
+async function photoTx(mode, fn) {
+  const db = await photoDb();
+  return new Promise((ok, no) => { const tx = db.transaction("p", mode), req = fn(tx.objectStore("p")); tx.oncomplete = () => ok(req && req.result); tx.onerror = () => no(tx.error); });
+}
+const photoPut = (id, data) => { PHOTO_CACHE[id] = data; return photoTx("readwrite", st => st.put({ id, data })); };
+const photoDel = id => { delete PHOTO_CACHE[id]; return photoTx("readwrite", st => st.delete(id)); };
+async function photoGet(id) { if (PHOTO_CACHE[id]) return PHOTO_CACHE[id]; const r = await photoTx("readonly", st => st.get(id)); return r ? (PHOTO_CACHE[id] = r.data) : ""; }
+// A phone photo made small enough to keep (JPEG, longest side `max` px). -> data: URL
+async function shrinkPhoto(file, max) {
+  const bmp = await createImageBitmap(file), k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+  const cv = document.createElement("canvas"); cv.width = Math.max(1, Math.round(bmp.width * k)); cv.height = Math.max(1, Math.round(bmp.height * k));
+  cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height); return cv.toDataURL("image/jpeg", 0.82);
+}
+// Fills every <img data-aphoto> in the open sheet from the phone's photo store.
+function fillPhotos() {
+  document.querySelectorAll("#autoSheet img[data-aphoto]").forEach(img => photoGet(img.dataset.aphoto).then(d => { if (d) img.src = d; else img.alt = "photo missing"; }).catch(() => {}));
+}
+async function addPhoto(c, file, tag, cap) {
+  const id = uid(), data = await shrinkPhoto(file, 1280), t = PHOTO_TAGS.some(x => x[0] === tag) ? tag : "car";
+  await photoPut(id, data);
+  c.photos.push({ id, tag: t, date: today(), cap: String(cap || "").trim().slice(0, 80) });
+  if (!c.cover && t === "car") await setCover(c, id);
+  save(); return id;
+}
+async function setCover(c, id) { const d = await photoGet(id); if (!d) return; c.cover = id; c.thumb = await shrinkPhoto(await (await fetch(d)).blob(), 320); }
+function photosPane(c) {
+  const list = c.photos.slice().reverse();
+  if (AUTO_VIEW) { const p = c.photos.find(x => x.id === AUTO_VIEW);
+    if (p) return `<div class="auto-view"><img data-aphoto="${p.id}" alt="${esc(p.cap || ptag(p.tag)[2])}"></div>
+      <p class="sub">${ptag(p.tag)[1]} ${esc(ptag(p.tag)[2])} · ${aDate(p.date)}${p.cap ? ` · ${esc(p.cap)}` : ""}${c.cover === p.id ? " · ⭐ cover" : ""}</p>
+      <div class="foot-actions"><button class="btn sm ghost" data-aview="">Back</button>${c.cover === p.id ? "" : `<button class="btn sm ghost" data-acover="${p.id}">Make it the cover</button>`}<button class="btn sm ghost" data-adel="photo:${p.id}">Remove</button></div>`;
+    AUTO_VIEW = null; }
+  return `<form class="qa-form" data-aphotoform="${c.id}"><div class="two"><select name="tag" aria-label="What the photo is">${PHOTO_TAGS.map(([k, i, l]) => `<option value="${k}">${i} ${l}</option>`).join("")}</select>
+      <input name="cap" placeholder="Caption (optional)" aria-label="Caption"></div>
+      <label class="btn sm" style="align-self:flex-start">📷 Add a photo<input type="file" accept="image/*" data-aphotoadd="${c.id}" hidden></label></form>
+    ${list.length ? `<div class="auto-photos">${list.map(p => `<button class="auto-ph" data-aview="${p.id}" aria-label="${esc(ptag(p.tag)[2])} photo"><img data-aphoto="${p.id}" alt=""><span>${ptag(p.tag)[1]}${c.cover === p.id ? " ⭐" : ""}</span></button>`).join("")}</div>`
+      : `<p class="fine">The car, before &amp; after an upgrade, receipts, damage after a bump - all in one place. The first photo of the car becomes its cover.</p>`}
+    <p class="fine">Photos stay on this phone (they're not in the backup).</p>`;
+}
+
+// ------------------------------------------------------------ v1.40 Smart Scan (AI reads the photo -> owner checks -> saved)
+const SCAN_KINDS = [["receipt", "🧾", "Service receipt"], ["fuel", "⛽", "Fill-up"], ["odometer", "📍", "Odometer"], ["paper", "📄", "Insurance / registration"], ["vin", "🔎", "VIN"], ["other", "📷", "Just keep the photo"]];
+const scanBtn = carId => `<label class="btn sm ghost" style="align-self:flex-start;margin-top:8px">📷 Smart Scan<input type="file" accept="image/*" data-ascan="${carId}" hidden></label>
+  <span class="fine" style="display:block">Snap an odometer, receipt, gas pump or insurance card - we read it, you check it.</span>`;
+const aiMissing = what => `${what} uses the AI helper. Add Hub AI Credits in ⚙ (or use Day Hub Pro) to turn it on.`;
+// The AI's reading, cleaned: only known kinds, real dates, sane numbers. -> fields for the review screen
+function scanFields(j, carId) {
+  j = j && typeof j === "object" ? j : {};
+  const num = v => { const n = Number(String(v == null ? "" : v).replace(/[$,\s]/g, "")); return n > 0 ? n : ""; };   // "-5" or "abc" = blank
+  const day = v => /^\d{4}-\d{2}-\d{2}$/.test(v || "") ? v : "";
+  const cars = garage().cars, named = j.car ? cars.find(c => carName(c).toLowerCase() === String(j.car).toLowerCase()) : null;
+  return { kind: SCAN_KINDS.some(k => k[0] === j.kind) ? j.kind : "other", car: carId || (named || cars[0] || {}).id || "", date: day(j.date) || today(),
+    miles: toMiles(j.miles) || "", cost: num(j.amount), gal: num(j.gallons), service: AUTO_SERVICES.some(x => x[0] === j.service) ? j.service : "other",
+    paperKind: AUTO_PAPERS.some(x => x[0] === j.paperKind) ? j.paperKind : "insurance", company: String(j.company || j.shop || "").slice(0, 60), expires: day(j.expires),
+    vin: vinFromCodes([j.vin || ""]), note: String(j.note || "").slice(0, 120) };
+}
+async function runScan(file, carId) {
+  if (!aiOn()) { toast(aiMissing("Smart Scan")); return; }
+  toast("📷 Reading the photo…");
+  try {
+    const img = await shrinkPhoto(file, 1024), cars = garage().cars.map(c => carName(c) + (c.miles != null ? ` (${miles(c.miles)} mi)` : ""));
+    const j = await aiCall("scan", "My cars: " + cars.join("; "), undefined, { image: img.split(",")[1] });
+    AUTO_SCAN = { img, f: scanFields(aiJSON(j.text), carId) };
+  } catch (e) { toast("Couldn't read that photo: " + e.message); return; }
+  showScan();
+}
+function showScan() {
+  const el = autoSheet(), f = AUTO_SCAN.f; AUTO_OPEN = null; el.setAttribute("aria-label", "Check the scan");
+  const want = { receipt: "date miles cost service company", fuel: "date miles cost gal", odometer: "date miles", paper: "date cost paperKind company expires", vin: "vin", other: "" }[f.kind].split(" ");
+  const show = (k, html) => want.includes(k) ? html : "";
+  el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
+    <div class="sheet-head"><h2>📷 Check what we read</h2><button class="icon-btn" data-aclose="1" aria-label="Close">✕</button></div>
+    <p class="fine" style="margin-top:-4px">Fix anything that's wrong, then save. Nothing is saved until you tap Save.</p>
+    <img class="auto-scanimg" src="${AUTO_SCAN.img}" alt="Your photo">
+    <form class="qa-form" data-ascansave="1">
+      <div class="two"><select name="kind" data-ascankind="1" aria-label="What it is">${SCAN_KINDS.map(([k, i, l]) => `<option value="${k}" ${f.kind === k ? "selected" : ""}>${i} ${l}</option>`).join("")}</select>
+        <select name="car" aria-label="Which car">${garage().cars.map(c => `<option value="${c.id}" ${f.car === c.id ? "selected" : ""}>${esc(carName(c))}</option>`).join("")}</select></div>
+      ${show("service", `<label class="field">What was done <select name="service">${AUTO_SERVICES.map(([k, i, l]) => `<option value="${k}" ${f.service === k ? "selected" : ""}>${i} ${l}</option>`).join("")}</select></label>`)}
+      ${show("paperKind", `<label class="field">Which paper <select name="paperKind">${AUTO_PAPERS.map(([k, i, l]) => `<option value="${k}" ${f.paperKind === k ? "selected" : ""}>${i} ${l}</option>`).join("")}</select></label>`)}
+      <div class="hpv-row">${show("date", `<label class="field">Date <input type="date" name="date" value="${esc(f.date)}"></label>`)}${show("miles", `<label class="field">Miles <input name="miles" inputmode="numeric" value="${f.miles}"></label>`)}
+        ${show("cost", `<label class="field">Total $ <input name="cost" inputmode="decimal" value="${f.cost}"></label>`)}${show("gal", `<label class="field">Gallons <input name="gal" inputmode="decimal" value="${f.gal}"></label>`)}
+        ${show("expires", `<label class="field">Expires <input type="date" name="expires" value="${esc(f.expires)}"></label>`)}</div>
+      ${show("company", `<input name="company" placeholder="Shop or company" value="${esc(f.company)}" aria-label="Shop or company">`)}
+      ${show("vin", `<input name="vin" maxlength="17" autocapitalize="characters" placeholder="VIN" value="${esc(f.vin)}" aria-label="VIN">`)}
+      <input name="note" placeholder="Note (optional)" value="${esc(f.note)}" aria-label="Note">
+      <label class="fine" style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" name="keep" style="width:auto;flex:none;margin:0" checked><span>Keep the photo with the car</span></label>
+      <button class="btn">Save</button></form><p class="fine" id="autoMsg">${AUTO_MSG ? "⚠️ " + esc(AUTO_MSG) : ""}</p></div>`;
+  el.classList.remove("hidden");
+}
+async function saveScan(data) {
+  const c = carById(data.car), f = AUTO_SCAN; if (!c || !f) return;
+  const num = v => { const n = Number(String(v || "").replace(/[^\d.]/g, "")); return n > 0 ? Math.round(n * 100) / 100 : 0; };
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(data.date || "") ? data.date : today(), m = toMiles(data.miles), kind = data.kind, note = String(data.note || "").trim().slice(0, 120);
+  let tab = "photos", said = "📷 Photo kept";
+  if (kind === "receipt") { const k = AUTO_SERVICES.some(s => s[0] === data.service) ? data.service : "other";
+    c.services.push({ id: uid(), kind: k, date: d, miles: m, cost: num(data.cost), note: [String(data.company || "").trim(), note].filter(Boolean).join(" · ").slice(0, 120) });
+    if (m != null && m > (c.miles || 0)) setMiles(c, m, d); tab = "service"; said = `${svc(k)[1]} ${svc(k)[2]} logged`; }
+  else if (kind === "fuel") { const gal = num(data.gal);
+    if (m == null || !gal) { AUTO_MSG = "A fill-up needs the odometer and the gallons."; autoMsgShow(); return; }
+    c.fuel.push({ id: uid(), date: d, miles: m, gal, cost: num(data.cost) }); if (m > (c.miles || 0)) setMiles(c, m, d); tab = "fuel"; said = "⛽ Fill-up added"; }
+  else if (kind === "odometer") { if (m == null) { AUTO_MSG = "Type the miles."; autoMsgShow(); return; } setMiles(c, m, d); tab = "overview"; said = `📍 ${miles(m)} miles`; }
+  else if (kind === "paper") { const k = AUTO_PAPERS.some(x => x[0] === data.paperKind) ? data.paperKind : "other", cost = num(data.cost);
+    c.papers.push({ id: uid(), kind: k, name: String(data.company || "").trim().slice(0, 60), expires: /^\d{4}-\d{2}-\d{2}$/.test(data.expires || "") ? data.expires : "", cost, paid: cost ? d : "", ref: "", note });
+    tab = "papers"; said = `${paper(k)[1]} ${paper(k)[2]} saved`; }
+  else if (kind === "vin") { const v = vinFromCodes([data.vin || ""]); if (!v) { AUTO_MSG = "A VIN is 17 letters and numbers."; autoMsgShow(); return; }
+    c.vin = v; tab = "overview"; said = "🔎 VIN saved";
+    decodeVin(v).then(x => { if (x) { ["trim", "engine", "body"].forEach(k => { if (!c[k]) c[k] = x[k]; }); save(); if (AUTO_OPEN === c.id) showCar(c.id); } }).catch(() => {}); }
+  if (data.keep) { const tag = { receipt: "receipt", fuel: "receipt", paper: "paper" }[kind] || "other";
+    try { const id = uid(); await photoPut(id, f.img); c.photos.push({ id, tag, date: d, cap: note || SCAN_KINDS.find(k => k[0] === kind)[2] }); } catch (e) { said += " (photo couldn't be kept)"; } }
+  AUTO_SCAN = null; AUTO_MSG = ""; save(); render(); showCar(c.id, tab); toast(said);
+}
+
+// ------------------------------------------------------------ v1.40 AI Mechanic + Find a shop
+const shopLink = what => `https://www.google.com/maps/search/${encodeURIComponent((what || "auto repair") + " near " + (S.city || "me"))}`;
+const URGENT = { stop: ["🚨", "Stop driving it - get it checked first", "late"], soon: ["⚠️", "Get it checked soon", "soon"], watch: ["👀", "Keep an eye on it", ""] };
+function mechAnswer(j) {
+  j = j && typeof j === "object" ? j : {};
+  const lv = v => ["high", "medium", "low"].includes(v) ? v : "medium", s = (v, n) => String(v || "").slice(0, n);
+  return { urgency: URGENT[j.urgency] ? j.urgency : "soon", summary: s(j.summary, 240), check: s(j.check, 240), shop: s(j.shop, 240),
+    causes: (Array.isArray(j.causes) ? j.causes : []).slice(0, 4).map(x => ({ cause: s(x.cause, 80), why: s(x.why, 140), likely: lv(x.likely), diy: ["easy", "medium", "shop"].includes(x.diy) ? x.diy : "shop", cost: s(x.cost, 30) })).filter(x => x.cause) };
+}
+function mechPane(c) {
+  const last = c.mech[0];
+  const ans = last ? (a => { const u = URGENT[a.urgency];
+    return `<div class="hpv-ai"><p style="margin:0 0 6px"><span class="pill ${u[2]}">${u[0]} ${u[1]}</span></p><b>${esc(last.q)}${last.code ? ` · ${esc(last.code)}` : ""}</b>
+      ${a.summary ? `<p style="margin:6px 0">${esc(a.summary)}</p>` : ""}
+      ${a.causes.map(x => `<div class="row"><div class="grow"><b>${esc(x.cause)}</b><span class="sub">${esc(x.why)}</span>
+        <span class="sub">${{ high: "Most likely", medium: "Possible", low: "Less likely" }[x.likely]} · ${{ easy: "easy to do yourself", medium: "doable with tools", shop: "a shop job" }[x.diy]}${x.cost ? ` · about ${esc(x.cost)}` : ""}</span></div></div>`).join("")}
+      ${a.check ? `<p style="margin:6px 0"><b>Check now:</b> ${esc(a.check)}</p>` : ""}${a.shop ? `<p style="margin:6px 0"><b>See a mechanic:</b> ${esc(a.shop)}</p>` : ""}
+      <p class="fine" style="margin:6px 0 0">${aDate(last.date)} · a guess from your description, not a diagnosis.</p></div>
+      <div class="foot-actions"><a class="btn sm" href="${shopLink("auto repair")}" target="_blank" rel="noopener">🔧 Find a shop near me</a><button class="btn sm ghost" data-amechsave="${last.id}">Save to journal</button></div>`; })(last.a) : "";
+  return `${aiOn() ? "" : `<p class="fine" style="margin-top:0">⚠️ ${esc(aiMissing("The AI Mechanic"))}</p>`}
+    <form class="qa-form" data-amech="${c.id}"><textarea name="what" rows="3" placeholder="What's it doing? e.g. squeals when I brake, worse in the morning" aria-label="What the car is doing"></textarea>
+      <div class="two"><input name="code" maxlength="8" autocapitalize="characters" placeholder="Trouble code (optional), e.g. P0420" aria-label="Trouble code">
+        <label class="btn sm ghost">📷 ${AUTO_MECHPIC ? "Photo added ✓" : "Dash light photo"}<input type="file" accept="image/*" data-amechpic="1" hidden></label></div>
+      <button class="btn sm" ${AUTO_ASKING || !aiOn() ? "disabled" : ""}>${AUTO_ASKING ? "Thinking…" : "Ask the AI Mechanic"}</button></form>
+    <p class="fine">It knows this car's miles and service history. Brakes, steering, smoke, overheating or a flashing check-engine light: pull over safely and get help.</p>
+    ${ans}
+    ${c.mech.length > 1 ? `<p class="sub" style="margin:12px 0 4px"><b>Earlier questions</b></p>${c.mech.slice(1).map(m => `<div class="row"><span class="ci">${URGENT[m.a.urgency][0]}</span><div class="grow">${esc(m.q)}<span class="sub">${aDate(m.date)}${m.a.causes[0] ? ` · ${esc(m.a.causes[0].cause)}` : ""}</span></div></div>`).join("")}` : ""}
+    ${last ? "" : `<div class="foot-actions"><a class="btn sm ghost" href="${shopLink("auto repair")}" target="_blank" rel="noopener">🔧 Find a shop near me</a></div>`}`;
+}
+async function askMech(c, data) {
+  const q = String(data.what || "").trim().slice(0, 500), code = String(data.code || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+  if (!q && !code && !AUTO_MECHPIC) { AUTO_MSG = "Say what it's doing, or type the trouble code."; autoMsgShow(); return; }
+  if (!aiOn()) { AUTO_MSG = aiMissing("The AI Mechanic"); autoMsgShow(); return; }
+  AUTO_ASKING = true; AUTO_MSG = ""; showCar(c.id, "mech");
+  try {
+    const j = await aiCall("mech", JSON.stringify({ car: autoFacts(c, today()), whatItsDoing: q || undefined, troubleCode: code || undefined, photo: AUTO_MECHPIC ? "dashboard photo attached" : undefined }),
+      undefined, AUTO_MECHPIC ? { image: AUTO_MECHPIC } : {});
+    const a = mechAnswer(aiJSON(j.text));
+    if (!a.causes.length && !a.summary) throw new Error("no answer came back");
+    c.mech.unshift({ id: uid(), date: today(), q: q || (code ? "Trouble code" : "Dashboard light"), code, a }); c.mech = c.mech.slice(0, 6);
+    AUTO_MECHPIC = ""; save();
+  } catch (e) { AUTO_MSG = "The AI Mechanic couldn't answer: " + e.message; }
+  AUTO_ASKING = false; if (AUTO_OPEN === c.id) showCar(c.id, "mech");
+}
+
+// ------------------------------------------------------------ v1.40 Road Trip Center: before you go
+const TRIP_CHECKS = [["tires", "🛞", "Tires & pressure (and the spare)"], ["wipers", "🧽", "Wipers & washer fluid"], ["lights", "💡", "Lights & turn signals"],
+  ["kit", "🧰", "Emergency kit: jumper cables, flashlight, water"], ["charge", "🔌", "Phone charger & a paper map"]];
+// What the car's own log already says (oil, recalls, papers) + the owner's ticks. -> [{key, icon, text, ok, auto}]
+function tripChecks(c, onDay) {
+  const oil = serviceDue(c, "oil", onDay), ir = c.papers.filter(x => ["insurance", "registration"].includes(x.kind)), out = ir.filter(x => x.expires && x.expires < onDay), rc = openRecalls(c);
+  return [
+    { key: "oil", icon: "🛢️", auto: true, ok: oil.logged && !oil.late, text: !oil.logged ? "Oil change - not logged yet" : oil.late ? `Oil change is due (${dueWords(oil)})` : "Oil change not due" },
+    { key: "recalls", icon: "⚠️", auto: true, ok: !!c.recalls && !rc.length, text: !c.recalls ? "Recalls - not checked yet" : rc.length ? `${rc.length} open recall${rc.length === 1 ? "" : "s"}` : "No open recalls" },
+    { key: "papers", icon: "🪪", auto: true, ok: ir.length > 0 && !out.length, text: out.length ? `${out.map(x => paper(x.kind)[2]).join(" & ")} expired` : ir.length ? "Insurance & registration current" : "Insurance & registration - add the dates" },
+    ...TRIP_CHECKS.map(([key, icon, text]) => ({ key, icon, text, ok: !!c.tripCheck[key], auto: false }))];
+}
+function tripCheckHtml(c) {
+  const L = tripChecks(c, today()), done = L.filter(x => x.ok).length;
+  return `<p class="sub" style="margin:12px 0 4px"><b>✅ Before you go</b> · ${done} of ${L.length}</p>
+    ${L.map(x => `<div class="row">${x.auto ? `<span class="check" aria-hidden="true">${x.ok ? "✓" : "!"}</span>` : `<button class="check" data-atripchk="${x.key}" aria-label="Done">${x.ok ? "✓" : "○"}</button>`}<div class="grow">${x.icon} ${esc(x.text)}${x.auto ? `<span class="sub">from your log</span>` : ""}</div></div>`).join("")}
+    <div class="foot-actions"><button class="btn sm ghost" data-atripreset="${c.id}">Start fresh</button></div>`;
+}
+
+// ------------------------------------------------------------ v1.40 Share & sell: picture card + listing text
+function listingText(c, withVin) {
+  return [`FOR SALE: ${carName(c)}${c.price ? ` - ${money(c.price).replace(/\.00$/, "")}` : ""}`, "", buildSheet(c, withVin).replace(/\n*Kept with Auto Hub by Marvel Corp$/, ""), "",
+    c.services.length ? "Full service records kept - ask to see them." : "", "Message me if interested.", "", "Kept with Auto Hub by Marvel Corp"].filter((x, i, a) => !(x === "" && a[i - 1] === "")).join("\n").trim();
+}
+async function shareCard(c) {
+  const W = 1080, H = 1350, cv = document.createElement("canvas"); cv.width = W; cv.height = H; const g = cv.getContext("2d");
+  const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, "#0b1f4d"); bg.addColorStop(1, "#16306e"); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  let y = 0;
+  const img = c.cover ? await photoGet(c.cover).catch(() => "") : "";
+  if (img) { const im = new Image(); await new Promise(ok => { im.onload = ok; im.onerror = ok; im.src = img; });
+    if (im.width) { const bw = W - 120, bh = 640, k = Math.max(bw / im.width, bh / im.height), sw = bw / k, sh = bh / k;
+      g.save(); g.beginPath(); if (g.roundRect) g.roundRect(60, 60, bw, bh, 28); else g.rect(60, 60, bw, bh); g.clip();
+      g.drawImage(im, (im.width - sw) / 2, (im.height - sh) / 2, sw, sh, 60, 60, bw, bh); g.restore(); y = 760; } }
+  if (!y) { g.font = "220px sans-serif"; g.textAlign = "center"; g.fillStyle = "#fff"; g.fillText("🚗", W / 2, 360); g.textAlign = "left"; y = 480; }
+  const fit = (t, px, max) => { let s = px; do { g.font = `800 ${s}px Inter, sans-serif`; s -= 4; } while (g.measureText(t).width > max && s > 30); };
+  g.fillStyle = "#fff"; fit(carName(c), 76, W - 120); g.fillText(carName(c), 60, y + 70);
+  g.font = "500 38px Inter, sans-serif"; g.fillStyle = "rgba(255,255,255,.8)"; g.fillText([c.trim, c.engine].filter(Boolean).join(" · ").slice(0, 48), 60, y + 128);
+  const f = fuelStats(c), stats = [[c.miles != null ? miles(c.miles) : "–", "miles"], [String(c.services.length), "services logged"], [String(c.extras.filter(x => x.status === "installed").length), "upgrades"], [f.mpg ? f.mpg.toFixed(1) : "–", "avg MPG"]];
+  stats.forEach(([v, l], i) => { const x = 60 + i * 245; g.fillStyle = "rgba(255,255,255,.08)"; g.fillRect(x, y + 170, 225, 150);
+    g.fillStyle = "#fff"; g.font = "800 50px Inter, sans-serif"; g.fillText(v, x + 20, y + 245); g.font = "500 28px Inter, sans-serif"; g.fillStyle = "rgba(255,255,255,.75)"; g.fillText(l, x + 20, y + 292); });
+  if (c.price) { g.fillStyle = "#ffd166"; g.fillRect(60, y + 350, 560, 96); g.fillStyle = "#0b1f4d"; g.font = "800 54px Inter, sans-serif"; g.fillText(`FOR SALE ${money(c.price).replace(/\.00$/, "")}`, 84, y + 418); }
+  g.fillStyle = "rgba(255,255,255,.6)"; g.font = "500 30px Inter, sans-serif"; g.fillText("Kept with Auto Hub · Marvel Corp", 60, H - 60);
+  const blob = await new Promise(ok => cv.toBlob(ok, "image/png")), name = carName(c).replace(/[^A-Za-z0-9]+/g, "_") + ".png", file = new File([blob], name, { type: "image/png" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file], title: carName(c) }).catch(() => {}); return "shared"; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  toast("🖼️ Picture card saved"); return "saved";
+}
+const shareText = (title, text, done) => navigator.share ? navigator.share({ title, text }).catch(() => {})
+  : navigator.clipboard ? navigator.clipboard.writeText(text).then(() => toast(done), () => toast("Couldn't copy - try again")) : null;
 
 // ------------------------------------------------------------ add / edit a car
 function showAddCar() {
@@ -421,7 +654,22 @@ function autoClick(ds) {
   if (MODE !== "auto") return false;
   if (ds.acar) { AUTO_MSG = ""; showCar(ds.acar, ds.atabgo || "overview"); return true; }
   if (ds.aclose) { hideAutoSheet(); render(); return true; }
-  if (ds.atab) { AUTO_TAB = ds.atab; AUTO_MSG = ""; if (AUTO_OPEN) showCar(AUTO_OPEN); return true; }
+  if (ds.atab) { AUTO_TAB = ds.atab; AUTO_MSG = ""; AUTO_VIEW = null; if (AUTO_OPEN) showCar(AUTO_OPEN); return true; }
+  if (ds.aview !== undefined && AUTO_OPEN) { AUTO_VIEW = ds.aview || null; showCar(AUTO_OPEN, "photos"); return true; }   // v1.40
+  if (ds.acover && AUTO_OPEN) { const c = carById(AUTO_OPEN); if (!c) return true;
+    setCover(c, ds.acover).then(() => { save(); render(); showCar(c.id, "photos"); toast("⭐ New cover photo"); }); return true; }
+  if (ds.atripchk && AUTO_OPEN) { const c = carById(AUTO_OPEN); if (!c) return true; c.tripCheck[ds.atripchk] = !c.tripCheck[ds.atripchk];
+    if (!c.tripCheck[ds.atripchk]) delete c.tripCheck[ds.atripchk]; AUTO_TRIPOPEN = true; save(); showCar(c.id, "fuel"); return true; }
+  if (ds.atripreset) { const c = carById(ds.atripreset); if (!c) return true; c.tripCheck = {}; AUTO_TRIPOPEN = true; save(); showCar(c.id, "fuel"); return true; }
+  if (ds.atriplog) { const c = carById(ds.atriplog), tr = AUTO_TRIP; if (!c || !tr || tr.car !== c.id || !tr.res) return true;
+    c.notes.push({ id: uid(), date: today(), text: `🛣️ Road trip: ${miles(tr.res.miles)} miles, about ${money(tr.res.cost)} in gas` });
+    save(); showCar(c.id, "fuel"); toast("📖 Trip added to the journal"); return true; }
+  if (ds.amechsave && AUTO_OPEN) { const c = carById(AUTO_OPEN), m = c && c.mech.find(x => x.id === ds.amechsave); if (!m) return true;
+    c.notes.push({ id: uid(), date: m.date, text: `🩺 ${m.q}${m.code ? ` (${m.code})` : ""}${m.a.causes[0] ? ` - likely ${m.a.causes[0].cause}` : ""}`.slice(0, 200) });
+    save(); showCar(c.id, "mech"); toast("📖 Saved to the journal"); return true; }
+  if (ds.acard) { const c = carById(ds.acard); if (c) shareCard(c).catch(() => toast("Couldn't make the picture - try again")); return true; }
+  if (ds.alist) { const c = carById(ds.alist); if (!c) return true; const box = document.getElementById("aVinShare");
+    shareText(carName(c), listingText(c, !!(box && box.checked)), "📋 Listing copied - paste it into Marketplace, Craigslist or a car club"); return true; }
   if (ds.aaddcar) { AUTO_MSG = ""; showAddCar(); return true; }
   if (ds.arecall) { const c = carById(ds.arecall); if (c) loadRecalls(c); return true; }
   if (ds.arfix && AUTO_OPEN) { const c = carById(AUTO_OPEN); if (!c) return true; c.recallDone[ds.arfix] = !c.recallDone[ds.arfix]; if (!c.recallDone[ds.arfix]) delete c.recallDone[ds.arfix];
@@ -429,6 +677,7 @@ function autoClick(ds) {
   if (ds.adel && AUTO_OPEN) { const c = carById(AUTO_OPEN); if (!c) return true; const [kind, id] = ds.adel.split(":");
     if (kind === "service") c.services = c.services.filter(x => x.id !== id); else if (kind === "fuel") c.fuel = c.fuel.filter(x => x.id !== id);
     else if (kind === "paper") c.papers = c.papers.filter(x => x.id !== id); else if (kind === "extra") c.extras = c.extras.filter(x => x.id !== id); else if (kind === "note") c.notes = c.notes.filter(x => x.id !== id);
+    else if (kind === "photo") { c.photos = c.photos.filter(x => x.id !== id); photoDel(id).catch(() => {}); AUTO_VIEW = null; if (c.cover === id) { c.cover = ""; c.thumb = ""; } }
     save(); showCar(c.id); render(); return true; }
   if (ds.arenew && AUTO_OPEN) { const c = carById(AUTO_OPEN), x = c && c.papers.find(y => y.id === ds.arenew); if (!x) return true;
     const from = x.expires && x.expires > today() ? x.expires : today(); x.expires = addMonthsDay(from, paper(x.kind)[3]); x.paid = today();
@@ -436,10 +685,7 @@ function autoClick(ds) {
   if (ds.ainstall && AUTO_OPEN) { const c = carById(AUTO_OPEN), x = c && c.extras.find(y => y.id === ds.ainstall); if (!x) return true;
     x.status = "installed"; x.date = today(); x.miles = c.miles; save(); showCar(c.id, "extras"); render(); toast(`🔧 ${x.name} installed`); return true; }
   if (ds.asheet) { const c = carById(ds.asheet); if (!c) return true; const box = document.getElementById("aVinShare");
-    const text = buildSheet(c, !!(box && box.checked));
-    if (navigator.share) navigator.share({ title: carName(c), text }).catch(() => {});
-    else if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => toast("📋 Build sheet copied"), () => toast("Couldn't copy - try again"));
-    return true; }
+    shareText(carName(c), buildSheet(c, !!(box && box.checked)), "📋 Build sheet copied"); return true; }
   if (ds.apdf) { const c = carById(ds.apdf); if (!c) return true; const box = document.getElementById("aVinShare");
     const w = window.open("", "_blank");
     if (!w) { toast("Allow pop-ups for this page to save the PDF"); return true; }
@@ -450,7 +696,7 @@ function autoClick(ds) {
   if (ds.armcar) { const c = carById(ds.armcar); if (!c) return true;
     if (AUTO_RM !== c.id && (c.services.length || c.fuel.length)) { AUTO_RM = c.id; setTimeout(() => { if (AUTO_RM === c.id) AUTO_RM = null; }, 5000);
       toast(`${carName(c)} has ${c.services.length} services and ${c.fuel.length} fill-ups. Tap Remove again to delete it.`); return true; }
-    AUTO_RM = null; garage().cars = garage().cars.filter(x => x.id !== c.id); hideAutoSheet(); save(); render(); toast(`${carName(c)} removed`); return true; }
+    AUTO_RM = null; c.photos.forEach(p => photoDel(p.id).catch(() => {})); garage().cars = garage().cars.filter(x => x.id !== c.id); hideAutoSheet(); save(); render(); toast(`${carName(c)} removed`); return true; }
   return false;
 }
 let AUTO_RM = null;
@@ -503,7 +749,12 @@ function autoSubmit(f, data) {
     save(); showCar(c.id, "service"); render(); toast(`${svc(kind)[1]} ${svc(kind)[2]}: every ${mi ? miles(mi) + " mi" : ""}${mi && mo ? " or " : ""}${mo ? mo + " months" : ""}`); return true; }
   if (f.dataset.anote) { const c = carById(f.dataset.anote), text = String(data.text || "").trim(); if (!c || !text) return true;
     c.notes.push({ id: uid(), date: day(data.date), text: text.slice(0, 200) }); save(); showCar(c.id, "journal"); render(); toast("📖 Added to the journal"); return true; }
-  if (f.dataset.atrip) { const c = carById(f.dataset.atrip); if (!c) return true;
+  if (f.dataset.aprice) { const c = carById(f.dataset.aprice); if (!c) return true; c.price = num(data.price) || 0;   // v1.40
+    save(); showCar(c.id); toast(c.price ? `💲 Asking ${money(c.price).replace(/\.00$/, "")}` : "Price cleared"); return true; }
+  if (f.dataset.amech) { const c = carById(f.dataset.amech); if (c && !AUTO_ASKING) askMech(c, data); return true; }
+  if (f.dataset.ascansave) { saveScan(data); return true; }
+  if (f.dataset.aphotoform) return true;
+  if (f.dataset.atrip) { const c = carById(f.dataset.atrip); if (!c) return true; AUTO_TRIPOPEN = true;
     const st = fuelStats(c), mpg = st.mpg || num(data.mpg), oneWay = toMiles(data.miles) || 0, price = num(data.price), round = !!data.round;
     const res = tripCost(oneWay, price, mpg, round);
     if (!res) { AUTO_MSG = "Add the miles, the gas price" + (st.mpg ? "." : " and the MPG."); autoMsgShow(); return true; }
@@ -529,6 +780,19 @@ document.addEventListener("change", async e => {
     if (vin && box) { box.value = vin; AUTO_MSG = ""; toast(`📷 VIN ${vin} - tap Add to look it up`); } else { AUTO_MSG = "Couldn't find a VIN barcode in that photo. Get closer, or type it."; }
   } catch (err) { AUTO_MSG = "Couldn't read that photo. Type the VIN instead."; }
   t.value = ""; autoMsgShow();
+});
+// v1.40 photo inputs: add a photo, Smart Scan, the AI Mechanic's dash-light photo; the scan review's kind picker.
+document.addEventListener("change", async e => {
+  const t = e.target; if (MODE !== "auto" || !t || !t.dataset) return;
+  if (t.dataset.ascankind && AUTO_SCAN) { Object.assign(AUTO_SCAN.f, Object.fromEntries(new FormData(t.form))); AUTO_SCAN.f.kind = t.value; showScan(); return; }
+  const file = t.files && t.files[0]; if (!file) return;
+  try {
+    if (t.dataset.aphotoadd) { const c = carById(t.dataset.aphotoadd), form = t.closest("form"); if (!c) return;
+      await addPhoto(c, file, form && form.tag.value, form && form.cap.value); render(); showCar(c.id, "photos"); toast("📷 Photo added"); }
+    else if (t.dataset.ascan !== undefined) await runScan(file, t.dataset.ascan);
+    else if (t.dataset.amechpic) { AUTO_MECHPIC = (await shrinkPhoto(file, 1024)).split(",")[1]; const l = t.closest("label"); if (l && l.firstChild) l.firstChild.textContent = "📷 Photo added ✓ "; }
+  } catch (err) { toast("Couldn't use that photo - try another"); }
+  t.value = "";
 });
 // A VIN barcode often carries a leading "I" (import) or extra characters; keep the 17 VIN characters (no I, O, Q).
 function vinFromCodes(codes) {

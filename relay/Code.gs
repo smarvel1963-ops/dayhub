@@ -125,6 +125,14 @@
  *   - L2 the phone gets plain messages ("busy, try again"); Claude's / Apps Script's raw error text goes to the
  *     execution log only.
  *   - L4 the waitlist formula guard also covers a leading tab / carriage return.
+ *
+ * v15 (Auto Hub v1.40, Scott 10/15 "finish auto hub"): two Auto Hub jobs that may carry ONE photo
+ * (req.image = base64 JPEG, no "data:" prefix, at most IMG_MAX characters; only tasks marked img:true take one):
+ *   mech - AI Mechanic: the car's own facts + what it's doing / a trouble code (+ a dash-light photo)
+ *          -> likely causes, how urgent, rough cost, when to see a shop. Never a diagnosis.
+ *   scan - Smart Scan: read an odometer / receipt / VIN sticker / insurance card photo -> fields as JSON.
+ *          The phone always shows a review screen; nothing is saved from the AI's reading alone.
+ * Same passphrase / Pro / credits rules and the same counters as every other job (1 photo = 1 question).
  */
 const MODEL = "claude-haiku-4-5";
 const DAILY_CAP = 200;              // requests per day, all tasks together
@@ -146,6 +154,8 @@ const OK_STATUS = ["active", "trialing", "past_due", "canceling", "completed"]; 
 // v7 credits: a pack that has run its access period (expired) was still paid for - its questions stay.
 const CREDIT_STATUS = ["active", "past_due", "canceling", "completed", "expired"];
 
+const IMG_MAX = 1500000;            // v15: ~1.1 MB JPEG as base64 - the phone sends ~1024px photos (~150-300 KB)
+
 const TASKS = {
   dump: { max: 1200, system:
 `You sort a person's "brain dump" for a phone planner. Today is {today} ({weekday}). Split the text into separate items, one per thing they need to do, remember, buy or think about.
@@ -163,6 +173,22 @@ Answer in 1-3 short sentences, plain everyday words, 12-hour times (like 3:30 PM
   top3: { max: 400, system:
 `From the person's planner data (JSON), pick the 3 things that matter most TODAY ({today}, {weekday}). Favour: things with a time today, late or due money, health and medicine, things promised to other people, anything with a deadline. Skip routine trivia unless there's nothing else.
 Reply with ONLY this JSON: {"top":[{"title":"...","why":"under 10 words"}]}` },
+
+  // v15 Auto Hub
+  mech: { max: 900, img: true, system:
+`You are the AI Mechanic in Auto Hub, a car-care phone app. Today is {today}. Below is the owner's car (their own log: year, make, model, engine, miles, service history) and what the car is doing, maybe a trouble code, maybe a photo of the dashboard.
+Give the most likely causes for THIS car, most likely first (at most 4). Use the service history (e.g. brakes done last month makes worn pads less likely). Plain everyday words, no jargon without a short explanation.
+Be honest that this is a guess from a description, not a diagnosis. If anything points to danger (brakes, steering, overheating, smoke, fuel smell, a FLASHING check-engine light, an oil-pressure light), urgency is "stop".
+Costs are rough US ranges for parts + labor at an independent shop.
+Reply with ONLY this JSON: {"urgency":"stop|soon|watch","summary":"one sentence","causes":[{"cause":"...","why":"under 15 words","likely":"high|medium|low","diy":"easy|medium|shop","cost":"$X-$Y"}],"check":"one thing the owner can safely check now","shop":"when to see a mechanic, one sentence"}` },
+
+  scan: { max: 500, img: true, system:
+`You read ONE photo for Auto Hub, a car-care app. Today is {today}. The text below may list the owner's cars. Work out what the photo is and read only what is really visible - never guess a number you can't read.
+kind: "odometer" (dashboard mileage), "receipt" (shop / service / parts invoice), "fuel" (gas pump or gas receipt), "vin" (VIN sticker or plate), "paper" (insurance card, registration, inspection, warranty) or "other".
+service (receipts only): one of oil, rotate, brakes, air, cabin, battery, wipers, inspect, coolant, trans, plugs, tires, other.
+paperKind (papers only): insurance, registration, inspection, warranty, loan, roadside, other.
+Dates as YYYY-MM-DD. miles = the odometer reading as a whole number (on a receipt: the mileage written on it). amount = the total paid. gallons for fuel. vin = 17 characters exactly or leave it out.
+Reply with ONLY this JSON (leave out what isn't there): {"kind":"...","date":"","miles":0,"amount":0,"gallons":0,"shop":"","service":"","paperKind":"","company":"","expires":"","vin":"","car":"which of the listed cars, if the photo shows it","note":"under 12 words"}` },
 };
 
 function doPost(e) {
@@ -211,7 +237,9 @@ function doPost(e) {
     if (!key) return out({ error: "relay has no API key yet" });
 
     const input = String(req.input || "").slice(0, 16000);
-    if (!input.trim()) return out({ error: "nothing to send" });   // v13: before it counts against the cap
+    const image = t.img && typeof req.image === "string" && req.image ? req.image : "";   // v15: Auto Hub photo jobs only
+    if (image && (image.length > IMG_MAX || !/^[A-Za-z0-9+/=]+$/.test(image))) return out({ error: "that photo is too big - try again" });
+    if (!input.trim() && !image) return out({ error: "nothing to send" });   // v13: before it counts against the cap
 
     const lock = LockService.getScriptLock(); lock.waitLock(5000);
     const n = Number(P.getProperty(dayKey()) || 0);
@@ -238,7 +266,9 @@ function doPost(e) {
     try { r = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
       method: "post", contentType: "application/json", muteHttpExceptions: true,
       headers: { "x-api-key": key, "anthropic-version": "2023-06-01" },
-      payload: JSON.stringify({ model: MODEL, max_tokens: t.max, system: system, messages: [{ role: "user", content: input }] }),
+      payload: JSON.stringify({ model: MODEL, max_tokens: t.max, system: system, messages: [{ role: "user", content: image   // v15: the photo first, then the words
+        ? [{ type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } }, { type: "text", text: input.trim() || "Read this photo." }]
+        : input }] }),
     }); } catch (fe) { refund(); throw fe; }
     const code = r.getResponseCode(), j = JSON.parse(r.getContentText() || "{}");
     if (code !== 200) {                                          // v13: details to the log, plain words to the phone

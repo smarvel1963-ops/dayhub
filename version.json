@@ -1,6 +1,13 @@
 {
- "version": "1.39",
+ "version": "1.40",
  "notes": {
+  "1.40": [
+   "📷 Auto Hub: Photos for every car - the car, before & after, receipts. The first one becomes its cover.",
+   "📷 Auto Hub: Smart Scan - snap an odometer, receipt, gas pump or insurance card; we read it, you check it, it's filed (uses AI credits).",
+   "🩺 Auto Hub: AI Mechanic - say what it's doing or type a trouble code; likely causes, how urgent, rough cost, and Find a shop near you.",
+   "🛣️ Auto Hub: Road trip checklist on the Fuel tab - it checks your oil, recalls and papers for you, then logs the trip.",
+   "📣 Auto Hub: Share & sell - a picture card of your car and a ready-made for-sale listing."
+  ],
   "1.39": [
    "🚗 Auto Hub: tap 💡 and ask about your cars - \"when did I last change the oil?\", \"what's due this month?\" (uses AI credits).",
    "🛣️ Auto Hub: what a trip will cost in gas, from your car's own MPG (Fuel tab)."

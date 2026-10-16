@@ -161,6 +161,15 @@ def route(ctx):
             if body.get("task") == "ask":
                 ctx._ask_input = body.get("input", "")
                 return r.fulfill(json={"text": "Your next oil change is due Fri, Jan 1."})
+            if body.get("task") == "scan":                       # v1.40 Auto Hub Smart Scan
+                ctx._scan = body
+                return r.fulfill(json={"text": json.dumps({"kind": "receipt", "date": "2026-09-28", "miles": 30500, "amount": 89.5, "shop": "Conway Tire", "company": "Conway Tire", "service": "rotate", "note": "rotate and balance"})})
+            if body.get("task") == "mech":                       # v1.40 Auto Hub AI Mechanic
+                ctx._mech = body
+                return r.fulfill(json={"text": "Here you go: " + json.dumps({"urgency": "soon", "summary": "Most likely worn front brake pads.", "causes": [
+                    {"cause": "Worn brake pads", "why": "a squeal on braking is the wear tab", "likely": "high", "diy": "medium", "cost": "$150-$300"},
+                    {"cause": "Glazed rotors", "why": "can squeal too", "likely": "low", "diy": "shop", "cost": "$250-$450"}],
+                    "check": "Look through the wheel at the pad thickness.", "shop": "Within two weeks."})})
             if body.get("task") == "top3":
                 return r.fulfill(json={"text": json.dumps({"top": [{"title": "Pay the phone bill", "why": "due today"},
                     {"title": "Dentist at 3:00 PM", "why": "appointment"}, {"title": "Call Mom", "why": "promised"}]})})
@@ -3839,7 +3848,7 @@ def t_v138_auto_finish(b, base):
     a.js(f"(c => {{ c.services.push({{id: 'q1', kind: 'oil', date: '2026-09-01', miles: 29500, cost: 50, note: 'Jiffy Lube'}}); c.fuel.push({{id: 'f1', date: '2026-09-20', miles: 29700, gal: 12, cost: 40}});"
          f" c.extras.push({{id: 'e1', name: 'Window tint', cat: 'exterior', cost: 350, status: 'installed', date: '2026-08-01'}}); save(); }})({C})")
     a.page.click(f'[data-acar="{cid}"]'); a.page.click('#autoSheet [data-atab="service"]')
-    check("tabs sit in one scrolling row (7 tabs)", a.js("getComputedStyle(document.querySelector('#autoSheet .auto-tabs')).flexWrap") == "nowrap" and a.js("document.querySelectorAll('#autoSheet .auto-tabs button').length") == 7)
+    check("tabs sit in one scrolling row (9 tabs since v1.40)", a.js("getComputedStyle(document.querySelector('#autoSheet .auto-tabs')).flexWrap") == "nowrap" and a.js("document.querySelectorAll('#autoSheet .auto-tabs button').length") == 9)
     a.js("document.querySelector('#autoSheet details.auto-every').open = true")
     a.page.select_option('#autoSheet form[data-aevery] [name=kind]', "oil"); a.page.fill('#autoSheet form[data-aevery] [name=mi]', "7,500"); a.page.fill('#autoSheet form[data-aevery] [name=mo]', "12")
     a.page.click('#autoSheet form[data-aevery] button'); a.page.wait_for_timeout(100)
@@ -3877,6 +3886,107 @@ def t_v138_auto_finish(b, base):
     t = a.page.inner_text("#autoSheet")
     check("trip box (no MPG logged yet): 100 mi round trip at 20 MPG, $3.00 = $30.00, gas price remembered", "$30.00" in t and "200 miles" in t and a.js("S.garage.gas") == 3, t[:300])
     a.js("setOwnerSwitch('AUTO_PASS', false)")
+    a.close()
+
+
+def _png(w=40, h=30):
+    import zlib, struct
+    raw = b"".join(b"\x00" + b"\xcc\x22\x22" * w for _ in range(h))
+    ch = lambda t, d: struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xffffffff)
+    return b"\x89PNG\r\n\x1a\n" + ch(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)) + ch(b"IDAT", zlib.compress(raw)) + ch(b"IEND", b"")
+
+
+def t_v140_auto_complete(b, base):
+    print("\n[v1.40 Auto Hub release 3: photos, Smart Scan, AI Mechanic + Find a shop, Road Trip checklist, Share & sell]")
+    a = App(b, base, path=AUTOP)
+    pic = {"name": "car.png", "mimeType": "image/png", "buffer": _png()}
+    a.page.fill('form[data-autosetup] [name=city]', "72032"); a.page.fill('form[data-autosetup] [name=vin]', "1FA6P8CF0L5100001"); a.page.fill('form[data-autosetup] [name=miles]', "30000")
+    a.page.click('form[data-autosetup] button'); a.page.wait_for_function("S.garage && S.garage.cars.length === 1")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    cid = a.js("S.garage.cars[0].id"); C = f"carById('{cid}')"
+    a.page.click(f'[data-acar="{cid}"]')
+    check("9 tabs now: Photos and Mechanic added", a.js("[...document.querySelectorAll('#autoSheet .auto-tabs button')].map(b => b.dataset.atab).join()") == "overview,service,fuel,papers,extras,photos,mech,recalls,journal")
+    # photos
+    a.page.click('#autoSheet [data-atab="photos"]')
+    a.page.set_input_files('#autoSheet [data-aphotoadd]', pic); a.page.wait_for_function(f"{C}.photos.length === 1 && {C}.thumb")
+    a.page.wait_for_function("[...document.querySelectorAll('#autoSheet .auto-ph img')].some(i => i.src.startsWith('data:image/jpeg'))")
+    pid = a.js(f"{C}.photos[0].id")
+    check("photo added: kept on the phone (IndexedDB), first car photo = the cover, small thumb in the data", a.js(f"{C}.cover") == pid and a.js(f"{C}.thumb.startsWith('data:image/jpeg')")
+          and a.js(f"photoTx('readonly', st => st.getAll()).then(r => r.length)") == 1 and "data" not in a.js(f"JSON.stringify({C}.photos)").replace('"date"', ""))
+    a.page.click('#autoSheet [data-aclose]')
+    check("the garage tile shows the cover photo", a.js("!!document.querySelector('.home-space img.auto-thumb')"))
+    a.page.click(f'[data-acar="{cid}"]'); a.page.click('#autoSheet [data-atab="photos"]')
+    a.page.click(f'#autoSheet [data-aview="{pid}"]'); a.page.wait_for_function("(document.querySelector('#autoSheet .auto-view img') || {}).src?.startsWith('data:')")
+    check("tap a photo: big view with Remove", "cover" in a.page.inner_text("#autoSheet") and a.js("!!document.querySelector('#autoSheet [data-adel^=\"photo:\"]')"))
+    a.page.click('#autoSheet [data-adel^="photo:"]'); a.page.wait_for_timeout(200)
+    check("Remove: gone from the list and the phone, cover cleared", a.js(f"{C}.photos.length") == 0 and not a.js(f"{C}.cover") and not a.js(f"{C}.thumb")
+          and a.js("photoTx('readonly', st => st.getAll()).then(r => r.length)") == 0)
+    # no AI yet
+    a.page.click('#autoSheet [data-atab="mech"]')
+    t = a.page.inner_text("#autoSheet")
+    check("AI Mechanic without the AI helper: says how to turn it on, button off, Find a shop still there", "Hub AI Credits" in t and a.js("document.querySelector('#autoSheet form[data-amech] button').disabled")
+          and "maps/search" in (a.js("document.querySelector('#autoSheet a[href*=\"google.com/maps\"]').href") or ""))
+    a.page.click('#autoSheet [data-atab="overview"]')
+    a.page.set_input_files('#autoSheet [data-ascan]', pic); a.page.wait_for_timeout(300)
+    check("Smart Scan without the AI helper: nothing sent, the toast says why", "Hub AI Credits" in a.page.inner_text("#toast") and not [x for x in getattr(a.ctx, "_relay", []) if x.get("task") == "scan"])
+    # Smart Scan
+    a.js("localStorage.setItem('dayhub.aipass', 'test-only-passphrase-x7')")
+    a.page.set_input_files('#autoSheet [data-ascan]', pic); a.page.wait_for_selector('#autoSheet form[data-ascansave]')
+    sent = a.ctx._scan
+    check("Smart Scan: the photo goes as a small JPEG (no data: prefix) with the car list", len(sent.get("image", "")) > 100 and not sent["image"].startswith("data:") and "2020 Ford Mustang" in sent.get("input", ""), {k: str(v)[:60] for k, v in sent.items()})
+    v = lambda n: a.page.input_value(f'#autoSheet form[data-ascansave] [name={n}]')
+    check("review screen: what the AI read, filled in for checking", v("kind") == "receipt" and v("miles") == "30500" and v("cost") == "89.5" and v("service") == "rotate" and v("company") == "Conway Tire" and v("date") == "2026-09-28")
+    check("nothing saved before Save", a.js(f"{C}.services.length") == 0)
+    a.page.fill('#autoSheet form[data-ascansave] [name=miles]', "30510")
+    a.page.select_option('#autoSheet form[data-ascansave] [name=kind]', "fuel"); a.page.wait_for_selector('#autoSheet form[data-ascansave] [name=gal]')
+    check("switch to Fill-up: gallons asked for, the fixed miles kept", v("miles") == "30510" and not a.js("!!document.querySelector('#autoSheet form[data-ascansave] [name=service]')"))
+    a.page.select_option('#autoSheet form[data-ascansave] [name=kind]', "receipt"); a.page.wait_for_selector('#autoSheet form[data-ascansave] [name=service]')
+    a.page.click('#autoSheet form[data-ascansave] button.btn'); a.page.wait_for_function(f"{C}.services.length === 1 && {C}.photos.length === 1")
+    s = a.js(f"{C}.services[0]")
+    check("Save: tire rotation logged with shop + note, miles moved, receipt photo kept, Service tab open",
+          s["kind"] == "rotate" and s["cost"] == 89.5 and s["miles"] == 30510 and s["note"] == "Conway Tire · rotate and balance" and a.js(f"{C}.miles") == 30510
+          and a.js(f"{C}.photos[0].tag") == "receipt" and a.js("AUTO_TAB") == "service", s)
+    f = a.js("scanFields({kind: 'bogus', miles: 'abc', amount: '-5', vin: 'SHORT', date: 'yesterday'}, '')")
+    check("a strange AI reading is cleaned: unknown kind = just the photo, no made-up numbers", f["kind"] == "other" and f["miles"] == "" and f["cost"] == "" and f["vin"] == "" and f["date"] == "2026-10-01", f)
+    # AI Mechanic
+    a.page.click('#autoSheet [data-atab="mech"]')
+    a.page.fill('#autoSheet form[data-amech] [name=what]', "squeals when I brake"); a.page.fill('#autoSheet form[data-amech] [name=code]', "p0420")
+    a.page.click('#autoSheet form[data-amech] button'); a.page.wait_for_function(f"{C}.mech.length === 1")
+    a.page.wait_for_timeout(100)
+    sent = json.loads(a.ctx._mech["input"]); t = a.page.inner_text("#autoSheet")
+    check("AI Mechanic: sends this car's facts + the symptom + the code (upper-cased), never the VIN", sent["car"]["car"] == "2020 Ford Mustang" and sent["whatItsDoing"] == "squeals when I brake"
+          and sent["troubleCode"] == "P0420" and any(x["what"] == "Tire rotation" for x in sent["car"]["serviceHistory"]) and "1FA6P8CF0L5100001" not in a.ctx._mech["input"], sent)
+    check("answer: urgency, causes most likely first with cost, check now, not-a-diagnosis line", "Get it checked soon" in t and "Worn brake pads" in t and "Most likely" in t and "$150-$300" in t
+          and "Check now" in t and "not a diagnosis" in t, t[:400])
+    href = a.js("document.querySelector('#autoSheet a[href*=\"google.com/maps\"]').href")
+    check("Find a shop: a maps search near the owner's city", "auto%20repair%20near%2072032" in href, href)
+    a.page.click('#autoSheet [data-amechsave]'); a.page.wait_for_timeout(100)
+    check("Save to journal", any("squeals when I brake" in n["text"] and "Worn brake pads" in n["text"] for n in a.js(f"{C}.notes")))
+    m = a.js("mechAnswer({urgency: 'panic', causes: [{cause: 'X', likely: 'sure', diy: 'robot'}, {why: 'no cause'}]})")
+    check("a strange AI answer is cleaned: unknown urgency = soon, odd levels fixed, empty causes dropped", m["urgency"] == "soon" and len(m["causes"]) == 1 and m["causes"][0]["likely"] == "medium" and m["causes"][0]["diy"] == "shop", m)
+    # Road trip checklist
+    a.js(f"(c => {{ c.recalls = {{at: '2026-10-01', list: []}}; c.papers.push({{id: 'p1', kind: 'insurance', name: 'State Farm', expires: '2027-01-01', cost: 0, paid: '', ref: '', note: ''}}); save(); }})({C})")
+    a.page.click('#autoSheet [data-atab="fuel"]'); a.js("document.querySelector('#autoSheet details.auto-every').open = true")
+    t = a.page.inner_text("#autoSheet")
+    check("before you go: the car's own log answers oil / recalls / papers", "Oil change - not logged yet" in t and "No open recalls" in t and "Insurance & registration current" in t and "2 of 8" in t, t[:500])
+    a.page.click('#autoSheet [data-atripchk="tires"]'); a.page.wait_for_timeout(50)
+    check("tick tires: saved, box stays open", a.js(f"{C}.tripCheck.tires") is True and a.js("document.querySelector('#autoSheet details.auto-every').open") and "3 of 8" in a.page.inner_text("#autoSheet"))
+    a.page.fill('#autoSheet form[data-atrip] [name=miles]', "150"); a.page.fill('#autoSheet form[data-atrip] [name=price]', "3.00"); a.page.fill('#autoSheet form[data-atrip] [name=mpg]', "25")
+    a.page.click('#autoSheet form[data-atrip] button'); a.page.wait_for_timeout(100)
+    a.page.click('#autoSheet [data-atriplog]'); a.page.wait_for_timeout(100)
+    check("Log the trip -> journal: 300 miles, $36.00 gas", any(n["text"] == "🛣️ Road trip: 300 miles, about $36.00 in gas" for n in a.js(f"{C}.notes")), a.js(f"{C}.notes"))
+    a.page.click('#autoSheet [data-atripreset]'); a.page.wait_for_timeout(50)
+    check("Start fresh clears the ticks", a.js(f"Object.keys({C}.tripCheck).length") == 0)
+    # Share & sell
+    a.page.click('#autoSheet [data-atab="overview"]')
+    a.page.fill('#autoSheet form[data-aprice] [name=price]', "18,500"); a.page.click('#autoSheet form[data-aprice] button'); a.page.wait_for_timeout(100)
+    check("asking price saved, For-sale listing button shows", a.js(f"{C}.price") == 18500 and a.js("!!document.querySelector('#autoSheet [data-alist]')"))
+    lt = a.js(f"listingText({C}, false)")
+    check("listing text: FOR SALE + price, specs, service history, no VIN", lt.startswith("FOR SALE: 2020 Ford Mustang - $18,500") and "Tire rotation" in lt and "service records" in lt and "1FA6P8CF0L5100001" not in lt and lt.count("Kept with Auto Hub") == 1, lt)
+    a.js("Object.defineProperty(navigator, 'canShare', {value: () => false, configurable: true})")
+    with a.page.expect_download() as dl:
+        a.page.click('#autoSheet [data-acard]')
+    check("Picture card: a PNG made on the phone (download where the phone can't share files)", dl.value.suggested_filename == "2020_Ford_Mustang.png")
     a.close()
 
 
@@ -4085,7 +4195,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete):
             try:
                 t(b, base)
             except Exception as e:
