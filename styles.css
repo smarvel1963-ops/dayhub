@@ -743,4 +743,14 @@ body.shell .bubbles { margin: 10px 0 12px; gap: 8px 6px; }
 .auto-ph span { position: absolute; left: 4px; bottom: 4px; font-size: .8rem; background: rgba(0,0,0,.55); border-radius: 6px; padding: 1px 4px; }
 .auto-view img, .auto-scanimg { width: 100%; max-height: 50vh; object-fit: contain; border-radius: 12px; background: rgba(0,0,0,.25); display: block; }
 .auto-scanimg { max-height: 30vh; margin-bottom: 8px; }
+/* v1.42 Money Hub */
+.mh-bar { position: relative; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; margin: 4px 0; border-radius: 10px; background: rgba(255,255,255,.05); overflow: hidden; font-size: .9rem; }
+.mh-bar > * { position: relative; z-index: 1; }
+.mh-bar span { flex: 1; }
+.mh-bar i { position: absolute; left: 0; top: 0; bottom: 0; z-index: 0; background: rgba(94,234,212,.18); border-radius: 10px; }
+.mh-bar.near i { background: rgba(251,146,60,.25); } .mh-bar.over i { background: rgba(251,113,133,.3); }
+.mh-bal { display: flex; gap: 4px; align-items: center; } .mh-bal input { width: 96px; padding: 6px 8px; }
+.mh-cat { background: none; border: 0; cursor: pointer; font-size: inherit; padding: 0; }
+.mh-table { overflow-x: auto; } .mh-table table { border-collapse: collapse; width: 100%; font-size: .82rem; }
+.mh-table td, .mh-table th { padding: 6px 6px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; } .mh-table td:first-child, .mh-table th:first-child { text-align: left; }
 .auto-thumb { width: 64px; height: 44px; object-fit: cover; border-radius: 8px; }

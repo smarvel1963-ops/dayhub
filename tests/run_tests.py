@@ -34,6 +34,7 @@ def check(name, cond, extra=""):
 CRUISE = "/../cruisehub/"     # Cruise Hub's own address, next to /dayhub/ (v0.47)
 TRIP = "/../triphub/"         # Trip Hub's own address (v0.97, app #3)
 HOMEP = "/../homehub/"        # Home Hub's own address (v1.25, app #4)
+MONEYP = "/../moneyhub/"      # Money Hub's own address (v1.42, app #6)
 AUTOP = "/../autohub/"        # Auto Hub's own address (v1.35, app #5)
 
 
@@ -1231,7 +1232,7 @@ def t_v039_short_home(b, base):
 def t_v040_switches(b, base):
     print("\n[v0.40 switchboard: everything OFF by default, owner switches, Pro key, legal pages, manifest]")
     a = App(b, base); setup(a)
-    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), TRIP_PASS + AI_CREDITS on (10/11), GMAIL + STORE OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && SWITCHES.AI_CREDITS === true && SWITCHES.HOME_VALUE === true && SWITCHES.AUTO_PASS === true && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS,AI_CREDITS,AUTO_PASS,HOME_VALUE'"))
+    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), TRIP_PASS + AI_CREDITS on (10/11), GMAIL + STORE + MONEY_PASS OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && SWITCHES.AI_CREDITS === true && SWITCHES.HOME_VALUE === true && SWITCHES.AUTO_PASS === true && SWITCHES.MONEY_PASS === false && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS,AI_CREDITS,AUTO_PASS,MONEY_PASS,HOME_VALUE'"))
     check("plan: approved price, contact, Whop checkout", a.js("PLAN.MONTHLY") == "$4.99/month" and a.js("PLAN.YEARLY") == "$29.99/year" and a.js("PLAN.CONTACT_EMAIL") == "smarvel1963@gmail.com" and a.js("PLAN.WHOP_CHECKOUT_URL") == "https://whop.com/commander-marvel-por-picks/day-hub-pro")
     check("PRO_GATE on, free phone: Pro features locked, free ones open", a.js("!['ai','gcal','mail','sync'].some(can) && ['reminders','budget'].every(can)"))
     a.page.click("#settingsBtn")
@@ -1558,7 +1559,7 @@ def t_v050_countdown_family(b, base):
     # hub family card: last, lists the others (Trip Hub listed 10/11 - no COMING SOON)
     check("Hub family card is the last card", a.js("cardOrder().slice(-1)[0]") == "family")
     f = a.card("family")
-    check("family card: Day Hub + Trip Hub + Home Hub + Auto Hub with Open (Auto Hub listed v1.38), nothing coming soon, not itself", "Day Hub" in f and "Trip Hub" in f and f.count("COMING SOON") == 0 and "Auto Hub" in f and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/autohub/\"]')") and "Home Hub" in f and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/homehub/\"]')") and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/triphub/\"]')") and "Cruise Hub" not in f.split("Day Hub")[0] and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/dayhub/\"]')"), f[:300])
+    check("family card: Day Hub + Trip Hub + Home Hub + Auto Hub with Open (Auto Hub listed v1.38), only Money Hub coming soon (v1.42), not itself", "Day Hub" in f and "Trip Hub" in f and f.count("COMING SOON") == 1 and "Money Hub" in f and "Auto Hub" in f and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/autohub/\"]')") and "Home Hub" in f and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/homehub/\"]')") and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/triphub/\"]')") and "Cruise Hub" not in f.split("Day Hub")[0] and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/dayhub/\"]')"), f[:300])
     a.close()
     a = App(b, base)
     setup(a)
@@ -3688,7 +3689,7 @@ def t_v125_home_hub(b, base):
     a = App(b, base)
     setup(a)
     f = a.js("hubRows()")
-    check("Day Hub lists Home Hub and Auto Hub with Open buttons (v1.33 / v1.38), nothing COMING SOON", "Home Hub" in f and f.count("COMING SOON") == 0 and "Auto Hub" in f and 'href="' + a.js("HOMEHUB_URL") + '"' in f, f[:400])
+    check("Day Hub lists Home Hub and Auto Hub with Open buttons (v1.33 / v1.38), only Money Hub COMING SOON", "Home Hub" in f and f.count("COMING SOON") == 1 and "Auto Hub" in f and 'href="' + a.js("HOMEHUB_URL") + '"' in f, f[:400])
     check("Day Hub never runs home.js (not loaded, its screen unchanged)", a.js("typeof homeClick") == "undefined" and a.js("MODE") == "day")
     a.close()
 
@@ -3995,6 +3996,117 @@ def t_v140_auto_complete(b, base):
     h.close()
 
 
+def t_v142_money_hub(b, base):
+    print("\n[v1.42 Money Hub: app #6 at /moneyhub/ - dashboard, accounts, spending + CSV, bills, budget, debt, subs, payday, reports]")
+    a = App(b, base, path=MONEYP)
+    check("Money Hub: its own name, id and data", a.js("[MODE, APP_NAME, APP_ID, STORE, TRAVEL]") == ["money", "Money Hub", "moneyhub", "moneyhub.v1", False] and a.page.title() == "Money Hub")
+    check("first run: the Money Hub welcome", "Welcome to Money Hub" in a.page.inner_text("#cards"))
+    a.page.fill('form[data-mhsetup] [name=name]', "Scott"); a.page.fill('form[data-mhsetup] [name=bal]', "1,500")
+    a.page.select_option('form[data-mhsetup] [name=freq]', "biweekly"); a.page.fill('form[data-mhsetup] [name=next]', "2026-10-09"); a.page.fill('form[data-mhsetup] [name=check]', "1200")
+    a.page.click('form[data-mhsetup] button'); a.page.wait_for_function("S.mh && S.mh.setup")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    t = a.page.inner_text("#cards")
+    check("setup: checking $1,500 = cash available, payday saved, dashboard shows next payday", a.js("cashNow()") == 1500 and a.js("S.payday.freq") == "biweekly" and a.js("S.payday.amount") == 1200
+          and "$1,500" in t and "Next payday" in t, t[:300])
+    a.page.fill('form[data-mhquick] [name=amt]', "45"); a.page.fill('form[data-mhquick] [name=what]', "Kroger"); a.page.click('form[data-mhquick] button'); a.page.wait_for_timeout(100)
+    check("quick log: $45 at Kroger, category guessed = Groceries", a.js("S.mh.tx[0].amt") == -45 and a.js("S.mh.tx[0].cat") == "groceries" and "Groceries" in a.page.inner_text("#cards"))
+    # spending tab: money in
+    a.page.click('#cards [data-mhtab="spend"]')
+    check("tabs in a bottom bar (8)", a.js("document.querySelectorAll('#mhSheet nav.auto-tabs button').length") == 8 and a.js("!!document.querySelector('#mhSheet .home-pane + p + nav.auto-tabs')"))
+    a.page.select_option('#mhSheet form[data-mhtx] [name=dir]', "in"); a.page.fill('#mhSheet form[data-mhtx] [name=amt]', "1200"); a.page.fill('#mhSheet form[data-mhtx] [name=what]', "Paycheck")
+    a.page.select_option('#mhSheet form[data-mhtx] [name=cat]', "pay"); a.page.click('#mhSheet form[data-mhtx] button'); a.page.wait_for_timeout(100)
+    m = a.js("monthTotals('2026-10')")
+    check("money in: +$1,200 paycheck; October in $1,200 / out $45", m["inc"] == 1200 and m["out"] == 45 and m["byCat"] == {"groceries": 45}, m)
+    # accounts
+    a.page.click('#mhSheet [data-mhtab="accounts"]')
+    a.page.select_option('#mhSheet form[data-mhacct] [name=kind]', "credit"); a.page.fill('#mhSheet form[data-mhacct] [name=name]', "Visa")
+    a.page.fill('#mhSheet form[data-mhacct] [name=bal]', "3000"); a.page.fill('#mhSheet form[data-mhacct] [name=apr]', "24"); a.page.fill('#mhSheet form[data-mhacct] [name=min]', "90")
+    a.page.click('#mhSheet form[data-mhacct] button'); a.page.wait_for_timeout(100)
+    check("credit card: owed, not cash; net worth = 1,500 - 3,000", a.js("cashNow()") == 1500 and a.js("netWorth()") == -1500 and "Visa" in a.page.inner_text("#mhSheet"))
+    # bills
+    a.page.click('#mhSheet [data-mhtab="bills"]')
+    a.page.fill('#mhSheet form[data-mhbill] [name=name]', "Electric"); a.page.fill('#mhSheet form[data-mhbill] [name=amount]', "120"); a.page.fill('#mhSheet form[data-mhbill] [name=day]', "5")
+    a.page.select_option('#mhSheet form[data-mhbill] [name=cat]', "utilities"); a.page.check('#mhSheet form[data-mhbill] [name=auto]'); a.page.click('#mhSheet form[data-mhbill] button'); a.page.wait_for_timeout(100)
+    check("bill added to the shared bills list, autopay shown", a.js("S.bills.length") == 1 and a.js("S.bills[0].auto") is True and "autopay" in a.page.inner_text("#mhSheet"))
+    check("bills before payday: Electric $120 due Oct 5 (payday Oct 9)", a.js("dueBetween(today(), payNext(today())).map(o => o.name + ' ' + o.amt).join()") == "Electric 120")
+    a.page.click('#mhSheet [data-mhpaid]'); a.page.wait_for_timeout(100)
+    check("Paid: marked paid for October and logged once in Spending as Utilities", a.js("S.bills[0].paid") == "2026-10" and a.js("S.mh.tx.filter(x => x.what === 'Electric' && x.amt === -120 && x.cat === 'utilities').length") == 1)
+    # budget
+    a.page.click('#mhSheet [data-mhtab="budget"]')
+    a.page.select_option('#mhSheet form[data-mhbudget] [name=cat]', "groceries"); a.page.fill('#mhSheet form[data-mhbudget] [name=lim]', "50"); a.page.click('#mhSheet form[data-mhbudget] button'); a.page.wait_for_timeout(100)
+    check("budget: $45 of $50 groceries = almost there (80%)", a.js("budgetRows('2026-10')[0].status") == "near")
+    a.js("addTx([{date: '2026-10-01', amt: -20, what: 'Aldi', cat: 'groceries'}]); save()")
+    check("over the limit: $15 over, and the Life pulse says so", a.js("budgetRows('2026-10')[0].status") == "over" and any("Groceries is $15 over" in x["text"] for x in a.js("pulseItems()")), a.js("pulseItems().map(x => x.text)"))
+    # debt
+    p = a.js("payoffPlan([{name: 'A', bal: 1000, apr: 0, min: 100}], 0, 'avalanche')")
+    check("payoff: $1,000 at 0% paying $100 = 10 months, no interest", p["months"] == 10 and p["interest"] == 0 and not p["stuck"], p)
+    av = a.js("payoffPlan([{name: 'Big rate', bal: 2000, apr: 25, min: 50}, {name: 'Small', bal: 300, apr: 5, min: 25}], 200, 'avalanche')")
+    sb = a.js("payoffPlan([{name: 'Big rate', bal: 2000, apr: 25, min: 50}, {name: 'Small', bal: 300, apr: 5, min: 25}], 200, 'snowball')")
+    check("avalanche pays less interest; snowball clears the small one first", av["interest"] < sb["interest"] and sb["order"][0]["name"] == "Small" and av["months"] <= sb["months"], [av, sb])
+    check("interest faster than the payment = stuck, said plainly", a.js("payoffPlan([{name: 'X', bal: 10000, apr: 30, min: 100}], 0, 'avalanche').stuck"))
+    a.page.click('#mhSheet [data-mhtab="debt"]')
+    a.page.fill('#mhSheet form[data-mhdebt] [name=extra]', "100"); a.page.click('#mhSheet form[data-mhdebt] button'); a.page.wait_for_timeout(100)
+    t = a.page.inner_text("#mhSheet")
+    check("Debt tab: Visa's plan, and what $100 extra saves", "to debt-free" in t and "$100 extra a month" in t and "less interest" in t, t[:400])
+    # subscriptions
+    a.page.click('#mhSheet [data-mhtab="subs"]')
+    a.page.fill('#mhSheet form[data-mhsub] [name=name]', "Netflix"); a.page.fill('#mhSheet form[data-mhsub] [name=amt]', "15.49"); a.page.fill('#mhSheet form[data-mhsub] [name=next]', "2026-10-03")
+    a.page.click('#mhSheet form[data-mhsub] button'); a.page.wait_for_timeout(100)
+    check("subscription renewing in 2 days: in the pulse", any("Netflix renews" in x["text"] for x in a.js("pulseItems()")))
+    a.page.click('#mhSheet [data-mhsuboff]'); a.page.wait_for_timeout(100)
+    check("Cancelled: $185.88 a year back", "$185.88" in a.page.inner_text("#mhSheet"), a.page.inner_text("#mhSheet")[:300])
+    # payday planner
+    a.page.click('#mhSheet [data-mhtab="payday"]')
+    check("planner fills itself: cash $1,500, paycheck $1,200", a.page.input_value('#mhSheet form[data-mhplan] [name=start]') == "1500" and a.page.input_value('#mhSheet form[data-mhplan] [name=check]') == "1200")
+    for k, v in (("start", "1000"), ("check", "1200"), ("bills", "400"), ("other", "150"), ("save", "150")): a.page.fill(f'#mhSheet form[data-mhplan] [name={k}]', v)
+    a.page.click('#mhSheet form[data-mhplan] button.btn:not(.ghost)'); a.page.wait_for_timeout(100)
+    check("planner: 1,000 + 1,200 - 400 - 150 - 150 = $1,500 left, with the math", "$1,500" in a.page.inner_text("#mhSheet .hpv-ai") and "− $400 bills" in a.page.inner_text("#mhSheet .hpv-ai"))
+    # CSV
+    r = a.js("""parseCsv('Date,Description,Amount\\n10/02/2026,"SHELL OIL 123",-38.50\\n10/02/2026,"NETFLIX.COM",-15.49\\n10/01/2026,Payroll deposit,"1,200.00"\\n')""")
+    check("CSV (Date / Description / Amount): 3 rows, quoted commas, categories guessed", len(r["rows"]) == 3 and r["rows"][0]["cat"] == "transport" and r["rows"][1]["cat"] == "subs" and r["rows"][2]["amt"] == 1200 and r["rows"][2]["cat"] == "income", r)
+    r2 = a.js("parseCsv('Posting Date,Payee,Debit,Credit\\n2026-09-30,Kroger #4,62.10,\\n2026-09-29,Refund,,10\\n')")
+    check("CSV (Debit / Credit columns): spent is negative, credit positive", [x["amt"] for x in r2["rows"]] == [-62.1, 10] and r2["rows"][0]["cat"] == "groceries", r2)
+    check("CSV with no date/amount columns: a plain reason", "Date and Amount" in a.js("parseCsv('a,b\\n1,2').error"))
+    csv = b'Date,Description,Amount\n10/02/2026,"SHELL OIL 123",-38.50\n10/01/2026,Payroll deposit,"1,200.00"\n'
+    a.page.click('#mhSheet [data-mhtab="spend"]')
+    a.page.set_input_files('#mhSheet [data-mhcsv]', {"name": "chase.csv", "mimeType": "text/csv", "buffer": csv}); a.page.wait_for_selector('#mhSheet form[data-mhimport]')
+    check("import preview: 2 new, nothing saved yet", "2 new" in a.page.inner_text("#mhSheet") and a.js("S.mh.tx.length") == 4)
+    a.page.click('#mhSheet form[data-mhimport] button.btn:not(.ghost)'); a.page.wait_for_timeout(100)
+    check("import: 2 added", a.js("S.mh.tx.length") == 6)
+    a.page.set_input_files('#mhSheet [data-mhcsv]', {"name": "chase.csv", "mimeType": "text/csv", "buffer": csv}); a.page.wait_for_selector('#mhSheet form[data-mhimport]')
+    check("same file again: 0 new, both skipped as duplicates", "0 new" in a.page.inner_text("#mhSheet") and "already in Money Hub" in a.page.inner_text("#mhSheet"))
+    a.page.click('#mhSheet [data-mhimportno]')
+    sid = a.js("S.mh.tx.find(x => x.what === 'SHELL OIL 123').id")
+    a.page.click(f'#mhSheet [data-mhedit="{sid}"]'); a.page.select_option(f'#mhSheet form[data-mhtxcat="{sid}"] [name=cat]', "fun"); a.page.click(f'#mhSheet form[data-mhtxcat="{sid}"] button'); a.page.wait_for_timeout(100)
+    check("change a category", a.js(f"S.mh.tx.find(x => x.id === '{sid}').cat") == "fun")
+    # reports
+    a.page.click('#mhSheet [data-mhtab="reports"]')
+    t = a.page.inner_text("#mhSheet")
+    check("Reports: 4 months, in / out / categories / net", "Oct" in t and "Sep" in t and "Groceries" in t and "Net" in t, t[:300])
+    g = json.loads(a.js("aiContext()"))
+    check("Ask Money Hub: the money section goes first", list(g.keys())[0] == "money" and g["money"]["cashAvailable"] == 1500 and any(x["name"] == "Visa" for x in g["money"]["accounts"]))
+    a.page.click('#mhSheet [data-mhclose]')
+    # Pro gate
+    a.js("setOwnerSwitch('MONEY_PASS', true)"); a.js("render()")
+    check("MONEY_PASS on, free: 2 accounts ok, the 4th is Pro", a.js("mhCanAddAcct()"))
+    a.js("S.mh.accounts.push({id: 'z1', kind: 'cash', name: 'Wallet', bal: 20}); save()")
+    a.page.click('#cards [data-mhtab="accounts"]')
+    t = a.page.inner_text("#mhSheet")
+    check("3 accounts on free: no add form, Money Hub Pro offer", not a.js("!!document.querySelector('#mhSheet form[data-mhacct]')") and "Money Hub Pro" in t and "$2.99/month" in t, t[-300:])
+    a.page.click('#mhSheet [data-mhtab="reports"]')
+    check("free: Reports locked, CSV import is Pro", "Money Hub Pro" in a.page.inner_text("#mhSheet") and (a.page.click('#mhSheet [data-mhtab="spend"]') or True) and not a.js("!!document.querySelector('#mhSheet [data-mhcsv]')"))
+    a.page.click('#mhSheet [data-mhclose]'); a.page.click("#settingsBtn"); a.page.wait_for_timeout(200)
+    pb = a.page.inner_text("#proBox") if a.js("!!document.getElementById('proBox')") else ""
+    check("Money Hub Pro box: name, price, CSV + reports, Day Hub Pro counts", "Money Hub Pro" in pb and "$2.99/month" in pb and "CSV" in pb and "Day Hub Pro" in pb, pb[:300])
+    a.js("setOwnerSwitch('MONEY_PASS', false)")
+    check("its own data only - Day Hub's storage untouched", a.js("!!localStorage.getItem('moneyhub.v1') && !localStorage.getItem('dayhub.v1')"))
+    a.close()
+    d = App(b, base)
+    f = d.card("family")
+    check("Day Hub's family card: Money Hub COMING SOON, no Open button", "Money Hub" in f and f.count("COMING SOON") == 1 and not d.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/moneyhub/\"]')"), f[:400])
+    d.close()
+
+
 def t_v127_email_codes(b, base):
     print("\n[v1.27 store audit S2: a NEW phone confirms the purchase email with a 6-digit emailed code]")
     a = App(b, base); setup(a)
@@ -4200,7 +4312,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete, t_v142_money_hub):
             try:
                 t(b, base)
             except Exception as e:

@@ -475,7 +475,8 @@ function listCard(key, word) {
 
 function welcomeHtml() {
   if (MODE === "home" && typeof homeSetupHtml === "function") return homeSetupHtml();   // v1.25 Home Hub: set up your home
-  if (MODE === "auto" && typeof autoSetupHtml === "function") return autoSetupHtml();   // v1.35 Auto Hub: add your first car
+  if (MODE === "auto" && typeof autoSetupHtml === "function") return autoSetupHtml();
+  if (MODE === "money" && typeof mhSetupHtml === "function") return mhSetupHtml();     // v1.42 Money Hub   // v1.35 Auto Hub: add your first car
   // v0.45: Cruise Hub greets as itself and has no profession packs.
   return `<section class="card welcome"><h2>${TRAVEL ? `Welcome to ${APP_NAME} ${MODE === "cruise" ? "🚢" : "✈️"}` : "Welcome to Day Hub 👋"}</h2>
     <p>${TRAVEL ? `Two quick things, then plan your ${TW}.` : "Two quick things and your day is set."}</p>
@@ -628,6 +629,7 @@ const HUBS = [
   { id: "triphub", name: "Trip Hub", icon: "✈️", what: "Flights, hotels and road trips.", url: TRIP_URL },   // v1.23: listed 10/11 (Trip Hub Pass on sale) - no longer COMING SOON
   { id: "homehub", name: "Home Hub", icon: "🏡", what: "Every room, outdoor space and system — items, tasks, notes.", url: HOMEHUB_URL },   // v1.33: listed 10/14 (Scott: "complete home hubs") - no longer COMING SOON
   { id: "autohub", name: "Auto Hub", icon: "🚗", what: "Your cars — maintenance, repairs, insurance and what they're worth.", url: AUTOHUB_URL },   // v1.34 COMING SOON; v1.38 listed 10/14 (Scott: "yes do 1-5")
+  { id: "moneyhub", name: "Money Hub", icon: "💰", what: "Bills, budget, debt payoff and what's left after payday.", url: MONEYHUB_URL, soon: true },   // v1.42 COMING SOON until Scott tries it
 ];
 function hubRows() {
   const sd = sibData();
@@ -739,7 +741,7 @@ function render() {
     document.getElementById("cards").innerHTML = (TAB === "home" ? futureBanner() + whatsNewHtml() : "") + shellHtml(cardHtml);
     tick(); return;
   }
-  document.getElementById("cards").innerHTML = futureBanner() + whatsNewHtml() + (MODE === "home" ? (typeof homeSet === "function" && homeSet() ? homeDashHtml() : welcomeHtml()) : MODE === "auto" ? (typeof autoSet === "function" && autoSet() ? autoDashHtml() : welcomeHtml()) : !S.city && !S.name ? welcomeHtml() : dayHubHomeHtml(order)) + cards +
+  document.getElementById("cards").innerHTML = futureBanner() + whatsNewHtml() + (MODE === "home" ? (typeof homeSet === "function" && homeSet() ? homeDashHtml() : welcomeHtml()) : MODE === "auto" ? (typeof autoSet === "function" && autoSet() ? autoDashHtml() : welcomeHtml()) : MODE === "money" ? (typeof mhSet === "function" && mhSet() ? mhDashHtml() : welcomeHtml()) : !S.city && !S.name ? welcomeHtml() : dayHubHomeHtml(order)) + cards +
     `<button class="add-link arrange-link" data-arrange="1">↕ Arrange my screen</button>`;
   tick();
 }
@@ -792,7 +794,7 @@ const aiPass = () => { try { return localStorage.getItem(AI_KEY) || ""; } catch 
 // buyer their own cap.
 // v0.53: in Cruise Hub a Day Hub Pro unlock on the same phone counts (proViaDayHub) - send that buyer.
 // v1.23: a Cruise Hub Pass / Trip Hub Pass on its own never gets the AI - the relay only answers Day Hub Pro.
-const passOnly = () => !proGood(readPro(DAY_PRO_KEY)) && ["cruisehub", "triphub", "autohub"].includes(proState().product);
+const passOnly = () => !proGood(readPro(DAY_PRO_KEY)) && ["cruisehub", "triphub", "autohub", "moneyhub"].includes(proState().product);
 // v1.24 HUB AI CREDITS (AI_CREDITS switch): one email + questions-left on this phone, shared by every hub
 // ("hub.aicredits", same storage for Day/Cruise/Trip Hub). The relay keeps the real count; this is the last answer.
 const CREDIT_KEY = "hub.aicredits";
@@ -1343,6 +1345,7 @@ document.addEventListener("submit", e => {
   if (typeof hpvSubmit === "function" && hpvSubmit(f, data)) return;       // v1.33 homevalue.js
   if (typeof homeSubmit === "function" && homeSubmit(f, data)) return;     // v1.25 home.js
   if (typeof autoSubmit === "function" && autoSubmit(f, data)) return;     // v1.35 auto.js
+  if (typeof mhSubmit === "function" && mhSubmit(f, data)) return;         // v1.42 money.js
   if (f.dataset.setup) {
     S.name = (data.name || "").trim(); S.city = (data.city || "").trim(); S.pack = data.pack || "general";
     save(); WXDATA = null; render(); loadWeather(); toast("You're all set ✓"); return;
@@ -1528,6 +1531,7 @@ document.addEventListener("click", e => {
   if (typeof hpvClick === "function" && hpvClick(ds)) return;                // v1.33 homevalue.js
   if (typeof homeClick === "function" && homeClick(ds)) return;              // v1.25 home.js
   if (typeof autoClick === "function" && autoClick(ds)) return;              // v1.35 auto.js
+  if (typeof mhClick === "function" && mhClick(ds)) return;                  // v1.42 money.js
   if (typeof cruiseClick === "function" && cruiseClick(ds)) return;          // v0.56 cruise.js
   if (ds.cd) { showReady(); return; }
   if (ds.rg) { showGuard(); return; }
@@ -1743,7 +1747,11 @@ function drawProBox() {
   // v0.45: Cruise Hub lists only what Cruise Hub has; it is included with Day Hub Pro (one Whop purchase).
   // v0.48: with CRUISE_PASS on, Cruise Hub sells its own Cruise Hub Pass ($9.99/year, every cruise that year).
   // v0.97: Trip Hub has no product of its own yet - Day Hub Pro unlocks it (the relay checks Day Hub Pro for any app but Cruise Hub).
-  const what = autoPass()
+  const what = moneyPass()
+    ? `<p class="fine" style="margin-top:0"><b>All your money in one place.</b> Free Money Hub keeps 3 accounts with bills, budget, debt payoff, subscriptions and the payday planner. Already have ${PLAN.NAME}? It includes Money Hub: enter that email below.</p>
+       <ul class="pro-list"><li>🏦 Unlimited accounts</li><li>📥 Import your bank's CSV - duplicates skipped</li><li>📊 Reports - this month vs the last 3</li><li>☁️ Backup to your own Google Drive</li></ul>
+       <p class="fine" style="margin-top:4px">No ads, ever. Money Hub never asks for a bank password.</p>`
+    : autoPass()
     ? `<p class="fine" style="margin-top:0"><b>Every car you own, looked after.</b> Free Auto Hub keeps 1 car with everything in it. Already have ${PLAN.NAME}? It includes Auto Hub: enter that email below.</p>
        <ul class="pro-list"><li>🚗 Unlimited cars - the whole family's, plus the truck and the boat trailer</li><li>☁️ Backup to your own Google Drive</li></ul>
        <p class="fine" style="margin-top:4px">Service, fuel, recalls, papers, extras, journal and the build sheet are free on your first car. No ads, ever.</p>`
@@ -1765,10 +1773,11 @@ function drawProBox() {
     : `<ul class="pro-list"><li>🤖 AI helper — Brain dump, Ask Day Hub, Top 3</li><li>🗓️ Two-way Google Calendar sync</li>
     ${switchOn("GMAIL") ? "<li>📬 Plans found in your email</li>" : ""}<li>☁️ Backup to your own Google Drive</li></ul>
     <p class="fine" style="margin-top:4px">Everything else — every card, reminders, budget, lists, trips — is free forever. No ads, ever.</p>`;
-  const price = autoPass() ? `<p class="fine"><b>${PLAN.AUTO_MONTHLY}</b> — 30 days free, cancel any time on Whop.</p>`
+  const price = moneyPass() ? `<p class="fine"><b>${PLAN.MONEY_MONTHLY}</b> — 30 days free, cancel any time on Whop.</p>`
+    : autoPass() ? `<p class="fine"><b>${PLAN.AUTO_MONTHLY}</b> — 30 days free, cancel any time on Whop.</p>`
     : cruisePass() ? `<p class="fine"><b>${PLAN.CRUISE_YEARLY}</b> — every cruise you take that year.</p>`
     : tripPass() ? `<p class="fine"><b>${PLAN.TRIP_YEARLY}</b> — every trip you take that year.</p>` : `<p class="fine"><b>${PLAN.MONTHLY}</b> or <b>${PLAN.YEARLY}</b>.</p>`;
-  const buyUrl = autoPass() ? PLAN.AUTO_CHECKOUT_URL : cruisePass() ? PLAN.CRUISE_CHECKOUT_URL : tripPass() ? PLAN.TRIP_CHECKOUT_URL : PLAN.WHOP_CHECKOUT_URL;
+  const buyUrl = moneyPass() ? PLAN.MONEY_CHECKOUT_URL : autoPass() ? PLAN.AUTO_CHECKOUT_URL : cruisePass() ? PLAN.CRUISE_CHECKOUT_URL : tripPass() ? PLAN.TRIP_CHECKOUT_URL : PLAN.WHOP_CHECKOUT_URL;
   g.innerHTML = `<h3>⭐ ${proName()}</h3>` + (ownerPhone()
     ? `<div class="leg"><span>✅ Pro — this is the owner's phone</span></div>`
     : proViaDayHub()
@@ -1800,7 +1809,7 @@ function unlockPro(buyer) {
 // phone only, to try a feature before it goes on for everyone (features.js).
 let OWNER_OPEN = false, VER_TAPS = [];
 const OWNER_ROWS = [["PRO_GATE", "Pro gate — free vs Pro"], ["AI_PUBLIC", "AI for Whop-key holders"], ["GMAIL", "Gmail → plans"],
-  ["STORE", "Google Play link"], ["CRUISE_PASS", "Cruise Hub Pass ($9.99/yr)"], ["TRIP_PASS", "Trip Hub Pass ($9.99/yr)"], ["AI_CREDITS", "Hub AI Credits (packs)"], ["HOME_VALUE", "Home Hub: Hub Predicted Value"], ["AUTO_PASS", "Auto Hub Pro ($2.99/mo)"], ["OWNER", "Count this phone as Pro"]];
+  ["STORE", "Google Play link"], ["CRUISE_PASS", "Cruise Hub Pass ($9.99/yr)"], ["TRIP_PASS", "Trip Hub Pass ($9.99/yr)"], ["AI_CREDITS", "Hub AI Credits (packs)"], ["HOME_VALUE", "Home Hub: Hub Predicted Value"], ["AUTO_PASS", "Auto Hub Pro ($2.99/mo)"], ["MONEY_PASS", "Money Hub Pro ($2.99/mo)"], ["OWNER", "Count this phone as Pro"]];
 // v0.46 HUB FAMILY (Scott 10/4): separate apps that work together. The steps
 // are in the box (Scott 10/2: every setting carries its own easy setup).
 function drawFamBox() {

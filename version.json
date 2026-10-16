@@ -1,6 +1,10 @@
 {
- "version": "1.41",
+ "version": "1.42",
  "notes": {
+  "1.42": [
+   "💰 Money Hub: cash available, bills before payday, budget, debt payoff plan, subscriptions, payday planner, reports and bank CSV import.",
+   "🔧 Behind the scenes: Money Hub joins the Hub family (coming soon)."
+  ],
   "1.41": [
    "🚗 Auto Hub: a car's tabs (Overview, Service, Fuel…) now sit in a bar along the bottom, like the other Hub apps.",
    "Fix: What's new now lists only the changes for the app you're in."
