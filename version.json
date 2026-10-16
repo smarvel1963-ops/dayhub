@@ -1,6 +1,15 @@
 {
- "version": "1.42",
+ "version": "1.44",
  "notes": {
+  "1.44": [
+   "💰 Money Hub: a new home - the Money Orbit. Your wallet in the middle, every part of your money around it, rings for the month, and your next smart action.",
+   "🏝️ Money Hub: Goals & Savings - give each goal a picture, watch the ring fill, and see what a month gets you there.",
+   "🚗 Auto Hub: your car is the star of the home screen now - its sections orbit it, with rings for service, MPG and recalls.",
+   "🏡 Home Hub: your home in the middle of the home screen, the rooms that need you orbiting it, and your next smart action."
+  ],
+  "1.43": [
+   "💰 Money Hub: new Upcoming Payments page - this month's bills as a timeline, Mark paid / Undo paid, edit any bill, a Pay link to your provider, and what's left after payday."
+  ],
   "1.42": [
    "💰 Money Hub: cash available, bills before payday, budget, debt payoff plan, subscriptions, payday planner, reports and bank CSV import.",
    "🔧 Behind the scenes: Money Hub joins the Hub family (coming soon)."

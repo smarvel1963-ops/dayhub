@@ -93,6 +93,29 @@ function homeSetupHtml() {
 }
 
 // ------------------------------------------------------------ the dashboard
+// v1.44 HUB OS hero (Scott 10/15: visual-first): the home in the middle (the Home Hub logo), the rooms that need you most
+// orbiting it as bubbles, rings for the home's state, and the next smart action. The full room lists stay below.
+function homeHeroHtml() {
+  const h = house(), sp = h.spaces, t = today(); if (!sp.length) return "";
+  const score = s => { const o = openTasks(s); return o.filter(x => x.due && x.due < t).length * 100 + o.filter(dueSoon).length * 10 + o.length; };
+  const pick = sp.slice().sort((a, b) => score(b) - score(a) || (b.items.length - a.items.length)).slice(0, 8);
+  const tones = ["#27d7ff", "#4ade80", "#facc15", "#fb923c", "#e879f9", "#f472b6", "#a78bfa", "#60a5fa"];
+  const items = pick.map((x, i) => { const o = openTasks(x), late = o.filter(k => k.due && k.due < t).length;
+    return { attr: `data-hspace="${x.id}"`, icon: x.icon, label: x.name.length > 12 ? x.name.slice(0, 11) + "…" : x.name, val: o.length ? `${o.length} task${o.length === 1 ? "" : "s"}` : `${x.items.length} item${x.items.length === 1 ? "" : "s"}`, tone: tones[i % tones.length], badge: late ? "late" : "" }; });
+  const all = sp.flatMap(x => x.tasks), done = all.filter(k => k.done).length, open = all.length - done, late = sp.reduce((n, x) => n + openTasks(x).filter(k => k.due && k.due < t).length, 0);
+  const items_ = sp.reduce((n, x) => n + x.items.length, 0), up = homeUpcoming(1)[0];
+  const n = up ? { i: up.sp.icon, t: up.t.title, w: `${up.sp.name} · ${dueText(up.t.due)}.`, a: `data-hspace="${up.sp.id}" data-htabgo="tasks"` }
+    : { i: "🧰", t: "Add your first home task", w: "Like \u201cChange the HVAC filter\u201d - Home Hub reminds you.", a: `data-hspace="${(sp.find(x => x.area === "systems") || sp[0]).id}" data-htabgo="tasks"` };
+  const typeName = (HOME_TYPES.find(x => x[0] === h.type) || [, "🏡 My home"])[1];
+  const center = `<div class="hos-core"><img src="icon-192.png" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'🏡'}))"></div>`;
+  return `<section class="card hos hos-home"><div class="hos-head"><span>HOME HUB</span><small>${sp.length} spaces</small></div>
+    ${hosOrbit(center, items)}
+    <div class="hos-cash"><small>${esc(typeName.replace(/^\S+\s/, "Your "))}</small><b class="hos-name">${late ? `${late} late` : open ? `${open} to do` : "All set"}</b><span>${items_} item${items_ === 1 ? "" : "s"} tracked across ${sp.length} spaces</span></div>
+    <button class="hos-next" ${n.a}><span class="hos-next-ic" aria-hidden="true">${n.i}</span><span class="grow"><small>Your next smart action</small><b>${esc(n.t)}</b><em>Why: ${esc(n.w)}</em></span><span class="hos-go" aria-hidden="true">›</span></button>
+    <div class="hos-rings">${hosRing(all.length ? done / all.length * 100 : 0, all.length ? `${done}/${all.length}` : "–", "tasks done", "#70e9b6")}
+      ${hosRing(open ? (open - late) / open * 100 : 100, late ? `${late} late` : "on time", "schedule", late ? "#ff978f" : "#27d7ff")}
+      ${hosRing(Math.min(100, items_ * 4), String(items_), "items tracked", "#facc15")}</div></section>`;
+}
 function homeDashHtml() {
   const h = house(), sp = h.spaces, items = sp.reduce((n, s) => n + s.items.length, 0), tasks = sp.reduce((n, s) => n + openTasks(s).length, 0);
   const soon = sp.reduce((n, s) => n + openTasks(s).filter(dueSoon).length, 0);
@@ -102,7 +125,7 @@ function homeDashHtml() {
       <span class="pill ${t.due < today() ? "late" : dueSoon(t) ? "soon" : ""}">${dueText(t.due)}</span></button>`).join("")
     : `<p class="fine" style="margin:0">No tasks with a date yet. Open any room and add one — like “Change HVAC air filter”.</p>`;
   const typeName = (HOME_TYPES.find(t => t[0] === h.type) || [, "🏡 My home"])[1];
-  return `<section class="card home-dash"><h3><span class="ci">🏡</span>${esc(typeName.replace(/^\S+\s/, "My "))}<span class="meta">Property overview</span></h3>
+  return homeHeroHtml() + `<section class="card home-dash"><h3><span class="ci">🏡</span>${esc(typeName.replace(/^\S+\s/, "My "))}<span class="meta">Property overview</span></h3>
     <div class="body"><div class="home-stats">${tile(sp.length, "Rooms & spaces")}${tile(items, "Items tracked")}${tile(tasks, "Open tasks", soon ? `${soon} due soon` : "")}</div>
     <p class="sub" style="margin:12px 0 6px"><b>⏰ Coming up</b></p>${upHtml}</div></section>`
     + (typeof hpvCardHtml === "function" ? hpvCardHtml() : "")

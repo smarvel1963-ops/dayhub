@@ -306,3 +306,17 @@ function simpleChange(ds, t) {
   if (!ds.simple) return false;
   S.simple = t.checked; save(); render(); drawSimpleBox(); toast(t.checked ? "👓 Simple mode on" : "Simple mode off"); return true;
 }
+
+// ---------------------------------------------------------------- v1.44 HUB OS KIT (Scott 10/15: visual-first apps)
+// Shared by every hub (styles.css .hos-*): a hero with bubbles orbiting it, and glow progress rings.
+// An SVG progress ring. pct 0-100; tone = the ring colour.
+const hosRing = (pct, big, label, tone) => { const p = Math.max(0, Math.min(100, Math.round(pct))), C = 2 * Math.PI * 34;
+  return `<div class="hos-ring" role="img" aria-label="${esc(label)}: ${esc(big)}"><div class="hos-ring-c"><svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="34" class="hos-ring-bg"/>
+    <circle cx="40" cy="40" r="34" class="hos-ring-fg" style="stroke:${tone};stroke-dasharray:${(C * p / 100).toFixed(1)} ${C.toFixed(1)}"/></svg><b>${esc(big)}</b></div><span>${esc(label)}</span></div>`; };
+// Bubbles around a hero. items: [{key attr, icon, label, val, tone, badge}]. Placed on a circle (left/top %), so it scales with the box.
+function hosOrbit(center, items) {
+  const n = items.length;
+  return `<div class="hos-orbit">${center}${items.map((it, i) => { const a = (-90 + i * 360 / n) * Math.PI / 180;
+    return `<button class="hos-bub" ${it.attr} style="left:${(50 + 38 * Math.cos(a)).toFixed(1)}%;top:${(50 + 38 * Math.sin(a)).toFixed(1)}%;--tone:${it.tone};--d:${(i * 0.37).toFixed(2)}s" aria-label="${esc(it.label)}${it.val ? ": " + esc(it.val) : ""}">
+      <span class="hos-ic" aria-hidden="true">${it.icon}</span><b>${esc(it.label)}</b>${it.val ? `<small>${esc(it.val)}</small>` : ""}${it.badge ? `<i class="hos-badge">${esc(it.badge)}</i>` : ""}</button>`; }).join("")}</div>`;
+}

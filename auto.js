@@ -237,6 +237,40 @@ function autoSetupHtml() {
 }
 
 // ------------------------------------------------------------ the dashboard
+// v1.44 HUB OS hero (Scott 10/15: visual-first): one car in the middle - its own cover photo - with its sections orbiting it as
+// bubbles, each with a live number; rings for the car's health; the next smart action with why. The garage list stays below.
+let AUTO_HERO = null;
+function autoHeroHtml() {
+  const cars = garage().cars, c = carById(AUTO_HERO) || cars[0]; if (!c) return "";
+  const t = today(), due = carDue(c, t), late = due.filter(d => d.late), f = fuelStats(c), rc = openRecalls(c), ps = papersSoon(c, t);
+  const tracked = AUTO_SERVICES.filter(x => intervalOf(c, x[0])[0] || intervalOf(c, x[0])[1]).length, logged = due.length;
+  const center = `<button class="hos-core hos-core-btn" data-acar="${c.id}" aria-label="Open ${esc(carName(c))}">${c.thumb ? `<img src="${c.thumb}" alt="" class="hos-photo">` : `<span>🚗</span>`}</button>`;
+  const go = k => `data-acar="${c.id}" data-atabgo="${k}"`;
+  const items = [
+    { attr: go("service"), icon: "🧰", label: "Service", val: late.length ? `${late.length} due` : due[0] ? dueWords(due[0]).split(" or ")[0] : "log one", tone: "#27d7ff", badge: late.length ? "due" : "" },
+    { attr: go("fuel"), icon: "⛽", label: "Fuel", val: f.mpg ? `${f.mpg.toFixed(1)} mpg` : "add", tone: "#4ade80" },
+    { attr: go("papers"), icon: "📄", label: "Papers", val: ps.length ? "renew" : c.papers.length ? "OK" : "add", tone: "#facc15", badge: ps.some(x => daysUntil(x.expires) < 0) ? "!" : "" },
+    { attr: go("extras"), icon: "🔧", label: "Extras", val: String(c.extras.filter(x => x.status === "installed").length), tone: "#fb923c" },
+    { attr: go("photos"), icon: "📷", label: "Photos", val: String(c.photos.length), tone: "#e879f9" },
+    { attr: go("mech"), icon: "🩺", label: "Mechanic", val: "ask", tone: "#f472b6" },
+    { attr: go("recalls"), icon: "⚠️", label: "Recalls", val: c.recalls ? (rc.length ? `${rc.length} open` : "none") : "check", tone: "#f87171", badge: rc.some(r => r.park) ? "park" : "" },
+    { attr: go("journal"), icon: "📖", label: "Journal", val: String(carJournal(c).length), tone: "#a78bfa" }];
+  const n = late[0] ? { i: svc(late[0].key)[1], t: `${svc(late[0].key)[2]} is due`, w: `Last done ${aDate(late[0].last.date)} - ${dueWords(late[0])}.`, k: "service" }
+    : rc.find(r => r.park) ? { i: "🚨", t: "Park-it safety recall", w: `${rc.find(r => r.park).part} - the dealer fixes it free.`, k: "recalls" }
+    : ps[0] ? { i: paper(ps[0].kind)[1], t: `${ps[0].name || paper(ps[0].kind)[2]} ${daysUntil(ps[0].expires) < 0 ? "has expired" : "expires soon"}`, w: `Good to ${aDate(ps[0].expires)}.`, k: "papers" }
+    : !c.recalls ? { i: "⚠️", t: "Check for recalls", w: "Free from NHTSA - takes a second.", k: "recalls" }
+    : !logged ? { i: "🛢️", t: "Log your last oil change", w: "Then Auto Hub tells you when the next one is due.", k: "service" }
+    : due[0] ? { i: svc(due[0].key)[1], t: `Next: ${svc(due[0].key)[2]}`, w: `${dueWords(due[0])}.`, k: "service" } : { i: "✅", t: "All caught up", w: "Nothing due.", k: "overview" };
+  return `<section class="card hos hos-auto"><div class="hos-head"><span>AUTO HUB</span><small>${c.miles != null ? miles(c.miles) + " mi" : "miles not set"}</small></div>
+    ${cars.length > 1 ? `<div class="hos-chips">${cars.map(x => `<button class="${x.id === c.id ? "on" : ""}" data-aherocar="${x.id}">${esc(carName(x))}</button>`).join("")}</div>` : ""}
+    ${hosOrbit(center, items)}
+    <div class="hos-cash"><small>${esc([c.year, c.make].filter(Boolean).join(" "))}</small><b class="hos-name">${esc(c.nick || c.model || carName(c))}</b><span>${esc([c.trim, c.engine].filter(Boolean).join(" · ")) || "Tap the car for everything"}</span></div>
+    <button class="hos-next" ${go(n.k)}><span class="hos-next-ic" aria-hidden="true">${n.i}</span><span class="grow"><small>Your next smart action</small><b>${esc(n.t)}</b><em>Why: ${esc(n.w)}</em></span><span class="hos-go" aria-hidden="true">›</span></button>
+    <div class="hos-rings">${hosRing(tracked ? (logged - late.length) / tracked * 100 : 0, logged ? `${logged - late.length}/${tracked}` : "–", "services on track", late.length ? "#ff978f" : "#70e9b6")}
+      ${hosRing(f.mpg ? Math.min(100, f.mpg / 40 * 100) : 0, f.mpg ? f.mpg.toFixed(1) : "–", "avg MPG", "#27d7ff")}
+      ${hosRing(c.recalls ? (rc.length ? 25 : 100) : 0, c.recalls ? (rc.length ? `${rc.length} open` : "clear") : "–", "recalls", rc.length ? "#ff978f" : "#facc15")}</div>
+    ${scanBtn(c.id)}</section>`;
+}
 function autoDashHtml() {
   const cars = garage().cars, t = today();
   const due = cars.flatMap(c => carDue(c, t).slice(0, 3).map(d => ({ c, d }))).sort((a, b) => a.d.days - b.d.days).slice(0, 4);
@@ -249,12 +283,11 @@ function autoDashHtml() {
   const papersHtml = papersDue.map(({ c, x }) => { const k = paper(x.kind), n = daysUntil(x.expires);
     return `<button class="row home-up" data-acar="${c.id}" data-atabgo="papers"><span class="ci">${k[1]}</span><div class="grow"><b>${esc(x.name || k[2])}</b><span class="sub">${esc(carName(c))}</span></div>
       <span class="pill ${n < 0 ? "late" : "soon"}">${n < 0 ? "expired" : n === 0 ? "expires today" : `expires ${aDate(x.expires)}`}</span></button>`; }).join("");
-  return `<section class="card home-dash"><h3><span class="ci">🚗</span>My Garage<span class="meta">${cars.length} car${cars.length === 1 ? "" : "s"}</span></h3>
+  return autoHeroHtml() + `<section class="card home-dash"><h3><span class="ci">🚗</span>My Garage<span class="meta">${cars.length} car${cars.length === 1 ? "" : "s"}</span></h3>
     <div class="body"><div class="home-grid">${cars.map(c => { const late = carDue(c, t).filter(d => d.late).length, rc = openRecalls(c).length;
       return `<button class="home-space" data-acar="${c.id}">${c.thumb ? `<img class="auto-thumb" src="${c.thumb}" alt="">` : `<span class="hs-ic">🚗</span>`}<b>${esc(carName(c))}</b><small>${c.miles != null ? miles(c.miles) + " mi" : "miles not set"}</small>
         ${late ? `<small>⏰ ${late} due</small>` : ""}${rc ? `<small>⚠️ ${rc} recall${rc === 1 ? "" : "s"}</small>` : ""}${papersSoon(c, t).length ? `<small>📄 renew soon</small>` : ""}</button>`; }).join("")}
       <button class="home-space add" data-aaddcar="1"><span class="hs-ic">＋</span><b>Add</b><small>a car</small></button></div>
-    ${scanBtn("")}
     ${recalls ? `<p class="fine" style="margin-top:8px">⚠️ ${recalls} open safety recall${recalls === 1 ? "" : "s"} across your cars. Recall repairs are free at the dealer.</p>` : ""}
     <p class="sub" style="margin:12px 0 6px"><b>⏰ Coming up</b></p>${papersHtml}${dueHtml}</div></section>`;
 }
@@ -655,6 +688,7 @@ function autoClick(ds) {
   if (MODE !== "auto") return false;
   if (ds.acar) { AUTO_MSG = ""; showCar(ds.acar, ds.atabgo || "overview"); return true; }
   if (ds.aclose) { hideAutoSheet(); render(); return true; }
+  if (ds.aherocar) { AUTO_HERO = ds.aherocar; render(); return true; }   // v1.44 which car is the hero
   if (ds.atab) { AUTO_TAB = ds.atab; AUTO_MSG = ""; AUTO_VIEW = null; if (AUTO_OPEN) showCar(AUTO_OPEN); return true; }
   if (ds.aview !== undefined && AUTO_OPEN) { AUTO_VIEW = ds.aview || null; showCar(AUTO_OPEN, "photos"); return true; }   // v1.40
   if (ds.acover && AUTO_OPEN) { const c = carById(AUTO_OPEN); if (!c) return true;

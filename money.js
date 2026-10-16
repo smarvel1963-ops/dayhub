@@ -20,8 +20,8 @@ const MH_CATS = [["housing", "🏠", "Housing"], ["utilities", "💡", "Utilitie
 const MH_INCATS = [["pay", "💵", "Paycheck"], ["side", "💼", "Side income"], ["benefits", "🏛️", "Benefits / Social Security"], ["income", "➕", "Other income"]];
 const MH_ACCTS = [["checking", "🏦", "Checking", true], ["savings", "🐷", "Savings", true], ["cash", "💵", "Cash", true], ["credit", "💳", "Credit card", false],
   ["loan", "🧾", "Loan", false], ["invest", "📈", "Investment / retirement", false]];   // 4th = counts as cash available
-const MH_TABS = [["spend", "🧾", "Spending"], ["accounts", "🏦", "Accounts"], ["bills", "💳", "Bills"], ["budget", "🎯", "Budget"],
-  ["debt", "⛓️", "Debt"], ["subs", "🔁", "Subs"], ["payday", "💵", "Payday"], ["reports", "📊", "Reports"]];
+const MH_TABS = [["spend", "🧾", "Spending"], ["accounts", "🏦", "Accounts"], ["bills", "💳", "Payments"], ["budget", "🎯", "Budget"],
+  ["debt", "⛓️", "Debt"], ["subs", "🔁", "Subs"], ["payday", "💵", "Payday"], ["goals", "🏝️", "Goals"], ["reports", "📊", "Reports"]];
 // Words in a bank's description -> category (CSV import, and the hint when a spend is typed with no category).
 const MH_WORDS = [["groceries", /kroger|walmart|aldi|publix|safeway|heb\b|food lion|costco|sam'?s club|grocery|market/i], ["dining", /mcdonald|burger|wendy|taco|chick-?fil|starbucks|pizza|subway|sonic|doordash|uber ?eats|grubhub|restaurant|cafe|coffee/i],
   ["transport", /shell|exxon|chevron|valero|circle k|murphy|bp\b|gas|fuel|uber(?! ?eats)|lyft|parking|toll|auto|tire|jiffy/i], ["utilities", /electric|energy|water|sewer|gas co|entergy|at&t|verizon|t-?mobile|comcast|xfinity|spectrum|internet|phone/i],
@@ -128,7 +128,7 @@ const txKey = t => `${t.date}|${(+t.amt).toFixed(2)}|${String(t.what || "").toLo
 // Adds rows to the log, skipping any already there. -> how many were added
 function addTx(rows, acct) {
   const M = mh(), have = new Set(M.tx.map(txKey)); let n = 0;
-  rows.forEach(r => { const t = { id: uid(), date: r.date, amt: r.amt, what: r.what, cat: r.cat, acct: acct || "", src: r.src || "" };
+  rows.forEach(r => { const t = { id: uid(), date: r.date, amt: r.amt, what: r.what, cat: r.cat, acct: acct || "", src: r.src || "", ...(r.bill ? { bill: r.bill } : {}) };
     if (!have.has(txKey(t))) { M.tx.push(t); have.add(txKey(t)); n++; } });
   return n;
 }
@@ -146,27 +146,50 @@ function mhSetupHtml() {
     <p class="fine">Everything you type stays on this phone. Money Hub never asks for a bank password.</p></section>`;
 }
 
-// ------------------------------------------------------------ the dashboard
+// ------------------------------------------------------------ the dashboard = MONEY ORBIT (v1.44 Hub OS, Scott 10/15: "get away
+// from text based apps"). The wallet (Scott's logo) is the hero; the tabs orbit it as bubbles with a live number each; rings
+// show the month at a glance; one "next smart action" card says what needs you first and why.
+function mhNext(t) {
+  const R = payRows(t).filter(r => !r.paid), late = R.filter(r => r.late), soon = R.filter(r => !r.late && daysUntil(r.due) <= 3);
+  const over = budgetRows(ym(t)).filter(r => r.status === "over"), nx = payNext(t), due = nx ? dueBetween(t, nx).reduce((n, o) => n + o.amt, 0) : 0;
+  if (late.length) return { icon: "⏰", text: `${late[0].b.name} is late (${usd(late[0].b.amount)})`, why: `It was due ${mDate(late[0].due)} and isn't marked paid.`, tab: "bills" };
+  if (nx && cashNow() > 0 && due > cashNow()) return { icon: "⚠️", text: `Bills before payday are more than your cash`, why: `${usd(due)} due before ${mDate(nx)}, ${usd(cashNow())} in your accounts.`, tab: "bills" };
+  if (soon.length) return { icon: "💳", text: `${soon[0].b.name} due ${inDays(daysUntil(soon[0].due))}`, why: `${usd(soon[0].b.amount)}${soon[0].b.auto ? " on autopay - check it went through" : " - not on autopay"}.`, tab: "bills" };
+  if (over.length) return { icon: mcat(over[0].cat)[1], text: `${mcat(over[0].cat)[2]} is over budget`, why: `${usd(over[0].spent)} spent of a ${usd(over[0].lim)} limit this month.`, tab: "budget" };
+  if (!mh().accounts.length) return { icon: "🏦", text: "Add your accounts", why: "Cash available and the payday forecast start from your balances.", tab: "accounts" };
+  if (!S.bills.length) return { icon: "💳", text: "Add your monthly bills", why: "Then Money Hub shows what's left after payday.", tab: "bills" };
+  return { icon: "✅", text: "You're all caught up", why: nx ? `Next payday ${mDate(nx)}. Nothing late or over budget.` : "Nothing late or over budget.", tab: "payday" };
+}
+const MH_TONES = { housing: "#4da8da", utilities: "#ffd166", groceries: "#34d399", dining: "#fb923c", transport: "#60a5fa", health: "#f472b6", insurance: "#a78bfa", debt: "#f87171",
+  subs: "#22d3ee", shopping: "#e879f9", fun: "#facc15", family: "#fda4af", pets: "#a3e635", giving: "#f9a8d4", bills: "#93c5fd", other: "#94a3b8" };
 function mhDashHtml() {
-  const t = today(), m = ym(t), T = monthTotals(m), nx = typeof payNext === "function" ? payNext(t) : null;
-  const before = nx ? dueBetween(t, nx) : [], dueSum = before.reduce((n, o) => n + o.amt, 0);
-  const free = T.inc - T.out - billsLeft(t), cats = Object.entries(T.byCat).sort((a, b) => b[1] - a[1]).slice(0, 5), top = cats.length ? cats[0][1] : 0;
-  const warn = budgetRows(m).filter(r => r.status !== "ok"), subsSoon = mh().subs.filter(s => !s.off && s.next && daysUntil(s.next) >= 0 && daysUntil(s.next) <= 7);
-  const tiles = MH_TABS.map(([k, i, l]) => `<button class="home-space" data-mhtab="${k}"><span class="hs-ic">${i}</span><b>${l}</b></button>`).join("");
-  return `<section class="card home-dash"><h3><span class="ci">💰</span>Money<span class="meta">${monthName(m)}</span></h3><div class="body">
-    <p class="sub" style="margin:0">Cash available</p><p class="hpv-big" style="margin-bottom:8px">${usd(cashNow())}</p>
-    <div class="home-stats"><div class="home-stat"><b>${usd(T.inc)}</b><span>in this month</span></div><div class="home-stat"><b>${usd(T.out)}</b><span>spent this month</span></div>
-      <div class="home-stat"><b style="${free < 0 ? "color:var(--red)" : ""}">${usd(free)}</b><span>left to save</span></div></div>
-    ${nx ? `<div class="row" style="margin-top:8px"><span class="ci">💵</span><div class="grow"><b>${before.length ? `${usd(dueSum)} in bills before payday` : "No bills before payday"}</b>
-      <span class="sub">Next payday ${mDate(nx)} (${inDays(daysUntil(nx))})${cashNow() && dueSum > cashNow() ? " · ⚠️ more than your cash" : ""}</span></div></div>` : ""}
-    ${warn.map(r => `<div class="row"><span class="ci">${mcat(r.cat)[1]}</span><div class="grow"><b>${esc(mcat(r.cat)[2])}</b><span class="sub">${usd(r.spent)} of ${usd(r.lim)}</span></div><span class="pill ${r.status === "over" ? "late" : "soon"}">${r.status === "over" ? `${usd(-r.left)} over` : "almost there"}</span></div>`).join("")}
-    ${subsSoon.map(s => `<div class="row"><span class="ci">🔁</span><div class="grow"><b>${esc(s.name)}</b><span class="sub">${usd(s.amt)} renews ${mDate(s.next)}</span></div></div>`).join("")}
-    ${cats.length ? `<p class="sub" style="margin:12px 0 4px"><b>Spending by category</b></p>${cats.map(([k, v]) => `<div class="mh-bar"><span>${mcat(k)[1]} ${esc(mcat(k)[2])}</span><b>${usd(v)}</b><i style="width:${Math.max(4, Math.round(v / top * 100))}%"></i></div>`).join("")}`
-      : `<p class="fine">Log what you spend (or import your bank's CSV) and this shows where it goes.</p>`}
-    <form class="qa-form" data-mhquick="1" style="margin-top:10px"><div class="hpv-row"><input name="amt" inputmode="decimal" placeholder="$ spent" aria-label="Amount spent" required>
-      <input name="what" placeholder="What for" aria-label="What for"><select name="cat" aria-label="Category"><option value="">Category: guess it</option>${catOpts("")}</select></div>
-      <button class="btn sm">Log spending</button></form>
-    <div class="home-grid" style="margin-top:12px">${tiles}</div></div></section>`;
+  const t = today(), m = ym(t), T = monthTotals(m), M = mh(), P = payRows(t), un = P.filter(r => !r.paid), nx = payNext(t);
+  const paidPct = P.length ? (P.length - un.length) / P.length * 100 : 0, B = budgetRows(m), bLim = B.reduce((n, r) => n + r.lim, 0), bSpent = B.reduce((n, r) => n + r.spent, 0);
+  const free = T.inc - T.out - billsLeft(t), next = mhNext(t), subsMo = M.subs.filter(s => !s.off).reduce((n, s) => n + subMonthly(s), 0);
+  const debt = M.accounts.filter(a => ["credit", "loan"].includes(a.kind)).reduce((n, a) => n + (+a.bal || 0), 0);
+  const cats = Object.entries(T.byCat).sort((a, b) => b[1] - a[1]).slice(0, 6), top = cats.length ? cats[0][1] : 0;
+  const center = `<div class="hos-core"><img src="icon-192.png" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'💰'}))"></div>`;
+  const items = [
+    { attr: 'data-mhtab="bills"', icon: "💳", label: "Payments", val: un.length ? usd(un.reduce((n, r) => n + (+r.b.amount || 0), 0)) : "all paid", tone: "#27d7ff", badge: un.filter(r => r.late).length ? "late" : "" },
+    { attr: 'data-mhtab="accounts"', icon: "🏦", label: "Accounts", val: M.accounts.length ? usd(cashNow()) : "add", tone: "#4ade80" },
+    { attr: 'data-mhtab="spend"', icon: "🧾", label: "Spending", val: usd(T.out), tone: "#fb923c" },
+    { attr: 'data-mhtab="budget"', icon: "🎯", label: "Budget", val: B.length ? `${Math.round(bLim ? bSpent / bLim * 100 : 0)}%` : "set", tone: "#f472b6", badge: B.some(r => r.status === "over") ? "over" : "" },
+    { attr: 'data-mhtab="debt"', icon: "⛓️", label: "Debt", val: debt ? usd(debt) : "none", tone: "#f87171" },
+    { attr: 'data-mhtab="subs"', icon: "🔁", label: "Subs", val: subsMo ? `${usd(subsMo)}/mo` : "add", tone: "#22d3ee" },
+    { attr: 'data-mhtab="payday"', icon: "💵", label: "Payday", val: nx ? mDate(nx) : "set", tone: "#facc15" },
+    { attr: 'data-mhtab="goals"', icon: "🏝️", label: "Goals", val: S.goals.length ? `${Math.round(S.goals.reduce((n, g) => n + goalPct(g), 0) / S.goals.length)}%` : "add", tone: "#a78bfa" }];
+  return `<section class="card hos hos-money"><div class="hos-head"><span>MONEY HUB</span><small>${monthName(m)}</small></div>
+    ${hosOrbit(center, items)}
+    <div class="hos-cash"><small>Cash available</small><b>${usd(cashNow())}</b><span>${nx ? `Next payday ${mDate(nx)} (${inDays(daysUntil(nx))})` : "Set your payday to see the forecast"}</span></div>
+    <button class="hos-next" data-mhtab="${next.tab}"><span class="hos-next-ic" aria-hidden="true">${next.icon}</span><span class="grow"><small>Your next smart action</small><b>${esc(next.text)}</b><em>Why: ${esc(next.why)}</em></span><span class="hos-go" aria-hidden="true">›</span></button>
+    <div class="hos-rings">${hosRing(paidPct, P.length ? `${Math.round(paidPct)}%` : "–", "bills paid", "#70e9b6")}
+      ${hosRing(T.inc ? T.out / T.inc * 100 : 0, usd(T.out), "spent this month", T.inc && T.out > T.inc ? "#ff978f" : "#27d7ff")}
+      ${hosRing(T.inc ? Math.max(0, free) / T.inc * 100 : 0, usd(free), "left to save", free < 0 ? "#ff978f" : "#facc15")}</div>
+    ${cats.length ? `<div class="hos-cats">${cats.map(([k, v]) => `<div class="hos-cat" style="--tone:${MH_TONES[k] || "#94a3b8"}"><span class="hos-ic" aria-hidden="true">${mcat(k)[1]}</span><div class="grow"><b>${esc(mcat(k)[2])}</b><i style="width:${Math.max(6, Math.round(v / top * 100))}%"></i></div><strong>${usd(v)}</strong></div>`).join("")}</div>`
+      : `<p class="hos-hint">Log what you spend - or import your bank's CSV - and your categories light up here.</p>`}
+    <form class="hos-quick" data-mhquick="1"><input name="amt" inputmode="decimal" placeholder="$ spent" aria-label="Amount spent" required>
+      <input name="what" placeholder="What for" aria-label="What for"><select name="cat" aria-label="Category"><option value="">Guess it</option>${catOpts("")}</select><button class="hos-btn" aria-label="Log spending">＋</button></form>
+  </section>`;
 }
 
 // ------------------------------------------------------------ the sheet: one page per tab, tabs in a bottom bar
@@ -175,11 +198,11 @@ function mhSheet() {
   if (!el) { el = document.createElement("div"); el.id = "mhSheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); document.body.appendChild(el); }
   return el;
 }
-function hideMh() { const el = document.getElementById("mhSheet"); if (el) el.classList.add("hidden"); MH_OPEN = false; MH_MSG = ""; MH_IMPORT = null; MH_EDIT = null; }
+function hideMh() { const el = document.getElementById("mhSheet"); if (el) el.classList.add("hidden"); MH_OPEN = false; MH_MSG = ""; MH_IMPORT = null; MH_EDIT = null; MH_PADD = false; MH_PEDIT = null; }
 function showMh(tab) {
   if (tab) MH_TAB = tab; MH_OPEN = true;
   const el = mhSheet(), T = MH_TABS.find(x => x[0] === MH_TAB) || MH_TABS[0]; el.setAttribute("aria-label", T[2]);
-  el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
+  el.innerHTML = `<div class="sheet-body${MH_TAB === "bills" || MH_TAB === "goals" ? " mhp-sheet" : ""}"><div class="grab"></div>
     <div class="sheet-head"><h2>${T[1]} ${T[2]}</h2><button class="icon-btn" data-mhclose="1" aria-label="Close">✕</button></div>
     <div class="home-pane">${mhPane()}</div><p class="fine" id="mhMsg">${MH_MSG ? "⚠️ " + esc(MH_MSG) : ""}</p>
     <nav class="auto-tabs" aria-label="Money Hub">${MH_TABS.map(([k, i, l]) => `<button class="${MH_TAB === k ? "on" : ""}" data-mhtab="${k}" aria-current="${MH_TAB === k ? "page" : "false"}"><span>${i}</span>${l}</button>`).join("")}</nav></div>`;
@@ -208,20 +231,8 @@ function mhPane() {
         : proLock("More than 3 accounts")}
       <p class="fine">Type each balance from your bank's app. Money Hub never logs in to your bank.</p>`;
   }
-  if (MH_TAB === "bills") {
-    const up = upcomingBills();
-    return `${up.length ? up.map(b => { const n = daysUntil(b.due);
-        return `<div class="row"><span class="ci">${b.auto ? "🔄" : "💳"}</span><div class="grow"><b>${esc(b.name)}</b><span class="sub">${usd(b.amount)} · ${mDate(b.due)}${b.auto ? " · autopay" : ""}</span></div>
-          <span class="pill ${n < 0 ? "late" : n <= 3 ? "soon" : ""}">${inDays(n)}</span><button class="btn sm ghost" data-mhpaid="${b.id}">Paid</button>
-          <button class="icon-btn" data-mhdel="bill:${b.id}" aria-label="Remove">✕</button></div>`; }).join("")
-      : `<p class="fine" style="margin-top:0">Add your monthly bills - we remind you before they're due, and Paid logs the payment in Spending.</p>`}
-      <form class="qa-form" data-mhbill="1"><input name="name" placeholder="Bill, e.g. Electric" required aria-label="Bill name">
-        <div class="hpv-row"><input name="amount" inputmode="decimal" placeholder="Amount $" required aria-label="Amount"><input name="day" inputmode="numeric" placeholder="Due day (1-31)" required aria-label="Due day of the month">
-          <select name="cat" aria-label="Category">${catOpts("bills")}</select></div>
-        <label class="fine" style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" name="auto" style="width:auto;flex:none;margin:0"><span>On autopay</span></label>
-        <button class="btn sm">Add bill</button></form>
-      <p class="fine">${usd(S.bills.reduce((n, b) => n + (Number(b.amount) || 0), 0))} a month in bills · ${usd(billsLeft(t))} still to pay in ${parseDay(t).toLocaleDateString("en-US", { month: "long" })}.</p>`;
-  }
+  if (MH_TAB === "bills") return mhPayments();
+  if (MH_TAB === "goals") return mhGoals();                  // v1.44 Goals & Savings (Savings Islands)             // v1.43 Upcoming Payments (Hub OS)
   if (MH_TAB === "budget") {
     const R = budgetRows(m), set = new Set(R.map(r => r.cat));
     return `${R.length ? R.map(r => `<div class="mh-bar ${r.status}"><span>${mcat(r.cat)[1]} ${esc(mcat(r.cat)[2])}</span><b>${usd(r.spent)} / ${usd(r.lim)}</b><i style="width:${Math.min(100, Math.round(r.spent / r.lim * 100))}%"></i>
@@ -317,6 +328,114 @@ function mhPane() {
     ${!L.length ? `<p class="fine">Nothing logged yet.</p>` : ""}`;
 }
 
+// ------------------------------------------------------------ v1.43 Upcoming Payments (Scott 10/15: "Money Hub design package" -
+// Hub OS Living Payments). One screen: this month's bills as a timeline, paid / unpaid, payday and projected cash.
+// Bills are Day Hub's S.bills (recurring monthly: day of month; paid = the month it's paid THROUGH). Mark paid never moves money.
+let MH_PF = "all", MH_PADD = false, MH_PEDIT = null;
+const PAY_ICONS = { housing: "🏠", utilities: "⚡", insurance: "🛡️", transport: "🚗", debt: "💳", subs: "🔁", health: "🩺", family: "🧸", pets: "🐾", bills: "🧾" };
+// This month's view of every bill: due date this month, paid or not, late. -> rows sorted by due date
+function payRows(onDay) {
+  const m = ym(onDay), y = +m.slice(0, 4), mo = +m.slice(5, 7) - 1, dim = new Date(y, mo + 1, 0).getDate();
+  return S.bills.map(b => { const due = `${m}-${pad(Math.min(Number(b.day) || 1, dim))}`, paid = !!(b.paid && b.paid >= m);
+    return { b, due, paid, late: !paid && due < onDay, today: !paid && due === onDay }; }).sort((a, b) => a.due.localeCompare(b.due) || a.b.name.localeCompare(b.b.name));
+}
+// The forecast: cash + next paycheck - every unpaid bill this month (paid ones are assumed already out of the cash).
+function payForecast(onDay, cash, check) {
+  const R = payRows(onDay), un = R.filter(r => !r.paid), nx = payNext(onDay);
+  const total = un.reduce((n, r) => n + (Number(r.b.amount) || 0), 0), before = un.filter(r => !nx || r.due < nx).reduce((n, r) => n + (Number(r.b.amount) || 0), 0);
+  return { rows: R, unpaid: un.length, paid: R.length - un.length, total, before, nx, remaining: (+cash || 0) + (+check || 0) - total,
+    shortBefore: nx ? (+cash || 0) - before : null };
+}
+const payInsight = F => F.remaining < 0 ? `⚠️ Your unpaid bills (${usd(F.total)}) are more than your cash plus your next paycheck. Look at moving a due date or trimming spending.`
+  : F.shortBefore != null && F.shortBefore < 0 ? `⚠️ Bills due before payday (${usd(F.before)}) are more than your cash today. Everything is covered once your paycheck lands - ${usd(F.remaining)} left after that.`
+  : !F.rows.length ? "Add your monthly bills and this works out what's left after payday."
+  : `After your ${F.unpaid} unpaid bill${F.unpaid === 1 ? "" : "s"} and your next paycheck, you should have about ${usd(F.remaining)}. Other spending isn't included.`;
+const safeUrl = u => { u = String(u || "").trim(); return /^https:\/\/[^\s"'<>]+\.[^\s"'<>]+$/i.test(u) ? u.slice(0, 300) : ""; };
+function mhPayments() {
+  const M = mh(), t = today(), cash = M.payCash != null ? M.payCash : Math.round(cashNow() * 100) / 100, check = M.payCheck != null ? M.payCheck : Math.round((payAmount().amt || 0) * 100) / 100;
+  const F = payForecast(t, cash, check), pct = F.rows.length ? Math.round(F.paid / F.rows.length * 100) : 0, mon = parseDay(t).toLocaleDateString("en-US", { month: "long" });
+  const shown = F.rows.filter(r => MH_PF === "all" || (MH_PF === "paid" ? r.paid : !r.paid));
+  const card = r => { const b = r.b, ic = PAY_ICONS[b.cat] || mcat(b.cat || "bills")[1];
+    if (MH_PEDIT === b.id) return `<form class="mhp-bill mhp-edit" data-mhbillsave="${b.id}"><div class="mhp-sym" aria-hidden="true">${ic}</div><div class="mhp-fields">
+        <input name="name" value="${esc(b.name)}" required aria-label="Bill name"><div class="hpv-row"><input name="amount" inputmode="decimal" value="${b.amount}" required aria-label="Amount">
+        <input name="day" inputmode="numeric" value="${b.day}" required aria-label="Due day of the month"><select name="cat" aria-label="Category">${catOpts(b.cat || "bills")}</select></div>
+        <input name="url" inputmode="url" value="${esc(b.url || "")}" placeholder="Pay page link (https://…), optional" aria-label="Pay page link">
+        <label class="fine" style="display:flex;gap:8px;align-items:center;margin:2px 0"><input type="checkbox" name="auto" style="width:auto;flex:none;margin:0" ${b.auto ? "checked" : ""}><span>On autopay</span></label>
+        <div class="foot-actions"><button class="btn sm">Save</button><button class="btn sm ghost" type="button" data-mhbilledit="">Cancel</button><button class="btn sm ghost" type="button" data-mhdel="bill:${b.id}">Delete</button></div></div></form>`;
+    return `<article class="mhp-bill ${r.paid ? "paid" : ""}"><div class="mhp-sym" aria-hidden="true">${ic}</div>
+      <div class="mhp-det"><strong>${esc(b.name)}</strong><small>${mDate(r.due)} · ${b.auto ? "Autopay expected" : "Manual payment"}</small>
+        <div class="mhp-acts">${r.paid ? `<button data-mhunpaid="${b.id}" aria-label="Undo paid for ${esc(b.name)}">Undo paid</button>` : `<button data-mhpaid="${b.id}" aria-label="Mark ${esc(b.name)} paid">Mark paid</button>`}
+          <button data-mhbilledit="${b.id}" aria-label="Edit ${esc(b.name)}">✏️ Edit</button>${safeUrl(b.url) ? `<a href="${esc(safeUrl(b.url))}" target="_blank" rel="noopener noreferrer">Pay ↗</a>` : ""}</div></div>
+      <div class="mhp-amt"><b>${money(Number(b.amount) || 0)}</b><span class="mhp-st ${r.paid ? "paid" : r.late ? "late" : ""}">${r.paid ? "✓ Paid" : r.late ? "Late" : r.today ? "Due today" : "Scheduled"}</span></div></article>`; };
+  return `<div class="mhp">
+    <section class="mhp-hero"><div><div class="mhp-label">UPCOMING PAYMENTS</div><div class="mhp-big">${money(F.total)}</div>
+        <div class="mhp-pills"><div class="mhp-pill">Bills remaining <b>${F.unpaid}</b></div><div class="mhp-pill">Paid <b>${F.paid}</b></div>
+          <div class="mhp-pill">Next payday <b class="sm">${F.nx ? mDate(F.nx) : "not set"}</b></div></div>
+        <div class="mhp-prog"><p>${mon} payment progress <span>${pct}%</span></p><div class="mhp-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${mon} bills paid"><div style="width:${pct}%"></div></div></div></div>
+      <div class="mhp-orb" aria-hidden="true"><img src="icon-192.png" alt="" onerror="this.replaceWith(document.createTextNode('👛'))"></div></section>
+    <div class="mhp-sec"><div><h3>Payment Timeline</h3><small>${mon} ${t.slice(0, 4)}</small></div><button class="mhp-action" data-mhpadd="1">${MH_PADD ? "Close" : "+ Add bill"}</button></div>
+    ${MH_PADD ? `<form class="qa-form mhp-panel" data-mhbill="1"><input name="name" placeholder="Bill, e.g. Electric" required aria-label="Bill name">
+        <div class="hpv-row"><input name="amount" inputmode="decimal" placeholder="Amount $" required aria-label="Amount"><input name="day" inputmode="numeric" placeholder="Due day (1-31)" required aria-label="Due day of the month">
+          <select name="cat" aria-label="Category">${catOpts("bills")}</select></div>
+        <input name="url" inputmode="url" placeholder="Pay page link (https://…), optional" aria-label="Pay page link">
+        <label class="fine" style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" name="auto" style="width:auto;flex:none;margin:0"><span>On autopay</span></label>
+        <button class="btn sm">Add bill</button></form>` : ""}
+    <div class="mhp-filters" role="group" aria-label="Show">${[["all", "All"], ["unpaid", "Unpaid"], ["paid", "Paid"]].map(([k, l]) => `<button class="${MH_PF === k ? "on" : ""}" data-mhfilter="${k}" aria-pressed="${MH_PF === k}">${l}</button>`).join("")}</div>
+    <div class="mhp-cols"><div class="mhp-list">${shown.map(card).join("") || `<p class="fine">${F.rows.length ? "Nothing here." : "No bills yet - tap + Add bill."}</p>`}</div>
+      <aside><section class="mhp-panel"><h3>✦ Cash Flow Preview</h3>
+          <div class="mhp-row"><span>Current cash balance</span><strong data-mhpv="cash">${money(cash)}</strong></div>
+          <div class="mhp-row"><span>Next paycheck</span><strong data-mhpv="check">${money(check)}</strong></div>
+          <div class="mhp-row"><span>Bills before payday</span><strong>${money(F.before)}</strong></div><hr>
+          <div class="mhp-label">PROJECTED REMAINING CASH</div><div class="mhp-remain ${F.remaining < 0 ? "neg" : ""}" data-mhpv="remain">${money(F.remaining)}</div>
+          <form class="mhp-in" data-mhpaycash="1"><label>Current balance ($)<input name="cash" inputmode="decimal" value="${cash}" data-mhpin="cash"></label><label>Next paycheck ($)<input name="check" inputmode="decimal" value="${check}" data-mhpin="check"></label></form>
+          <p class="mhp-mini">Cash + paycheck − every unpaid bill this month. Paid bills are assumed already out of your cash. Starts from your Accounts and Payday; type over them to try numbers.</p></section>
+        <section class="mhp-panel"><h3>✨ Money Hub Insight</h3><div class="mhp-insight" data-mhpv="insight">${esc(payInsight(F))}</div></section>
+        <section class="mhp-panel"><h3>📸 Smart Scan</h3><p class="mhp-mini" style="font-size:.85rem">Coming with Snap-to-Action: photograph a bill, check what we read, and it lands on this timeline.</p></section></aside></div>
+    <p class="mhp-mini">Mark paid only records it - Money Hub never moves money. Pay ↗ opens the link you saved.</p></div>`;
+}
+// Typing in the two forecast boxes updates the numbers straight away (no redraw, so the cursor stays put); kept on change.
+document.addEventListener("input", e => {
+  const t = e.target; if (MODE !== "money" || !t || !t.dataset || !t.dataset.mhpin) return;
+  const f = t.form, cash = amt(f.cash.value), check = amt(f.check.value), F = payForecast(today(), cash, check), set = (k, v) => { const el = document.querySelector(`#mhSheet [data-mhpv="${k}"]`); if (el) el.textContent = v; };
+  set("cash", money(cash)); set("check", money(check)); set("remain", money(F.remaining)); set("insight", payInsight(F));
+  const r = document.querySelector('#mhSheet [data-mhpv="remain"]'); if (r) r.classList.toggle("neg", F.remaining < 0);
+});
+document.addEventListener("change", e => {
+  const t = e.target; if (MODE !== "money" || !t || !t.dataset || !t.dataset.mhpin) return;
+  const M = mh(); M[t.dataset.mhpin === "cash" ? "payCash" : "payCheck"] = amt(t.value); save();
+});
+
+// ------------------------------------------------------------ v1.44 Goals & Savings (Scott's Money Hub board: goal cards with rings;
+// the "Savings Islands" idea). Day Hub's S.goals ({name, target, saved}) + an icon and an optional by-date.
+const GOAL_ICONS = ["🏝️", "🚢", "🏠", "🚗", "🛻", "✈️", "🎓", "💍", "🛡️", "🎁", "🏖️", "💰"];
+// What to put away each month to hit a goal by its date. -> number or null
+function goalMonthly(g, onDay) {
+  if (!g.by || !(g.target > g.saved)) return null;
+  const a = parseDay(onDay), b = parseDay(g.by), months = (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth() + (b.getDate() >= a.getDate() ? 0 : -1);
+  return (g.target - g.saved) / Math.max(1, months);
+}
+function mhGoals() {
+  const G = S.goals, saved = G.reduce((n, g) => n + (+g.saved || 0), 0), target = G.reduce((n, g) => n + (+g.target || 0), 0), t = today();
+  return `<div class="mhp"><section class="mhp-hero"><div><div class="mhp-label">TOTAL SAVED</div><div class="mhp-big">${money(saved)}</div>
+        <div class="mhp-pills"><div class="mhp-pill">Goals <b>${G.length}</b></div><div class="mhp-pill">Target <b class="sm">${usd(target)}</b></div>
+          <div class="mhp-pill">Done <b>${G.filter(g => goalPct(g) >= 100).length}</b></div></div></div>
+      <div class="mhp-orb" aria-hidden="true"><span style="font-size:5rem;position:relative;z-index:1">🏝️</span></div></section>
+    <div class="mhp-list" style="margin-top:14px">${G.map(g => { const pc = goalPct(g), mo = goalMonthly(g, t);
+      return `<article class="mhp-bill goal-card"><div class="mhp-sym" aria-hidden="true">${esc(g.icon || "💰")}</div>
+        <div class="mhp-det"><strong>${esc(g.name)}</strong><small>${money(g.saved)} of ${money(g.target)}${g.by ? ` · by ${mDate(g.by)}` : ""}</small>
+          ${mo ? `<small>${usd(mo)} a month gets you there</small>` : pc >= 100 ? `<small>🎉 You did it</small>` : ""}
+          <form class="mhp-acts" data-mhgoaladd="${g.id}"><input name="amt" inputmode="decimal" placeholder="+ $" aria-label="Add to ${esc(g.name)}" style="width:80px;padding:6px 8px;border-radius:9px;background:#081c2e;border:1px solid #41617a;color:#fff">
+            <button>Add</button><button type="button" data-mhgoaldel="${g.id}" aria-label="Remove ${esc(g.name)}">✕</button></form></div>
+        ${hosRing(pc, `${pc}%`, "saved", pc >= 100 ? "#70e9b6" : "#27d7ff")}</article>`; }).join("")
+      || `<p class="fine">A cruise, a truck, a rainy-day fund - give each goal a picture and watch it fill up.</p>`}</div>
+    <form class="qa-form mhp-panel" data-mhgoal="1" style="margin-top:14px"><h3 style="margin:0">＋ New goal</h3>
+      <div class="mhp-icons" role="radiogroup" aria-label="Picture">${GOAL_ICONS.map((ic, i) => `<label><input type="radio" name="icon" value="${ic}" ${i ? "" : "checked"}><span>${ic}</span></label>`).join("")}</div>
+      <input name="name" placeholder="e.g. Caribbean cruise" required aria-label="Goal name">
+      <div class="hpv-row"><input name="target" inputmode="decimal" placeholder="Target $" required aria-label="Target"><input name="saved" inputmode="decimal" placeholder="Saved so far $" aria-label="Saved so far">
+        <label class="field" style="margin:0">By <input type="date" name="by" aria-label="By date"></label></div>
+      <button class="btn sm">Add goal</button></form></div>`;
+}
+
 // ------------------------------------------------------------ events (ui.js calls these first)
 function mhClick(ds) {
   if (MODE !== "money") return false;
@@ -325,12 +444,20 @@ function mhClick(ds) {
   const M = mh();
   if (ds.mhdel) { const [k, id] = ds.mhdel.split(":");
     if (k === "acct") M.accounts = M.accounts.filter(x => x.id !== id); else if (k === "tx") M.tx = M.tx.filter(x => x.id !== id);
-    else if (k === "sub") M.subs = M.subs.filter(x => x.id !== id); else if (k === "bill") S.bills = S.bills.filter(x => x.id !== id);
+    else if (k === "sub") M.subs = M.subs.filter(x => x.id !== id); else if (k === "bill") { S.bills = S.bills.filter(x => x.id !== id); MH_PEDIT = null; }
     save(); showMh(); render(); return true; }
-  if (ds.mhpaid) { const b = S.bills.find(x => x.id === ds.mhpaid), due = b && nextDue(b); if (!due) return true;
-    b.paid = ym(due);
-    const n = addTx([{ date: today(), amt: -(Number(b.amount) || 0), what: b.name, cat: b.cat || "bills", src: `bill ${ym(due)}` }]);
+  if (ds.mhpaid) { const b = S.bills.find(x => x.id === ds.mhpaid); if (!b) return true;   // v1.43: paid for THIS month; records only
+    const m = ym(today()); b.paid = m;
+    const n = addTx([{ date: today(), amt: -(Number(b.amount) || 0), what: b.name, cat: b.cat || "bills", src: `bill ${m}`, bill: b.id }]);
     save(); showMh("bills"); render(); toast(`💳 ${b.name} paid${n ? " - logged in Spending" : ""}`); return true; }
+  if (ds.mhunpaid) { const b = S.bills.find(x => x.id === ds.mhunpaid); if (!b) return true;
+    const m = ym(today()), d = parseDay(m + "-01"); d.setMonth(d.getMonth() - 1); b.paid = ymd(d).slice(0, 7);
+    M.tx = M.tx.filter(x => !(x.bill === b.id && x.src === `bill ${m}`));
+    save(); showMh("bills"); render(); toast(`↩️ ${b.name} back to unpaid`); return true; }
+  if (ds.mhgoaldel) { S.goals = S.goals.filter(g => g.id !== ds.mhgoaldel); save(); showMh("goals"); render(); return true; }
+  if (ds.mhfilter) { MH_PF = ds.mhfilter; showMh("bills"); return true; }
+  if (ds.mhpadd) { MH_PADD = !MH_PADD; MH_PEDIT = null; showMh("bills"); return true; }
+  if (ds.mhbilledit !== undefined) { MH_PEDIT = ds.mhbilledit || null; MH_PADD = false; showMh("bills"); return true; }
   if (ds.mhsubren) { const s = M.subs.find(x => x.id === ds.mhsubren); if (!s) return true;
     const from = s.next && s.next > today() ? s.next : today(); s.next = s.every === "year" ? addMonthsDayM(from, 12) : s.every === "week" ? addDays(from, 7) : addMonthsDayM(from, 1);
     addTx([{ date: today(), amt: -s.amt, what: s.name, cat: "subs", src: "subscription" }]); save(); showMh("subs"); render(); toast(`🔁 ${s.name} renewed to ${mDate(s.next)}`); return true; }
@@ -368,8 +495,20 @@ function mhSubmit(f, data) {
   // paid = the "paid through" month, as Day Hub: added after this month's due day = this month handled
   if (f.dataset.mhbill) { const name = String(data.name || "").trim(), d = Math.round(Number(data.day)), a = pos(data.amount);
     if (!name || !a || !(d >= 1 && d <= 31)) { MH_MSG = "Add the name, amount and the day of the month it's due."; mhMsgShow(); return true; }
-    S.bills.push({ id: uid(), name: name.slice(0, 60), amount: a, day: d, paid: d < new Date().getDate() ? ym(today()) : prevMonthKey(), auto: !!data.auto, cat: MH_CATS.some(x => x[0] === data.cat) ? data.cat : "bills" });
-    MH_MSG = ""; save(); showMh("bills"); render(); toast(`💳 ${name} added`); return true; }
+    S.bills.push({ id: uid(), name: name.slice(0, 60), amount: a, day: d, paid: d < new Date().getDate() ? ym(today()) : prevMonthKey(), auto: !!data.auto, cat: MH_CATS.some(x => x[0] === data.cat) ? data.cat : "bills", url: safeUrl(data.url) });
+    MH_MSG = ""; MH_PADD = false; save(); showMh("bills"); render(); toast(`💳 ${name} added`); return true; }
+  if (f.dataset.mhbillsave) { const b = S.bills.find(x => x.id === f.dataset.mhbillsave); if (!b) return true;
+    const name = String(data.name || "").trim(), d = Math.round(Number(data.day)), a = Math.abs(amt(data.amount));
+    if (!name || !a || !(d >= 1 && d <= 31)) { MH_MSG = "Add the name, amount and the day of the month it's due."; mhMsgShow(); return true; }
+    if (String(data.url || "").trim() && !safeUrl(data.url)) { MH_MSG = "The pay page link must start with https://"; mhMsgShow(); return true; }
+    Object.assign(b, { name: name.slice(0, 60), amount: a, day: d, auto: !!data.auto, cat: MH_CATS.some(x => x[0] === data.cat) ? data.cat : "bills", url: safeUrl(data.url) });
+    MH_PEDIT = null; MH_MSG = ""; save(); showMh("bills"); render(); toast(`💳 ${b.name} saved`); return true; }
+  if (f.dataset.mhgoal) { const name = String(data.name || "").trim(), tgt = Math.abs(amt(data.target)); if (!name || !tgt) { MH_MSG = "Add a name and a target."; mhMsgShow(); return true; }
+    S.goals.push({ id: uid(), name: name.slice(0, 50), target: tgt, saved: Math.abs(amt(data.saved)), icon: GOAL_ICONS.includes(data.icon) ? data.icon : "💰", by: /^\d{4}-\d{2}-\d{2}$/.test(data.by || "") ? data.by : "" });
+    MH_MSG = ""; save(); showMh("goals"); render(); toast(`🏝️ ${name} - let's go`); return true; }
+  if (f.dataset.mhgoaladd) { const g = S.goals.find(x => x.id === f.dataset.mhgoaladd), a = amt(data.amt); if (!g || !a) return true;
+    g.saved = Math.max(0, Math.round((g.saved + a) * 100) / 100); save(); showMh("goals"); render(); toast(goalPct(g) >= 100 ? `🎉 ${g.name} reached!` : `${g.icon || "💰"} ${usd(g.saved)} saved toward ${g.name}`); return true; }
+  if (f.dataset.mhpaycash) { const M2 = mh(); M2.payCash = amt(data.cash); M2.payCheck = amt(data.check); save(); showMh("bills"); return true; }
   if (f.dataset.mhbudget) { const k = MH_CATS.some(x => x[0] === data.cat) ? data.cat : null, lim = pos(data.lim); if (!k || !lim) return true;
     M.budgets[k] = lim; save(); showMh("budget"); render(); toast(`🎯 ${mcat(k)[2]}: ${usd(lim)} a month`); return true; }
   if (f.dataset.mhdebt) { M.debt = { extra: pos(data.extra), method: data.method === "snowball" ? "snowball" : "avalanche" }; save(); showMh("debt"); return true; }
