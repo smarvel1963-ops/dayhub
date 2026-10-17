@@ -1,6 +1,9 @@
 {
- "version": "1.53",
+ "version": "1.54",
  "notes": {
+  "1.54": [
+   "📷 Health Hub has its own calm photos behind the clock now - a sunrise stretch above the clouds, a sunny walking path and stacked stones in still water, a different one each day. ⚙ → Background → Real photo turns them off."
+  ],
   "1.53": [
    "💚 New in the Hub family: Health Hub - your wellness command center. Meds with Taken / Skipped and refill countdowns, appointments with your questions, blood pressure, glucose, weight, heart rate and oxygen with gauges and trends, water, steps, sleep, a daily check-in, a records vault and an emergency card. Everything stays on your phone. Find it in ⚙ → Hub family.",
    "🌌 Hub Universe: Health Hub joins as a new Wellness orbit - doses due, today's appointment and refills running low, right next to your other hubs."

@@ -19,12 +19,12 @@
  */
 "use strict";
 
-const SCENE_FOR = { day: "weather", cruise: "ocean", trip: "travel", home: "weather", auto: "weather", money: "weather", health: "weather" };   // v1.53 Health Hub: live weather; no photo set of its own yet -> Day Hub's   // v0.97 Trip Hub: skyline + plane; v1.25 Home Hub: live weather
+const SCENE_FOR = { day: "weather", cruise: "ocean", trip: "travel", home: "weather", auto: "weather", money: "weather", health: "weather" };   // v1.53 Health Hub: live weather (v1.54: its own photo set, PHOTO_SETS.health)   // v0.97 Trip Hub: skyline + plane; v1.25 Home Hub: live weather
 let SCENE_KEY = null;
 // v1.51 REAL PHOTOS (Scott 10/17: "a faded real picture in background with app motive" + "a few themed ones that rotate").
 // 3 Pexels photos per app (free licence, sources in photos/SOURCES.csv), faded under the clock, a different one each day.
 // The drawn weather scene stays on top of the colour and shows through. ⚙ → Background → Real photo turns it off (S.photo).
-const PHOTO_SETS = { day: 3, cruise: 3, trip: 3, home: 3, auto: 3, money: 3 };
+const PHOTO_SETS = { day: 3, cruise: 3, trip: 3, home: 3, auto: 3, money: 3, health: 3 };   // v1.54 Health Hub: its own 3 (yoga above clouds, walking path, stacked stones)
 const PHOTO_FOR_SCENE = { ocean: "cruise", travel: "trip", weather: "day" };   // a picked scene brings its own app's photos
 // Day Hub (Scott 10/17: "day hub can have several that match the weather forecast"): the photo follows the live weather -
 // rain / snow / storm / fog day or night, stars or the moon at night, sunrise before 9, sunset after 5, else sky or clouds.

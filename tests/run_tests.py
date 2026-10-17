@@ -4567,7 +4567,7 @@ def t_v150_store_mode_and_flash(b, base):
 def t_v151_real_photos(b, base):
     print("\n[v1.51 a faded real photo behind the clock, 3 per app, rotating daily; Background -> Real photo off]")
     root = os.path.dirname(os.path.abspath(__file__))
-    files = [f"{k}_{n}.jpg" for k in ("day", "cruise", "trip", "home", "auto", "money") for n in (1, 2, 3)]
+    files = [f"{k}_{n}.jpg" for k in ("day", "cruise", "trip", "home", "auto", "money", "health") for n in (1, 2, 3)]
     check("18 photos ship with the app (3 per hub), each small", all(os.path.exists(os.path.join(root, "..", "photos", f)) and os.path.getsize(os.path.join(root, "..", "photos", f)) < 200000 for f in files))
     check("photo sources recorded (Pexels licence)", os.path.exists(os.path.join(root, "..", "photos", "SOURCES.csv")))
     a = App(b, base); setup(a)
