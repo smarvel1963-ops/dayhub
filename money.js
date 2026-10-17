@@ -262,7 +262,7 @@ function showMh(tab) {
 }
 const mhMsgShow = () => { const el = document.getElementById("mhMsg"); if (el) el.textContent = MH_MSG ? "⚠️ " + MH_MSG : ""; };
 const catOpts = (sel, inc) => [...MH_CATS, ...(inc ? MH_INCATS : [])].map(([k, i, l]) => `<option value="${k}" ${sel === k ? "selected" : ""}>${i} ${l}</option>`).join("");
-const proLock = what => `<p>${what} come with ${esc(PLAN.MONEY_NAME)} (${esc(PLAN.MONEY_MONTHLY)}, 30 days free).</p>
+const proLock = what => STORE_MODE ? `<p>${what} come with ${esc(PLAN.MONEY_NAME)}. Have it? ⚙ → ${esc(PLAN.MONEY_NAME)} → enter your email.</p>` : `<p>${what} come with ${esc(PLAN.MONEY_NAME)} (${esc(PLAN.MONEY_MONTHLY)}, 30 days free).</p>
   ${PLAN.MONEY_CHECKOUT_URL ? `<a class="btn" href="${esc(PLAN.MONEY_CHECKOUT_URL)}" target="_blank" rel="noopener">Start 30 days free</a>` : `<p class="fine">Coming soon.</p>`}`;
 
 function mhPane() {

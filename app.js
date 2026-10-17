@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.49";
+const VERSION = "1.51";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -2660,7 +2660,7 @@ function showAsk() {
     : `<p class="fine" style="margin-top:4px">${TRAVEL ? `Ask in plain words — ${MODE === "cruise" ? `"When do we need to be back on the ship?"` : `"What time is our hotel check-in?"`} — and ${APP_NAME} answers from your own ${TW}.` : MODE === "money" ? `Ask in plain words — "Can I afford a $2,000 vacation in December?" — and Money Hub answers from your own numbers, with the math.`
        : MODE === "auto" ? `Ask in plain words — "When did I last change the oil?" — and Auto Hub answers from your own garage.`
        : `Ask in plain words — "When's my next oil change?" — and Day Hub answers from your own planner.`}</p>
-       <ol class="steps"><li>Tap ⚙ (top right).</li><li>${creditsOn() ? `Find <b>🤖 AI helper</b> → get <b>${PLAN.AI_CREDITS_NAME}</b> (${PLAN.AI_PACKS.map(p => `${p.n} for ${p.price}`).join(" or ")}), then enter the email you bought with.` : `Find <b>🤖 AI helper</b>, type your passphrase, tap <b>Turn on</b>.`}</li></ol>
+       <ol class="steps"><li>Tap ⚙ (top right).</li><li>${STORE_MODE ? `Find <b>🤖 AI helper</b> and enter the email that has your Pro or AI credits.` : creditsOn() ? `Find <b>🤖 AI helper</b> → get <b>${PLAN.AI_CREDITS_NAME}</b> (${PLAN.AI_PACKS.map(p => `${p.n} for ${p.price}`).join(" or ")}), then enter the email you bought with.` : `Find <b>🤖 AI helper</b>, type your passphrase, tap <b>Turn on</b>.`}</li></ol>
        <button class="btn sm" data-askclose="1" data-open="sheet">Open ⚙</button>`}
   </div>`;
   el.classList.remove("hidden");
@@ -2941,7 +2941,8 @@ function heroHtml() {
   if (!TRAVEL && !S.sync.on && hasData(S) && can("sync")) chips.unshift(`<button class="chip warn" data-sync="on">☁️ Not backed up — tap to turn on</button>`);
   if (needTap().length) chips.push(`<button class="chip" data-syncall="1">🔄 Tap to sync${S.gcal.dirty || S.sync.dirty ? " · changes waiting" : ""}</button>`);
   if (!TRAVEL && h >= 4 && h < 12 && (S.name || hasData(S))) chips.push(`<button class="chip" data-brief="open">☀️ Morning brief</button>`);
-  if (UPDATE) chips.unshift(`<button class="chip good" data-update="1">✨ New version ready — tap to update</button>`);
+  // v1.50 (Scott 10/17: "when needed it should flash and draw attention to it"): the update chip pulses until tapped.
+  if (UPDATE) chips.unshift(`<button class="chip good upd-flash" data-update="1">✨ New version ready — tap to update</button>`);
   if (INSTALL_EVT && !standalone()) chips.push(`<button class="chip" data-install="1">📲 Install ${APP_NAME}</button>`);
 
 

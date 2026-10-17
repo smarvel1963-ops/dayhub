@@ -840,7 +840,8 @@ let CRED_MSG = "";
 function creditsHtml() {
   if (!creditsOn() || aiPass()) return "";
   const c = readCredits(), packs = PLAN.AI_PACKS.map(p => `${p.n} questions ${p.price}`).join(" · ");
-  const buy = PLAN.AI_PACKS.filter(p => p.url).map(p => `<a class="btn sm" href="${esc(p.url)}" target="_blank" rel="noopener">${p.n} for ${p.price}</a>`).join("");
+  if (STORE_MODE && !c.buyer) return "";                           // v1.50 Play Store app: no packs for sale here
+  const buy = STORE_MODE ? "" : PLAN.AI_PACKS.filter(p => p.url).map(p => `<a class="btn sm" href="${esc(p.url)}" target="_blank" rel="noopener">${p.n} for ${p.price}</a>`).join("");
   const msg = CRED_MSG ? `<p class="fine" style="margin-top:6px">${esc(CRED_MSG)}</p>` : "";
   if (c.buyer) return `<div class="leg"><span>🎟️ ${PLAN.AI_CREDITS_NAME} · <b>${typeof c.left === "number" ? c.left : "?"}</b> questions left · ${esc(c.buyer)}</span></div>
       ${proAi() ? `<p class="fine" style="margin-top:4px">Your ${PLAN.NAME} questions each day come first; credits only after.</p>` : ""}
@@ -1777,7 +1778,7 @@ function drawProBox() {
     : autoPass() ? `<p class="fine"><b>${PLAN.AUTO_MONTHLY}</b> — 30 days free, cancel any time on Whop.</p>`
     : cruisePass() ? `<p class="fine"><b>${PLAN.CRUISE_YEARLY}</b> — every cruise you take that year.</p>`
     : tripPass() ? `<p class="fine"><b>${PLAN.TRIP_YEARLY}</b> — every trip you take that year.</p>` : `<p class="fine"><b>${PLAN.MONTHLY}</b> or <b>${PLAN.YEARLY}</b>.</p>`;
-  const buyUrl = moneyPass() ? PLAN.MONEY_CHECKOUT_URL : autoPass() ? PLAN.AUTO_CHECKOUT_URL : cruisePass() ? PLAN.CRUISE_CHECKOUT_URL : tripPass() ? PLAN.TRIP_CHECKOUT_URL : PLAN.WHOP_CHECKOUT_URL;
+  const buyUrl = STORE_MODE ? "" : moneyPass() ? PLAN.MONEY_CHECKOUT_URL : autoPass() ? PLAN.AUTO_CHECKOUT_URL : cruisePass() ? PLAN.CRUISE_CHECKOUT_URL : tripPass() ? PLAN.TRIP_CHECKOUT_URL : PLAN.WHOP_CHECKOUT_URL;
   g.innerHTML = `<h3>⭐ ${proName()}</h3>` + (ownerPhone()
     ? `<div class="leg"><span>✅ Pro — this is the owner's phone</span></div>`
     : proViaDayHub()
@@ -1786,6 +1787,9 @@ function drawProBox() {
     ? `<div class="leg"><span>✅ ${p.product === "dayhub" && hubPass() ? `Included with ${PLAN.NAME}` : `${proName()} is on`} · ${who} · checked ${prettyDate(ymd(new Date(p.checked)))}</span></div>
        <div class="foot-actions"><button class="btn sm ghost" data-pro="check">Check now</button><button class="btn sm ghost" data-pro="remove">Remove from this phone</button></div>
        <p class="fine" style="margin-top:6px">One purchase works on up to ${PLAN.MAX_PHONES} phones. Removing it here frees this phone's spot.</p>`
+    : STORE_MODE                                                    // v1.50 Play Store app: no price, no buy, no Whop
+    ? what + `<p class="fine">Already have ${proName()}? Enter your email to unlock it on this phone.</p>
+       <form class="inline-add" data-proform="1"><input name="key" type="text" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="Your email" value="${who}" autocomplete="email" required><button class="btn sm">Unlock</button></form>`
     : what + price +
       (buyUrl ? `<a class="btn sm" href="${esc(buyUrl)}" target="_blank" rel="noopener">Get ${proName()}</a>`
         : `<p class="fine">Coming soon.</p>`) +
@@ -1799,7 +1803,7 @@ function unlockPro(buyer) {
   verifyPro(buyer).then(ok => { const st = proState().status || "";
       if (!ok && st === "needs code") { PRO_MSG = ""; askCode(buyer, "pro"); return; }   // v1.27
       PRO_MSG = ok ? "" : /phones/.test(st) ? `It's already on ${PLAN.MAX_PHONES} phones — tap Remove from this phone on one of them, then try again.`
-        : `No active ${hubPass() ? `${proName()} or ${PLAN.NAME}` : PLAN.NAME} found for that — use the email you bought with on Whop (or your mem_ membership id).`;
+        : `No active ${hubPass() ? `${proName()} or ${PLAN.NAME}` : PLAN.NAME} found for that — use the email you bought with${STORE_MODE ? "" : " on Whop"} (or your mem_ membership id).`;
       drawProBox(); drawAiBox(); render();
       if (ok) toast(`⭐ ${proName()} unlocked`); })
     .catch(e => { PRO_MSG = "Couldn't reach the check — try again in a minute. (" + e.message + ")"; drawProBox(); });

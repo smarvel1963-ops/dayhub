@@ -21,6 +21,28 @@
 
 const SCENE_FOR = { day: "weather", cruise: "ocean", trip: "travel", home: "weather", auto: "weather", money: "weather" };   // v0.97 Trip Hub: skyline + plane; v1.25 Home Hub: live weather
 let SCENE_KEY = null;
+// v1.51 REAL PHOTOS (Scott 10/17: "a faded real picture in background with app motive" + "a few themed ones that rotate").
+// 3 Pexels photos per app (free licence, sources in photos/SOURCES.csv), faded under the clock, a different one each day.
+// The drawn weather scene stays on top of the colour and shows through. ⚙ → Background → Real photo turns it off (S.photo).
+const PHOTO_SETS = { day: 3, cruise: 3, trip: 3, home: 3, auto: 3, money: 3 };
+const PHOTO_FOR_SCENE = { ocean: "cruise", travel: "trip", weather: "day" };   // a picked scene brings its own app's photos
+// Day Hub (Scott 10/17: "day hub can have several that match the weather forecast"): the photo follows the live weather -
+// rain / snow / storm / fog day or night, stars or the moon at night, sunrise before 9, sunset after 5, else sky or clouds.
+const WX_PHOTOS = { morning: ["day_1", "day_2"], evening: ["day_3"], nightcloud: ["wx_nightcloud_1"] };   // the rest: wx_<kind>_1..3
+function photoKind(kind, night, h) {
+  if (["rain", "snow", "storm", "fog"].includes(kind)) return kind;
+  if (night) return kind === "cloudy" ? "nightcloud" : "night";
+  return kind === "cloudy" ? "cloudy" : h < 9 ? "morning" : h >= 17 ? "evening" : "clear";
+}
+function photoUrl(kind, night, pick) {
+  if (S.photo === false || pick === "off") return "";
+  const set = PHOTO_FOR_SCENE[pick] || (PHOTO_SETS[MODE] ? MODE : "day");
+  const d = new Date(), doy = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 864e5);
+  let file;
+  if (set === "day") { const k = photoKind(kind, night, d.getHours()), list = WX_PHOTOS[k] || [1, 2, 3].map(n => `wx_${k}_${n}`); file = list[doy % list.length]; }
+  else file = `${set}_${doy % PHOTO_SETS[set] + 1}`;
+  return new URL(`photos/${file}.jpg`, BASE_URL).href;
+}
 
 // What the sky is doing: clear | cloudy | rain | snow | storm | fog (WMO codes, Open-Meteo).
 function skyKind(code) {
@@ -123,11 +145,13 @@ const SCENES = {
 // Called from paintHero(): sets --scene on the hero only when the scene changes.
 function paintScene(hero) {
   const pick = S.scene && S.scene !== "auto" ? S.scene : null;          // v1.10 the person's own pick (⚙ → Background)
-  if (pick === "off") { SCENE_KEY = "off"; hero.style.removeProperty("--scene"); hero.dataset.scene = "off"; return; }
+  if (pick === "off") { SCENE_KEY = "off"; hero.style.removeProperty("--scene"); hero.style.removeProperty("--photo"); hero.dataset.scene = "off"; hero.dataset.photo = ""; return; }
   const name = (pick && SCENES[pick] ? pick : SCENE_FOR[MODE]) || "weather", h = new Date().getHours();
   const w = WXDATA && WXDATA.here && WXDATA.here.cur;
   const night = w && w.is_day != null ? !w.is_day : (h < 6 || h >= 19);
   const kind = skyKind(w ? w.weather_code : null);
+  const ph = photoUrl(kind, night, pick);                              // v1.51 the faded real photo (its own layer, hero::before)
+  if (hero.dataset.photo !== ph) { if (ph) hero.style.setProperty("--photo", `url("${ph}")`); else hero.style.removeProperty("--photo"); hero.dataset.photo = ph; }
   const key = `${name}|${kind}|${night ? "n" : "d"}`;
   if (key === SCENE_KEY && hero.style.getPropertyValue("--scene")) return;
   SCENE_KEY = key;
@@ -144,9 +168,12 @@ function drawSceneBox() {
   const cur = S.scene || "auto", own = SCENE_PICKS.find(x => x[0] === SCENE_FOR[MODE]);
   g.innerHTML = `<h3>🖼️ Background</h3><div class="scene-picks">` + SCENE_PICKS.map(([k, ic, l]) =>
     `<button class="chip${k === cur ? " on" : ""}" data-scenepick="${k}" aria-pressed="${k === cur}">${ic} ${l}</button>`).join("") +
-    `</div><p class="fine" style="margin-top:6px">The faint picture behind the clock. Auto = ${own ? own[2].toLowerCase() : "this app's own"}. It follows the real weather and day / night.</p>`;
+    `</div><p class="fine" style="margin-top:6px">The faint picture behind the clock. Auto = ${own ? own[2].toLowerCase() : "this app's own"}. It follows the real weather and day / night.</p>
+    <div class="scene-picks" style="margin-top:8px"><button class="chip${S.photo !== false ? " on" : ""}" data-scenephoto="1" aria-pressed="${S.photo !== false}">📷 Real photo ${S.photo !== false ? "on" : "off"}</button></div>
+    <p class="fine" style="margin-top:4px">A soft real photo for this app behind the clock - a different one each day.</p>`;
 }
 function sceneClick(ds) {
+  if (ds.scenephoto) { S.photo = S.photo === false ? undefined : false; save(); render(); drawSceneBox(); return true; }   // v1.51
   if (!ds.scenepick) return false;
   S.scene = ds.scenepick === "auto" ? undefined : ds.scenepick; SCENE_KEY = null; save(); render(); drawSceneBox();
   if (typeof drawSetJump === "function") drawSetJump(); return true;

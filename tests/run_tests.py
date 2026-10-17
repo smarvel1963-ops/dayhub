@@ -4516,6 +4516,72 @@ def t_v148_data_update(b, base):
     check("fits a 360px phone", a.js("document.querySelector('#mhSheet .sheet-body').scrollWidth <= document.querySelector('#mhSheet .sheet-body').clientWidth + 1"))
     a.close()
 
+
+def t_v150_store_mode_and_flash(b, base):
+    print("\n[v1.50 Google Play store mode (no price / buy / Whop) + the flashing update chip]")
+    a = App(b, base); setup(a)
+    a.js("UPDATE = {version: '9.99', notes: {}}; render()")
+    check("update waiting: the top chip flashes (upd-flash) and still updates on tap", a.page.locator("#hero [data-update].upd-flash, [data-update].upd-flash").count() >= 1)
+    anim = a.js("getComputedStyle(document.querySelector('[data-update].upd-flash')).animationName")
+    check("...and it is really animated (updPulse)", "updPulse" in anim, anim)
+    a.js("UPDATE = null; render()")
+    check("no update: no flashing chip", a.page.locator("[data-update]").count() == 0)
+    # web app in Chrome: buy buttons as before
+    a.js("openSettings()")
+    web = a.js("document.getElementById('proBox') ? document.getElementById('proBox').innerHTML : ''")
+    check("web version: Pro box has the Whop buy button and price", "whop.com" in web and "$4.99" in web, web[:200])
+    a.close()
+    # the Play Store app opens ?src=play
+    a = App(b, base, path="/?src=play"); setup(a)
+    check("store mode on for this session", a.js("STORE_MODE") is True)
+    a.js("openSettings()")
+    pro = a.js("document.getElementById('proBox') ? document.getElementById('proBox').innerHTML : ''")
+    check("Play app: Pro box has NO price, NO buy link, NO Whop - only 'enter your email' + Unlock",
+          "whop" not in pro.lower() and "$" not in pro and "Unlock" in pro and "Already have" in pro, pro[:300])
+    ai = a.js("document.getElementById('aiBox') ? document.getElementById('aiBox').innerHTML : ''")
+    check("Play app: AI helper box sells no credit packs", "whop" not in ai.lower() and "$2.99" not in ai and "$9.99" not in ai, ai[:300])
+    a.js("showAsk()")
+    ask = a.page.inner_text("#askSheet")
+    check("Play app: Ask sheet asks for an email, no pack prices", "$" not in ask and "email" in ask, ask[:300])
+    check("the flag is per session (sessionStorage), never saved for the web app", a.js("localStorage.getItem('hub.store')") is None and a.js("sessionStorage.getItem('hub.store')") == "play")
+    a.close()
+    m = App(b, base, path=MONEYP + "?src=play")
+    check("Money Hub Play app: proLock has no price / checkout", "$" not in m.js("proLock('Reports')") and "whop" not in m.js("proLock('Reports')").lower())
+    m.close()
+
+
+def t_v151_real_photos(b, base):
+    print("\n[v1.51 a faded real photo behind the clock, 3 per app, rotating daily; Background -> Real photo off]")
+    root = os.path.dirname(os.path.abspath(__file__))
+    files = [f"{k}_{n}.jpg" for k in ("day", "cruise", "trip", "home", "auto", "money") for n in (1, 2, 3)]
+    check("18 photos ship with the app (3 per hub), each small", all(os.path.exists(os.path.join(root, "..", "photos", f)) and os.path.getsize(os.path.join(root, "..", "photos", f)) < 200000 for f in files))
+    check("photo sources recorded (Pexels licence)", os.path.exists(os.path.join(root, "..", "photos", "SOURCES.csv")))
+    a = App(b, base); setup(a)
+    ph = a.js("document.getElementById('hero').dataset.photo")
+    check("Day Hub: a weather photo on the hero, drawn by hero::before at low opacity", ("/photos/day_" in ph or "/photos/wx_" in ph) and a.js("getComputedStyle(document.getElementById('hero'), '::before').backgroundImage").find("/photos/") >= 0
+          and float(a.js("getComputedStyle(document.getElementById('hero'), '::before').opacity")) < 0.5, ph)
+    ok = a.js("fetch(document.getElementById('hero').dataset.photo).then(r => r.ok && r.headers.get('content-type').includes('image'))")
+    check("...and the file loads as an image", ok is True)
+    check("Day Hub follows the weather: rain / snow / storm / fog photos, day or night", all(f"/photos/wx_{k}_" in a.js(f"photoUrl('{k}', {n}, null)") for k in ("rain", "snow", "storm", "fog") for n in ("false", "true")))
+    check("...clear night = stars / moon, cloudy night = moon in clouds, cloudy day = clouds",
+          "/photos/wx_night_" in a.js("photoUrl('clear', true, null)") and "wx_nightcloud_1" in a.js("photoUrl('cloudy', true, null)") and "/photos/wx_cloudy_" in a.js("photoUrl('cloudy', false, null)"))
+    check("...clear day: sunrise before 9 AM (the 8:00 test clock)", "/photos/day_" in a.js("photoUrl('clear', false, null)") and a.js("photoKind('clear', false, 8)") == "morning" and a.js("photoKind('clear', false, 12)") == "clear" and a.js("photoKind('clear', false, 18)") == "evening")
+    root2 = os.path.join(root, "..", "photos")
+    check("every weather photo the app can ask for exists", all(os.path.exists(os.path.join(root2, f)) for f in [f"wx_{k}_{n}.jpg" for k in ("clear", "cloudy", "rain", "snow", "storm", "fog", "night") for n in (1, 2, 3)] + ["wx_nightcloud_1.jpg"]))
+    a.js("S.scene = 'ocean'; SCENE_KEY = null; render()")
+    check("picking the Ocean scene brings Cruise Hub's photos", "/photos/cruise_" in a.js("document.getElementById('hero').dataset.photo"))
+    a.js("S.scene = undefined; SCENE_KEY = null; render(); openSettings(); drawSceneBox()")
+    a.js("document.querySelector('[data-scenephoto]').click()")
+    check("Background -> Real photo off: no photo on the hero, the drawn scene stays", a.js("S.photo") is False and a.js("document.getElementById('hero').dataset.photo") == "" and a.js("!!document.getElementById('hero').style.getPropertyValue('--scene')"))
+    a.js("document.querySelector('[data-scenephoto]').click()")
+    check("...and back on", "/photos/" in a.js("document.getElementById('hero').dataset.photo"))
+    a.close()
+    for path, k in ((AUTOP, "auto"), (MONEYP, "money"), (TRIP, "trip"), (CRUISE, "cruise"), (HOMEP, "home")):
+        x = App(b, base, path=path); x.page.wait_for_timeout(300)
+        check(f"{k}: its own photo set", f"/photos/{k}_" in (x.js("document.getElementById('hero') && document.getElementById('hero').dataset.photo") or ""))
+        check(f"{k}: keeps its own photos whatever the weather (rain at night)", f"/photos/{k}_" in x.js("photoUrl('rain', true, null)"))
+        x.close()
+
 def t_v127_email_codes(b, base):
     print("\n[v1.27 store audit S2: a NEW phone confirms the purchase email with a 6-digit emailed code]")
     a = App(b, base); setup(a)
@@ -4721,7 +4787,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete, t_v142_money_hub, t_v145_money_control_room, t_v146_connect_and_cash_flow, t_v147_share_and_rings, t_v148_money_advisor, t_v148_data_update):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete, t_v142_money_hub, t_v145_money_control_room, t_v146_connect_and_cash_flow, t_v147_share_and_rings, t_v148_money_advisor, t_v148_data_update, t_v150_store_mode_and_flash, t_v151_real_photos):
             if os.environ.get("ONLY") and not any(k in t.__name__ for k in os.environ["ONLY"].split(",")): continue   # ONLY=t_v145 python tests/run_tests.py
             try:
                 t(b, base)

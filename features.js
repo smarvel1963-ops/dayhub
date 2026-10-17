@@ -74,6 +74,15 @@ const PLAN = Object.freeze({
              { n: 500, price: "$9.99", url: "https://whop.com/commander-marvel-por-picks/hub-ai-credits-500-questions" }],  // prod_8ZVor6HNWoWLP
 });
 
+// v1.50 STORE MODE (Google Play, Scott 10/17). The Play Store app (a Trusted Web Activity) opens start_url
+// ".../?src=play". For that session the app shows NO price, NO buy button and NO Whop link (Google's payments rule);
+// unlocking with an email someone already has (Pro, a Pass, AI credits, a friends pass) still works.
+// sessionStorage, not localStorage: the Play app shares Chrome's storage, and the web app in Chrome keeps its buttons.
+const STORE_MODE = (() => {
+  try { if (/[?&]src=play(&|$)/.test(location.search)) sessionStorage.setItem("hub.store", "play"); return sessionStorage.getItem("hub.store") === "play"; }
+  catch (e) { return typeof location !== "undefined" && /[?&]src=play(&|$)/.test(location.search); }
+})();
+
 const OWNER_KEY = "dayhub.owner";
 const ownerSwitches = () => { try { return JSON.parse(localStorage.getItem(OWNER_KEY) || "{}") || {}; } catch (e) { return {}; } };
 function setOwnerSwitch(name, val) {

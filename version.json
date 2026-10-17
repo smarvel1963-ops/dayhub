@@ -1,6 +1,13 @@
 {
- "version": "1.49",
+ "version": "1.51",
  "notes": {
+  "1.51": [
+   "📷 A soft real photo behind the clock in every Hub app - Day Hub's follows the weather (rain, snow, stars at night), a ship at sea for Cruise Hub, the road for Auto Hub and more - a different one each day. ⚙ → Background → Real photo turns it off."
+  ],
+  "1.50": [
+   "✨ When a new version is ready, the button at the top now flashes so you don't miss it - one tap updates.",
+   "🔧 Behind the scenes: getting ready for the Google Play Store."
+  ],
   "1.49": [
    "💰 Money Hub is open: find it in ⚙ → Hub family, next to Day, Cruise, Trip, Home and Auto Hub."
   ],

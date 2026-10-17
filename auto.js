@@ -658,6 +658,7 @@ function showAddCar() {
   el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
     <div class="sheet-head"><h2>＋ Add a car</h2><button class="icon-btn" data-aclose="1" aria-label="Close">✕</button></div>
     ${autoCanAdd() ? `<form class="qa-form" data-anewcar="1">${carFormFields()}<button class="btn">Add car</button></form>`
+      : STORE_MODE ? `<p>Auto Hub free keeps <b>1 car</b>. ${esc(PLAN.AUTO_NAME)} keeps every car you own - have it? ⚙ → ${esc(PLAN.AUTO_NAME)} → enter your email.</p>`
       : `<p>Auto Hub free keeps <b>1 car</b>. ${esc(PLAN.AUTO_NAME)} (${esc(PLAN.AUTO_MONTHLY)}, 30 days free) keeps every car you own.</p>
          ${PLAN.AUTO_CHECKOUT_URL ? `<a class="btn" href="${esc(PLAN.AUTO_CHECKOUT_URL)}" target="_blank" rel="noopener">Start 30 days free</a>` : `<p class="fine">Coming soon.</p>`}`}
     <p class="fine" id="autoMsg">${AUTO_MSG ? "⚠️ " + esc(AUTO_MSG) : ""}</p></div>`;
