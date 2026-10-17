@@ -1,6 +1,9 @@
 {
- "version": "1.48",
+ "version": "1.49",
  "notes": {
+  "1.49": [
+   "💰 Money Hub is open: find it in ⚙ → Hub family, next to Day, Cruise, Trip, Home and Auto Hub."
+  ],
   "1.48": [
    "🧭 Money Hub: Money Advisor - type what it costs and when, and see Yes / Tight / Not yet, your cash with and without it, the first date it fits, and what to set aside each payday. Always free, with the math shown.",
    "🔄 Money Hub: Data Update - every account and app shows how many days since it was last brought up to date (on the home screen too), with Sign in to its own site, Update with the new file, or ✓ Checked.",

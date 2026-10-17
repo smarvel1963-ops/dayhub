@@ -629,7 +629,7 @@ const HUBS = [
   { id: "triphub", name: "Trip Hub", icon: "✈️", what: "Flights, hotels and road trips.", url: TRIP_URL },   // v1.23: listed 10/11 (Trip Hub Pass on sale) - no longer COMING SOON
   { id: "homehub", name: "Home Hub", icon: "🏡", what: "Every room, outdoor space and system — items, tasks, notes.", url: HOMEHUB_URL },   // v1.33: listed 10/14 (Scott: "complete home hubs") - no longer COMING SOON
   { id: "autohub", name: "Auto Hub", icon: "🚗", what: "Your cars — maintenance, repairs, insurance and what they're worth.", url: AUTOHUB_URL },   // v1.34 COMING SOON; v1.38 listed 10/14 (Scott: "yes do 1-5")
-  { id: "moneyhub", name: "Money Hub", icon: "💰", what: "Bills, budget, debt payoff and what's left after payday.", url: MONEYHUB_URL, soon: true },   // v1.42 COMING SOON until Scott tries it
+  { id: "moneyhub", name: "Money Hub", icon: "💰", what: "Bills, budget, debt payoff and what's left after payday.", url: MONEYHUB_URL },   // v1.42 COMING SOON; open since v1.49 (Scott 10/17 "go")
 ];
 function hubRows() {
   const sd = sibData();

@@ -1559,7 +1559,7 @@ def t_v050_countdown_family(b, base):
     # hub family card: last, lists the others (Trip Hub listed 10/11 - no COMING SOON)
     check("Hub family card is the last card", a.js("cardOrder().slice(-1)[0]") == "family")
     f = a.card("family")
-    check("family card: Day Hub + Trip Hub + Home Hub + Auto Hub with Open (Auto Hub listed v1.38), only Money Hub coming soon (v1.42), not itself", "Day Hub" in f and "Trip Hub" in f and f.count("COMING SOON") == 1 and "Money Hub" in f and "Auto Hub" in f and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/autohub/\"]')") and "Home Hub" in f and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/homehub/\"]')") and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/triphub/\"]')") and "Cruise Hub" not in f.split("Day Hub")[0] and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/dayhub/\"]')"), f[:300])
+    check("family card: Day Hub + Trip Hub + Home Hub + Auto Hub with Open (Auto Hub listed v1.38), Money Hub open too (v1.49), not itself", "Day Hub" in f and "Trip Hub" in f and f.count("COMING SOON") == 0 and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/moneyhub/\"]')") and "Money Hub" in f and "Auto Hub" in f and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/autohub/\"]')") and "Home Hub" in f and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/homehub/\"]')") and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/triphub/\"]')") and "Cruise Hub" not in f.split("Day Hub")[0] and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/dayhub/\"]')"), f[:300])
     a.close()
     a = App(b, base)
     setup(a)
@@ -3689,7 +3689,7 @@ def t_v125_home_hub(b, base):
     a = App(b, base)
     setup(a)
     f = a.js("hubRows()")
-    check("Day Hub lists Home Hub and Auto Hub with Open buttons (v1.33 / v1.38), only Money Hub COMING SOON", "Home Hub" in f and f.count("COMING SOON") == 1 and "Auto Hub" in f and 'href="' + a.js("HOMEHUB_URL") + '"' in f, f[:400])
+    check("Day Hub lists Home Hub and Auto Hub with Open buttons (v1.33 / v1.38), nothing COMING SOON (Money Hub open v1.49)", "Home Hub" in f and f.count("COMING SOON") == 0 and "Auto Hub" in f and 'href="' + a.js("HOMEHUB_URL") + '"' in f, f[:400])
     check("Day Hub never runs home.js (not loaded, its screen unchanged)", a.js("typeof homeClick") == "undefined" and a.js("MODE") == "day")
     a.close()
 
@@ -4136,7 +4136,7 @@ def t_v142_money_hub(b, base):
     a.close()
     d = App(b, base)
     f = d.card("family")
-    check("Day Hub's family card: Money Hub COMING SOON, no Open button", "Money Hub" in f and f.count("COMING SOON") == 1 and not d.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/moneyhub/\"]')"), f[:400])
+    check("Day Hub's family card: Money Hub with an Open button (v1.49, Scott 10/17 'go')", "Money Hub" in f and f.count("COMING SOON") == 0 and d.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/moneyhub/\"]')"), f[:400])
     d.close()
 
 
