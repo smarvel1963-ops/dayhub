@@ -26,7 +26,8 @@ const MH_TABS = [["spend", "🧾", "Transactions"], ["accounts", "🏦", "Accoun
   ["debt", "⛓️", "Debt"], ["subs", "📅", "Subscriptions"], ["payday", "💵", "Payday"], ["goals", "🏝️", "Goals"], ["reports", "📊", "Reports"],
   // v1.45 control-room pages (moneyviz.js) - reached from the bottom bar, the home tiles and More
   ["add", "＋", "Add"], ["more", "☰", "Everything"], ["forecast", "📈", "Cash Forecast"], ["insights", "💡", "Smart Insights"], ["vault", "🔐", "Document Vault"],
-  ["connect", "🔗", "Connect your money"], ["flow", "🌊", "Cash Flow"]];   // v1.46
+  ["connect", "🔗", "Connect your money"], ["flow", "🌊", "Cash Flow"],   // v1.46
+  ["advisor", "🧭", "Money Advisor"], ["update", "🔄", "Data Update"]];   // v1.48
 // Words in a bank's description -> category (CSV import, and the hint when a spend is typed with no category).
 // own-money moves come first: "Cash out", "Standard transfer", "Bank deposit to PP account", a card's "Payment - thank you"
 const MH_MOVE = /transfer (to|from)|^transfer\b|cash ?out|cash ?in\b|instant (transfer|deposit)|standard transfer|bank deposit to pp|general (card )?(deposit|withdrawal)|add(ed)? (money|cash|to balance)|payment[ ,-]*thank ?you|internal transfer|online transfer|\bxfer\b|to savings|from savings|to checking|from checking/i;
@@ -633,5 +634,20 @@ function mhContext() {
     months: months.map(mm => { const x = monthTotals(mm); return { month: mm, moneyIn: +x.inc.toFixed(2), moneyOut: +x.out.toFixed(2), byCategory: Object.fromEntries(Object.entries(x.byCat).map(([k, v]) => [mcat(k)[2], +v.toFixed(2)])) }; }),
     budgets: budgetRows(ym(t)).map(r => ({ category: mcat(r.cat)[2], limit: r.lim, spent: +r.spent.toFixed(2) })),
     subscriptions: M.subs.map(s => ({ name: s.name, cost: s.amt, every: s.every, renews: s.next || undefined, cancelled: s.off || undefined })),
-    recent: M.tx.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30).map(x => ({ date: x.date, amount: x.amt, what: x.what || undefined, category: mcat(x.cat)[2] })) };
+    recent: M.tx.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30).map(x => ({ date: x.date, amount: x.amt, what: x.what || undefined, category: mcat(x.cat)[2] })),
+    ...mhAdvisorFacts(t) };
+}
+// v1.48 Money Advisor: the forecast, safe-to-spend and debts as FACTS, so "can I afford..." answers use the same math as the app.
+function mhAdvisorFacts(t) {
+  if (typeof mvForecast !== "function") return {};
+  const M = mh(), T = monthTotals(ym(t)), F = mvForecast(t, 60, { spend: M.fcSpend !== false });
+  const debts = M.accounts.filter(a => ["credit", "loan"].includes(a.kind)).map(a => ({ name: a.name, owed: +a.bal || 0, apr: a.apr || undefined, minPayment: a.min || undefined }));
+  const o = { safeToSpendRestOfMonth: +(T.inc - T.out - billsLeft(t)).toFixed(2),
+    next60Days: { cashToday: F.start, lowest: F.low.bal, lowestOn: F.low.d, goesBelowZeroOn: F.firstShort, cashIn60Days: F.end, everydaySpendPerDay: F.daily, paydayAmount: F.pay || undefined,
+      howItIsWorkedOut: "cash now + each payday - every unpaid bill and renewal on its day - everyday spending per day",
+      events: F.pts.filter(p => p.ev.length).slice(0, 20).map(p => ({ day: p.d, items: p.ev.map(e => `${e.label} ${e.amt > 0 ? "+" : ""}${e.amt}`), cashAfter: p.bal })) },
+    debts, goals: S.goals.map(g => ({ goal: g.name, saved: g.saved, target: g.target, by: g.by || undefined })) };
+  if (typeof MV_AFF !== "undefined" && MV_AFF) { const R = mvAfford(MV_AFF.amt, MV_AFF.day, t);
+    if (R) o.lastAffordCheck = { what: MV_AFF.what || undefined, cost: R.amt, on: R.day, answer: R.verdict, lowestAfter: R.lowAfter, lowestOn: R.lowDay, cushion: R.cushion, fitsFrom: R.fitDay || undefined }; }
+  return o;
 }

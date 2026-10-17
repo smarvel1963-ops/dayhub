@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.47";
+const VERSION = "1.48";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -2648,7 +2648,7 @@ function showAsk() {
   let el = document.getElementById("askSheet");
   if (!el) { el = document.createElement("div"); el.id = "askSheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); document.body.appendChild(el); }
   const tr = TRAVEL ? curTrip() : null, away = tr && tr.start && daysUntil(tr.start) <= 0;
-  const ex = !TRAVEL ? ["What's happening tomorrow?", "When is my next oil change?", "What haven't I finished this week?", "What bills are due before payday?"]
+  const ex = MODE === "money" && typeof MV_ASKS !== "undefined" ? MV_ASKS : !TRAVEL ? ["What's happening tomorrow?", "When is my next oil change?", "What haven't I finished this week?", "What bills are due before payday?"]
     : away ? ["When do we need to be back on the ship?", "What's the plan tomorrow?", "What should I bring ashore tomorrow?", "Which perks haven't we used?"]
     : ["What am I forgetting?", "How much do I still owe, and when?", "What's left to pack?", "What should I do this week for my cruise?"];
   el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
@@ -2657,7 +2657,9 @@ function showAsk() {
         <button type="button" class="btn sm ghost" data-askmic="1" aria-label="Talk">🎤</button><button class="btn sm">Ask</button></form>
       <div class="chips up-chips">${ex.map(q => `<button class="chip" data-askq="${esc(q)}">${esc(q)}</button>`).join("")}</div>
       <div id="askOut">${ASK_LOG.map(a => `<div class="ask-q">${esc(a.q)}</div><div class="ask-a">${esc(a.a)}</div>`).join("")}</div>`
-    : `<p class="fine" style="margin-top:4px">${TRAVEL ? `Ask in plain words — ${MODE === "cruise" ? `"When do we need to be back on the ship?"` : `"What time is our hotel check-in?"`} — and ${APP_NAME} answers from your own ${TW}.` : `Ask in plain words — "When's my next oil change?" — and Day Hub answers from your own planner.`}</p>
+    : `<p class="fine" style="margin-top:4px">${TRAVEL ? `Ask in plain words — ${MODE === "cruise" ? `"When do we need to be back on the ship?"` : `"What time is our hotel check-in?"`} — and ${APP_NAME} answers from your own ${TW}.` : MODE === "money" ? `Ask in plain words — "Can I afford a $2,000 vacation in December?" — and Money Hub answers from your own numbers, with the math.`
+       : MODE === "auto" ? `Ask in plain words — "When did I last change the oil?" — and Auto Hub answers from your own garage.`
+       : `Ask in plain words — "When's my next oil change?" — and Day Hub answers from your own planner.`}</p>
        <ol class="steps"><li>Tap ⚙ (top right).</li><li>${creditsOn() ? `Find <b>🤖 AI helper</b> → get <b>${PLAN.AI_CREDITS_NAME}</b> (${PLAN.AI_PACKS.map(p => `${p.n} for ${p.price}`).join(" or ")}), then enter the email you bought with.` : `Find <b>🤖 AI helper</b>, type your passphrase, tap <b>Turn on</b>.`}</li></ol>
        <button class="btn sm" data-askclose="1" data-open="sheet">Open ⚙</button>`}
   </div>`;
@@ -2669,7 +2671,7 @@ async function askDayHub(q) {
   ASK_BUSY = true; ASK_LOG.unshift({ q, a: "…thinking" }); showAsk();
   // Cruise Hub: the relay's "ask" job answers only from the JSON; the trip block holds the cruise facts.
   const lead = TRAVEL ? `(Asked in ${APP_NAME} - answer about my ${TW}, using the "trip" section first.) ` : MODE === "auto" ? `(Asked in Auto Hub - answer about my cars, using the "garage" section first. Say plainly when something isn't logged.) `
-    : MODE === "money" ? `(Asked in Money Hub - answer from the "money" section first. Show the math, say which numbers are estimates, and say plainly when something isn't logged.) ` : "";
+    : MODE === "money" ? `(Asked in Money Hub - answer from the "money" section first. Show the math, say which numbers are estimates, and say plainly when something isn't logged. For "can I afford" questions use "next60Days" and "lastAffordCheck". Never recommend buying or selling any investment.) ` : "";
   try { ASK_LOG[0].a = String((await aiCall("ask", `QUESTION: ${lead}${q}\n\nMY PLANNER (JSON):\n${aiContext()}`)).text || "").trim() || `I couldn't find that in your ${TRAVEL ? TW : "planner"}.`; }
   catch (e) { ASK_LOG[0].a = `⚠️ ${/passphrase/.test(e.message) ? "The AI helper's passphrase changed — set it again in ⚙" : "Couldn't reach the AI helper right now. Try again in a minute."}`; }
   ASK_LOG = ASK_LOG.slice(0, 6); ASK_BUSY = false; showAsk();

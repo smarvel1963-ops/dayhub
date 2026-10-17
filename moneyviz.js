@@ -67,7 +67,7 @@ function mvScene(kind) {
 }
 
 // ------------------------------------------------------------ HOME: the control room (the art's first phone)
-const MV_FEATURES = [["flow", "🌊", "Cash Flow", "In, out, and what's spare"], ["connect", "🔗", "Connect", "Bank, Cash App, Venmo, PayPal"], ["insights", "💡", "Smart Insights", "What changed and why"], ["subs", "📅", "Subscriptions", "Never miss a renewal"],
+const MV_FEATURES = [["advisor", "🧭", "Money Advisor", "Can I afford it? Ask anything"], ["flow", "🌊", "Cash Flow", "In, out, and what's spare"], ["connect", "🔗", "Connect", "Bank, Cash App, Venmo, PayPal"], ["insights", "💡", "Smart Insights", "What changed and why"], ["subs", "📅", "Subscriptions", "Never miss a renewal"],
   ["forecast", "📈", "Cash Forecast", "Your next 60 days"], ["vault", "🔐", "Document Vault", "Receipts & papers, safe"],
   ["reports", "📊", "Reports", "The bigger picture"], ["budget", "🎯", "Budget", "Limits that warn you"], ["debt", "⛓️", "Debt payoff", "The fastest way out"],
   ["shared", "👥", "Shared Accounts", "Coming soon"]];
@@ -95,6 +95,7 @@ function mvHomeHtml() {
     <button class="hos-next" data-mhtab="${next.tab}"><span class="hos-next-ic" aria-hidden="true">${next.icon}</span><span class="grow"><small>Your next smart action</small><b>${esc(next.text)}</b><em>Why: ${esc(next.why)}</em></span><span class="hos-go" aria-hidden="true">›</span></button>
     <div class="mv-sec"><h3>Accounts</h3><button data-mhtab="accounts">${M.accounts.length > 4 ? `See all ${M.accounts.length}` : M.accounts.length ? "See all" : "Add"}</button></div>
     <div class="mv-accts">${M.accounts.slice(0, 4).map(acct).join("")}${M.accounts.length < 4 ? `<button class="mv-acct mv-acct-add" data-mhtab="accounts">${mvIc("＋", "#64748b")}<span><small>Add an account</small><b>Checking, card…</b></span></button>` : ""}</div>
+    ${mvFreshStrip()}
     <div class="mv-sec"><h3>Due soon</h3><button data-mhtab="bills">${un.length ? `${un.length} unpaid` : "Payments"}</button></div>
     ${soon.length ? `<div class="mv-due">${soon.map(r => { const d = daysUntil(r.due), tone = mvTone(r.b.name, r.b.cat);
         return `<button class="mv-due-row" data-mhtab="bills">${mvIc(PAY_ICONS[r.b.cat] || mcat(r.b.cat || "bills")[1], tone)}<span class="grow"><b>${esc(r.b.name)}</b><small>${usd(+r.b.amount || 0)}${r.b.auto ? " · autopay" : ""}</small></span>
@@ -131,7 +132,7 @@ function mvNavEnsure() {
 }
 
 // ------------------------------------------------------------ MORE: every section as big tiles (Scott 10/5 tile nav)
-const MV_MORE_TILES = [["spend", "🧾", "Transactions"], ["connect", "🔗", "Connect"], ["flow", "🌊", "Cash Flow"], ["accounts", "🏦", "Accounts"], ["budget", "🎯", "Budget"], ["debt", "⛓️", "Debt"], ["subs", "📅", "Subscriptions"],
+const MV_MORE_TILES = [["advisor", "🧭", "Advisor"], ["update", "🔄", "Data Update"], ["spend", "🧾", "Transactions"], ["connect", "🔗", "Connect"], ["flow", "🌊", "Cash Flow"], ["accounts", "🏦", "Accounts"], ["budget", "🎯", "Budget"], ["debt", "⛓️", "Debt"], ["subs", "📅", "Subscriptions"],
   ["payday", "💵", "Payday"], ["forecast", "📈", "Cash Forecast"], ["insights", "💡", "Insights"], ["vault", "🔐", "Vault"], ["reports", "📊", "Reports"], ["goals", "🏝️", "Goals"], ["bills", "💳", "Payments"]];
 const mvMoreHtml = () => tileNav(MV_MORE_TILES.map(([k, i, l]) => ({ icon: i, label: l, attrs: `data-mhtab="${k}"` })), 3, "mv-tiles") +
   `<p class="fine">Connect pulls in your bank, cards, Cash App, Venmo and PayPal from their downloaded files - on this phone, never a password. Shared accounts (two people, one money picture) are on the way.</p>`;
@@ -779,6 +780,8 @@ function mvPane(tab) {
   if (tab === "spend") return MH_IMPORT ? mvImportHtml() : mvTxHtml();
   if (tab === "connect") return mvConnectHtml();
   if (tab === "flow") return mvFlowHtml();
+  if (tab === "advisor") return mvAdvisorHtml();
+  if (tab === "update") return mvUpdateHtml();
   if (tab === "forecast") return mvForecastHtml();
   if (tab === "accounts") return mvAccountsHtml();
   if (tab === "budget") return mvBudgetHtml();
@@ -801,6 +804,10 @@ function mvClick(ds) {
   if (ds.mvscanno) { MV_SCAN = null; MH_MSG = ""; showMh("add"); return true; }
   if (ds.mvmic) { mvListen(); return true; }
   if (ds.mvgo === "bill") { MH_PADD = true; showMh("bills"); return true; }
+  if (ds.mvask) { mvAsk(ds.mvask); return true; }
+  if (ds.mvupd) { MV_UPD = ds.mvupd; showMh("update"); const el = document.getElementById("mvupd-" + ds.mvupd); if (el && el.scrollIntoView) el.scrollIntoView({ block: "center" }); return true; }
+  if (ds.mvwebopen) { MV_WEB = ds.mvwebopen; showMh("update"); const i = document.querySelector(`#mvupd-${ds.mvwebopen} [name=web]`); if (i) i.focus(); return true; }
+  if (ds.mvchk) { const a = M.accounts.find(x => x.id === ds.mvchk); if (a) { a.chk = today(); save(); showMh("update"); render(); toast(`✓ ${a.name} checked`); } return true; }
   if (ds.mvsoon) { toast(`👥 ${ds.mvsoon} - coming soon`); return true; }
   if (ds.mvtf) { MV_TF = ds.mvtf; MV_TC = ""; MV_MORE = 60; showMh("spend"); return true; }
   if (ds.mvtc) { MV_TC = MV_TC === ds.mvtc ? "" : ds.mvtc; MV_TF = "all"; MV_MORE = 60; showMh("spend"); return true; }
@@ -816,6 +823,13 @@ function mvClick(ds) {
 }
 function mvSubmit(f, data) {
   if (f.dataset.mvsave) { mvSaveScan(data); return true; }
+  if (f.dataset.mvaff) { const a = mhNum(data.amt);
+    if (!(a > 0)) { MH_MSG = "Type what it costs."; mhMsgShow(); return true; }
+    MV_AFF = { what: String(data.what || "").trim().slice(0, 40), amt: a, day: data.day || today() }; MH_MSG = ""; showMh("advisor"); return true; }
+  if (f.dataset.mvaskf) { mvAsk(data.q); return true; }
+  if (f.dataset.mvweb) { const a = mh().accounts.find(x => x.id === f.dataset.mvweb); if (!a) return true;
+    const w = mvWebOk(data.web); if (data.web && !w) { MH_MSG = "Type just the website, like chase.com"; mhMsgShow(); return true; }
+    a.web = w; MH_MSG = ""; MV_WEB = ""; save(); showMh("update"); toast(w ? `🔑 Sign in link saved for ${a.name}` : "Website removed"); return true; }
   return false;
 }
 if (typeof document !== "undefined") document.addEventListener("change", async e => {
@@ -835,3 +849,130 @@ if (typeof document !== "undefined") document.addEventListener("change", async e
       await mvVaultPut({ type: k[0], title: `${k[2]} · ${mDate(today())}`, date: today(), img }); save(); showMh("vault"); toast("🔐 Saved to your vault");
     } catch (er) { MH_MSG = "Couldn't save that photo here (private browsing?)."; mhMsgShow(); } }
 });
+
+// ------------------------------------------------------------ v1.48 MONEY ADVISOR (plan: "AI Money Advisor" + "Can I afford a $2,000 vacation in December?")
+// "Can I afford it?" is arithmetic on the phone - the forecast with the purchase taken out on its day - so it works
+// free and offline. The AI part answers from the same numbers (mhContext) and must show its math.
+// Never investment advice: forecasts and arithmetic on the owner's own log only.
+let MV_AFF = null;                                               // the last check: {what, amt, day}
+const MV_ASKS = ["Can I afford a $2,000 vacation in December?", "What bills are due before my next paycheck?", "Where could I cut $200 a month?", "How fast can I pay off my cards?"];
+const mvGap = (a, b) => Math.round((parseDay(b) - parseDay(a)) / 864e5);
+// -> {verdict yes|tight|no, before, after, lowAfter, lowDay, cushion, fitDay, perPay, paydays, pts}
+function mvAfford(amt, day, onDay) {
+  onDay = onDay || today(); if (!(amt > 0)) return null;
+  if (!day || day < onDay) day = onDay;
+  const lead = Math.min(340, mvGap(onDay, day)), n2 = Math.min(400, lead + 240);
+  const F = mvForecast(onDay, n2, { spend: mh().fcSpend !== false }), P = F.pts, cushion = Math.max(100, Math.round(F.daily * 7));
+  // lowest balance from day j on (the whole horizon), and in the 60 days the chart shows
+  const lowIn = (j, k) => P.slice(j, k).reduce((a, p) => p.bal < a.bal ? p : a, P[j]);
+  const view = Math.min(P.length, lead + 60), low = lowIn(lead, view);
+  const lowAfter = low.bal - amt;
+  const verdict = lowAfter >= cushion ? "yes" : lowAfter >= 0 ? "tight" : "no";
+  let fitDay = null;
+  if (verdict !== "yes") for (let j = lead + 1; j + 60 <= P.length; j++) if (lowIn(j, j + 60).bal - amt >= cushion) { fitDay = P[j].d; break; }
+  const paydays = P.slice(0, lead + 1).filter(p => p.ev.some(e => e.label === "Payday")).length;
+  const perPay = verdict !== "yes" && paydays ? Math.ceil((cushion - lowAfter) / paydays) : 0;
+  return { amt, day, lead, before: P[lead].bal, after: P[lead].bal - amt, lowAfter, lowDay: low.d, cushion, verdict, fitDay, perPay, paydays,
+    daily: F.daily, pts: P.slice(0, view) };
+}
+// Two lines: the forecast as it is (blue) and with the purchase (gold, dashed), $0 marked when it dips.
+function mvAffChart(R) {
+  const W = 340, H = 150, L = 44, Rt = 8, Tp = 10, B = 22, P = R.pts, n = P.length, w = P.map((p, i) => i >= R.lead ? p.bal - R.amt : p.bal);
+  const all = P.map(p => p.bal).concat(w), mn = Math.min(...all), hi = Math.max(1, ...all), lo = mn < 0 ? mn : Math.max(0, mn - (hi - mn) * .25 - 1), pad = (hi - lo) * .08 || 1;
+  const y = v => Tp + (hi + pad - v) / (hi + pad - (lo - (lo < 0 ? pad : 0))) * (H - Tp - B), x = i => L + i / Math.max(1, n - 1) * (W - L - Rt);
+  const path = vals => vals.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
+  return `<div class="mv-chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Your cash with and without ${usd(R.amt)} on ${mDate(R.day)}; lowest after it ${usd(R.lowAfter)}">
+    ${[hi, lo].map(v => `<line x1="${L}" x2="${W - Rt}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="mv-grid"/><text x="${L - 6}" y="${(y(v) + 3).toFixed(1)}" class="mv-ax" text-anchor="end">${mvK(Math.round(v))}</text>`).join("")}
+    ${lo < 0 ? `<line x1="${L}" x2="${W - Rt}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" class="mv-zero"/>` : ""}
+    <path d="${path(P.map(p => p.bal))}" class="mv-line"/><path d="${path(w)}" class="mv-line2"/>
+    <circle cx="${x(R.lead).toFixed(1)}" cy="${y(w[R.lead]).toFixed(1)}" r="5" class="mv-buy"/>
+    ${[0, n - 1].map(i => `<text x="${x(i).toFixed(1)}" y="${H - 6}" class="mv-ax" text-anchor="${i ? "end" : "start"}">${parseDay(P[i].d).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</text>`).join("")}</svg>
+    <div class="mv-legend"><span><i class="l1"></i>As it is</span><span><i class="l2"></i>With ${esc(MV_AFF && MV_AFF.what ? MV_AFF.what : "it")}</span></div></div>`;
+}
+function mvAffResult(R) {
+  const what = MV_AFF.what || usd(R.amt), on = R.lead ? mDate(R.day) : "today";
+  const head = R.verdict === "yes" ? ["✅", `Yes - ${esc(what)} fits ${on}`, `You'd still have at least ${usd(R.lowAfter)} in the 60 days after.`]
+    : R.verdict === "tight" ? ["⚠️", `Tight - ${esc(what)} fits ${on}, barely`, `Your cash would drop to ${usd(R.lowAfter)} on ${mDate(R.lowDay)} - under your cushion of ${usd(R.cushion)} (a week of everyday spending).`]
+    : ["⛔", `Not ${R.lead ? `on ${on}` : "today"}`, `Your cash would go below $0 - down to ${usd(R.lowAfter)} on ${mDate(R.lowDay)}.`];
+  return `<section class="mv-verdict ${R.verdict}"><span class="mv-vic" aria-hidden="true">${head[0]}</span><div><b>${head[1]}</b><small>${head[2]}</small></div></section>
+    <div class="mv-tiles3"><div><small>Cash ${R.lead ? "that day" : "today"}</small><b>${usd(R.before)}</b></div><div class="${R.after < 0 ? "neg" : ""}"><small>Right after</small><b>${usd(R.after)}</b></div>
+      <div class="${R.lowAfter < 0 ? "neg" : ""}"><small>Lowest after</small><b>${usd(R.lowAfter)}</b><em>${mDate(R.lowDay)}</em></div></div>
+    ${mvAffChart(R)}
+    ${R.fitDay ? `<p class="mv-tipline">📅 It fits comfortably from <b>${mDate(R.fitDay)}</b> (${inDays(daysUntil(R.fitDay))}).</p>` : R.verdict !== "yes" ? `<p class="mv-tipline">📅 It doesn't fit comfortably in the next 6 months at today's pace.</p>` : ""}
+    ${R.perPay ? `<p class="mv-tipline">💵 Or keep it ${R.lead ? `on ${on}` : "today"}: set aside about <b>${usd(R.perPay)}</b> from each of the ${R.paydays} payday${R.paydays === 1 ? "" : "s"} before then - <button class="mv-linkb" data-mhtab="goals">make it a goal</button>.</p>` : ""}
+    <p class="fine">Math: your Cash Forecast (cash now, + each payday, − every bill and renewal on its day${R.daily ? `, − ${usd(R.daily)} a day everyday spending` : ""}) with ${usd(R.amt)} taken out ${on}. Cushion = a week of everyday spending, at least $100. An estimate from what you've typed - not financial advice.</p>`;
+}
+function mvAdvisorHtml() {
+  const M = mh(), R = MV_AFF ? mvAfford(MV_AFF.amt, MV_AFF.day) : null, ready = M.accounts.length || payAmount().amt;
+  return `<section class="mv-adv-hero ${R ? R.verdict : "idle"}">${mvCompass(R ? R.verdict : "")}<div><h3>Your money advisor</h3><p>${R
+      ? R.verdict === "yes" ? "The needle says <b>go</b>." : R.verdict === "tight" ? "The needle says <b>careful</b>." : "The needle says <b>not yet</b>."
+      : "Answers come from <b>your own numbers</b>, and every answer shows its math."}</p></div></section>
+    <h3 class="mv-h">Can I afford it?</h3>
+    <form class="qa-form mv-aff" data-mvaff="1"><input name="what" placeholder="What is it? e.g. Vacation" maxlength="40" value="${esc(MV_AFF ? MV_AFF.what : "")}" aria-label="What it is">
+      <div class="two"><input name="amt" inputmode="decimal" placeholder="Cost $" required value="${MV_AFF ? MV_AFF.amt : ""}" aria-label="What it costs">
+        <input name="day" type="date" value="${MV_AFF ? MV_AFF.day : today()}" min="${today()}" aria-label="When"></div><button class="btn">Check</button></form>
+    ${!ready ? `<p class="hos-hint">Add your accounts and your payday first - the answer starts from your cash and adds every payday and bill ahead.</p>
+      <div class="mv-links"><button class="btn sm" data-mhtab="accounts">🏦 Accounts</button><button class="btn sm ghost" data-mhtab="payday">💵 Payday</button></div>` : R ? mvAffResult(R) : ""}
+    <h3 class="mv-h">Ask about your money</h3>
+    <form class="ask-form" data-mvaskf="1"><input name="q" placeholder="Ask anything about your money…" autocomplete="off" required aria-label="Your question"><button class="btn sm">Ask</button></form>
+    <div class="chips up-chips">${MV_ASKS.map(q => `<button class="chip" data-mvask="${esc(q)}">${esc(q)}</button>`).join("")}</div>
+    <p class="fine">${aiOn() ? "Uses your AI helper. " : "Asking uses AI credits (⚙ → AI helper) - Can I afford it? above is always free. "}Arithmetic on your own numbers - never advice to buy or sell any investment.</p>`;
+}
+// The hero's compass: red / gold / green arc, the needle points at the last answer (sways gently before the first check).
+function mvCompass(v) {
+  const ang = v === "yes" ? 55 : v === "tight" ? 0 : v === "no" ? -55 : null, arc = (a0, a1, c) => {
+    const r = 40, p = a => [50 + r * Math.sin(a * Math.PI / 180), 54 - r * Math.cos(a * Math.PI / 180)], [x0, y0] = p(a0), [x1, y1] = p(a1);
+    return `<path d="M${x0.toFixed(1)} ${y0.toFixed(1)} A${r} ${r} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}" stroke="${c}" stroke-width="9" fill="none" stroke-linecap="round"/>`; };
+  return `<svg class="mv-compass" viewBox="0 0 100 70" aria-hidden="true"><circle cx="50" cy="54" r="48" fill="rgba(16,32,84,.55)"/>
+    ${arc(-80, -30, "#ff7a7a")}${arc(-22, 22, "#facc15")}${arc(30, 80, "#4ade80")}
+    <g class="mv-needle${ang == null ? " sway" : ""}" style="transform:rotate(${ang == null ? 0 : ang}deg)"><path d="M50 54 L47 50 L50 18 L53 50Z" fill="#fff"/></g>
+    <circle cx="50" cy="54" r="5" fill="#27d7ff"/></svg>`;
+}
+function mvAsk(q) {
+  q = String(q || "").trim(); if (!q) return;
+  if (aiOn()) askDayHub(q); else showAsk();
+}
+
+// ------------------------------------------------------------ v1.48 DATA UPDATE (Scott 10/17: "where you can log in and download updated info, and on the
+// front say how many days on each app since updated" -> "be its own data update page"). Per account: days since its last file or typed
+// balance, a Sign in button to THAT bank / app's own site (the person signs in there - Money Hub never sees a password), the file button.
+const MV_LOGIN = { cashapp: "https://cash.app/account", venmo: "https://account.venmo.com/", paypal: "https://www.paypal.com/signin" };
+// a.web is typed by the person ("chase.com") -> an https link; anything that isn't a plain web address is ignored
+const mvWebOk = w => { const h = String(w || "").trim().replace(/^https?:\/\//i, "").replace(/\/+$/, ""); return /^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}(\/[\w\-./?=&%#]*)?$/i.test(h) ? h : ""; };
+const mvLogin = a => mvWebOk(a.web) ? "https://" + mvWebOk(a.web) : MV_LOGIN[a.src] || "";
+// the newest of: last file, last typed balance, last "checked - nothing new"
+const mvFreshDay = a => [a.imp, a.at, a.chk].filter(Boolean).sort().pop() || "";
+const mvAgeN = a => { const d = mvFreshDay(a); return d ? Math.max(0, -daysUntil(d)) : null; };
+const mvAgeTone = n => n == null ? "#ff7a7a" : n <= 7 ? "#4ade80" : n <= 14 ? "#facc15" : "#ff7a7a";
+const mvAgeTxt = n => n == null ? "never" : n === 0 ? "today" : n === 1 ? "1 day" : `${n} days`;
+const mvAcctIc = a => { const s = a.src && a.src !== "bank" ? mvSrc(a.src) : null; return [s ? s[2] : macct(a.kind)[1], s ? s[3] : MV_ACCT_TONE[a.kind] || "#3b82f6"]; };
+let MV_UPD = "", MV_WEB = "";                                        // the account the home strip was tapped on (highlighted) / whose link box is open
+// Home: one chip per account, oldest first - the number is days since it was last brought up to date.
+function mvFreshStrip() {
+  const A = mh().accounts.slice().sort((x, y) => (mvAgeN(y) ?? 1e9) - (mvAgeN(x) ?? 1e9));
+  if (!A.length) return "";
+  const old = A.filter(a => (mvAgeN(a) ?? 99) > 7).length;
+  return `<div class="mv-sec"><h3>Up to date?</h3><button data-mhtab="update">${old ? `${old} need${old === 1 ? "s" : ""} updating` : "Data Update"}</button></div>
+    <div class="mv-fresh">${A.map(a => { const n = mvAgeN(a), [ic, tone] = mvAcctIc(a);
+      return `<button class="mv-fchip" data-mvupd="${a.id}" style="--tone:${tone};--age:${mvAgeTone(n)}" aria-label="${esc(a.name)}: updated ${mvAgeTxt(n)} ago">
+        <span class="mv-fic" aria-hidden="true">${ic}</span><b>${n == null ? "–" : n}</b><small>${n == null ? "never" : n === 1 ? "day" : "days"}</small><em>${esc(a.name)}</em></button>`; }).join("")}</div>`;
+}
+function mvUpdateHtml() {
+  const M = mh(), A = M.accounts.slice().sort((x, y) => (mvAgeN(y) ?? 1e9) - (mvAgeN(x) ?? 1e9));
+  if (!A.length) return `<p class="hos-hint">Add your accounts first - then this page shows how fresh each one is, with a button to sign in and get the newest file.</p>
+    <div class="mv-links"><button class="btn sm" data-mhtab="accounts">🏦 Accounts</button><button class="btn sm ghost" data-mhtab="connect">🔗 Connect</button></div>`;
+  const ok = A.filter(a => (mvAgeN(a) ?? 99) <= 7).length, pct = ok / A.length * 100;
+  return `<section class="mv-upd-hero">${hosRing(pct, `${ok}/${A.length}`, "fresh this week", pct === 100 ? "#4ade80" : pct >= 50 ? "#facc15" : "#ff7a7a")}
+      <div><h3>${pct === 100 ? "Everything is up to date" : `${A.length - ok} to bring up to date`}</h3><p>Sign in to each one, download its activity file, then tap <b>Update</b>. Green = this week, gold = 1-2 weeks, red = older.</p></div></section>
+    <div class="mv-upd-list">${A.map(a => { const n = mvAgeN(a), [ic, tone] = mvAcctIc(a), url = mvLogin(a), how = a.src ? mvSrc(a.src)[5] : mvSrc(["credit", "loan"].includes(a.kind) ? "card" : "bank")[5];
+      return `<article class="mv-upd${MV_UPD === a.id ? " on" : ""}" id="mvupd-${a.id}" style="--tone:${tone};--age:${mvAgeTone(n)}">
+        <div class="mv-upd-top">${mvIc(ic, tone)}<div class="grow"><b>${esc(a.name)}</b><small>${a.imp ? `📥 file ${mvRel(a.imp)}` : "no file yet"}${a.at ? ` · ✍️ balance ${mvRel(a.at)}` : ""}</small></div>
+          <span class="mv-age"><b>${n == null ? "–" : n}</b><small>${n == null ? "never" : n === 1 ? "day" : "days"}</small></span></div>
+        <div class="mv-upd-acts">${url ? `<a class="btn sm" href="${esc(url)}" target="_blank" rel="noopener noreferrer">🔑 Sign in</a>` : a.src === "applecard" ? `<span class="mv-upd-note">🍎 Open the Wallet app</span>` : ""}
+          ${mhGate() ? "" : mvFileBtn("📥 Update", a.id, `btn sm${url ? " ghost" : ""}`)}<button class="btn sm ghost" data-mvchk="${a.id}">✓ Checked</button>
+          ${!url && a.src !== "applecard" && MV_WEB !== a.id ? `<button class="mv-linkb mv-addlink" data-mvwebopen="${a.id}">🔑 Add sign-in link</button>` : ""}</div>
+        ${MV_UPD === a.id ? `<p class="fine">${esc(how)}</p>` : ""}
+        ${MV_WEB === a.id ? `<form class="mv-webf" data-mvweb="${a.id}"><input name="web" placeholder="Its website, e.g. chase.com" value="${esc(a.web || "")}" aria-label="Website for ${esc(a.name)}" autocomplete="off"><button class="btn sm ghost">Save</button></form>` : ""}
+      </article>`; }).join("")}</div>
+    <p class="fine">✓ Checked = you looked and nothing changed - it resets the days without a file. Sign in opens the bank's or app's own page in your browser; Money Hub never sees or keeps a password.</p>`;
+}

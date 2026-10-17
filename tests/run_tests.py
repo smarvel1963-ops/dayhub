@@ -4254,7 +4254,7 @@ def t_v145_money_control_room(b, base):
     check("add a paper, delete one", a.js("S.mh.vault.length") == 1)
     # More = every section as tiles
     a.page.click('#mhSheet [data-mhtab="more"]')
-    check("More: 14 big tiles", a.js("document.querySelectorAll('#mhSheet .mv-tiles .tile').length") == 14)
+    check("More: 16 big tiles (v1.48 + Advisor, Data Update)", a.js("document.querySelectorAll('#mhSheet .mv-tiles .tile').length") == 16)
     mh_go(a, "accounts")
     check("Accounts: have vs owe bar, a card per account with its balance box", a.js("!!document.querySelector('#mhSheet .mv-split')") and a.js("document.querySelectorAll('#mhSheet .mv-acard form[data-mhbal]').length") == 2)
     a.js("S.mh.budgets = {groceries: 70}; save()"); mh_go(a, "budget")
@@ -4431,6 +4431,89 @@ def t_v147_share_and_rings(b, base):
     check("home rings: 'safe to spend' ($2,397.64 shown as $2.4k so it fits), spent $52.36", "safe to spend" in rings and "$2.4k" in rings and "$52.36" in rings and "left to save" not in rings, rings)
     a.js("document.querySelector('#cards .mv-rings-tap [data-mhtab=flow]').click()")   # the card's fade-in never ends under the frozen test clock
     check("tap 'safe to spend': Cash Flow opens with the same $2,397.64", a.js("MH_TAB") == "flow" and "$2,397.64" in a.page.inner_text("#mhSheet .mv-safe"))
+    a.close()
+
+
+def t_v148_money_advisor(b, base):
+    print("\n[v1.48 Money Hub: Money Advisor - Can I afford it? (forecast math on the phone), compass, AI facts]")
+    a = App(b, base, path=MONEYP)
+    a.page.fill('form[data-mhsetup] [name=name]', "Scott"); a.page.fill('form[data-mhsetup] [name=bal]', "1000")
+    a.page.select_option('form[data-mhsetup] [name=freq]', "biweekly"); a.page.fill('form[data-mhsetup] [name=next]', "2026-10-09"); a.page.fill('form[data-mhsetup] [name=check]', "1000")
+    a.page.click('form[data-mhsetup] button'); a.page.wait_for_function("S.mh && S.mh.setup")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.js("const M = mh(); M.tx = []; M.fcSpend = false; S.bills = [{id: 'b1', name: 'Rent', amount: 900, day: 1, cat: 'housing'}]; save(); render()")
+    check("home feature tiles start with Money Advisor; More has it", a.js("MV_FEATURES[0][0]") == "advisor" and a.js("MV_MORE_TILES.some(t => t[0] === 'advisor')"))
+    a.js("showMh('advisor')")
+    t = a.page.inner_text("#mhSheet")
+    check("advisor page: compass hero (swaying before a check), Can I afford it?, ask chips, never investment advice",
+          a.page.locator("#mhSheet .mv-compass .mv-needle.sway").count() == 1 and "Can I afford it?" in t and "Can I afford a $2,000 vacation in December?" in t and "never advice to buy or sell" in t, t[:300])
+    R = a.js("mvAfford(300, today())")
+    day0 = a.js("mvForecast(today(), 60, {spend: false}).pts[0].bal")
+    check("the math: cash that day = the forecast's day (after that day's bills); right after = minus $300", abs(R["before"] - day0) < 0.01 and abs(R["after"] - (day0 - 300)) < 0.01, R)
+    lowF = a.js("Math.min(...mvForecast(today(), 60, {spend: false}).pts.map(p => p.bal))")
+    check("lowest after = the forecast's lowest in the 60 days minus the cost", abs(R["lowAfter"] - (lowF - 300)) < 0.01, (R["lowAfter"], lowF))
+    a.page.fill('#mhSheet form[data-mvaff] [name=what]', "Vacation"); a.page.fill('#mhSheet form[data-mvaff] [name=amt]', "300")
+    a.page.click('#mhSheet form[data-mvaff] button')
+    t = a.page.inner_text("#mhSheet")
+    v = a.js("mvAfford(300, today()).verdict")
+    word = {"yes": "Yes - Vacation fits", "tight": "Tight - Vacation fits", "no": "Not today"}[v]
+    check("checked: verdict card + 3 tiles + two-line chart with a legend + the math line", word in t and "Right after" in t and "Lowest after" in t
+          and a.page.locator("#mhSheet .mv-line2").count() == 1 and "With Vacation" in t and "Math: your Cash Forecast" in t, t[:400])
+    check("the compass needle stops on the answer", a.page.locator(f"#mhSheet .mv-adv-hero.{v} .mv-needle:not(.sway)").count() == 1)
+    a.page.fill('#mhSheet form[data-mvaff] [name=amt]', "50000"); a.page.click('#mhSheet form[data-mvaff] button')
+    t = a.page.inner_text("#mhSheet")
+    check("$50,000: not today, below $0 named, no fit in 6 months", "Not today" in t and "below $0" in t and "doesn't fit comfortably" in t, t[:400])
+    R = a.js("mvAfford(500, addDays(today(), 40))")
+    check("a later date: paydays before it counted, set-aside offered only when it doesn't fit", R["paydays"] >= 2 and (R["perPay"] > 0) == (R["verdict"] != "yes"), R)
+    ctx = a.js("JSON.parse(aiContext()).money")
+    check("AI facts: next 60 days (lowest, events), safe to spend, debts, the last check",
+          "next60Days" in ctx and "lowest" in ctx["next60Days"] and "safeToSpendRestOfMonth" in ctx and "debts" in ctx and ctx["lastAffordCheck"]["cost"] == 50000, list(ctx.keys()))
+    a.js("showAsk()")
+    at = a.page.inner_text("#askSheet")
+    check("Ask Money Hub speaks money (Can I afford...), not Day Hub's oil change", "Can I afford a $2,000" in at and "oil change" not in at, at[:300])
+    a.js("document.querySelector('#askSheet').classList.add('hidden')")
+    a.page.set_viewport_size({"width": 360, "height": 780}); a.js("showMh('advisor')")
+    check("fits a 360px phone (no sideways scroll)", a.js("document.querySelector('#mhSheet .sheet-body').scrollWidth <= document.querySelector('#mhSheet .sheet-body').clientWidth + 1"))
+    a.close()
+
+
+def t_v148_data_update(b, base):
+    print("\n[v1.48 Money Hub: Data Update page - days since each account was updated, Sign in link, Update file, Checked; home strip]")
+    a = App(b, base, path=MONEYP)
+    a.page.fill('form[data-mhsetup] [name=name]', "Scott"); a.page.fill('form[data-mhsetup] [name=bal]', "1000")
+    a.page.select_option('form[data-mhsetup] [name=freq]', "biweekly"); a.page.fill('form[data-mhsetup] [name=next]', "2026-10-09"); a.page.fill('form[data-mhsetup] [name=check]', "1000")
+    a.page.click('form[data-mhsetup] button'); a.page.wait_for_function("S.mh && S.mh.setup")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.js("""const M = mh(); M.accounts = [
+      {id: 'k1', kind: 'checking', name: 'Chase', bal: 900, at: addDays(today(), -3)},
+      {id: 'k2', kind: 'wallet', name: 'Cash App', src: 'cashapp', bal: 40, imp: addDays(today(), -10)},
+      {id: 'k3', kind: 'credit', name: 'Visa', bal: 300},
+      {id: 'k4', kind: 'credit', name: 'Apple Card', src: 'applecard', bal: 120, imp: addDays(today(), -30), at: addDays(today(), -20)}]; save(); render()""")
+    strip = a.page.inner_text("#cards .mv-fresh")
+    chips = a.js("[...document.querySelectorAll('#cards .mv-fchip em')].map(e => e.textContent)")
+    check("home 'Up to date?' strip: one chip per account, oldest first (never, 20, 10, 3 days)", chips == ["Visa", "Apple Card", "Cash App", "Chase"] and "20" in strip and "10" in strip and "3" in strip, (chips, strip))
+    check("strip header counts the ones over a week", "3 need updating" in a.page.inner_text("#cards"))
+    a.js("document.querySelector('#cards .mv-fchip[data-mvupd=k2]').click()")
+    t = a.page.inner_text("#mhSheet")
+    check("tap Cash App: Data Update page opens, that card highlighted with Cash App's download steps", a.js("MH_TAB") == "update" and a.page.locator("#mvupd-k2.on").count() == 1 and "Statements" in a.page.inner_text("#mvupd-k2"), t[:300])
+    check("page: '1/4 fresh this week', 3 to bring up to date", "1/4" in t and "3 to bring up to date" in t, t[:200])
+    check("Cash App gets Sign in -> cash.app (new tab, no referrer); Apple Card says open Wallet", a.js("document.querySelector('#mvupd-k2 a.btn').href") == "https://cash.app/account"
+          and a.js("document.querySelector('#mvupd-k2 a.btn').rel").find("noopener") >= 0 and "Open the Wallet app" in a.page.inner_text("#mvupd-k4"))
+    check("Chase (no link yet): 'Add sign-in link' (box closed until tapped), none on Cash App / Apple Card", a.page.locator("#mvupd-k1 form[data-mvweb]").count() == 0
+          and a.page.locator("#mhSheet [data-mvwebopen]").count() == 2 and a.page.locator("#mvupd-k2 [data-mvwebopen], #mvupd-k4 [data-mvwebopen]").count() == 0)
+    a.page.click("#mvupd-k1 [data-mvwebopen]")
+    check("tap it: the website box opens; every card has Update + Checked", a.page.locator("#mvupd-k1 form[data-mvweb]").count() == 1
+          and a.page.locator("#mhSheet .mv-upd input[data-mvacct]").count() == 4 and a.page.locator("#mhSheet [data-mvchk]").count() == 4)
+    a.page.fill("#mvupd-k1 [name=web]", "javascript:alert(1)"); a.page.click("#mvupd-k1 form[data-mvweb] button")
+    check("a non-website is refused", "Type just the website" in a.page.inner_text("#mhSheet") and not a.js("mh().accounts[0].web"))
+    a.page.fill("#mvupd-k1 [name=web]", "https://www.chase.com/"); a.page.click("#mvupd-k1 form[data-mvweb] button")
+    check("saved: the box closes", a.page.locator("#mvupd-k1 form[data-mvweb]").count() == 0)
+    check("chase.com saved -> Sign in opens https://www.chase.com", a.js("document.querySelector('#mvupd-k1 a.btn') && document.querySelector('#mvupd-k1 a.btn').href") == "https://www.chase.com/")
+    a.page.click("#mvupd-k3 [data-mvchk]")
+    check("Checked: Visa goes from never to today (0 days), 2/4 fresh", a.js("mvAgeN(mh().accounts[2])") == 0 and "2/4" in a.page.inner_text("#mhSheet"))
+    check("More has Data Update", a.js("MV_MORE_TILES.some(t => t[0] === 'update')"))
+    a.page.set_viewport_size({"width": 360, "height": 780}); a.js("showMh('update')")
+    check("fits a 360px phone", a.js("document.querySelector('#mhSheet .sheet-body').scrollWidth <= document.querySelector('#mhSheet .sheet-body').clientWidth + 1"))
     a.close()
 
 def t_v127_email_codes(b, base):
@@ -4638,7 +4721,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete, t_v142_money_hub, t_v145_money_control_room, t_v146_connect_and_cash_flow, t_v147_share_and_rings):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete, t_v142_money_hub, t_v145_money_control_room, t_v146_connect_and_cash_flow, t_v147_share_and_rings, t_v148_money_advisor, t_v148_data_update):
             if os.environ.get("ONLY") and not any(k in t.__name__ for k in os.environ["ONLY"].split(",")): continue   # ONLY=t_v145 python tests/run_tests.py
             try:
                 t(b, base)
