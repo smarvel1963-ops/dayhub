@@ -630,6 +630,7 @@ const HUBS = [
   { id: "homehub", name: "Home Hub", icon: "🏡", what: "Every room, outdoor space and system — items, tasks, notes.", url: HOMEHUB_URL },   // v1.33: listed 10/14 (Scott: "complete home hubs") - no longer COMING SOON
   { id: "autohub", name: "Auto Hub", icon: "🚗", what: "Your cars — maintenance, repairs, insurance and what they're worth.", url: AUTOHUB_URL },   // v1.34 COMING SOON; v1.38 listed 10/14 (Scott: "yes do 1-5")
   { id: "moneyhub", name: "Money Hub", icon: "💰", what: "Bills, budget, debt payoff and what's left after payday.", url: MONEYHUB_URL },   // v1.42 COMING SOON; open since v1.49 (Scott 10/17 "go")
+  { id: "hubuniverse", name: "Hub Universe", icon: "🌌", what: "Every Hub app on your phone in one place - what needs you across all of them.", url: UNIVERSE_URL },   // v1.52
 ];
 function hubRows() {
   const sd = sibData();
@@ -741,8 +742,8 @@ function render() {
     document.getElementById("cards").innerHTML = (TAB === "home" ? futureBanner() + whatsNewHtml() : "") + shellHtml(cardHtml);
     tick(); return;
   }
-  document.getElementById("cards").innerHTML = futureBanner() + whatsNewHtml() + (MODE === "home" ? (typeof homeSet === "function" && homeSet() ? homeDashHtml() : welcomeHtml()) : MODE === "auto" ? (typeof autoSet === "function" && autoSet() ? autoDashHtml() : welcomeHtml()) : MODE === "money" ? (typeof mhSet === "function" && mhSet() ? mhDashHtml() : welcomeHtml()) : !S.city && !S.name ? welcomeHtml() : dayHubHomeHtml(order)) + cards +
-    `<button class="add-link arrange-link" data-arrange="1">↕ Arrange my screen</button>`;
+  document.getElementById("cards").innerHTML = futureBanner() + whatsNewHtml() + (MODE === "home" ? (typeof homeSet === "function" && homeSet() ? homeDashHtml() : welcomeHtml()) : MODE === "auto" ? (typeof autoSet === "function" && autoSet() ? autoDashHtml() : welcomeHtml()) : MODE === "money" ? (typeof mhSet === "function" && mhSet() ? mhDashHtml() : welcomeHtml()) : MODE === "universe" ? (typeof uniHomeHtml === "function" ? uniHomeHtml() : "") : !S.city && !S.name ? welcomeHtml() : dayHubHomeHtml(order)) + cards +
+    (MODE === "universe" ? "" : `<button class="add-link arrange-link" data-arrange="1">↕ Arrange my screen</button>`);
   tick();
 }
 

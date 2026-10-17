@@ -34,6 +34,7 @@ def check(name, cond, extra=""):
 CRUISE = "/../cruisehub/"     # Cruise Hub's own address, next to /dayhub/ (v0.47)
 TRIP = "/../triphub/"         # Trip Hub's own address (v0.97, app #3)
 HOMEP = "/../homehub/"        # Home Hub's own address (v1.25, app #4)
+UNIP = "/../hubuniverse/"      # Hub Universe (v1.52, app #7)
 MONEYP = "/../moneyhub/"      # Money Hub's own address (v1.42, app #6)
 AUTOP = "/../autohub/"        # Auto Hub's own address (v1.35, app #5)
 
@@ -72,6 +73,13 @@ def forecast_fixture(q):
 
 def route(ctx):
     def handle(r):
+        # Like the real services: every faked reply says any site may read it (CORS). Chrome's test mode let a reply
+        # without it through; Safari's engine (BROWSER=webkit) blocks it, exactly as a real iPhone would.
+        _f = r.fulfill
+        def fulfill(**k):
+            h = dict(k.pop("headers", None) or {}); h.setdefault("Access-Control-Allow-Origin", "*")
+            return _f(headers=h, **k)
+        r.fulfill = fulfill
         u = urllib.parse.urlparse(r.request.url); q = urllib.parse.parse_qs(u.query)
         if u.netloc.startswith("geocoding-api."):
             name = (q.get("name") or ["X"])[0]
@@ -191,6 +199,8 @@ def route(ctx):
             return r.fulfill(json={"Count": 2, "results": [
                 {"NHTSACampaignNumber": "20V306000", "Component": "FORWARD COLLISION AVOIDANCE: CAMERA", "Summary": "Camera may not work.", "Remedy": "Dealer updates software.", "parkIt": False},
                 {"NHTSACampaignNumber": "21V100000", "Component": "FUEL SYSTEM", "Summary": "Fuel may leak.", "Remedy": "Dealer replaces the line.", "parkIt": True}]})
+        if "fonts.googleapis" in u.netloc:                 # an empty stylesheet (Safari's engine rejects a reply with no type)
+            return r.fulfill(status=200, body="", content_type="text/css")
         if "fonts.g" in u.netloc or "accounts.google.com" in u.netloc:
             return r.fulfill(status=204, body="")
         return r.continue_()
@@ -201,8 +211,11 @@ def route(ctx):
 # ------------------------------------------------------------------ helpers
 class App:
     def __init__(self, browser, base, path="/", width=390, height=844, at="2026-10-01T08:00:00"):
+        # Safari's engine sends a page's requests through its offline worker, past the fake network in route(); block the
+        # worker there so the fixtures apply. The worker itself is tested on Chrome's engine.
+        wk = browser.browser_type.name == "webkit"
         self.ctx = browser.new_context(viewport={"width": width, "height": height}, timezone_id="America/Chicago",
-                                       permissions=["notifications"])
+                                       permissions=[] if wk else ["notifications"], **({"service_workers": "block"} if wk else {}))
         route(self.ctx)
         # v0.58: Cruise Hub opens on HOME; the older tests expect the cards, so they start on PLAN.
         self.ctx.add_init_script("try { if (!localStorage.getItem('cruisehub.startTab')) localStorage.setItem('cruisehub.startTab', 'plan'); } catch (e) {}")
@@ -1232,7 +1245,7 @@ def t_v039_short_home(b, base):
 def t_v040_switches(b, base):
     print("\n[v0.40 switchboard: everything OFF by default, owner switches, Pro key, legal pages, manifest]")
     a = App(b, base); setup(a)
-    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), TRIP_PASS + AI_CREDITS on (10/11), GMAIL + STORE + MONEY_PASS OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && SWITCHES.AI_CREDITS === true && SWITCHES.HOME_VALUE === true && SWITCHES.AUTO_PASS === true && SWITCHES.MONEY_PASS === false && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS,AI_CREDITS,AUTO_PASS,MONEY_PASS,HOME_VALUE'"))
+    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), TRIP_PASS + AI_CREDITS on (10/11), GMAIL + STORE + MONEY_PASS + UNIVERSE_PASS OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && SWITCHES.AI_CREDITS === true && SWITCHES.HOME_VALUE === true && SWITCHES.AUTO_PASS === true && SWITCHES.MONEY_PASS === false && SWITCHES.UNIVERSE_PASS === false && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS,AI_CREDITS,AUTO_PASS,UNIVERSE_PASS,MONEY_PASS,HOME_VALUE'"))
     check("plan: approved price, contact, Whop checkout", a.js("PLAN.MONTHLY") == "$4.99/month" and a.js("PLAN.YEARLY") == "$29.99/year" and a.js("PLAN.CONTACT_EMAIL") == "smarvel1963@gmail.com" and a.js("PLAN.WHOP_CHECKOUT_URL") == "https://whop.com/commander-marvel-por-picks/day-hub-pro")
     check("PRO_GATE on, free phone: Pro features locked, free ones open", a.js("!['ai','gcal','mail','sync'].some(can) && ['reminders','budget'].every(can)"))
     a.page.click("#settingsBtn")
@@ -4582,6 +4595,42 @@ def t_v151_real_photos(b, base):
         check(f"{k}: keeps its own photos whatever the weather (rain at night)", f"/photos/{k}_" in x.js("photoUrl('rain', true, null)"))
         x.close()
 
+
+def t_v152_hub_universe(b, base):
+    print("\n[v1.52 Hub Universe: every hub on this phone as orbits, needs-you across hubs, planet sheets, read-only]")
+    import make_money_screenshots as MS
+    a = App(b, base, path=UNIP); a.page.wait_for_function("typeof uniHomeHtml === 'function'")
+    t = a.page.inner_text("#cards")
+    check("empty phone: orbits with every hub as '+ start', Everyday + Travel groups, nothing needs you", "EVERYDAY" in t and "TRAVEL" in t and t.count("start") >= 6 and "Nothing needs you" in t, t[:300])
+    check("no Day Hub family card / Arrange link / + button in Universe", "Hub family" not in t and "Arrange my screen" not in t and a.js("getComputedStyle(document.getElementById('fab')).display") == "none")
+    # fill two hubs on the same phone (same storage), the way a person would
+    a.page.goto(base + MONEYP); a.page.wait_for_function("typeof render === 'function'"); a.js(MS.DEMO)
+    a.page.goto(base + "/"); a.page.wait_for_function("typeof render === 'function'"); setup(a)
+    a.js("S.bills.push({id: 'u1', name: 'Phone', amount: 85, day: 1, paid: ''}); save()")
+    before = a.js("localStorage.getItem('moneyhub.v1')")
+    a.page.goto(base + UNIP); a.page.wait_for_function("typeof uniHomeHtml === 'function'"); a.page.wait_for_timeout(300)
+    H = a.js("Object.fromEntries(UNI_CACHE.map(h => [h.id, {set: h.set, val: String(h.val || ''), items: h.items.length}]))")
+    check("Money Hub planet: in use, shows its cash ($10,520 from the sample)", H["money"]["set"] and "$10,520" in H["money"]["val"], H)
+    check("Day Hub planet: in use; the unpaid Phone bill due today needs you", H["day"]["set"] and any("Phone $85" in x for x in a.js("UNI_CACHE.find(h => h.id === 'day').items.map(i => i.text)")), H)
+    check("Auto / Home / Trip / Cruise not started: faint '+ start' planets", not H["auto"]["set"] and not H["cruise"]["set"])
+    n = a.js("uniNeeds(UNI_CACHE).length")
+    check("Needs you counts across hubs and the core shows that number", n >= 2 and str(n) in a.page.inner_text(".uni-needs .uni-count"), n)
+    check("READ-ONLY: Money Hub's saved data is byte-for-byte unchanged", a.js("localStorage.getItem('moneyhub.v1')") == before)
+    check("Universe's own data stays in hubuniverse.v1 (S is back to Universe after every peek)", a.js("STORE") == "hubuniverse.v1" and not a.js("!!(S.mh && S.mh.setup)"))
+    a.js("document.querySelector('[data-uniplanet=money]').click()")
+    st = a.page.inner_text("#uniSheet")
+    check("tap the Money planet: its own orbit of branches (Cash, Due soon, Low point, This month) + Open Money Hub", "Cash" in st and "Due soon" in st and "Open Money Hub" in st and a.js("document.querySelector('#uniSheet a.uni-open').href").endswith("/moneyhub/"), st[:300])
+    a.js("document.querySelector('[data-uniclose]').click()")
+    a.js("document.querySelector('[data-uniplanet=auto]').click()")
+    check("an unused hub's planet offers Start", "Start Auto Hub" in a.page.inner_text("#uniSheet"))
+    check("adding a hub is one row: every UNI_HUBS row has a summary function and a group", a.js("UNI_HUBS.every(h => typeof h[7] === 'function' && h[6])"))
+    a.page.set_viewport_size({"width": 360, "height": 780}); a.js("hidePlanet(); render()")
+    check("fits a 360px phone", a.js("document.documentElement.scrollWidth <= window.innerWidth + 1"))
+    a.close()
+    d = App(b, base); setup(d)
+    check("Day Hub's family card lists Hub Universe with Open", "Hub Universe" in d.page.inner_text("[data-card=family]") and d.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/hubuniverse/\"]')"))
+    d.close()
+
 def t_v127_email_codes(b, base):
     print("\n[v1.27 store audit S2: a NEW phone confirms the purchase email with a 6-digit emailed code]")
     a = App(b, base); setup(a)
@@ -4762,7 +4811,10 @@ def t_v109_port_wx_alerts(b, base):
 def main():
     srv, base = serve()
     with sync_playwright() as p:
-        b = p.chromium.launch()
+        # BROWSER=webkit python tests/run_tests.py  -> the same tests on Safari's engine (iPhone). Default: Chrome's.
+        engine = os.environ.get("BROWSER", "chromium").lower()
+        print(f"[engine: {engine}]")
+        b = getattr(p, engine).launch()
         for t in (t_first_run, t_schedule, t_todos_lists_countdowns, t_bills_budget_work, t_packages_email,
                   t_trips_cruise, t_reminders_backup_update, t_notes_data, t_settings_layout_offline, t_v018_fixes,
                   t_v019_calendar_arrange, t_v020_nightly_reset,
@@ -4787,7 +4839,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete, t_v142_money_hub, t_v145_money_control_room, t_v146_connect_and_cash_flow, t_v147_share_and_rings, t_v148_money_advisor, t_v148_data_update, t_v150_store_mode_and_flash, t_v151_real_photos):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete, t_v142_money_hub, t_v145_money_control_room, t_v146_connect_and_cash_flow, t_v147_share_and_rings, t_v148_money_advisor, t_v148_data_update, t_v150_store_mode_and_flash, t_v151_real_photos, t_v152_hub_universe):
             if os.environ.get("ONLY") and not any(k in t.__name__ for k in os.environ["ONLY"].split(",")): continue   # ONLY=t_v145 python tests/run_tests.py
             try:
                 t(b, base)

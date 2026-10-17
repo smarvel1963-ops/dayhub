@@ -1,6 +1,9 @@
 {
- "version": "1.51",
+ "version": "1.52",
  "notes": {
+  "1.52": [
+   "🌌 New in the Hub family: Hub Universe - every Hub app on your phone in one place. Your hubs orbit you with what's going on in each, plus what needs you across all of them and today across everything. Find it in ⚙ → Hub family."
+  ],
   "1.51": [
    "📷 A soft real photo behind the clock in every Hub app - Day Hub's follows the weather (rain, snow, stars at night), a ship at sea for Cruise Hub, the road for Auto Hub and more - a different one each day. ⚙ → Background → Real photo turns it off."
   ],
