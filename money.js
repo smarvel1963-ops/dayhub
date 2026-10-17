@@ -16,15 +16,20 @@
 const MH_CATS = [["housing", "🏠", "Housing"], ["utilities", "💡", "Utilities"], ["groceries", "🛒", "Groceries"], ["dining", "🍔", "Eating out"],
   ["transport", "🚗", "Transportation"], ["health", "🩺", "Health"], ["insurance", "🛡️", "Insurance"], ["debt", "💳", "Debt payments"],
   ["subs", "🔁", "Subscriptions"], ["shopping", "🛍️", "Shopping"], ["fun", "🎉", "Fun"], ["family", "🧸", "Kids & family"], ["pets", "🐾", "Pets"],
-  ["giving", "🎁", "Gifts & giving"], ["bills", "🧾", "Bills"], ["other", "📦", "Other"]];
+  ["giving", "🎁", "Gifts & giving"], ["bills", "🧾", "Bills"], ["transfer", "↔️", "Moving my own money"], ["other", "📦", "Other"]];
+// v1.46 "transfer" = money moving between your OWN accounts (Cash App -> bank, bank -> savings, paying the card from checking
+// on the card's side). Never counted as money in or out - mhFlow() is the log without them, and every total reads mhFlow().
 const MH_INCATS = [["pay", "💵", "Paycheck"], ["side", "💼", "Side income"], ["benefits", "🏛️", "Benefits / Social Security"], ["income", "➕", "Other income"]];
-const MH_ACCTS = [["checking", "🏦", "Checking", true], ["savings", "🐷", "Savings", true], ["cash", "💵", "Cash", true], ["credit", "💳", "Credit card", false],
+const MH_ACCTS = [["checking", "🏦", "Checking", true], ["savings", "🐷", "Savings", true], ["cash", "💵", "Cash", true], ["wallet", "📱", "Cash app / wallet", true], ["credit", "💳", "Credit card", false],
   ["loan", "🧾", "Loan", false], ["invest", "📈", "Investment / retirement", false]];   // 4th = counts as cash available
 const MH_TABS = [["spend", "🧾", "Transactions"], ["accounts", "🏦", "Accounts"], ["bills", "💳", "Payments"], ["budget", "🎯", "Budget"],
   ["debt", "⛓️", "Debt"], ["subs", "📅", "Subscriptions"], ["payday", "💵", "Payday"], ["goals", "🏝️", "Goals"], ["reports", "📊", "Reports"],
   // v1.45 control-room pages (moneyviz.js) - reached from the bottom bar, the home tiles and More
-  ["add", "＋", "Add"], ["more", "☰", "Everything"], ["forecast", "📈", "Cash Forecast"], ["insights", "💡", "Smart Insights"], ["vault", "🔐", "Document Vault"]];
+  ["add", "＋", "Add"], ["more", "☰", "Everything"], ["forecast", "📈", "Cash Forecast"], ["insights", "💡", "Smart Insights"], ["vault", "🔐", "Document Vault"],
+  ["connect", "🔗", "Connect your money"], ["flow", "🌊", "Cash Flow"]];   // v1.46
 // Words in a bank's description -> category (CSV import, and the hint when a spend is typed with no category).
+// own-money moves come first: "Cash out", "Standard transfer", "Bank deposit to PP account", a card's "Payment - thank you"
+const MH_MOVE = /transfer (to|from)|^transfer\b|cash ?out|cash ?in\b|instant (transfer|deposit)|standard transfer|bank deposit to pp|general (card )?(deposit|withdrawal)|add(ed)? (money|cash|to balance)|payment[ ,-]*thank ?you|internal transfer|online transfer|\bxfer\b|to savings|from savings|to checking|from checking/i;
 const MH_WORDS = [["groceries", /kroger|whole foods|trader joe|sprouts|wegmans|meijer|walmart|aldi|publix|safeway|heb\b|food lion|costco|sam'?s club|grocery|market/i], ["dining", /mcdonald|burger|wendy|taco|chick-?fil|starbucks|pizza|subway|sonic|doordash|uber ?eats|grubhub|restaurant|cafe|coffee/i],
   ["transport", /shell|exxon|chevron|valero|circle k|murphy|bp\b|gas|fuel|uber(?! ?eats)|lyft|parking|toll|auto|tire|jiffy/i], ["utilities", /electric|energy|water|sewer|gas co|entergy|at&t|verizon|t-?mobile|comcast|xfinity|spectrum|internet|phone/i],
   ["subs", /netflix|hulu|spotify|disney|apple\.com|google \*|youtube|prime video|amazon prime|paramount|max\b|patreon|whop/i], ["health", /pharmacy|cvs|walgreens|doctor|dental|clinic|hospital|teladoc/i],
@@ -62,7 +67,7 @@ const netWorth = () => mh().accounts.reduce((n, a) => n + (["credit", "loan"].in
 // One month's money in / out from the log. -> {inc, out, byCat: {cat: spent}}
 function monthTotals(m) {
   const byCat = {}; let inc = 0, out = 0;
-  mh().tx.filter(t => ym(t.date) === m).forEach(t => { if (t.amt > 0) inc += t.amt; else { out += -t.amt; byCat[t.cat] = (byCat[t.cat] || 0) - t.amt; } });
+  mhFlow().filter(t => ym(t.date) === m).forEach(t => { if (t.amt > 0) inc += t.amt; else { out += -t.amt; byCat[t.cat] = (byCat[t.cat] || 0) - t.amt; } });
   return { inc, out, byCat };
 }
 // Bills still to pay this month (not marked paid through this month).
@@ -84,6 +89,7 @@ function payoffPlan(debts, extra, method) {
   const budget = D.reduce((n, d) => n + d.min, 0) + Math.max(0, +extra || 0);
   const order = [], pick = () => D.filter(d => d.bal > 0.005).sort((a, b) => method === "snowball" ? a.bal - b.bal : b.apr - a.apr || a.bal - b.bal)[0];
   let month = 0, interest = 0;
+  const track = [Math.round(D.reduce((n, d) => n + d.bal, 0) * 100) / 100];   // v1.46 total owed at each month end - the payoff chart
   while (D.some(d => d.bal > 0.005) && month < 600) {
     month++;
     D.forEach(d => { if (d.bal > 0.005) { const i = d.bal * d.apr / 1200; d.bal += i; interest += i; } });
@@ -91,19 +97,45 @@ function payoffPlan(debts, extra, method) {
     D.forEach(d => { if (d.bal > 0.005) { const p = Math.min(d.min, d.bal, left); d.bal -= p; left -= p; } });
     let tgt; while (left > 0.005 && (tgt = pick())) { const p = Math.min(left, tgt.bal); tgt.bal -= p; left -= p; }
     D.forEach(d => { if (d.bal <= 0.005 && !order.some(o => o.name === d.name)) order.push({ name: d.name, month }); });
+    track.push(Math.max(0, Math.round(D.reduce((n, d) => n + Math.max(0, d.bal), 0) * 100) / 100));
   }
-  return { months: month, interest: Math.round(interest * 100) / 100, order, stuck: month >= 600 };
+  return { months: month, interest: Math.round(interest * 100) / 100, order, stuck: month >= 600, track };
 }
 // The payday planner: start + paycheck - bills - other - savings.
 const paydayLeft = (start, check, bills, other, save) => (+start || 0) + (+check || 0) - (+bills || 0) - (+other || 0) - (+save || 0);
 // A subscription's cost per month.
 const subMonthly = s => s.every === "year" ? s.amt / 12 : s.every === "week" ? s.amt * 52 / 12 : s.amt;
 const catGuess = what => (MH_WORDS.find(([, re]) => re.test(what || "")) || ["other"])[0];
+const mhFlow = () => mh().tx.filter(x => x.cat !== "transfer");
 
-// A bank's CSV download -> rows {date, amt, what, cat}. Finds the date / amount (or debit + credit) / description
-// columns from the header; reads MM/DD/YYYY, M/D/YY and YYYY-MM-DD; money spent is negative.
+// A downloaded activity file -> {rows: [{date, amt, what, cat}], src, bal, balDate, error}. CSV from any bank or card, Cash App,
+// Venmo, PayPal, Apple Card; or OFX / QFX / QBO (the "Quicken" download most banks offer). Read on this phone - nothing is
+// sent anywhere. Finds the header row (Venmo has lines above it), the date / amount (or debit + credit, or PayPal's Net)
+// / description columns; reads MM/DD/YYYY, M/D/YY, YYYY-MM-DD and "Jan 5, 2026"; money spent is negative. Rows marked
+// failed / declined / pending are skipped. A Balance column (or OFX's ledger balance) gives the account's balance.
+const MH_SRCS = [["cashapp", "Cash App", h => h.includes("transaction id") && h.some(x => /asset type|name of sender|net amount/.test(x))],
+  ["venmo", "Venmo", h => h.some(x => /^amount \(total\)/.test(x))],
+  ["paypal", "PayPal", h => h.includes("gross") && h.includes("net")],
+  ["applecard", "Apple Card", h => h.includes("clearing date") && h.some(x => /^amount/.test(x))]];
+function mhDay(v) {
+  v = String(v || "").trim(); let m = v.match(/^(\d{4})-?(\d{2})-?(\d{2})/); if (m && +m[2] >= 1 && +m[2] <= 12) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if (m) return `${m[1]}-${pad(+m[2])}-${pad(+m[3])}`;
+  m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); if (m) return `${m[3].length === 2 ? "20" + m[3] : m[3]}-${pad(+m[1])}-${pad(+m[2])}`;
+  if (/^[a-z]{3,9}\.? \d{1,2},? \d{4}/i.test(v)) { const d = new Date(v.replace(/(\d{4}).*$/, "$1")); if (!isNaN(d)) return ymd(d); }
+  return "";
+}
+const mhNum = v => { const t = String(v || "").trim(), neg = /^\(.*\)$/.test(t) || /^[-−–]/.test(t) || /^\$\s*-/.test(t); const n = amt(t.replace(/[()\-−–+$,\s]/g, "")); return neg ? -n : n; };
+function parseOfx(text) {
+  const tag = (blk, k) => { const m = blk.match(new RegExp(`<${k}>([^<\\r\\n]*)`, "i")); return m ? m[1].trim() : ""; };
+  const rows = String(text).split(/<STMTTRN>/i).slice(1).map(blk => { const what = (tag(blk, "NAME") || tag(blk, "MEMO")).replace(/&amp;/g, "&").replace(/\s+/g, " ").slice(0, 80);
+      const a = mhNum(tag(blk, "TRNAMT")), date = mhDay(tag(blk, "DTPOSTED")), ty = tag(blk, "TRNTYPE").toUpperCase();
+      return { date, amt: Math.round(a * 100) / 100, what, cat: ty === "XFER" || MH_MOVE.test(what) ? "transfer" : a > 0 ? "income" : catGuess(what) }; }).filter(x => x.date && x.amt);
+  const lb = String(text).match(/<LEDGERBAL>[\s\S]*?<BALAMT>([^<\r\n]+)(?:[\s\S]*?<DTASOF>([^<\r\n]+))?/i);
+  return { rows, src: "bank", bal: lb ? mhNum(lb[1]) : null, balDate: lb && lb[2] ? mhDay(lb[2]) : "", error: rows.length ? "" : "No transactions found in that file." };
+}
 function parseCsv(text) {
-  const lines = [], s = String(text || "").replace(/^\uFEFF/, "");
+  const lines = [], s = String(text || "").replace(/^﻿/, "");
+  if (/<OFX>|<STMTTRN>/i.test(s.slice(0, 20000))) return parseOfx(s);
   let row = [], cell = "", q = false;
   for (let i = 0; i < s.length; i++) { const ch = s[i];
     if (q) { if (ch === '"' && s[i + 1] === '"') { cell += '"'; i++; } else if (ch === '"') q = false; else cell += ch; }
@@ -111,20 +143,32 @@ function parseCsv(text) {
     else if (ch === "\n" || ch === "\r") { if (ch === "\r" && s[i + 1] === "\n") i++; row.push(cell); lines.push(row); row = []; cell = ""; }
     else cell += ch; }
   if (cell || row.length) { row.push(cell); lines.push(row); }
-  const rows = lines.filter(r => r.some(c => c.trim()));
+  const all = lines.filter(r => r.some(c => c.trim()));
+  const isHead = r => { const h = r.map(x => x.trim().toLowerCase()); return h.some(x => /date/.test(x)) && h.some(x => /amount|debit|credit|withdraw|deposit|^net$|^gross$/.test(x)); };
+  const hi = all.slice(0, 15).findIndex(isHead), rows = hi < 0 ? all : all.slice(hi);
   if (rows.length < 2) return { rows: [], error: "No rows found in that file." };
-  const H = rows[0].map(h => h.trim().toLowerCase()), col = re => H.findIndex(h => re.test(h));
-  const cD = col(/date/), cA = col(/^amount|amount$|^amt/), cDr = col(/debit|withdraw|money out/), cCr = col(/credit|deposit|money in/), cW = col(/desc|memo|payee|merchant|name|details|transaction/);
-  if (cD < 0 || (cA < 0 && cDr < 0 && cCr < 0)) return { rows: [], error: "Couldn't find the Date and Amount columns. Download the CSV from your bank's website and try again." };
-  const day = v => { v = String(v || "").trim(); let m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if (m) return `${m[1]}-${pad(+m[2])}-${pad(+m[3])}`;
-    m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); if (m) return `${m[3].length === 2 ? "20" + m[3] : m[3]}-${pad(+m[1])}-${pad(+m[2])}`; return ""; };
-  const num = v => { const t = String(v || "").trim(), neg = /^\(.*\)$/.test(t) || /^-/.test(t); const n = amt(t.replace(/[()\-]/g, "")); return neg ? -n : n; };
-  const out = rows.slice(1).map(r => { const date = day(r[cD]); let a = cA >= 0 ? num(r[cA]) : 0;
-      if (cA < 0) a = (cCr >= 0 ? Math.abs(num(r[cCr])) : 0) - (cDr >= 0 ? Math.abs(num(r[cDr])) : 0);
-      const what = String(cW >= 0 ? r[cW] : "").trim().replace(/\s+/g, " ").slice(0, 80);
-      return { date, amt: a, what, cat: a > 0 ? "income" : catGuess(what) }; })
-    .filter(x => x.date && x.amt);
-  return { rows: out, error: out.length ? "" : "No transactions with a date and amount in that file." };
+  const H = rows[0].map(h => h.trim().toLowerCase()), col = (...res) => { for (const re of res) { const i = H.findIndex(h => re.test(h) && !/\bid$|^id\b|number$/.test(h)); if (i >= 0) return i; } return -1; };
+  const src = (MH_SRCS.find(([, , f]) => f(H)) || ["bank"])[0];
+  const cD = col(/^date$|^datetime$/, /transaction date|trans\. date/, /date/), cA = col(/^amount$|^amount \(total\)|^amount \(usd\)/, /^amount/, /amount$/, /^net$/, /^gross$/);
+  const cDr = col(/debit|withdraw|money out/), cCr = col(/credit|deposit|money in/), cT = col(/^type$|transaction type/), cSt = col(/^status$/), cBal = col(/^balance$|running bal|^available balance/);
+  const cW = col(/^desc|description/, /^merchant/, /^payee/, /name of sender|^name$/, /^to$/, /details/, /memo/, /^note/), cN = col(/^notes?$|^memo$/), cFr = col(/^from$/), cTo = col(/^to$/);
+  if (cD < 0 || (cA < 0 && cDr < 0 && cCr < 0)) return { rows: [], error: "Couldn't find the Date and Amount columns. Download the activity as CSV (or OFX/QFX) and try again." };
+  let bal = null, balDate = "";
+  const out = rows.slice(1).map(r => { const date = mhDay(r[cD]); let a = cA >= 0 ? mhNum(r[cA]) : 0;
+      if (cA < 0) a = (cCr >= 0 ? Math.abs(mhNum(r[cCr])) : 0) - (cDr >= 0 ? Math.abs(mhNum(r[cDr])) : 0);
+      if (src === "applecard") a = -a;                                   // Apple Card lists purchases as positive
+      if (cSt >= 0 && /fail|declin|cancel|denied|refus|pending|reversed/i.test(r[cSt] || "")) return null;
+      let what = String(cW >= 0 ? r[cW] : "").trim();
+      if (src === "venmo") what = String((a > 0 ? r[cFr] : r[cTo]) || what || "").trim();
+      const note = cN >= 0 && cN !== cW ? String(r[cN] || "").trim() : "";
+      if (note && note.toLowerCase() !== what.toLowerCase()) what = what ? `${what} · ${note}` : note;
+      const ty = cT >= 0 ? String(r[cT] || "") : "";
+      if (!what) what = ty;
+      what = what.replace(/\s+/g, " ").slice(0, 80);
+      if (cBal >= 0 && date && String(r[cBal] || "").trim() && date >= balDate) { bal = mhNum(r[cBal]); balDate = date; }
+      return { date, amt: Math.round(a * 100) / 100, what, cat: MH_MOVE.test(ty) || MH_MOVE.test(what) ? "transfer" : a > 0 ? "income" : catGuess(what) }; })
+    .filter(x => x && x.date && x.amt);
+  return { rows: out, src, bal, balDate, error: out.length ? "" : "No transactions with a date and amount in that file." };
 }
 const txKey = t => `${t.date}|${(+t.amt).toFixed(2)}|${String(t.what || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 24)}`;
 // Adds rows to the log, skipping any already there. -> how many were added
@@ -254,13 +298,14 @@ function mhPane() {
       <button class="btn sm" data-mhtab="accounts">Go to Accounts</button>`;
     const ex = M.debt.extra || 0, meth = M.debt.method === "snowball" ? "snowball" : "avalanche", P = payoffPlan(D, ex, meth), base = payoffPlan(D, 0, meth), noMin = D.filter(d => !d.min);
     const yrs = n => n >= 12 ? `${Math.floor(n / 12)} yr${n >= 24 ? "s" : ""}${n % 12 ? ` ${n % 12} mo` : ""}` : `${n} month${n === 1 ? "" : "s"}`;
-    return `<div class="home-stats"><div class="home-stat"><b>${usd(D.reduce((n, d) => n + d.bal, 0))}</b><span>owed</span></div><div class="home-stat"><b>${P.stuck ? "never" : yrs(P.months)}</b><span>to debt-free</span></div>
+    return `<div class="home-stats"><div class="home-stat"><b>${usd(D.reduce((n, d) => n + d.bal, 0))}</b><span>owed</span></div><div class="home-stat"><b>${P.stuck ? "never" : P.months >= 12 ? `${Math.floor(P.months / 12)}y${P.months % 12 ? ` ${P.months % 12}m` : ""}` : `${P.months} mo`}</b><span>to debt-free</span></div>
         <div class="home-stat"><b>${usd(P.interest)}</b><span>interest on the way</span></div></div>
       ${P.stuck ? `<p class="fine">⚠️ At these payments the interest outruns you. Add an extra amount below${noMin.length ? ` (and minimums for ${noMin.map(d => esc(d.name)).join(", ")})` : ""}.</p>` : ""}
       <form class="qa-form" data-mhdebt="1"><div class="two"><input name="extra" inputmode="decimal" placeholder="Extra a month $" value="${ex || ""}" aria-label="Extra payment a month">
-        <select name="method" aria-label="Method"><option value="avalanche" ${meth === "avalanche" ? "selected" : ""}>Highest rate first (saves the most)</option><option value="snowball" ${meth === "snowball" ? "selected" : ""}>Smallest balance first (quick wins)</option></select></div>
+        <select name="method" aria-label="Method"><option value="avalanche" ${meth === "avalanche" ? "selected" : ""}>Highest rate first</option><option value="snowball" ${meth === "snowball" ? "selected" : ""}>Smallest first (quick wins)</option></select></div>
         <button class="btn sm">Work it out</button></form>
       ${ex && !P.stuck && !base.stuck ? `<p class="fine">${usd(ex)} extra a month: debt-free ${yrs(base.months - P.months)} sooner and ${usd(base.interest - P.interest)} less interest.</p>` : ""}
+      ${typeof mvDebtChart === "function" ? mvDebtChart(P, ex ? base : null, ex) : ""}
       ${typeof mvDebtViz === "function" ? mvDebtViz(D, P) : ""}
       ${P.order.length && typeof mvDebtViz !== "function" ? `<p class="sub" style="margin:10px 0 4px"><b>Order</b></p>${P.order.map((o, i) => `<div class="row"><span class="ci">${i + 1}</span><div class="grow">${esc(o.name)}<span class="sub">paid off in ${yrs(o.month)}</span></div></div>`).join("")}` : ""}
       <p class="fine">Estimates: interest monthly at today's APR, payments every month. Your statement is the real number.</p>`;
@@ -287,7 +332,7 @@ function mhPane() {
       ${typeof mvWaterfall === "function" ? mvWaterfall(v, left) : ""}
       <div class="hpv-ai"><p class="sub" style="margin:0">Left after all that</p><p class="hpv-big" style="${left < 0 ? "color:var(--red)" : ""}">${usd(left)}</p>
         <p class="fine" style="margin:4px 0 0">${usd(v.start)} + ${usd(v.check)} − ${usd(v.bills)} bills − ${usd(v.other)} other − ${usd(v.save)} savings${left < 0 ? " · ⚠️ short - move a bill or trim spending" : ""}</p></div>
-      <form class="qa-form" data-mhplan="1">
+      <form class="qa-form mv-plan" data-mhplan="1">
         <label class="field">Starting cash $ <input name="start" inputmode="decimal" value="${v.start}"></label>
         <label class="field">Next paycheck $ <input name="check" inputmode="decimal" value="${v.check}"></label>
         <label class="field">Bills $ <input name="bills" inputmode="decimal" value="${v.bills}"></label>
@@ -327,7 +372,7 @@ function mhPane() {
       <div class="two"><input name="what" placeholder="What for, e.g. Kroger" aria-label="What for"><select name="cat" aria-label="Category"><option value="">Category: guess it</option>${catOpts("", true)}</select></div>
       <button class="btn sm">Add</button></form>
     ${mhGate() ? `<p class="fine">📥 Import your bank's CSV: ${esc(PLAN.MONEY_NAME)}.</p>`
-      : `<label class="btn sm ghost" style="align-self:flex-start">📥 Import bank CSV<input type="file" accept=".csv,text/csv" data-mhcsv="1" hidden></label>
+      : `<label class="btn sm ghost" style="align-self:flex-start">📥 Import bank CSV<input type="file" accept=".csv,.ofx,.qfx,.qbo,text/csv" data-mhcsv="1" hidden></label>
          <p class="fine" style="margin:4px 0 8px">On your bank's website: Activity → Download → CSV. Duplicates are skipped.</p>`}
     ${L.map(x => { const h = ym(x.date) !== mon ? `<p class="sub" style="margin:10px 0 4px"><b>${monthName(ym(x.date))}</b></p>` : ""; mon = ym(x.date);
       return h + (MH_EDIT === x.id
@@ -539,7 +584,13 @@ function mhSubmit(f, data) {
     M.subs.push({ id: uid(), name: name.slice(0, 50), amt: a, every: ["month", "year", "week"].includes(data.every) ? data.every : "month", next: /^\d{4}-\d{2}-\d{2}$/.test(data.next || "") ? data.next : "" });
     save(); showMh("subs"); render(); toast(`🔁 ${name} added`); return true; }
   if (f.dataset.mhplan) { M.plan = { start: amt(data.start), check: amt(data.check), bills: amt(data.bills), other: amt(data.other), save: amt(data.save) }; save(); showMh("payday"); return true; }
-  if (f.dataset.mhimport) { if (!MH_IMPORT) return true; const n = addTx(MH_IMPORT.rows.map(r => ({ ...r, src: "CSV" })), data.acct || ""); MH_IMPORT = null;
+  if (f.dataset.mhimport) { if (!MH_IMPORT) return true; const I = MH_IMPORT; let acct = data.acct || "";
+    // v1.46: "＋ New account" from the file's source; the file's balance (when it has one) on request; when it was last fed
+    if (acct === "new") { if (!mhCanAddAcct()) acct = ""; else { const kind = I.src === "applecard" ? "credit" : I.src === "bank" ? "checking" : "wallet";
+      const a = { id: uid(), kind, name: I.src === "bank" ? "Bank account" : (MH_SRCS.find(x => x[0] === I.src) || [0, "Account"])[1], bal: 0, at: today() }; M.accounts.push(a); acct = a.id; } }
+    const A = M.accounts.find(x => x.id === acct);
+    if (A) { A.imp = today(); if (I.src && I.src !== "bank") A.src = I.src; if (data.setbal && I.bal != null) { A.bal = ["credit", "loan"].includes(A.kind) ? Math.abs(I.bal) : I.bal; A.at = I.balDate || today(); } }
+    const n = addTx(I.rows.map(r => ({ ...r, src: "CSV" })), acct); MH_IMPORT = null;
     save(); showMh("spend"); render(); toast(`📥 ${n} transaction${n === 1 ? "" : "s"} added`); return true; }
   if (f.dataset.mhtxcat) { const x = M.tx.find(y => y.id === f.dataset.mhtxcat); if (x && data.cat) x.cat = data.cat; MH_EDIT = null; save(); showMh("spend"); render(); return true; }
   return false;
@@ -550,7 +601,7 @@ document.addEventListener("change", async e => {
   if (file.size > 5e6) { MH_MSG = "That file is too big (over 5 MB)."; mhMsgShow(); return; }
   const r = parseCsv(await file.text());
   if (r.error) { MH_MSG = r.error; mhMsgShow(); return; }
-  MH_IMPORT = { name: file.name, rows: r.rows }; MH_MSG = ""; showMh("spend");
+  MH_IMPORT = { name: file.name, rows: r.rows, src: r.src || "bank", bal: r.bal != null ? r.bal : null, balDate: r.balDate || "", acct: t.dataset.mvacct || "" }; MH_MSG = ""; showMh("spend");
 });
 
 // ------------------------------------------------------------ Life pulse + what the AI reads

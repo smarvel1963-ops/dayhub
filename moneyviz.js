@@ -24,7 +24,7 @@ let MV_PDAY = "", MV_PVIEW = "list", MV_FCI = -1, MV_VT = "receipt", MV_BIG = nu
 const mvHidden = () => !!mh().hide;
 const mv$ = n => mvHidden() ? "$•••••" : usd(n);
 const mvSign = n => (n < 0 ? "−" : "+") + usd(Math.abs(n));
-const MV_ACCT_TONE = { checking: "#3b82f6", savings: "#22c55e", cash: "#10b981", credit: "#a855f7", loan: "#ef4444", invest: "#f59e0b" };
+const MV_ACCT_TONE = { checking: "#3b82f6", savings: "#22c55e", cash: "#10b981", wallet: "#00d54b", credit: "#a855f7", loan: "#ef4444", invest: "#f59e0b" };
 // Well-known payees get their own tint (a colour, never a logo).
 const MV_BRANDS = [[/netflix/i, "#e50914"], [/spotify/i, "#1db954"], [/amazon|prime video/i, "#ff9900"], [/starbucks/i, "#00704a"], [/uber(?! ?eats)|lyft/i, "#111827"],
   [/mcdonald/i, "#da291c"], [/youtube/i, "#ff0000"], [/walmart/i, "#0071ce"], [/target/i, "#cc0000"], [/kroger/i, "#2563eb"], [/whole foods/i, "#00674b"], [/apple|icloud/i, "#6b7280"],
@@ -67,7 +67,7 @@ function mvScene(kind) {
 }
 
 // ------------------------------------------------------------ HOME: the control room (the art's first phone)
-const MV_FEATURES = [["insights", "💡", "Smart Insights", "What changed and why"], ["subs", "📅", "Subscriptions", "Never miss a renewal"],
+const MV_FEATURES = [["flow", "🌊", "Cash Flow", "In, out, and what's spare"], ["connect", "🔗", "Connect", "Bank, Cash App, Venmo, PayPal"], ["insights", "💡", "Smart Insights", "What changed and why"], ["subs", "📅", "Subscriptions", "Never miss a renewal"],
   ["forecast", "📈", "Cash Forecast", "Your next 60 days"], ["vault", "🔐", "Document Vault", "Receipts & papers, safe"],
   ["reports", "📊", "Reports", "The bigger picture"], ["budget", "🎯", "Budget", "Limits that warn you"], ["debt", "⛓️", "Debt payoff", "The fastest way out"],
   ["shared", "👥", "Shared Accounts", "Coming soon"]];
@@ -129,10 +129,10 @@ function mvNavEnsure() {
 }
 
 // ------------------------------------------------------------ MORE: every section as big tiles (Scott 10/5 tile nav)
-const MV_MORE_TILES = [["spend", "🧾", "Transactions"], ["accounts", "🏦", "Accounts"], ["budget", "🎯", "Budget"], ["debt", "⛓️", "Debt"], ["subs", "📅", "Subscriptions"],
+const MV_MORE_TILES = [["spend", "🧾", "Transactions"], ["connect", "🔗", "Connect"], ["flow", "🌊", "Cash Flow"], ["accounts", "🏦", "Accounts"], ["budget", "🎯", "Budget"], ["debt", "⛓️", "Debt"], ["subs", "📅", "Subscriptions"],
   ["payday", "💵", "Payday"], ["forecast", "📈", "Cash Forecast"], ["insights", "💡", "Insights"], ["vault", "🔐", "Vault"], ["reports", "📊", "Reports"], ["goals", "🏝️", "Goals"], ["bills", "💳", "Payments"]];
 const mvMoreHtml = () => tileNav(MV_MORE_TILES.map(([k, i, l]) => ({ icon: i, label: l, attrs: `data-mhtab="${k}"` })), 3, "mv-tiles") +
-  `<p class="fine">Shared accounts (two people, one money picture) and bank sync are on the way. Money Hub never asks for a bank password.</p>`;
+  `<p class="fine">Connect pulls in your bank, cards, Cash App, Venmo and PayPal from their downloaded files - on this phone, never a password. Shared accounts (two people, one money picture) are on the way.</p>`;
 
 // ------------------------------------------------------------ ADD: by photo, by hand, by voice (the art's "Add by Photo")
 const MV_KINDS = [["receipt", "🧾", "Receipt"], ["bill", "💳", "Bill"], ["paystub", "💵", "Pay stub"], ["document", "📄", "Document"]];
@@ -284,8 +284,8 @@ function mvTxHtml() {
       <div class="two"><input name="what" placeholder="What for, e.g. Kroger" aria-label="What for"><select name="cat" aria-label="Category"><option value="">Category: guess it</option>${catOpts("", true)}</select></div>
       <button class="btn sm">Add</button></form>
     ${mhGate() ? `<p class="fine">📥 Import your bank's CSV: ${esc(PLAN.MONEY_NAME)}.</p>`
-      : `<label class="btn sm ghost" style="align-self:flex-start">📥 Import bank CSV<input type="file" accept=".csv,text/csv" data-mhcsv="1" hidden></label>
-         <p class="fine" style="margin:4px 0 8px">On your bank's website: Activity → Download → CSV. Duplicates are skipped.</p>`}`;
+      : `<div class="mv-links">${mvFileBtn("📥 Import a file", "", "btn sm ghost")}<button class="btn sm ghost" data-mhtab="connect">🔗 Bank, Cash App, Venmo…</button></div>
+         <p class="fine" style="margin:4px 0 8px">The CSV / QFX download from your bank, card, Cash App, Venmo or PayPal. Read on this phone; duplicates are skipped.</p>`}`;
 }
 // Search as you type: only the list redraws, so the cursor stays put.
 if (typeof document !== "undefined") document.addEventListener("input", e => {
@@ -317,7 +317,7 @@ function mvCalendar(F) {
 // − subscription renewals (not ones already listed as a bill), − everyday spending (last 30 days' average) if on. Estimates.
 function mvEveryday(onDay) {
   const from = addDays(onDay, -30), names = new Set(S.bills.map(b => b.name.toLowerCase()).concat(mh().subs.map(s => s.name.toLowerCase())));
-  const out = mh().tx.filter(x => x.amt < 0 && x.date >= from && x.date < onDay && !x.bill && !/^bill |subscription/.test(x.src || "") && !["housing", "debt"].includes(x.cat) && !names.has(String(x.what || "").toLowerCase()))
+  const out = mhFlow().filter(x => x.amt < 0 && x.date >= from && x.date < onDay && !x.bill && !/^bill |subscription/.test(x.src || "") && !["housing", "debt"].includes(x.cat) && !names.has(String(x.what || "").toLowerCase()))
     .reduce((n, x) => n - x.amt, 0);
   return Math.round(out / 30 * 100) / 100;
 }
@@ -392,7 +392,7 @@ if (typeof document !== "undefined") { document.addEventListener("pointermove", 
 // ------------------------------------------------------------ SMART INSIGHTS (feature strip: "Personalized insights that actually help")
 // Every insight is from the owner's own log and says its math. -> [{id, icon, tone, title, why, tab, act}]
 function mvInsights(onDay) {
-  const M = mh(), out = [], add = (id, pri, icon, tone, title, why, tab, act) => { const d = (M.dis || {})[id]; if (!d || addDays(d, 30) <= onDay) out.push({ id, pri, icon, tone, title, why, tab, act }); };
+  const M = { ...mh(), tx: mhFlow() }, out = [], add = (id, pri, icon, tone, title, why, tab, act) => { const d = (M.dis || {})[id]; if (!d || addDays(d, 30) <= onDay) out.push({ id, pri, icon, tone, title, why, tab, act }); };
   const a30 = addDays(onDay, -30), a60 = addDays(onDay, -60), norm = s => String(s || "").toLowerCase().replace(/[^a-z]/g, "").slice(0, 14);
   const win = (f, t) => M.tx.filter(x => x.date >= f && x.date < t), cur = win(a30, addDays(onDay, 1)), prev = win(a60, a30);
   // everyday categories only: rent, loans, insurance and bills land on one day a month, so a 30-day window "moves" with the calendar
@@ -550,15 +550,177 @@ function mvDebtViz(D, P) {
         <div class="mv-rtrack"><i style="width:${Math.max(4, o.month / P.months * 100).toFixed(1)}%"></i></div></div><em>🎉 ${yrs(o.month)}</em></div>`; }).join("")}
     <div class="mv-rend">🏁 Debt-free in ${yrs(P.months)} · ${usd(tot)} today</div></div>`;
 }
+// DEBT PAYOFF CHART (v1.46): what you owe, month by month, down to $0. With an extra payment set, a second line shows
+// minimums only, so the gap between them is what the extra buys. Two lines -> legend + a label at each line's end.
+let MV_DCH = null;
+const mvMonth = k => { const d = parseDay(today()); d.setDate(1); d.setMonth(d.getMonth() + k); return d; };
+const mvMonthTxt = (k, yr) => mvMonth(k).toLocaleDateString("en-US", yr ? { month: "short", year: "numeric" } : { month: "short" });
+function mvDebtChart(P, base, ex) {
+  if (P.stuck || !P.track || P.track.length < 2) { MV_DCH = null; return ""; }
+  const B = base && !base.stuck && base.months > P.months ? base.track : null, A = P.track;
+  const W = 340, H = 170, L = 44, R = 10, Tp = 14, Bt = 24, n = Math.max(A.length, B ? B.length : 0) - 1, hi = Math.max(1, A[0]);
+  const x = i => L + i / Math.max(1, n) * (W - L - R), y = v => Tp + (hi - v) / hi * (H - Tp - Bt);
+  const path = T => T.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
+  const k$ = v => v >= 1000 ? `$${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k` : usd(v);
+  MV_DCH = { A, B, n };
+  const endLbl = (T, cls, dy) => { const i = T.length - 1; return `<circle cx="${x(i).toFixed(1)}" cy="${y(0).toFixed(1)}" r="4.5" class="mv-pin ${cls}"/>
+    <text x="${Math.min(W - R, Math.max(L + 40, x(i))).toFixed(1)}" y="${(y(0) - dy).toFixed(1)}" class="mv-lbl" text-anchor="${x(i) > W - 60 ? "end" : "middle"}">🏁 ${mvMonthTxt(i, true)}</text>`; };
+  return `<h3 class="mv-h">📉 Watch it shrink</h3>
+    ${B ? `<div class="mv-legend"><span><i style="background:#27d7ff"></i>With ${usd(ex)} extra</span><span><i style="background:#a78bfa"></i>Minimums only</span></div>` : ""}
+    <div class="mv-chart" data-mvdchart="1"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Debt ${usd(hi)} today, paid off ${mvMonthTxt(A.length - 1, true)}${B ? `; minimums only, ${mvMonthTxt(B.length - 1, true)}` : ""}">
+      <defs><linearGradient id="mvDArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#27d7ff" stop-opacity=".25"/><stop offset="1" stop-color="#27d7ff" stop-opacity="0"/></linearGradient></defs>
+      ${[hi, hi / 2, 0].map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="mv-grid"/><text x="${L - 6}" y="${(y(v) + 3).toFixed(1)}" class="mv-ax" text-anchor="end">${k$(v)}</text>`).join("")}
+      ${B ? `<path d="${path(B)}" class="mv-line mv-line2"/>` : ""}
+      <path d="${path(A)} L${x(A.length - 1).toFixed(1)} ${y(0).toFixed(1)} L${L} ${y(0).toFixed(1)}Z" fill="url(#mvDArea)"/>
+      <path d="${path(A)}" class="mv-line"/>
+      ${B ? endLbl(B, "purple", 10) : ""}${endLbl(A, "in", B && Math.abs(x(A.length - 1) - x(B.length - 1)) < 70 ? 24 : 10)}
+      ${[0, Math.round(n / 2), n].map(i => `<text x="${x(i).toFixed(1)}" y="${H - 6}" class="mv-ax" text-anchor="${i ? i === n ? "end" : "middle" : "start"}">${i ? mvMonthTxt(i, true) : "Now"}</text>`).join("")}
+      <line class="mv-cross" x1="0" x2="0" y1="${Tp}" y2="${H - Bt}" style="display:none"/>
+      <rect x="${L}" y="${Tp}" width="${W - L - R}" height="${H - Tp - Bt}" fill="transparent" class="mv-hit"/></svg>
+    <div class="mv-tip" hidden></div></div>`;
+}
+function mvDebtPoint(e) {
+  const box = e.target.closest && e.target.closest("[data-mvdchart]"); if (!box || !MV_DCH) return;
+  const { A, B, n } = MV_DCH, svg = box.querySelector("svg"), r = svg.getBoundingClientRect(), vx = (e.clientX - r.left) / r.width * 340;
+  const i = Math.max(0, Math.min(n, Math.round((vx - 44) / (340 - 54) * n))), cx = 44 + i / Math.max(1, n) * (340 - 54);
+  const c = svg.querySelector(".mv-cross"), tip = box.querySelector(".mv-tip"), at = T => usd(T[Math.min(i, T.length - 1)]);
+  c.setAttribute("x1", cx); c.setAttribute("x2", cx); c.style.display = "";
+  tip.hidden = false; tip.style.left = Math.min(62, Math.max(0, cx / 340 * 100 - 15)) + "%";
+  tip.innerHTML = `<b>${i ? mvMonthTxt(i, true) : "Now"}</b><br>${B ? "With extra " : "Owed "}${at(A)}${B ? `<br>Minimums only ${at(B)}` : ""}`;
+}
+if (typeof document !== "undefined") { document.addEventListener("pointermove", mvDebtPoint); document.addEventListener("pointerdown", mvDebtPoint); }
 // PAYDAY: start + paycheck − bills − other − savings, as a waterfall.
 function mvWaterfall(v, left) {
   const steps = [["Cash", v.start, "#38b6ff"], ["Paycheck", v.check, "#4ade80"], ["Bills", -v.bills, "#ff7a7a"], ["Other", -v.other, "#ffb648"], ["Savings", -v.save, "#a78bfa"]];
   let run = 0; const pts = steps.map(([l, a, c]) => { const from = run; run += +a || 0; return { l, a: +a || 0, c, from, to: run }; });
   const hi = Math.max(1, ...pts.map(p => Math.max(p.from, p.to)), left), lo = Math.min(0, ...pts.map(p => Math.min(p.from, p.to)), left), H = 130, y = x => (hi - x) / (hi - lo) * H;
   return `<div class="mv-fall-chart" role="img" aria-label="Cash ${usd(v.start)} plus paycheck ${usd(v.check)} minus bills ${usd(v.bills)}, other ${usd(v.other)}, savings ${usd(v.save)} leaves ${usd(left)}">
-    ${pts.map(p => `<div class="mv-wcol"><div class="mv-wbox"><i style="top:${y(Math.max(p.from, p.to)).toFixed(0)}px;height:${Math.max(2, Math.abs(y(p.from) - y(p.to))).toFixed(0)}px;background:${p.c}"></i></div><b>${p.a < 0 ? "−" : p.l === "Cash" ? "" : "+"}${usd(Math.abs(p.a))}</b><small>${p.l}</small></div>`).join("")}
+    ${pts.map(p => `<div class="mv-wcol"><div class="mv-wbox"><i style="top:${y(Math.max(p.from, p.to)).toFixed(0)}px;height:${Math.max(2, Math.abs(y(p.from) - y(p.to))).toFixed(0)}px;background:${p.c}"></i></div><b>${p.a < 0 ? "−" : p.l === "Cash" || !p.a ? "" : "+"}${usd(Math.abs(p.a))}</b><small>${p.l}</small></div>`).join("")}
     <div class="mv-wcol"><div class="mv-wbox"><i style="top:${y(Math.max(0, left)).toFixed(0)}px;height:${Math.max(2, Math.abs(y(0) - y(left))).toFixed(0)}px;background:${left < 0 ? "#ff7a7a" : "linear-gradient(#22d3ee,#2f8bff)"}"></i></div><b>${usd(left)}</b><small>Left</small></div></div>`;
 }
+
+// ------------------------------------------------------------ CONNECT (v1.46, Scott 10/17: "tie in all your cash apps, money flows,
+// banks, everything you want tracked - just on your phone, not outside of phone"). No bank login, no aggregator, no server:
+// each source gives you a file (CSV / OFX / QFX), Money Hub reads it right here on the phone (parseCsv in money.js), skips what
+// it already has, marks money moving between your own accounts as ↔️ (never counted twice) and can set the balance from it.
+const MV_SOURCES = [
+  ["cashapp", "Cash App", "💸", "#00d54b", "wallet", "On cash.app in a web browser: sign in → Statements → Export CSV."],
+  ["venmo", "Venmo", "💙", "#3d95ce", "wallet", "On venmo.com: sign in → Statements → pick the months → Download CSV."],
+  ["paypal", "PayPal", "🅿️", "#2790c3", "wallet", "On paypal.com: Activity → Statements → Activity download → CSV."],
+  ["bank", "Bank or credit union", "🏦", "#38b6ff", "checking", "On your bank's website: Activity → Download → CSV (or \"Quicken / QFX\"). Chase, Bank of America, Wells Fargo, Capital One and credit unions all have it."],
+  ["card", "Credit card", "💳", "#f472b6", "credit", "On the card's website: Activity → Download → CSV or QFX. Spending shows as money in? One tap flips it."],
+  ["applecard", "Apple Card", "🍎", "#c9ccd6", "credit", "In Wallet: Apple Card → Card Balance → a monthly statement → Export Transactions → CSV."],
+  ["zelle", "Zelle", "⚡", "#8b5cf6", "", "Zelle moves money through your bank - import your bank's file and your Zelle payments come with it."],
+  ["chime", "Chime & others", "🟩", "#1ec677", "checking", "No download? Snap the statement (＋ → Photo → Document) to keep it in the Vault, and add the big ones by hand or voice."],
+  ["cash", "Cash in your pocket", "💵", "#4ade80", "cash", "Say it or type it: ＋ → Voice (\"20 dollars at the market\") or ＋ → Manual."]];
+let MV_SRC = "";
+const mvSrc = k => MV_SOURCES.find(x => x[0] === k) || MV_SOURCES[3];
+const mvSrcName = k => (MH_SRCS.find(x => x[0] === k) || [k, "Bank"])[1];
+const MV_FILES = ".csv,.ofx,.qfx,.qbo,text/csv";
+const mvFileBtn = (label, acct, cls = "btn sm") => `<label class="${cls} mv-file">${label}<input type="file" accept="${MV_FILES}" data-mhcsv="1"${acct ? ` data-mvacct="${acct}"` : ""} hidden></label>`;
+function mvConnectHtml() {
+  const M = mh(), A = M.accounts, fed = A.filter(a => a.imp), last = fed.map(a => a.imp).sort().pop(), moves = M.tx.filter(x => x.cat === "transfer").length;
+  const S1 = MV_SRC && mvSrc(MV_SRC);
+  return `<section class="mv-conn-hero"><div class="mv-conn-orbit" aria-hidden="true">${MV_SOURCES.slice(0, 6).map(([, , i, c], k) => `<span style="--tone:${c};--k:${k}">${i}</span>`).join("")}<b>📱</b></div>
+      <div><h3>Everything in one place</h3><p>Banks, cards, Cash App, Venmo, PayPal, cash - read <b>on this phone</b>. Nothing is uploaded and Money Hub never asks for a password.</p>
+        <div class="mv-conn-k"><span><b>${A.length}</b> account${A.length === 1 ? "" : "s"}</span><span><b>${fed.length}</b> fed by a file</span>${last ? `<span>last ${mvRel(last)}</span>` : ""}</div></div></section>
+    ${mhGate() ? proLock("Importing files") : `${mvFileBtn("📥 Choose a downloaded file", "", "btn mv-file-big")}
+    <p class="fine mv-center">CSV, OFX, QFX or QBO · duplicates are skipped · you check it before anything is added</p>`}
+    ${A.length ? `<h3 class="mv-h">Your money</h3><div class="mv-conn-list">${A.map(a => { const s = a.src ? mvSrc(a.src === "applecard" ? "applecard" : a.src) : null, tone = s && a.src !== "bank" ? s[3] : MV_ACCT_TONE[a.kind] || "#3b82f6";
+        return `<div class="mv-conn" style="--tone:${tone}">${mvIc(s && a.src !== "bank" ? s[2] : macct(a.kind)[1], tone)}<div class="grow"><b>${esc(a.name)}</b>
+          <small>${a.imp ? `📥 from a file ${mvRel(a.imp)}` : "✍️ typed by you"} · ${["credit", "loan"].includes(a.kind) ? "owed " : ""}${usd(+a.bal || 0)}</small></div>
+          ${mhGate() ? "" : mvFileBtn("↻ Update", a.id, "btn sm ghost")}</div>`; }).join("")}</div>` : ""}
+    <h3 class="mv-h">Add a source</h3>
+    <div class="mv-srcs">${MV_SOURCES.map(([k, l, i, c]) => `<button class="mv-src${MV_SRC === k ? " on" : ""}" style="--tone:${c}" data-mvsrc="${k}" aria-expanded="${MV_SRC === k}"><span>${i}</span><b>${l}</b></button>`).join("")}</div>
+    ${S1 ? `<div class="mv-src-how" style="--tone:${S1[3]}"><b>${S1[2]} ${S1[1]}</b><p>${esc(S1[5])}</p>
+        ${["zelle", "chime", "cash"].includes(S1[0]) ? (S1[0] === "cash" ? `<button class="btn sm" data-mvadd="voice">🎙️ Say one</button>` : S1[0] === "chime" ? `<button class="btn sm" data-mvkind="document" data-mvadd="photo">📷 Snap a statement</button>` : "") : mhGate() ? "" : mvFileBtn("📥 I have the file", "")}</div>` : ""}
+    <div class="mv-conn-why">${[["🔒", "Stays here", "Files are read on this phone. Your money never leaves it."], ["↔️", "No double counting", "Cash App → bank, bank → savings: marked as moving your own money, not spending."], ["♻️", "Import any time", "Same file twice? Only the new rows are added."]]
+      .map(([i, h, p]) => `<div><span>${i}</span><b>${h}</b><small>${p}</small></div>`).join("")}</div>
+    ${moves ? `<p class="fine">↔️ ${moves} transfer${moves === 1 ? "" : "s"} between your own accounts are kept out of your totals.</p>` : ""}`;
+}
+// The check-before-adding screen for a file (money.js keeps the data in MH_IMPORT; mhSubmit adds it).
+function mvImportHtml() {
+  const M = mh(), I = MH_IMPORT, have = new Set(M.tx.map(txKey)), fresh = I.rows.filter(r => !have.has(txKey({ ...r })));
+  const inn = fresh.filter(r => r.amt > 0 && r.cat !== "transfer").reduce((n, r) => n + r.amt, 0), out = fresh.filter(r => r.amt < 0 && r.cat !== "transfer").reduce((n, r) => n - r.amt, 0);
+  const moves = fresh.filter(r => r.cat === "transfer").length, s = mvSrc(I.src === "bank" ? "bank" : I.src), name = I.src === "bank" ? "your bank" : mvSrcName(I.src);
+  // which account: the one this file fed last time / named like its app; a bank file goes to your checking; else a new one
+  const match = I.acct || (M.accounts.find(a => a.src === I.src && I.src !== "bank") || M.accounts.find(a => I.src !== "bank" && a.name.toLowerCase().includes(mvSrcName(I.src).toLowerCase()))
+    || (I.src === "bank" ? M.accounts.find(a => a.kind === "checking") : null) || {}).id || "";
+  const ups = fresh.filter(r => r.amt > 0 && r.cat !== "transfer").length, flipHint = fresh.length >= 4 && ups > fresh.length * .6;
+  return `<section class="mv-imp" style="--tone:${s[3]}">${mvIc(s[2], s[3])}<div class="grow"><b>Looks like ${esc(name)}</b><small>${esc(I.name)}</small></div></section>
+    <div class="mv-tiles3"><div><small>New</small><b>${fresh.length}</b>${I.rows.length - fresh.length ? `<em>${I.rows.length - fresh.length} already in</em>` : ""}</div><div><small>Money in</small><b class="in">${usd(inn)}</b></div><div><small>Money out</small><b>${usd(out)}</b>${moves ? `<em>↔️ ${moves} transfer${moves === 1 ? "" : "s"}</em>` : ""}</div></div>
+    ${flipHint ? `<p class="mv-alert">Most of these show as money <b>in</b>. Some card files list spending that way. <button class="btn sm ghost" data-mvflip="1">⇅ Flip them</button></p>` : `<p class="mv-center"><button class="btn sm ghost" data-mvflip="1">⇅ Signs backwards? Flip</button></p>`}
+    <div class="mv-txs">${fresh.slice(0, 10).map(r => `<div class="mv-tx${r.cat === "transfer" ? " move" : ""}">${mvIc(mcat(r.cat)[1], r.amt > 0 ? "#22c55e" : mvTone(r.what, r.cat), "sm")}<div class="grow"><b>${esc(r.what || "-")}</b><small>${mDate(r.date)} · ${esc(mcat(r.cat)[2])}</small></div>
+        <strong class="${r.amt > 0 && r.cat !== "transfer" ? "in" : ""}">${r.cat === "transfer" ? "↔️ " : r.amt < 0 ? "−" : "+"}${usd(Math.abs(r.amt))}</strong></div>`).join("")}</div>
+    ${fresh.length > 10 ? `<p class="fine mv-center">…and ${fresh.length - 10} more.</p>` : ""}
+    <form class="qa-form" data-mhimport="1"><label class="field">Which account is this?<select name="acct">${M.accounts.map(a => `<option value="${a.id}" ${a.id === match ? "selected" : ""}>${macct(a.kind)[1]} ${esc(a.name)}</option>`).join("")}
+        ${mhCanAddAcct() ? `<option value="new" ${!match ? "selected" : ""}>＋ New account: ${esc(I.src === "bank" ? "Bank account" : mvSrcName(I.src))}</option>` : ""}<option value="">None</option></select></label>
+      ${I.bal != null ? `<label class="mv-check fine"><input type="checkbox" name="setbal" value="1" checked><span>Set the balance to <b>${usd(Math.abs(I.bal))}</b> (from the file${I.balDate ? `, ${mDate(I.balDate)}` : ""})</span></label>` : ""}
+      <div class="foot-actions"><button class="btn sm" ${fresh.length ? "" : "disabled"}>Add ${fresh.length}</button><button class="btn sm ghost" type="button" data-mhimportno="1">Cancel</button></div></form>
+    <p class="fine">Categories are a guess from the description - change any one after. ↔️ = money moving between your own accounts, kept out of your totals.</p>`;
+}
+
+// ------------------------------------------------------------ CASH FLOW (v1.46, Scott 10/17: "also monthly cash flows, discretionary spending")
+// Every month: money in vs money out, and the out split three ways - FIXED (rent, utilities, insurance, debt, bills,
+// subscriptions: the same every month), ESSENTIALS (groceries, gas, health, kids, pets: needed, but you steer them) and
+// DISCRETIONARY (eating out, shopping, fun, gifts, everything else: your choice). Transfers between your own accounts are left out.
+const MV_FIXED = ["housing", "utilities", "insurance", "debt", "subs", "bills"], MV_ESS = ["groceries", "transport", "health", "family", "pets"];
+const MV_FLOW_C = { in: "#2fa35a", fix: "#8a7dff", ess: "#109fbe", disc: "#d9731c" };
+const mvGroup = x => x.bill || /^bill /.test(x.src || "") || MV_FIXED.includes(x.cat) ? "fix" : MV_ESS.includes(x.cat) ? "ess" : "disc";
+function mvFlowMonth(m) {
+  const o = { m, inc: 0, fix: 0, ess: 0, disc: 0, cats: {} };
+  mhFlow().filter(x => ym(x.date) === m).forEach(x => { if (x.amt > 0) { o.inc += x.amt; return; } const g = mvGroup(x); o[g] -= x.amt; if (g === "disc") o.cats[x.cat] = (o.cats[x.cat] || 0) - x.amt; });
+  o.out = o.fix + o.ess + o.disc; o.net = o.inc - o.out; return o;
+}
+function mvFlowHtml() {
+  const t = today(), m = ym(t), months = [5, 4, 3, 2, 1, 0].map(k => { const d = parseDay(m + "-01"); d.setMonth(d.getMonth() - k); return ymd(d).slice(0, 7); });
+  const T = months.map(mvFlowMonth), C = T[5], prev = T.slice(2, 5).filter(x => x.out || x.inc), avg = k => prev.length ? prev.reduce((n, x) => n + x[k], 0) / prev.length : 0;
+  const short = mm => parseDay(mm + "-01").toLocaleDateString("en-US", { month: "short" }), monthLong = parseDay(t).toLocaleDateString("en-US", { month: "long" });
+  if (!mh().tx.length) return `<p class="hos-hint">Log a few transactions (or import a file from your bank or Cash App) and your monthly cash flow draws itself here.</p>
+    <div class="mv-links"><button class="btn sm" data-mhtab="connect">🔗 Connect your money</button><button class="btn sm ghost" data-mvadd="manual">＋ Add one</button></div>`;
+  // safe to spend: what came in this month, minus what went out, minus bills still due before the month ends
+  const dim = new Date(+t.slice(0, 4), +t.slice(5, 7), 0).getDate(), daysLeft = dim - +t.slice(8) + 1, due = billsLeft(t), left = C.inc - C.out - due, perDay = left > 0 ? left / daysLeft : 0;
+  const hi = Math.max(1, ...T.map(x => Math.max(x.inc, x.out))), W = 340, H = 170, L = 8, B = 30, Tp = 18, cw = (W - L * 2) / 6, bw = Math.min(18, cw * .3), y = v => (H - B) - v / hi * (H - B - Tp);
+  const seg = (x, from, v, c) => v > 0 ? `<rect x="${x.toFixed(1)}" y="${y(from + v).toFixed(1)}" width="${bw}" height="${Math.max(1, y(from) - y(from + v) - (from ? 2 : 0)).toFixed(1)}" rx="3" fill="${c}"/>` : "";
+  const chart = `<div class="mv-chart" data-mvtips="1"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Money in and out for the last 6 months">
+      <line x1="${L}" x2="${W - L}" y1="${H - B}" y2="${H - B}" class="mv-grid"/>
+      ${T.map((x, i) => { const cx = L + cw * i + cw / 2, xi = cx - bw - 1, xo = cx + 1;
+        return `<g data-tip="<b>${monthName(x.m)}</b><br>In ${usd(x.inc)}<br>Fixed ${usd(x.fix)} · Essentials ${usd(x.ess)}<br>Discretionary ${usd(x.disc)}<br>Net ${mvSign(x.net)}">
+          <rect x="${(cx - cw / 2).toFixed(1)}" y="${Tp - 14}" width="${cw.toFixed(1)}" height="${H - Tp + 14}" fill="transparent"/>
+          ${seg(xi, 0, x.inc, MV_FLOW_C.in)}${seg(xo, 0, x.fix, MV_FLOW_C.fix)}${seg(xo, x.fix, x.ess, MV_FLOW_C.ess)}${seg(xo, x.fix + x.ess, x.disc, MV_FLOW_C.disc)}
+          ${x.inc || x.out ? `<text x="${cx.toFixed(1)}" y="${(Math.min(y(x.inc), y(x.out)) - 5).toFixed(1)}" class="mv-ax mv-net${x.net < 0 ? " neg" : ""}" text-anchor="middle">${x.net < 0 ? "−" : "+"}${Math.abs(x.net) >= 1000 ? `$${(Math.abs(x.net) / 1000).toFixed(1)}k` : usd(Math.abs(x.net))}</text>` : ""}
+          <text x="${cx.toFixed(1)}" y="${H - 12}" class="mv-ax${i === 5 ? " now" : ""}" text-anchor="middle">${short(x.m)}</text></g>`; }).join("")}</svg><div class="mv-tip" hidden></div></div>`;
+  const parts = [["fix", "Fixed", "Rent, utilities, insurance, debt, bills, subscriptions"], ["ess", "Essentials", "Groceries, gas, health, kids, pets"], ["disc", "Discretionary", "Eating out, shopping, fun, gifts, the rest"]];
+  const dcats = Object.keys({ ...C.cats, ...prev.reduce((o, x) => ({ ...o, ...x.cats }), {}) }).map(k => ({ k, now: C.cats[k] || 0, usual: prev.length ? prev.reduce((n, x) => n + (x.cats[k] || 0), 0) / prev.length : 0 }))
+    .filter(r => r.now || r.usual).sort((a, b) => b.now - a.now || b.usual - a.usual), dmax = Math.max(1, ...dcats.map(r => Math.max(r.now, r.usual)));
+  return `<div class="mv-tstats"><div><small>In · ${short(m)}</small><b class="in">${usd(C.inc)}</b></div><div><small>Out</small><b>${usd(C.out)}</b></div><div><small>Net</small><b class="${C.net < 0 ? "neg" : "in"}">${mvSign(C.net)}</b></div></div>
+    <section class="mv-safe ${left < 0 ? "neg" : ""}"><small>Safe to spend · rest of ${monthLong}</small><b>${usd(Math.max(0, left))}</b>
+      <span>${left > 0 ? `about <b>${usd(perDay)}</b> a day for ${daysLeft} day${daysLeft === 1 ? "" : "s"}` : left < 0 ? `⚠️ ${usd(-left)} short with the bills still due` : "nothing spare this month"}</span>
+      <em>${usd(C.inc)} in − ${usd(C.out)} out − ${usd(due)} bills still due this month</em></section>
+    <h3 class="mv-h">Where ${monthLong}'s money went</h3>
+    <div class="mv-split mv-split3" role="img" aria-label="Fixed ${usd(C.fix)}, essentials ${usd(C.ess)}, discretionary ${usd(C.disc)}">${parts.map(([k]) => C[k] ? `<i style="width:${(C[k] / (C.out || 1) * 100).toFixed(1)}%;background:${MV_FLOW_C[k]}"></i>` : "").join("")}</div>
+    <div class="mv-parts">${parts.map(([k, l, d]) => `<div class="mv-part"><i style="background:${MV_FLOW_C[k]}"></i><div class="grow"><b>${l}</b><small>${d}</small></div>
+        <strong>${usd(C[k])}<small>${C.out ? Math.round(C[k] / C.out * 100) : 0}%${prev.length ? ` · usually ${usd(avg(k))}` : ""}</small></strong></div>`).join("")}</div>
+    <h3 class="mv-h">Month by month</h3>
+    <div class="mv-legend"><span><i style="background:${MV_FLOW_C.in}"></i>In</span>${parts.map(([k, l]) => `<span><i style="background:${MV_FLOW_C[k]}"></i>${l}</span>`).join("")}</div>
+    ${chart}
+    <p class="fine mv-center">Tap a month for its numbers. The figure on top is what you kept (or overspent).</p>
+    ${dcats.length ? `<h3 class="mv-h">🛍️ Discretionary, ${monthLong}</h3><div class="mv-cats">${dcats.slice(0, 8).map(r => `<div class="mv-crow"><span>${mcat(r.k)[1]} ${esc(mcat(r.k)[2])}</span>
+        <div class="mv-ctrack" style="--tone:${MV_FLOW_C.disc}"><i style="width:${(r.now / dmax * 100).toFixed(1)}%"></i>${r.usual ? `<em style="left:${(r.usual / dmax * 100).toFixed(1)}%" title="Usual ${usd(r.usual)}"></em>` : ""}</div><b>${usd(r.now)}</b></div>`).join("")}</div>
+      <p class="fine">White tick = your usual month (average of the 3 before). ${(() => { const d = C.disc - avg("disc"); return prev.length && Math.abs(d) >= 1 ? `Discretionary is ${d > 0 ? "up" : "down"} ${usd(Math.abs(d))} on usual so far.` : ""; })()}</p>` : ""}
+    <details class="mv-table"><summary>See it as a table</summary><table class="mh-table"><tr><th></th>${T.map(x => `<th>${short(x.m)}</th>`).join("")}</tr>
+      ${[["inc", "💵 In"], ["fix", "🏠 Fixed"], ["ess", "🛒 Essentials"], ["disc", "🛍️ Discretionary"], ["net", "<b>Net</b>"]].map(([k, l]) => `<tr><td>${l}</td>${T.map(x => `<td>${k === "net" ? `<b>${mvSign(x.net)}</b>` : usd(x[k])}</td>`).join("")}</tr>`).join("")}</table></details>
+    <p class="fine">From what you've logged and imported. ↔️ Transfers between your own accounts aren't counted.</p>`;
+}
+// Tap / drag over a chart group that carries data-tip: show its numbers.
+function mvTipPoint(e) {
+  const box = e.target.closest && e.target.closest("[data-mvtips]"); if (!box) return;
+  const g = e.target.closest("[data-tip]"), tip = box.querySelector(".mv-tip"); if (!tip) return;
+  if (!g) { tip.hidden = true; return; }
+  const r = box.getBoundingClientRect(), gr = g.getBoundingClientRect();
+  tip.hidden = false; tip.innerHTML = g.dataset.tip; tip.style.left = Math.min(56, Math.max(0, (gr.left + gr.width / 2 - r.left) / r.width * 100 - 20)) + "%";
+}
+if (typeof document !== "undefined") { document.addEventListener("pointermove", mvTipPoint); document.addEventListener("pointerdown", mvTipPoint); }
 
 // WELCOME: the first thing a new owner sees - the logo over the night island, the four promises, what's inside.
 function mvWelcomeTop() {
@@ -611,7 +773,9 @@ function mvFamilyHtml(kind) {
 function mvPane(tab) {
   if (tab === "more") return mvMoreHtml();
   if (tab === "add") return mvAddHtml();
-  if (tab === "spend" && !MH_IMPORT) return mvTxHtml();
+  if (tab === "spend") return MH_IMPORT ? mvImportHtml() : mvTxHtml();
+  if (tab === "connect") return mvConnectHtml();
+  if (tab === "flow") return mvFlowHtml();
   if (tab === "forecast") return mvForecastHtml();
   if (tab === "accounts") return mvAccountsHtml();
   if (tab === "budget") return mvBudgetHtml();
@@ -625,6 +789,8 @@ function mvClick(ds) {
   const M = mh();
   if (ds.mveye) { M.hide = !M.hide; save(); render(); return true; }
   if (ds.mvview) { MV_VIEW = ds.mvview; render(); return true; }
+  if (ds.mvsrc) { MV_SRC = MV_SRC === ds.mvsrc ? "" : ds.mvsrc; showMh("connect"); return true; }
+  if (ds.mvflip && MH_IMPORT) { MH_IMPORT.rows = MH_IMPORT.rows.map(r => ({ ...r, amt: -r.amt, cat: r.cat === "transfer" ? r.cat : -r.amt > 0 ? "income" : catGuess(r.what) })); showMh("spend"); return true; }
   if (ds.mvtop) { window.scrollTo({ top: 0, behavior: "smooth" }); return true; }
   if (ds.mvadd !== undefined) { if (ds.mvadd === "income") { MV_ADD = "manual"; showMh("add"); const r = document.querySelector('#mhSheet [name=dir][value="in"]'); if (r) r.checked = true; return true; }
     MV_ADD = ds.mvadd || "photo"; if (ds.mvkind) MV_KIND = ds.mvkind; MV_SCAN = null; MH_MSG = ""; showMh("add"); return true; }

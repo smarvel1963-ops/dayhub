@@ -1122,3 +1122,50 @@ button.mv-ic { cursor: pointer; font: inherit; font-size: 1.15rem; padding: 0; }
 body.mvapp .fab { display: none; }
 .mv-hello-in p { max-width: 58%; }
 .mv-fam { margin-top: 14px; padding: 4px 12px 8px; border-radius: 18px; border: 1px dashed #2f6bff; background: rgba(16,32,84,.45); }
+/* v1.46 debt payoff chart + the payday planner as a two-column grid */
+.mv-line2 { stroke: #a78bfa; stroke-dasharray: 5 4; filter: none; opacity: .9; }
+.mv-pin.purple { fill: #a78bfa; stroke: #0a1640; stroke-width: 2; }
+#mhSheet .home-stats .home-stat b { white-space: nowrap; }
+.mv-plan { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.mv-plan .field { margin: 0; font-size: .8rem; }
+.mv-plan .field input { margin-top: 4px; }
+.mv-plan .foot-actions { grid-column: 1 / -1; }
+/* v1.46 CONNECT (bank, cards, Cash App, Venmo, PayPal - files read on the phone) + CASH FLOW */
+.mv-conn-hero { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 20px; margin-bottom: 10px; background: radial-gradient(120% 140% at 0% 0%, #1f3d9a, #0b1640 70%); border: 1px solid #2a4796; }
+.mv-conn-hero h3 { margin: 0 0 4px; font-size: 1.1rem; } .mv-conn-hero p { margin: 0; font-size: .8rem; color: #c4d4f5; line-height: 1.4; }
+.mv-conn-orbit { position: relative; width: 92px; height: 92px; flex: none; border-radius: 50%; border: 1px dashed #3b5bb5; }
+.mv-conn-orbit > b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 1.9rem; filter: drop-shadow(0 0 10px #38b6ff); }
+.mv-conn-orbit span { position: absolute; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px; display: grid; place-items: center; font-size: .85rem; border-radius: 50%;
+  background: color-mix(in srgb, var(--tone) 30%, #0a1640); border: 1px solid var(--tone); transform: rotate(calc(var(--k) * 60deg)) translate(46px) rotate(calc(var(--k) * -60deg)); }
+.mv-conn-k { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; } .mv-conn-k span { font-size: .72rem; color: #c4d4f5; background: rgba(10,22,64,.7); border: 1px solid #2b4690; border-radius: 10px; padding: 3px 8px; }
+.mv-file { cursor: pointer; } .mv-file-big { display: flex; justify-content: center; width: 100%; padding: 14px; font-size: 1rem; border-radius: 16px; }
+.mv-center { text-align: center; }
+.mv-conn-list { display: grid; gap: 8px; }
+.mv-conn { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 16px; background: rgba(16,32,84,.75); border: 1px solid color-mix(in srgb, var(--tone) 45%, #1e3070); }
+.mv-conn .grow { flex: 1; min-width: 0; } .mv-conn .grow b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .mv-conn small { color: #9fb3d9; font-size: .74rem; }
+.mv-srcs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.mv-src { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 6px; border-radius: 16px; color: #e6eeff; cursor: pointer; min-height: 84px;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--tone) 22%, #10225a), #0b1640); border: 1px solid color-mix(in srgb, var(--tone) 50%, #1e3070); }
+.mv-src span { font-size: 1.5rem; } .mv-src b { font-size: .78rem; line-height: 1.2; text-align: center; }
+.mv-src.on { box-shadow: 0 0 0 2px var(--tone), 0 0 16px color-mix(in srgb, var(--tone) 50%, transparent); }
+.mv-src-how { margin-top: 8px; padding: 12px; border-radius: 16px; background: rgba(10,22,64,.85); border: 1px solid var(--tone); }
+.mv-src-how p { margin: 6px 0 10px; font-size: .84rem; color: #c4d4f5; line-height: 1.45; }
+.mv-conn-why { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+.mv-conn-why div { text-align: center; padding: 10px 6px; border-radius: 14px; background: rgba(16,32,84,.6); border: 1px solid #22387a; }
+.mv-conn-why span { font-size: 1.3rem; } .mv-conn-why b { display: block; font-size: .78rem; margin: 2px 0; } .mv-conn-why small { font-size: .68rem; color: #9fb3d9; line-height: 1.3; display: block; }
+.mv-imp { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 18px; margin-bottom: 8px; background: linear-gradient(140deg, color-mix(in srgb, var(--tone) 25%, #10225a), #0b1640); border: 1px solid var(--tone); }
+.mv-imp .grow { min-width: 0; } .mv-imp b { display: block; } .mv-imp small { color: #9fb3d9; font-size: .74rem; word-break: break-all; }
+.mv-tx.move { opacity: .7; } .mv-tx.move strong { color: #9fb3d9; }
+.mv-safe { display: block; text-align: center; padding: 14px; border-radius: 20px; margin-bottom: 6px; background: radial-gradient(120% 130% at 50% 0%, #17406f, #0b1640 75%); border: 1px solid #2fa35a; }
+.mv-safe.neg { border-color: #ff7a7a; background: radial-gradient(120% 130% at 50% 0%, #4b1d34, #0b1640 75%); }
+.mv-safe small { display: block; font-size: .74rem; color: #9fb3d9; text-transform: uppercase; letter-spacing: .04em; }
+.mv-safe > b { display: block; font-size: 2.1rem; font-weight: 850; margin: 2px 0; }
+.mv-safe span { display: block; font-size: .86rem; color: #e6eeff; } .mv-safe em { display: block; font-style: normal; font-size: .7rem; color: #9fb3d9; margin-top: 6px; }
+.mv-split3 { height: 16px; } .mv-split3 i { border-radius: 4px; }
+.mv-parts { display: grid; gap: 6px; margin-top: 8px; }
+.mv-part { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 14px; background: rgba(16,32,84,.65); border: 1px solid #22387a; }
+.mv-part > i { width: 12px; height: 12px; border-radius: 4px; flex: none; } .mv-part .grow { flex: 1; min-width: 0; } .mv-part .grow b { display: block; font-size: .9rem; }
+.mv-part .grow small { color: #9fb3d9; font-size: .7rem; } .mv-part strong { text-align: right; white-space: nowrap; } .mv-part strong small { display: block; font-weight: 500; font-size: .68rem; color: #9fb3d9; }
+.mv-net { font-weight: 800; fill: #8ff0b0; } .mv-net.neg { fill: #ff9a9a; } .mv-ax.now { fill: #fff; font-weight: 800; }
+.mv-ctrack[style*="--tone"] i { background: var(--tone); }
+@media (max-width: 380px) { .mv-conn-hero { flex-direction: column; text-align: center; } .mv-conn-k { justify-content: center; } }

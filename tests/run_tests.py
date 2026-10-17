@@ -4094,11 +4094,11 @@ def t_v142_money_hub(b, base):
     csv = b'Date,Description,Amount\n10/02/2026,"SHELL OIL 123",-38.50\n10/01/2026,Payroll deposit,"1,200.00"\n'
     mh_go(a, "spend")
     a.page.set_input_files('#mhSheet [data-mhcsv]', {"name": "chase.csv", "mimeType": "text/csv", "buffer": csv}); a.page.wait_for_selector('#mhSheet form[data-mhimport]')
-    check("import preview: 2 new, nothing saved yet", "2 new" in a.page.inner_text("#mhSheet") and a.js("S.mh.tx.length") == 4)
+    check("import preview: 2 new, nothing saved yet", a.js("document.querySelector('#mhSheet .mv-tiles3 b').textContent") == "2" and a.js("S.mh.tx.length") == 4)
     a.page.click('#mhSheet form[data-mhimport] button.btn:not(.ghost)'); a.page.wait_for_timeout(100)
     check("import: 2 added", a.js("S.mh.tx.length") == 6)
     a.page.set_input_files('#mhSheet [data-mhcsv]', {"name": "chase.csv", "mimeType": "text/csv", "buffer": csv}); a.page.wait_for_selector('#mhSheet form[data-mhimport]')
-    check("same file again: 0 new, both skipped as duplicates", "0 new" in a.page.inner_text("#mhSheet") and "already in Money Hub" in a.page.inner_text("#mhSheet"))
+    check("same file again: 0 new, both skipped as duplicates", a.js("document.querySelector('#mhSheet .mv-tiles3 b').textContent") == "0" and "2 already in" in a.page.inner_text("#mhSheet"))
     a.page.click('#mhSheet [data-mhimportno]')
     sid = a.js("S.mh.tx.find(x => x.what === 'SHELL OIL 123').id")
     a.page.click(f'#mhSheet [data-mhedit="{sid}"]'); a.page.select_option(f'#mhSheet form[data-mhtxcat="{sid}"] [name=cat]', "fun"); a.page.click(f'#mhSheet form[data-mhtxcat="{sid}"] button'); a.page.wait_for_timeout(100)
@@ -4254,7 +4254,7 @@ def t_v145_money_control_room(b, base):
     check("add a paper, delete one", a.js("S.mh.vault.length") == 1)
     # More = every section as tiles
     a.page.click('#mhSheet [data-mhtab="more"]')
-    check("More: 12 big tiles", a.js("document.querySelectorAll('#mhSheet .mv-tiles .tile').length") == 12)
+    check("More: 14 big tiles", a.js("document.querySelectorAll('#mhSheet .mv-tiles .tile').length") == 14)
     mh_go(a, "accounts")
     check("Accounts: have vs owe bar, a card per account with its balance box", a.js("!!document.querySelector('#mhSheet .mv-split')") and a.js("document.querySelectorAll('#mhSheet .mv-acard form[data-mhbal]').length") == 2)
     a.js("S.mh.budgets = {groceries: 70}; save()"); mh_go(a, "budget")
@@ -4276,6 +4276,130 @@ def t_v145_money_control_room(b, base):
     check("first run: no bottom bar until Money Hub is set up", not w.js("!!document.getElementById('mvNav')") and "Welcome to Money Hub" in w.page.inner_text("#cards"))
     w.close()
 
+
+
+
+def t_v146_connect_and_cash_flow(b, base):
+    print("\n[v1.46 Money Hub: Connect (bank / card / Cash App / Venmo / PayPal / Apple Card / OFX files read on the phone), transfers never counted, Cash Flow + discretionary, debt payoff chart]")
+    a = App(b, base, path=MONEYP)
+    a.page.fill('form[data-mhsetup] [name=name]', "Scott"); a.page.fill('form[data-mhsetup] [name=bal]', "1000")
+    a.page.select_option('form[data-mhsetup] [name=freq]', "biweekly"); a.page.fill('form[data-mhsetup] [name=next]', "2026-10-09"); a.page.fill('form[data-mhsetup] [name=check]', "1000")
+    a.page.click('form[data-mhsetup] button'); a.page.wait_for_function("S.mh && S.mh.setup")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    # ---- the file reader, source by source
+    cash = ("Transaction ID,Date,Transaction Type,Currency,Amount,Fee,Net Amount,Asset Type,Asset Price,Asset Amount,Status,Notes,Name of sender/receiver,Account\n"
+            "a1,2026-09-28 10:00:00 CDT,Cash Card Debit,USD,-$12.50,$0,-$12.50,,,,COMPLETE,,Starbucks,Visa Debit\n"
+            "a2,2026-09-27 09:00:00 CDT,P2P,USD,$40.00,$0,$40.00,,,,COMPLETE,rent share,Jamie,\n"
+            "a3,2026-09-26 09:00:00 CDT,Cash Out,USD,-$100.00,$0,-$100.00,,,,COMPLETE,,,Chase\n"
+            "a4,2026-09-25 09:00:00 CDT,P2P,USD,-$25.00,$0,-$25.00,,,,FAILED,,Pat,\n")
+    r = a.js(f"parseCsv({cash!r})")
+    check("Cash App file: found as Cash App, 3 rows (the FAILED one skipped), name + note kept, 'Cash Out' = moving my own money",
+          r["src"] == "cashapp" and len(r["rows"]) == 3 and r["rows"][0] == {"date": "2026-09-28", "amt": -12.5, "what": "Starbucks", "cat": "dining"}
+          and r["rows"][1]["what"] == "Jamie · rent share" and r["rows"][1]["amt"] == 40 and r["rows"][2]["cat"] == "transfer", r)
+    venmo = ("Account Statement - (@scott) ,,,,,,,,\nAccount Activity,,,,,,,,\n"
+             ",ID,Datetime,Type,Status,Note,From,To,Amount (total),Amount (fee)\n"
+             ",111,2026-09-20T18:00:00,Payment,Complete,🍕 pizza,Scott M,Alex R,- $18.00,\n"
+             ",112,2026-09-21T18:00:00,Payment,Complete,gas money,Alex R,Scott M,+ $30.00,\n"
+             ",113,2026-09-22T18:00:00,Standard Transfer,Issued,,,,- $50.00,\n")
+    r = a.js(f"parseCsv({venmo!r})")
+    check("Venmo file: header found under the title lines, who you paid / who paid you + the note, 'Standard Transfer' = own money",
+          r["src"] == "venmo" and len(r["rows"]) == 3 and r["rows"][0]["what"] == "Alex R · 🍕 pizza" and r["rows"][0]["amt"] == -18
+          and r["rows"][1]["what"] == "Alex R · gas money" and r["rows"][1]["amt"] == 30 and r["rows"][2]["cat"] == "transfer", r)
+    pp = ('"Date","Time","TimeZone","Name","Type","Status","Currency","Gross","Fee","Net","Balance"\n'
+          '"09/15/2026","10:00:00","CDT","eBay Seller","Express Checkout Payment","Completed","USD","-45.00","0.00","-45.00","55.00"\n'
+          '"09/16/2026","10:00:00","CDT","","Bank Deposit to PP Account","Completed","USD","100.00","0.00","100.00","155.00"\n'
+          '"09/17/2026","10:00:00","CDT","Joe","Payment","Pending","USD","-5.00","0.00","-5.00","150.00"\n')
+    r = a.js(f"parseCsv({pp!r})")
+    check("PayPal file: Gross column, the bank top-up = own money, Pending skipped, balance $155 from the last row",
+          r["src"] == "paypal" and len(r["rows"]) == 2 and r["rows"][0]["amt"] == -45 and r["rows"][0]["cat"] == "shopping" and r["rows"][1]["cat"] == "transfer"
+          and r["bal"] == 155 and r["balDate"] == "2026-09-16", r)
+    ac = ("Transaction Date,Clearing Date,Description,Merchant,Category,Type,Amount (USD),Purchased By\n"
+          "09/10/2026,09/11/2026,WHOLE FOODS #123,Whole Foods,Grocery,Purchase,64.20,Scott\n"
+          "09/12/2026,09/12/2026,ACH DEPOSIT INTERNET PAYMENT,Payment,Payment,Payment,-200.00,Scott\n")
+    r = a.js(f"parseCsv({ac!r})")
+    check("Apple Card file: purchases turned into spending (it lists them as +), Whole Foods = groceries",
+          r["src"] == "applecard" and r["rows"][0]["amt"] == -64.2 and r["rows"][0]["cat"] == "groceries" and r["rows"][1]["amt"] == 200, r)
+    chase = ("Details,Posting Date,Description,Amount,Type,Balance,Check or Slip #\n"
+             "DEBIT,09/30/2026,KROGER #455,-82.10,DEBIT_CARD,1917.90,,\n"
+             "DEBIT,09/29/2026,Online Transfer to SAV ...1234,-500.00,ACCT_XFER,2000.00,,\n"
+             "CREDIT,09/26/2026,ACME PAYROLL,2500.00,ACH_CREDIT,2500.00,,\n")
+    r = a.js(f"parseCsv({chase!r})")
+    check("Bank file (Chase layout): Posting Date, ACCT_XFER = own money, balance $1,917.90 from the newest row",
+          r["src"] == "bank" and len(r["rows"]) == 3 and r["rows"][0]["cat"] == "groceries" and r["rows"][1]["cat"] == "transfer" and r["rows"][2]["cat"] == "income"
+          and r["bal"] == 1917.9 and r["balDate"] == "2026-09-30", r)
+    ofx = ("OFXHEADER:100\nDATA:OFXSGML\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKTRANLIST>\n"
+           "<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260925120000[-5:CDT]<TRNAMT>-23.45<NAME>SHELL OIL 123<MEMO>gas</STMTTRN>\n"
+           "<STMTTRN><TRNTYPE>XFER<DTPOSTED>20260926<TRNAMT>-200.00<NAME>TO SAVINGS</STMTTRN>\n"
+           "</BANKTRANLIST><LEDGERBAL><BALAMT>1234.56<DTASOF>20260930</LEDGERBAL></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>")
+    r = a.js(f"parseCsv({ofx!r})")
+    check("OFX / QFX (the Quicken download): 2 rows, gas = transportation, XFER = own money, ledger balance $1,234.56",
+          len(r["rows"]) == 2 and r["rows"][0] == {"date": "2026-09-25", "amt": -23.45, "what": "SHELL OIL 123", "cat": "transport"} and r["rows"][1]["cat"] == "transfer"
+          and r["bal"] == 1234.56 and r["balDate"] == "2026-09-30", r)
+    check("dates: 'Sep 5, 2026', 9/5/26, 2026-9-5 all read the same", a.js("[mhDay('Sep 5, 2026'), mhDay('9/5/26'), mhDay('2026-9-5')]") == ["2026-09-05"] * 3)
+    # ---- importing through the screen: new account, balance from the file, transfers kept out of the totals
+    a.page.click('#mvNav [data-mhtab="more"]'); a.page.click('#mhSheet .mv-tiles [data-mhtab="connect"]'); a.page.wait_for_timeout(50)
+    t = a.page.inner_text("#mhSheet")
+    check("Connect page: one big 'choose a file' button, sources (Cash App, Venmo, PayPal, bank, card, Apple Card, Zelle...), 'on this phone', never a password",
+          a.js("document.querySelectorAll('#mhSheet .mv-src').length") == 9 and "Choose a downloaded file" in t and "on this phone" in t and "password" in t
+          and a.js("document.querySelector('#mhSheet .mv-file-big input').accept").startswith(".csv,.ofx,.qfx"), t[:300])
+    a.page.click('#mhSheet [data-mvsrc="venmo"]')
+    check("tap Venmo: the steps to get its file + a file button", "venmo.com" in a.page.inner_text("#mhSheet .mv-src-how") and a.js("!!document.querySelector('#mhSheet .mv-src-how input[type=file]')"))
+    a.page.set_input_files('#mhSheet .mv-file-big input', files=[{"name": "paypal.csv", "mimeType": "text/csv", "buffer": pp.encode()}]); a.page.wait_for_timeout(150)
+    t = a.page.inner_text("#mhSheet")
+    check("PayPal file picked: 'Looks like PayPal', 2 new, the transfer shown as ↔️, new PayPal account offered, balance $155 offered",
+          "Looks like PayPal" in t and a.js("MH_IMPORT.rows.length") == 2 and "1 transfer" in t and a.js("document.querySelector('#mhSheet [name=acct]').value") == "new"
+          and "$155" in t and a.js("document.querySelector('#mhSheet [name=setbal]').checked"), t[:500])
+    a.page.click('#mhSheet form[data-mhimport] button.btn:not(.ghost)'); a.page.wait_for_timeout(100)
+    acc = a.js("S.mh.accounts.find(x => x.name === 'PayPal')")
+    check("added: a PayPal wallet account at $155 (from the file), fed today, 2 transactions in it",
+          acc and acc["kind"] == "wallet" and acc["bal"] == 155 and acc["imp"] == "2026-10-01" and acc["src"] == "paypal" and a.js(f"S.mh.tx.filter(x => x.acct === '{acc['id']}').length") == 2, acc)
+    check("the $100 top-up from the bank is not money in: September in $0, out $45", a.js("monthTotals('2026-09')")["inc"] == 0 and a.js("monthTotals('2026-09')")["out"] == 45)
+    a.page.set_input_files('#mhSheet .mv-file-big input' if a.js("!!document.querySelector('#mhSheet .mv-file-big input')") else '#mhSheet input[data-mhcsv]', files=[{"name": "paypal.csv", "mimeType": "text/csv", "buffer": pp.encode()}]); a.page.wait_for_timeout(150)
+    check("same file again: 0 new, the PayPal account picked for you", a.js("document.querySelector('#mhSheet [name=acct]').value") == acc["id"] and "Add 0" in a.page.inner_text("#mhSheet"))
+    a.page.click('#mhSheet [data-mhimportno]')
+    flip = ("Date,Description,Amount\n09/10/2026,TARGET 123,30.00\n09/11/2026,AMAZON MKTPLACE,20.00\n09/12/2026,STARBUCKS,5.00\n09/13/2026,SHELL,40.00\n")
+    mh_go(a, "connect")
+    a.page.set_input_files('#mhSheet .mv-file-big input', files=[{"name": "card.csv", "mimeType": "text/csv", "buffer": flip.encode()}]); a.page.wait_for_timeout(150)
+    check("a card file with spending as + : 'Flip them' offered", "Flip them" in a.page.inner_text("#mhSheet"))
+    a.page.click('#mhSheet [data-mvflip]')
+    check("flipped: all 4 are spending, Starbucks = eating out", a.js("MH_IMPORT.rows.every(r => r.amt < 0)") and a.js("MH_IMPORT.rows.find(r => r.what === 'STARBUCKS').cat") == "dining")
+    a.page.click('#mhSheet [data-mhimportno]')
+    # ---- CASH FLOW
+    a.js("""const M = mh(); M.tx = M.tx.filter(x => !x.acct);
+      [['2026-10-01', 2000, 'Pay', 'pay'], ['2026-10-01', -900, 'Rent', 'housing'], ['2026-10-01', -60, 'Kroger', 'groceries'], ['2026-10-01', -40, 'Chili\\'s', 'dining'],
+       ['2026-10-01', -500, 'To savings', 'transfer'], ['2026-09-10', -100, 'Target', 'shopping'], ['2026-08-10', -50, 'Target', 'shopping'], ['2026-09-10', 2000, 'Pay', 'pay']]
+        .forEach(([date, amt, what, cat], i) => M.tx.push({ id: 'cf' + i, date, amt, what, cat, acct: '' }));
+      S.bills = [{ id: 'bx', name: 'Electric', amount: 150, day: 20, cat: 'utilities' }]; save(); render()""")
+    f = a.js("mvFlowMonth('2026-10')")
+    check("October: in $2,000 · fixed $900 · essentials $60 · discretionary $40 · the $500 to savings not counted",
+          f["inc"] == 2000 and f["fix"] == 900 and f["ess"] == 60 and f["disc"] == 40 and f["out"] == 1000 and f["net"] == 1000 and f["cats"] == {"dining": 40}, f)
+    mh_go(a, "flow")
+    t = a.page.inner_text("#mhSheet")
+    check("Cash Flow page: safe to spend $850 = $2,000 in − $1,000 out − $150 Electric still due; about $27.42 a day for 31 days",
+          "$850" in t and "$27.42" in t and "31 days" in t and "$150 bills still due" in t, t[:600])
+    check("Cash Flow: Fixed / Essentials / Discretionary rows, a legend, 6 month columns, the table view",
+          all(w in t for w in ("Fixed", "Essentials", "Discretionary")) and a.js("document.querySelectorAll('#mhSheet .mv-legend span').length") == 4
+          and a.js("document.querySelectorAll('#mhSheet [data-mvtips] g[data-tip]').length") == 6 and a.js("!!document.querySelector('#mhSheet details.mv-table table')"))
+    check("discretionary by category: Eating out $40, Shopping usual $50 (Aug $50 + Sep $100 / 2 months with data... over the 3 before)",
+          "Eating out" in t and "Shopping" in t and "usually" in t, t[-700:])
+    a.page.locator('#mhSheet [data-mvtips]').scroll_into_view_if_needed(); a.js("document.querySelector('#mhSheet [data-mvtips]').scrollIntoView({block: 'center'})")
+    box = a.page.locator('#mhSheet [data-mvtips] g[data-tip]').nth(5).bounding_box()
+    a.page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] - 30)
+    check("tap a month: its in / fixed / essentials / discretionary / net", "Net +$1,000" in a.page.inner_text("#mhSheet .mv-tip") and "Discretionary $40" in a.page.inner_text("#mhSheet .mv-tip"),
+          a.page.inner_text("#mhSheet .mv-tip"))
+    check("Insights and the forecast ignore the transfer too (everyday spend has no $500)", a.js("mvEveryday(addDays(today(), 1))") * 30 < 500)
+    # ---- DEBT payoff chart
+    a.js("S.mh.accounts.push({id: 'dv', kind: 'credit', name: 'Visa', bal: 1240, apr: 22, min: 45, at: today()}); S.mh.debt = {extra: 100, method: 'avalanche'}; save()")
+    mh_go(a, "debt")
+    P = a.js("payoffPlan([{name: 'Visa', bal: 1240, apr: 22, min: 45}], 100, 'avalanche')")
+    check("payoff plan carries month-by-month totals: starts $1,240, ends $0, one per month", P["track"][0] == 1240 and P["track"][-1] == 0 and len(P["track"]) == P["months"] + 1, P["track"][:3])
+    t = a.page.inner_text("#mhSheet")
+    check("Debt page: 'Watch it shrink' chart, 2 lines + legend (with $100 extra / minimums only), finish dates labelled, '10 mo' on one line",
+          "Watch it shrink" in t and a.js("document.querySelectorAll('#mhSheet [data-mvdchart] .mv-line').length") == 2 and "Minimums only" in t and "🏁" in t and "10 mo" in t, t[:500])
+    box = a.page.locator('#mhSheet [data-mvdchart] svg').bounding_box()
+    a.page.mouse.move(box["x"] + box["width"] * .5, box["y"] + box["height"] / 2)
+    check("drag across the debt chart: that month's balance for both lines", "Minimums only $" in a.page.inner_text("#mhSheet [data-mvdchart] .mv-tip"))
+    a.close()
 
 def t_v127_email_codes(b, base):
     print("\n[v1.27 store audit S2: a NEW phone confirms the purchase email with a 6-digit emailed code]")
@@ -4482,7 +4606,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete, t_v142_money_hub, t_v145_money_control_room):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete, t_v142_money_hub, t_v145_money_control_room, t_v146_connect_and_cash_flow):
             if os.environ.get("ONLY") and not any(k in t.__name__ for k in os.environ["ONLY"].split(",")): continue   # ONLY=t_v145 python tests/run_tests.py
             try:
                 t(b, base)

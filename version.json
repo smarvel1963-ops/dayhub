@@ -1,6 +1,14 @@
 {
- "version": "1.45",
+ "version": "1.46",
  "notes": {
+  "1.46": [
+   "🔗 Money Hub: Connect your money - bank, credit cards, Cash App, Venmo, PayPal, Apple Card. Download the activity file, pick it, check it, done. Read on your phone only; never a password.",
+   "↔️ Money Hub: money moving between your own accounts (Cash App → bank, bank → savings) is spotted and never counted as spending or income.",
+   "🌊 Money Hub: Cash Flow - every month's money in vs out, split into Fixed, Essentials and Discretionary, with your usual month beside each.",
+   "💵 Money Hub: Safe to spend - what's left this month after the bills still due, and about how much that is a day.",
+   "📉 Money Hub: Debt - a 'watch it shrink' chart, with a second line showing minimums only, so you can see what paying extra buys you.",
+   "💵 Money Hub: Payday planner in two neat columns."
+  ],
   "1.45": [
    "💰 Money Hub: a new home - your total balance over a glowing night-island scene, account cards, what's due soon, and a tap to hide your amounts.",
    "💰 Money Hub: a bottom bar like the big apps - Home · Payments · ＋ · Goals · More.",
