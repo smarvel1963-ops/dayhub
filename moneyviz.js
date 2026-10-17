@@ -71,6 +71,8 @@ const MV_FEATURES = [["flow", "🌊", "Cash Flow", "In, out, and what's spare"],
   ["forecast", "📈", "Cash Forecast", "Your next 60 days"], ["vault", "🔐", "Document Vault", "Receipts & papers, safe"],
   ["reports", "📊", "Reports", "The bigger picture"], ["budget", "🎯", "Budget", "Limits that warn you"], ["debt", "⛓️", "Debt payoff", "The fastest way out"],
   ["shared", "👥", "Shared Accounts", "Coming soon"]];
+// $2,043.67 -> "$2.0k" so it fits inside a ring; under $1,000 stays exact
+const mvK = v => Math.abs(v) >= 1000 ? `${v < 0 ? "−" : ""}$${(Math.abs(v) / 1000).toFixed(Math.abs(v) >= 10000 ? 0 : 1)}k` : usd(v);
 function mvHomeHtml() {
   if (MV_VIEW === "orbit") return null;                       // money.js draws the v1.44 orbit
   const t = today(), M = mh(), T = monthTotals(ym(t)), P = payRows(t), un = P.filter(r => !r.paid), nx = payNext(t), next = mhNext(t);
@@ -98,9 +100,9 @@ function mvHomeHtml() {
         return `<button class="mv-due-row" data-mhtab="bills">${mvIc(PAY_ICONS[r.b.cat] || mcat(r.b.cat || "bills")[1], tone)}<span class="grow"><b>${esc(r.b.name)}</b><small>${usd(+r.b.amount || 0)}${r.b.auto ? " · autopay" : ""}</small></span>
           <em class="${d < 0 ? "late" : d <= 1 ? "warn" : ""}">${d < 0 ? "Late" : d === 0 ? "Today" : d === 1 ? "Tomorrow" : `In ${d} days`}</em></button>`; }).join("")}</div>`
       : `<p class="hos-hint">${S.bills.length ? "✅ Nothing due in the next 7 days." : "Add your bills and they show up here before they're due."}</p>`}
-    <div class="hos-rings">${hosRing(paidPct, P.length ? `${Math.round(paidPct)}%` : "–", "bills paid", "#70e9b6")}
-      ${hosRing(T.inc ? T.out / T.inc * 100 : 0, mvHidden() ? "•••" : usd(T.out), "spent this month", T.inc && T.out > T.inc ? "#ff978f" : "#27d7ff")}
-      ${hosRing(T.inc ? Math.max(0, free) / T.inc * 100 : 0, mvHidden() ? "•••" : usd(free), "left to save", free < 0 ? "#ff978f" : "#facc15")}</div>
+    <div class="hos-rings mv-rings-tap"><button data-mhtab="bills" aria-label="Payments">${hosRing(paidPct, P.length ? `${Math.round(paidPct)}%` : "–", "bills paid", "#70e9b6")}</button>
+      <button data-mhtab="spend" aria-label="Transactions">${hosRing(T.inc ? T.out / T.inc * 100 : 0, mvHidden() ? "•••" : mvK(T.out), "spent this month", T.inc && T.out > T.inc ? "#ff978f" : "#27d7ff")}</button>
+      <button data-mhtab="flow" aria-label="Cash Flow">${hosRing(T.inc ? Math.max(0, free) / T.inc * 100 : 0, mvHidden() ? "•••" : mvK(Math.max(0, free)), free < 0 ? `${mvHidden() ? "" : usd(-free) + " "}short` : "safe to spend", free < 0 ? "#ff978f" : "#facc15")}</button></div>
     <div class="mv-sec"><h3>Spending this month</h3><button data-mhtab="spend">Transactions</button></div>
     ${cats.length ? `<div class="hos-cats">${cats.map(([k, v]) => `<div class="hos-cat" style="--tone:${MH_TONES[k] || "#94a3b8"}"><span class="hos-ic" aria-hidden="true">${mcat(k)[1]}</span><div class="grow"><b>${esc(mcat(k)[2])}</b><i style="width:${Math.max(6, Math.round(v / top * 100))}%"></i></div><strong>${usd(v)}</strong></div>`).join("")}</div>`
       : `<p class="hos-hint">Log what you spend - or snap a receipt - and your categories light up here.</p>`}
@@ -476,15 +478,15 @@ function mvAccountsHtml() {
       <div class="mv-split-k"><span>🟩 Have ${usd(own)}</span><span>🟥 Owe ${usd(owe)}</span></div>` : ""}
     <div class="mv-acard-list">${L.map(a => { const tone = MV_ACCT_TONE[a.kind] || "#3b82f6", debt = ["credit", "loan"].includes(a.kind);
       return `<article class="mv-acard" style="--tone:${tone}">${mvIc(macct(a.kind)[1], tone)}<div class="grow"><b>${esc(a.name)}</b>
-          <small>${esc(macct(a.kind)[2])}${debt ? " · owed" : ""}${a.apr ? ` · ${a.apr}% APR` : ""}${a.min ? ` · min ${usd(a.min)}` : ""}${a.at ? ` · updated ${mDate(a.at)}` : ""}</small>
-          <form class="mv-balf" data-mhbal="${a.id}"><span>$</span><input name="bal" inputmode="decimal" value="${a.bal}" aria-label="Balance for ${esc(a.name)}"><button class="btn sm ghost">Save</button></form></div>
+          <small>${esc(a.src ? mvSrcName(a.src) : macct(a.kind)[2])}${debt ? " · owed" : ""}${a.apr ? ` · ${a.apr}% APR` : ""}${a.min ? ` · min ${usd(a.min)}` : ""}${a.imp ? ` · 📥 file ${mDate(a.imp)}` : a.at ? ` · updated ${mDate(a.at)}` : ""}</small>
+          <form class="mv-balf" data-mhbal="${a.id}"><span>$</span><input name="bal" inputmode="decimal" value="${a.bal}" aria-label="Balance for ${esc(a.name)}"><button class="btn sm ghost">Save</button>${mhGate() ? "" : mvFileBtn("📥", a.id, "btn sm ghost")}</form></div>
         <strong class="${debt ? "neg" : ""}">${debt ? "−" : ""}${usd(+a.bal || 0)}</strong><button class="mv-x" data-mhdel="acct:${a.id}" aria-label="Remove ${esc(a.name)}">✕</button></article>`; }).join("")}</div>
     ${mhCanAddAcct() ? `<h3 class="mv-h">＋ Add an account</h3><form class="qa-form" data-mhacct="1"><div class="two"><select name="kind" aria-label="Kind">${MH_ACCTS.map(([k, i, l]) => `<option value="${k}">${i} ${l}</option>`).join("")}</select>
-          <input name="name" placeholder="Name, e.g. Chase checking" required aria-label="Account name"></div>
-        <div class="hpv-row"><input name="bal" inputmode="decimal" placeholder="Balance $ (owed, for cards)" aria-label="Balance"><input name="apr" inputmode="decimal" placeholder="APR % (cards, loans)" aria-label="Interest rate">
-          <input name="min" inputmode="decimal" placeholder="Min payment $" aria-label="Minimum payment"></div><button class="btn sm">Add account</button></form>`
+          <input name="name" placeholder="Name, e.g. Chase" required aria-label="Account name"></div>
+        <div class="hpv-row"><input name="bal" inputmode="decimal" placeholder="Balance $" aria-label="Balance"><input name="apr" inputmode="decimal" placeholder="APR %" aria-label="Interest rate">
+          <input name="min" inputmode="decimal" placeholder="Min pay $" aria-label="Minimum payment"></div><button class="btn sm">Add account</button></form>`
       : proLock("More than 3 accounts")}
-    <p class="fine">Type each balance from your bank's app. Money Hub never logs in to your bank.</p>`;
+    <p class="fine">Type each balance from your bank's app, or 📥 import its file (Connect). Money Hub never logs in to your bank.</p>`;
 }
 // BUDGET: a ring per category (green under 80%, amber near, red over) + the whole month's ring.
 function mvBudgetHtml() {
@@ -625,7 +627,8 @@ function mvConnectHtml() {
       <div><h3>Everything in one place</h3><p>Banks, cards, Cash App, Venmo, PayPal, cash - read <b>on this phone</b>. Nothing is uploaded and Money Hub never asks for a password.</p>
         <div class="mv-conn-k"><span><b>${A.length}</b> account${A.length === 1 ? "" : "s"}</span><span><b>${fed.length}</b> fed by a file</span>${last ? `<span>last ${mvRel(last)}</span>` : ""}</div></div></section>
     ${mhGate() ? proLock("Importing files") : `${mvFileBtn("📥 Choose a downloaded file", "", "btn mv-file-big")}
-    <p class="fine mv-center">CSV, OFX, QFX or QBO · duplicates are skipped · you check it before anything is added</p>`}
+    <p class="fine mv-center">CSV, OFX, QFX or QBO · duplicates are skipped · you check it before anything is added</p>
+    ${/Android/i.test(navigator.userAgent || "") ? `<p class="mv-tipline">📲 Faster on Android: download the file in Cash App, your bank's app or Files, tap <b>Share</b> → <b>Money Hub</b>.</p>` : ""}`}
     ${A.length ? `<h3 class="mv-h">Your money</h3><div class="mv-conn-list">${A.map(a => { const s = a.src ? mvSrc(a.src === "applecard" ? "applecard" : a.src) : null, tone = s && a.src !== "bank" ? s[3] : MV_ACCT_TONE[a.kind] || "#3b82f6";
         return `<div class="mv-conn" style="--tone:${tone}">${mvIc(s && a.src !== "bank" ? s[2] : macct(a.kind)[1], tone)}<div class="grow"><b>${esc(a.name)}</b>
           <small>${a.imp ? `📥 from a file ${mvRel(a.imp)}` : "✍️ typed by you"} · ${["credit", "loan"].includes(a.kind) ? "owed " : ""}${usd(+a.bal || 0)}</small></div>

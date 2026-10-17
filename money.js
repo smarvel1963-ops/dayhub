@@ -595,6 +595,18 @@ function mhSubmit(f, data) {
   if (f.dataset.mhtxcat) { const x = M.tx.find(y => y.id === f.dataset.mhtxcat); if (x && data.cat) x.cat = data.cat; MH_EDIT = null; save(); showMh("spend"); render(); return true; }
   return false;
 }
+// A file shared to Money Hub (moneyhub/sw.js share target) -> the same check-before-adding screen as a picked file.
+async function mhShared() {
+  if (MODE !== "money" || !/[?&]share=1/.test(location.search) || typeof caches === "undefined") return;
+  history.replaceState(null, "", location.pathname);
+  try { const c = await caches.open("moneyhub-share"), r = await c.match("./shared-file"); if (!r) return;
+    const name = decodeURIComponent(r.headers.get("x-name") || "shared file"), text = await r.text(); await c.delete("./shared-file");
+    if (mhGate()) { MH_MSG = `📥 Importing files: ${PLAN.MONEY_NAME}.`; showMh("spend"); return; }
+    const x = parseCsv(text); if (x.error) { MH_MSG = x.error; showMh("spend"); return; }
+    MH_IMPORT = { name, rows: x.rows, src: x.src || "bank", bal: x.bal != null ? x.bal : null, balDate: x.balDate || "", acct: "" }; MH_MSG = ""; showMh("spend");
+  } catch (e) { /* no shared file - nothing to do */ }
+}
+if (typeof window !== "undefined") window.addEventListener("load", () => setTimeout(mhShared, 300));
 document.addEventListener("change", async e => {
   const t = e.target; if (MODE !== "money" || !t || !t.dataset || !t.dataset.mhcsv || !t.files || !t.files[0]) return;
   const file = t.files[0]; t.value = "";

@@ -1,6 +1,10 @@
 {
- "version": "1.46",
+ "version": "1.47",
  "notes": {
+  "1.47": [
+   "📲 Money Hub: Share to Money Hub - on Android, download a statement in Cash App, Venmo, PayPal or your bank's app, tap Share → Money Hub, check it, add it.",
+   "💵 Money Hub: the home rings now say what's safe to spend, and each one opens its page."
+  ],
   "1.46": [
    "🔗 Money Hub: Connect your money - bank, credit cards, Cash App, Venmo, PayPal, Apple Card. Download the activity file, pick it, check it, done. Read on your phone only; never a password.",
    "↔️ Money Hub: money moving between your own accounts (Cash App → bank, bank → savings) is spotted and never counted as spending or income.",

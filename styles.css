@@ -1169,3 +1169,20 @@ body.mvapp .fab { display: none; }
 .mv-net { font-weight: 800; fill: #8ff0b0; } .mv-net.neg { fill: #ff9a9a; } .mv-ax.now { fill: #fff; font-weight: 800; }
 .mv-ctrack[style*="--tone"] i { background: var(--tone); }
 @media (max-width: 380px) { .mv-conn-hero { flex-direction: column; text-align: center; } .mv-conn-k { justify-content: center; } }
+.mv-rings-tap > button { all: unset; display: block; cursor: pointer; border-radius: 16px; min-width: 0; }
+.mv-rings-tap > button:focus-visible { outline: 2px solid #38b6ff; outline-offset: 2px; }
+.mv-tipline { font-size: .8rem; color: #c4d4f5; background: rgba(16,32,84,.6); border: 1px dashed #2b4690; border-radius: 12px; padding: 8px 10px; margin: 0 0 8px; }
+/* v1.47 accounts never wider than the phone */
+.mv-acard-list { grid-template-columns: minmax(0, 1fr); } .mv-acard { min-width: 0; }
+.mv-balf { flex-wrap: nowrap; } .mv-balf input { flex: 1 1 auto; width: auto; min-width: 0; max-width: 130px; } .mv-balf .btn { flex: none; }
+.mv-acard .mv-file { padding-inline: 10px; }
+/* v1.47 account card as a grid: name + amount on top, details, then the balance row across the full width */
+.mv-acard { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; column-gap: 10px; row-gap: 2px; align-items: start; }
+.mv-acard > .hos-ic, .mv-acard > :first-child { grid-column: 1; grid-row: 1 / 4; }
+.mv-acard > .grow { display: contents; }
+.mv-acard > .grow > b { grid-column: 2; grid-row: 1; align-self: center; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mv-acard > .grow > small { grid-column: 2 / -1; grid-row: 2; }
+.mv-acard > .grow > .mv-balf { grid-column: 2 / -1; grid-row: 3; }
+.mv-acard > strong { grid-column: 3; grid-row: 1; align-self: center; }
+.mv-acard > .mv-x { grid-column: 4; grid-row: 1; align-self: center; }
+.mv-acard .mv-balf input { max-width: none; }
