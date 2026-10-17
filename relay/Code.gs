@@ -137,6 +137,11 @@
  * v16 (Money Hub v1.45 control room, Scott 10/16 "build money app"): mscan - Money Hub's Add by Photo reads a receipt,
  * bill, pay stub or money paper -> fields as JSON (no account / card / SSN numbers). The phone always shows a review card.
  * Until v16 is deployed the phone falls back to "scan" (it reads the total, date and shop well enough).
+ *
+ * v17 FRIENDS (Scott 10/17: "add friends list ... to be added to lifetime free"): Script Property FRIENDS = the
+ * emails Scott gives free lifetime Pro (commas, spaces or new lines between them, any capitals). A friend's email
+ * unlocks Pro in EVERY hub, exactly like Day Hub Pro (same phone limit, same 6-digit email code on a new phone, same
+ * daily AI cap), with no Whop purchase. Remove an email from FRIENDS and that phone loses Pro at its next check.
  */
 const MODEL = "claude-haiku-4-5";
 const DAILY_CAP = 200;              // requests per day, all tasks together
@@ -322,6 +327,8 @@ function verifyBuyer(P, buyer, device, app) {
 
 // v11: is this buyer's Pro / Pass paid up? Cached Whop answer (6 h yes, 5 min no). -> res | {error}
 function proLookup(P, b, isMem, app) {
+  if (!isMem && isFriend(P, b))                                    // v17: before Whop, so it works even if Whop is down
+    return { valid: true, status: "friend", until: null, who: keyHash("friend|" + String(b).trim().toLowerCase()), product: "dayhub" };
   const whop = prop(P, "WHOP_API_KEY"), pid = prop(P, "WHOP_PRODUCT_ID");
   if (!whop || !pid) return { error: "relay has no WHOP_API_KEY / WHOP_PRODUCT_ID yet" };
   const co = prop(P, "WHOP_COMPANY_ID") || WHOP_COMPANY;
@@ -351,6 +358,12 @@ function proLookup(P, b, isMem, app) {
     cache.put(ck, JSON.stringify(res), res.valid ? 6 * 3600 : 300);
   }
   return res;
+}
+
+// v17: Scott's free-for-life list (Script Property FRIENDS).
+function isFriend(P, b) {
+  const me = String(b || "").trim().toLowerCase();
+  return !!me && String(prop(P, "FRIENDS") || "").toLowerCase().split(/[\s,;]+/).indexOf(me) >= 0;
 }
 
 // Phone limit: at most MAX_PHONES per buyer; a phone unseen for PHONE_DAYS frees its spot.
