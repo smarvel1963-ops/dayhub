@@ -3996,6 +3996,11 @@ def t_v140_auto_complete(b, base):
     h.close()
 
 
+def mh_go(a, tab):
+    """v1.45: Money Hub pages are reached from the bottom bar's More (big tiles)."""
+    a.page.click('#mhSheet [data-mhtab="more"]'); a.page.click(f'#mhSheet .mv-tiles [data-mhtab="{tab}"]'); a.page.wait_for_timeout(50)
+
+
 def t_v142_money_hub(b, base):
     print("\n[v1.42 Money Hub: app #6 at /moneyhub/ - dashboard, accounts, spending + CSV, bills, budget, debt, subs, payday, reports]")
     a = App(b, base, path=MONEYP)
@@ -4012,19 +4017,19 @@ def t_v142_money_hub(b, base):
     check("quick log: $45 at Kroger, category guessed = Groceries", a.js("S.mh.tx[0].amt") == -45 and a.js("S.mh.tx[0].cat") == "groceries" and "Groceries" in a.page.inner_text("#cards"))
     # spending tab: money in
     a.page.click('#cards [data-mhtab="spend"]')
-    check("tabs in a bottom bar (9 since v1.44 Goals)", a.js("document.querySelectorAll('#mhSheet nav.auto-tabs button').length") == 9 and a.js("!!document.querySelector('#mhSheet .home-pane + p + nav.auto-tabs')"))
+    check("v1.45 bottom bar: Home · Payments · ＋ · Goals · More", a.js("[...document.querySelectorAll('#mhSheet nav.auto-tabs button')].map(b => b.getAttribute('aria-label')).join()") == "Home,Payments,Add,Goals,More" and a.js("!!document.querySelector('#mhSheet .home-pane + p + nav.auto-tabs')"))
     a.page.select_option('#mhSheet form[data-mhtx] [name=dir]', "in"); a.page.fill('#mhSheet form[data-mhtx] [name=amt]', "1200"); a.page.fill('#mhSheet form[data-mhtx] [name=what]', "Paycheck")
     a.page.select_option('#mhSheet form[data-mhtx] [name=cat]', "pay"); a.page.click('#mhSheet form[data-mhtx] button'); a.page.wait_for_timeout(100)
     m = a.js("monthTotals('2026-10')")
     check("money in: +$1,200 paycheck; October in $1,200 / out $45", m["inc"] == 1200 and m["out"] == 45 and m["byCat"] == {"groceries": 45}, m)
     # accounts
-    a.page.click('#mhSheet [data-mhtab="accounts"]')
+    mh_go(a, "accounts")
     a.page.select_option('#mhSheet form[data-mhacct] [name=kind]', "credit"); a.page.fill('#mhSheet form[data-mhacct] [name=name]', "Visa")
     a.page.fill('#mhSheet form[data-mhacct] [name=bal]', "3000"); a.page.fill('#mhSheet form[data-mhacct] [name=apr]', "24"); a.page.fill('#mhSheet form[data-mhacct] [name=min]', "90")
     a.page.click('#mhSheet form[data-mhacct] button'); a.page.wait_for_timeout(100)
     check("credit card: owed, not cash; net worth = 1,500 - 3,000", a.js("cashNow()") == 1500 and a.js("netWorth()") == -1500 and "Visa" in a.page.inner_text("#mhSheet"))
     # bills
-    a.page.click('#mhSheet [data-mhtab="bills"]')
+    mh_go(a, "bills")
     check("v1.43 Payments page: hero, timeline, cash flow, insight", all(x in a.page.inner_text("#mhSheet") for x in ("UPCOMING PAYMENTS", "Payment Timeline", "Cash Flow Preview", "Money Hub Insight")))
     a.page.click('#mhSheet [data-mhpadd]')
     a.page.fill('#mhSheet form[data-mhbill] [name=name]', "Electric"); a.page.fill('#mhSheet form[data-mhbill] [name=amount]', "120"); a.page.fill('#mhSheet form[data-mhbill] [name=day]', "5")
@@ -4051,7 +4056,7 @@ def t_v142_money_hub(b, base):
     check("typing a balance updates the projection and insight at once", "$1,120.00" in a.page.inner_text('#mhSheet [data-mhpv="remain"]') and "before payday" in a.page.inner_text('#mhSheet [data-mhpv="insight"]'))
     a.page.click('#mhSheet [data-mhpaid]'); a.page.wait_for_timeout(100)
     # budget
-    a.page.click('#mhSheet [data-mhtab="budget"]')
+    mh_go(a, "budget")
     a.page.select_option('#mhSheet form[data-mhbudget] [name=cat]', "groceries"); a.page.fill('#mhSheet form[data-mhbudget] [name=lim]', "50"); a.page.click('#mhSheet form[data-mhbudget] button'); a.page.wait_for_timeout(100)
     check("budget: $45 of $50 groceries = almost there (80%)", a.js("budgetRows('2026-10')[0].status") == "near")
     a.js("addTx([{date: '2026-10-01', amt: -20, what: 'Aldi', cat: 'groceries'}]); save()")
@@ -4063,19 +4068,19 @@ def t_v142_money_hub(b, base):
     sb = a.js("payoffPlan([{name: 'Big rate', bal: 2000, apr: 25, min: 50}, {name: 'Small', bal: 300, apr: 5, min: 25}], 200, 'snowball')")
     check("avalanche pays less interest; snowball clears the small one first", av["interest"] < sb["interest"] and sb["order"][0]["name"] == "Small" and av["months"] <= sb["months"], [av, sb])
     check("interest faster than the payment = stuck, said plainly", a.js("payoffPlan([{name: 'X', bal: 10000, apr: 30, min: 100}], 0, 'avalanche').stuck"))
-    a.page.click('#mhSheet [data-mhtab="debt"]')
+    mh_go(a, "debt")
     a.page.fill('#mhSheet form[data-mhdebt] [name=extra]', "100"); a.page.click('#mhSheet form[data-mhdebt] button'); a.page.wait_for_timeout(100)
     t = a.page.inner_text("#mhSheet")
     check("Debt tab: Visa's plan, and what $100 extra saves", "to debt-free" in t and "$100 extra a month" in t and "less interest" in t, t[:400])
     # subscriptions
-    a.page.click('#mhSheet [data-mhtab="subs"]')
+    mh_go(a, "subs")
     a.page.fill('#mhSheet form[data-mhsub] [name=name]', "Netflix"); a.page.fill('#mhSheet form[data-mhsub] [name=amt]', "15.49"); a.page.fill('#mhSheet form[data-mhsub] [name=next]', "2026-10-03")
     a.page.click('#mhSheet form[data-mhsub] button'); a.page.wait_for_timeout(100)
     check("subscription renewing in 2 days: in the pulse", any("Netflix renews" in x["text"] for x in a.js("pulseItems()")))
     a.page.click('#mhSheet [data-mhsuboff]'); a.page.wait_for_timeout(100)
     check("Cancelled: $185.88 a year back", "$185.88" in a.page.inner_text("#mhSheet"), a.page.inner_text("#mhSheet")[:300])
     # payday planner
-    a.page.click('#mhSheet [data-mhtab="payday"]')
+    mh_go(a, "payday")
     check("planner fills itself: cash $1,500, paycheck $1,200", a.page.input_value('#mhSheet form[data-mhplan] [name=start]') == "1500" and a.page.input_value('#mhSheet form[data-mhplan] [name=check]') == "1200")
     for k, v in (("start", "1000"), ("check", "1200"), ("bills", "400"), ("other", "150"), ("save", "150")): a.page.fill(f'#mhSheet form[data-mhplan] [name={k}]', v)
     a.page.click('#mhSheet form[data-mhplan] button.btn:not(.ghost)'); a.page.wait_for_timeout(100)
@@ -4087,7 +4092,7 @@ def t_v142_money_hub(b, base):
     check("CSV (Debit / Credit columns): spent is negative, credit positive", [x["amt"] for x in r2["rows"]] == [-62.1, 10] and r2["rows"][0]["cat"] == "groceries", r2)
     check("CSV with no date/amount columns: a plain reason", "Date and Amount" in a.js("parseCsv('a,b\\n1,2').error"))
     csv = b'Date,Description,Amount\n10/02/2026,"SHELL OIL 123",-38.50\n10/01/2026,Payroll deposit,"1,200.00"\n'
-    a.page.click('#mhSheet [data-mhtab="spend"]')
+    mh_go(a, "spend")
     a.page.set_input_files('#mhSheet [data-mhcsv]', {"name": "chase.csv", "mimeType": "text/csv", "buffer": csv}); a.page.wait_for_selector('#mhSheet form[data-mhimport]')
     check("import preview: 2 new, nothing saved yet", "2 new" in a.page.inner_text("#mhSheet") and a.js("S.mh.tx.length") == 4)
     a.page.click('#mhSheet form[data-mhimport] button.btn:not(.ghost)'); a.page.wait_for_timeout(100)
@@ -4099,7 +4104,7 @@ def t_v142_money_hub(b, base):
     a.page.click(f'#mhSheet [data-mhedit="{sid}"]'); a.page.select_option(f'#mhSheet form[data-mhtxcat="{sid}"] [name=cat]', "fun"); a.page.click(f'#mhSheet form[data-mhtxcat="{sid}"] button'); a.page.wait_for_timeout(100)
     check("change a category", a.js(f"S.mh.tx.find(x => x.id === '{sid}').cat") == "fun")
     # v1.44 goals
-    a.page.click('#mhSheet [data-mhtab="goals"]')
+    mh_go(a, "goals")
     a.page.click('#mhSheet form[data-mhgoal] .mhp-icons label:nth-child(2)'); a.page.fill('#mhSheet form[data-mhgoal] [name=name]', "Caribbean cruise")
     a.page.fill('#mhSheet form[data-mhgoal] [name=target]', "4,850"); a.page.fill('#mhSheet form[data-mhgoal] [name=saved]', "3650"); a.page.fill('#mhSheet form[data-mhgoal] [name=by]', "2027-04-01")
     a.page.click('#mhSheet form[data-mhgoal] button'); a.page.wait_for_timeout(100)
@@ -4108,7 +4113,7 @@ def t_v142_money_hub(b, base):
     a.page.fill('#mhSheet form[data-mhgoaladd] [name=amt]', "1200"); a.page.click('#mhSheet form[data-mhgoaladd] button:not([type])'); a.page.wait_for_timeout(100)
     check("add $1,200: reached, 100%, the orbit bubble shows it", a.js("goalPct(S.goals[0])") == 100 and "You did it" in a.page.inner_text("#mhSheet"))
     # reports
-    a.page.click('#mhSheet [data-mhtab="reports"]')
+    mh_go(a, "reports")
     t = a.page.inner_text("#mhSheet")
     check("Reports: 4 months, in / out / categories / net", "Oct" in t and "Sep" in t and "Groceries" in t and "Net" in t, t[:300])
     g = json.loads(a.js("aiContext()"))
@@ -4121,8 +4126,8 @@ def t_v142_money_hub(b, base):
     a.page.click('#cards [data-mhtab="accounts"]')
     t = a.page.inner_text("#mhSheet")
     check("3 accounts on free: no add form, Money Hub Pro offer", not a.js("!!document.querySelector('#mhSheet form[data-mhacct]')") and "Money Hub Pro" in t and "$2.99/month" in t, t[-300:])
-    a.page.click('#mhSheet [data-mhtab="reports"]')
-    check("free: Reports locked, CSV import is Pro", "Money Hub Pro" in a.page.inner_text("#mhSheet") and (a.page.click('#mhSheet [data-mhtab="spend"]') or True) and not a.js("!!document.querySelector('#mhSheet [data-mhcsv]')"))
+    mh_go(a, "reports")
+    check("free: Reports locked, CSV import is Pro", "Money Hub Pro" in a.page.inner_text("#mhSheet") and (mh_go(a, "spend") or True) and not a.js("!!document.querySelector('#mhSheet [data-mhcsv]')"))
     a.page.click('#mhSheet [data-mhclose]'); a.page.click("#settingsBtn"); a.page.wait_for_timeout(200)
     pb = a.page.inner_text("#proBox") if a.js("!!document.getElementById('proBox')") else ""
     check("Money Hub Pro box: name, price, CSV + reports, Day Hub Pro counts", "Money Hub Pro" in pb and "$2.99/month" in pb and "CSV" in pb and "Day Hub Pro" in pb, pb[:300])
@@ -4133,6 +4138,143 @@ def t_v142_money_hub(b, base):
     f = d.card("family")
     check("Day Hub's family card: Money Hub COMING SOON, no Open button", "Money Hub" in f and f.count("COMING SOON") == 1 and not d.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/moneyhub/\"]')"), f[:400])
     d.close()
+
+
+PNG1 = bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000"
+                     "1f15c4890000000d49444154789c63f8cfc0f01f0005000201a5f0a8c40000000049454e44ae426082")
+
+
+def t_v145_money_control_room(b, base):
+    print("\n[v1.45 Money Hub control room: home hero, bottom bar, Add by photo/hand/voice, Transactions, date chips + calendar, Cash Forecast, Smart Insights, Document Vault]")
+    a = App(b, base, path=MONEYP)
+    a.page.fill('form[data-mhsetup] [name=name]', "Scott"); a.page.fill('form[data-mhsetup] [name=bal]', "1000")
+    a.page.select_option('form[data-mhsetup] [name=freq]', "biweekly"); a.page.fill('form[data-mhsetup] [name=next]', "2026-10-09"); a.page.fill('form[data-mhsetup] [name=check]', "1000")
+    a.page.click('form[data-mhsetup] button'); a.page.wait_for_function("S.mh && S.mh.setup")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.js("S.mh.accounts.push({id: 'v1', kind: 'credit', name: 'Visa', bal: 300, at: today()}); save(); render()")
+    t = a.page.inner_text("#cards")
+    check("home: the control room - Total balance = net worth $700, cash $1,000, owed $300, scene drawn",
+          a.js("!!document.querySelector('#cards .mv-home .mv-bal svg.mv-scene')") and "Total balance" in t and "$700" in t and "$1,000" in t and "Owed" in t and "Next payday" in t, t[:300])
+    check("home: 4 action bubbles + account cards + Due soon + feature tiles", a.js("document.querySelectorAll('#cards .mv-acts button').length") == 4
+          and a.js("document.querySelectorAll('#cards .mv-acct').length") >= 2 and "Due soon" in t and "Cash Forecast" in t and "Document Vault" in t)
+    check("bottom bar on the page: Home · Payments · ＋ · Goals · More, the old + button hidden",
+          a.js("[...document.querySelectorAll('#mvNav button')].map(b => b.getAttribute('aria-label')).join()") == "Home,Payments,Add,Goals,More"
+          and a.js("getComputedStyle(document.getElementById('fab')).display") == "none")
+    a.page.click('#cards [data-mveye]')
+    check("eye: amounts hidden on the home screen, remembered", "$•••••" in a.page.inner_text("#cards .mv-bal") and "$700" not in a.page.inner_text("#cards .mv-bal") and a.js("S.mh.hide") is True)
+    a.page.click('#cards [data-mveye]')
+    a.page.click('#cards [data-mvview="orbit"]')
+    check("Orbit view one tap away, and back", a.js("!!document.querySelector('#cards .hos-orbit')") and (a.page.click('#cards [data-mvview="room"]') or True) and a.js("!!document.querySelector('#cards .mv-home')"))
+    # add by hand from the ＋
+    a.page.click('#mvNav [data-mhtab="add"]')
+    check("＋ opens Add on Photo: Receipt / Bill / Pay stub / Document + take or choose a photo", a.js("MH_TAB") == "add" and a.js("document.querySelectorAll('#mhSheet .mv-kinds button').length") == 4
+          and a.js("document.querySelectorAll('#mhSheet [data-mvphoto]').length") == 2)
+    a.page.click('#mhSheet [data-mvadd="manual"]')
+    a.page.fill('#mhSheet form[data-mhtx] [name=amt]', "45"); a.page.fill('#mhSheet form[data-mhtx] [name=what]', "Kroger"); a.page.click('#mhSheet form[data-mhtx] button'); a.page.wait_for_timeout(100)
+    check("Manual: $45 Kroger logged as Groceries, lands on Transactions", a.js("S.mh.tx.some(x => x.what === 'Kroger' && x.amt === -45 && x.cat === 'groceries')") and a.js("MH_TAB") == "spend")
+    sp = a.js("[parseSpoken('45 dollars at Kroger'), parseSpoken('got paid 1,200'), parseSpoken('12.50 for the lunch'), parseSpoken('hello')]")
+    check("voice words: '45 dollars at Kroger' / 'got paid 1,200' / '12.50 for the lunch' / no number", sp[0] == {"amt": 45, "what": "Kroger", "dir": "out"}
+          and sp[1]["amt"] == 1200 and sp[1]["dir"] == "in" and sp[2] == {"amt": 12.5, "what": "Lunch", "dir": "out"} and sp[3] is None, sp)
+    # add by photo with no AI: the photo comes up, the owner types it
+    a.page.click('#mhSheet [data-mhtab="add"]'); a.page.click('#mhSheet [data-mvadd="photo"]')
+    a.page.set_input_files('#mhSheet [data-mvphoto]', {"name": "r.png", "mimeType": "image/png", "buffer": PNG1}); a.page.wait_for_selector('#mhSheet form[data-mvsave]')
+    check("photo, no AI credits: the review card to type what it says, photo shown, nothing saved yet", "Type what it says" in a.page.inner_text("#mhSheet") and a.js("!!document.querySelector('#mhSheet .mv-shot img')") and a.js("S.mh.tx.length") == 1)
+    a.page.fill('#mhSheet form[data-mvsave] [name=who]', "Whole Foods"); a.page.fill('#mhSheet form[data-mvsave] [name=amt]', "16.76")
+    a.page.click('#mhSheet form[data-mvsave] button.mv-go'); a.page.wait_for_function("S.mh.tx.length === 2")
+    a.page.wait_for_timeout(200)
+    check("receipt saved: -$16.76 Whole Foods, Groceries, from a scan; photo kept in the vault", a.js("S.mh.tx.some(x => x.what === 'Whole Foods' && x.amt === -16.76 && x.cat === 'groceries' && x.src === 'scan')")
+          and a.js("S.mh.vault.length") == 1 and a.js("S.mh.vault[0].type") == "receipt")
+    # a bill by photo: change the kind on the review card
+    a.page.click('#mhSheet [data-mhtab="add"]')
+    a.page.set_input_files('#mhSheet [data-mvphoto]', {"name": "b.png", "mimeType": "image/png", "buffer": PNG1}); a.page.wait_for_selector('#mhSheet form[data-mvsave]')
+    a.page.select_option('#mhSheet [data-mvkindsel]', "bill"); a.page.wait_for_timeout(100)
+    a.page.fill('#mhSheet form[data-mvsave] [name=who]', "Entergy"); a.page.fill('#mhSheet form[data-mvsave] [name=amt]', "130.55"); a.page.fill('#mhSheet form[data-mvsave] [name=date]', "2026-10-20")
+    a.page.uncheck('#mhSheet form[data-mvsave] [name=keep]'); a.page.click('#mhSheet form[data-mvsave] button.mv-go'); a.page.wait_for_timeout(200)
+    check("bill by photo: Entergy $130.55 due the 20th each month, on Payments, photo not kept", a.js("S.bills.some(x => x.name === 'Entergy' && x.amount === 130.55 && x.day === 20)") and a.js("MH_TAB") == "bills" and a.js("S.mh.vault.length") == 1)
+    f = a.js("mvFields({kind: 'bill', company: 'Entergy', amount: '$130.55', due: '2026-10-20', autopay: true}, 'receipt')")
+    g = a.js("mvFields({kind: 'receipt', shop: 'KROGER #412', amount: 45, date: 'Oct 1'}, 'receipt')")
+    check("AI reading cleaned: money-scan JSON and the older car-scan JSON both fill the card, bad dates dropped",
+          f["kind"] == "bill" and f["who"] == "Entergy" and f["amt"] == 130.55 and f["due"] == "2026-10-20" and f["auto"] is True
+          and g["who"] == "KROGER #412" and g["cat"] == "groceries" and g["date"] == "2026-10-01", [f, g])
+    # payments: date chips + calendar
+    check("Payments: 7 date chips, today lit, Oct 20 bill in the calendar", a.js("document.querySelectorAll('#mhSheet .mv-days button').length") == 7 and a.js("!!document.querySelector('#mhSheet .mv-days .today')"))
+    a.page.click('#mhSheet [data-mvpview="cal"]')
+    check("calendar: every day of October, the 20th marked due", a.js("document.querySelectorAll('#mhSheet .mv-cal button').length") == 31 and a.js("document.querySelector('#mhSheet .mv-cal button[data-mvpday=\"2026-10-20\"]').classList.contains('due')"))
+    a.page.click('#mhSheet .mv-cal button[data-mvpday="2026-10-20"]')
+    check("tap the 20th: just that day's bill", "Entergy" in a.page.inner_text("#mhSheet .mhp-list") and a.js("MV_PDAY") == "2026-10-20")
+    a.page.click('#mhSheet [data-mvpview="list"]'); a.page.click('#mhSheet .mv-dayline [data-mvpday=""]')
+    check("list again: Due soon / Later this month groups", "Later this month" in a.page.inner_text("#mhSheet"))
+    # transactions: search, chips, groups
+    mh_go(a, "spend")
+    check("Transactions: This week group with its total", "This week" in a.page.inner_text("#mhSheet #mvTxList"))
+    a.page.fill('#mhSheet [data-mvq]', "whole"); a.page.wait_for_timeout(50)
+    t = a.page.inner_text("#mhSheet #mvTxList")
+    check("search 'whole': only Whole Foods, the box keeps focus", "Whole Foods" in t and "Kroger" not in t and a.js("document.activeElement.dataset.mvq") == "1")
+    a.page.fill('#mhSheet [data-mvq]', ""); a.page.click('#mhSheet [data-mvtf="in"]')
+    check("Income chip: nothing out shows", "Kroger" not in a.page.inner_text("#mhSheet #mvTxList"))
+    a.page.click('#mhSheet [data-mvtf="all"]')
+    # forecast
+    F = a.js("mvForecast('2026-10-01', 60, {spend: false})")
+    by = {p["d"]: p["bal"] for p in F["pts"]}
+    check("forecast: $1,000 cash, −$130.55 on the 20th, +$1,000 paydays Oct 9 + 23",
+          by["2026-10-08"] == 1000 and by["2026-10-09"] == 2000 and by["2026-10-20"] == 1869.45 and by["2026-10-23"] == 2869.45 and F["low"]["bal"] == 1000, [by.get(k) for k in ("2026-10-08", "2026-10-09", "2026-10-20", "2026-10-23")])
+    a.js("S.bills.push({id: 'big', name: 'Rent', amount: 1500, day: 5, paid: '2026-09', auto: false, cat: 'housing'}); save()")
+    F = a.js("mvForecast('2026-10-01', 30, {spend: false})")
+    check("rent $1,500 on the 5th: below $0 on Oct 5, said plainly", F["firstShort"] == "2026-10-05" and F["low"]["bal"] == -500, F["low"])
+    mh_go(a, "forecast")
+    t = a.page.inner_text("#mhSheet")
+    check("Forecast page: chart, low point, below-$0 warning, coming-up list, the math", a.js("!!document.querySelector('#mhSheet .mv-chart svg path.mv-line')") and "Lowest" in t and "below $0" in t and "Rent" in t and "Math:" in t, t[:300])
+    a.page.hover('#mhSheet .mv-chart .mv-hit', position={"x": 120, "y": 40})
+    check("touch the chart: a crosshair and that day's balance", not a.js("document.querySelector('#mhSheet .mv-tip').hidden") and "$" in a.page.inner_text("#mhSheet .mv-tip"))
+    # hub family: read Auto Hub's saved data on this phone, never copy it, never count it twice
+    a.js("localStorage.setItem('autohub.v1', JSON.stringify({garage: {cars: [{year: 2020, make: 'Ford', model: 'F-150', fuel: [{date: '2026-10-01', cost: 52.1}], services: [{date: '2026-10-01', cost: 16.76}], papers: []}]}, bills: [{name: 'Car loan', amount: 389, day: 15}, {name: 'entergy', amount: 99, day: 3}]}))")
+    fam = a.js("mvFamily('2026-10')")
+    check("hub family: Auto Hub gas read in, the $16.76 already logged here skipped, a bill already here (Entergy) skipped",
+          [x["what"] for x in fam["costs"]] == ["⛽ Gas · 2020 Ford F-150"] and [x["name"] for x in fam["bills"]] == ["Car loan"] and a.js("S.mh.tx.length") == 2, fam)
+    check("hub family: the Auto Hub car loan is in the forecast on the 15th, tagged", any(e["label"] == "Car loan (Auto Hub)" and e["amt"] == -389 for p in a.js("mvForecast('2026-10-01', 30, {spend: false}).pts") for e in p["ev"]))
+    mh_go(a, "spend")
+    check("Transactions: 'From your other hubs' panel, read not copied", "From your other hubs" in a.page.inner_text("#mhSheet") and "not copied" in a.page.inner_text("#mhSheet"))
+    a.js("S.family = false; save()")
+    check("Settings -> Hub family off: nothing read", a.js("mvFamily('2026-10').costs.length") == 0)
+    a.js("S.family = true; localStorage.removeItem('autohub.v1'); save()")
+    # insights
+    a.js("S.mh.tx.push({id: 'd1', date: '2026-09-28', amt: -59.99, what: 'Amazon', cat: 'shopping'}, {id: 'd2', date: '2026-09-29', amt: -59.99, what: 'Amazon', cat: 'shopping'}); save()")
+    ins = a.js("mvInsights('2026-10-01').map(i => i.id)")
+    check("insights: cash short ahead first, the double Amazon charge flagged", ins[0].startswith("short-") and any(i.startswith("dup-") for i in ins), ins)
+    mh_go(a, "insights")
+    n = a.js("document.querySelectorAll('#mhSheet .mv-ins').length")
+    a.page.click('#mhSheet .mv-ins [data-mvdis^="dup-"]')
+    check("dismiss: gone for 30 days", a.js("document.querySelectorAll('#mhSheet .mv-ins').length") == n - 1 and not any(i.startswith("dup-") for i in a.js("mvInsights('2026-10-01').map(i => i.id)")))
+    # vault
+    mh_go(a, "vault")
+    a.page.wait_for_function("document.querySelector('#mhSheet img[data-mvthumb]') && document.querySelector('#mhSheet img[data-mvthumb]').src.startsWith('data:image')")
+    check("Vault: the kept receipt with its picture (from this phone's storage)", "Whole Foods" in a.page.inner_text("#mhSheet .mv-vault"))
+    a.page.set_input_files('#mhSheet [data-mvvault]', {"name": "w2.png", "mimeType": "image/png", "buffer": PNG1}); a.page.wait_for_function("S.mh.vault.length === 2")
+    a.page.click(f'#mhSheet [data-mvvdel="{a.js("S.mh.vault[0].id")}"]'); a.page.wait_for_timeout(100)
+    check("add a paper, delete one", a.js("S.mh.vault.length") == 1)
+    # More = every section as tiles
+    a.page.click('#mhSheet [data-mhtab="more"]')
+    check("More: 12 big tiles", a.js("document.querySelectorAll('#mhSheet .mv-tiles .tile').length") == 12)
+    mh_go(a, "accounts")
+    check("Accounts: have vs owe bar, a card per account with its balance box", a.js("!!document.querySelector('#mhSheet .mv-split')") and a.js("document.querySelectorAll('#mhSheet .mv-acard form[data-mhbal]').length") == 2)
+    a.js("S.mh.budgets = {groceries: 70}; save()"); mh_go(a, "budget")
+    check("Budget: a ring per limit, $61.76 of $70 groceries = amber (near)", a.js("!!document.querySelector('#mhSheet .mv-bring.near .hos-ring')") and "$8.24 left" in a.page.inner_text("#mhSheet"))
+    mh_go(a, "reports")
+    t = a.page.inner_text("#mhSheet")
+    check("Reports: in / out bars for 4 months with a legend, categories against their usual, the table one tap away",
+          a.js("document.querySelectorAll('#mhSheet .mv-bcol').length") == 4 and "Money in" in t and "Money out" in t and a.js("!!document.querySelector('#mhSheet details.mv-table table')"))
+    mh_go(a, "payday")
+    check("Payday: the waterfall - cash, paycheck, bills, other, savings, left", a.js("document.querySelectorAll('#mhSheet .mv-wcol').length") == 6 and "Left" in a.page.inner_text("#mhSheet .mv-fall-chart"))
+    a.page.click('#mhSheet nav [data-mhclose]')
+    check("Home in the bar closes the page", a.js("document.getElementById('mhSheet').classList.contains('hidden')"))
+    a.close()
+    # a phone that is not set up yet: no bar
+    w = App(b, base, path=MONEYP)
+    check("What's new: Money Hub notes stay in Money Hub", w.js("[noteForMe('💰 Money Hub: x'), noteForMe('📷 Money Hub: y')].join()") == "true,true")
+    dd = App(b, base)
+    check("...and Day Hub never lists them", dd.js("noteForMe('💰 Money Hub: x')") is False); dd.close()
+    check("first run: no bottom bar until Money Hub is set up", not w.js("!!document.getElementById('mvNav')") and "Welcome to Money Hub" in w.page.inner_text("#cards"))
+    w.close()
 
 
 def t_v127_email_codes(b, base):
@@ -4340,7 +4482,8 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete, t_v142_money_hub):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete, t_v142_money_hub, t_v145_money_control_room):
+            if os.environ.get("ONLY") and not any(k in t.__name__ for k in os.environ["ONLY"].split(",")): continue   # ONLY=t_v145 python tests/run_tests.py
             try:
                 t(b, base)
             except Exception as e:

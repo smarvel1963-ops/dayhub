@@ -1,6 +1,18 @@
 {
- "version": "1.44",
+ "version": "1.45",
  "notes": {
+  "1.45": [
+   "💰 Money Hub: a new home - your total balance over a glowing night-island scene, account cards, what's due soon, and a tap to hide your amounts.",
+   "💰 Money Hub: a bottom bar like the big apps - Home · Payments · ＋ · Goals · More.",
+   "📷 Money Hub: Add by Photo - snap a receipt, bill, pay stub or paper; we read it, you check it, it's filed. Or add by hand, or just say it (“45 dollars at Kroger”).",
+   "🧾 Money Hub: Transactions - search, filter chips, This week / Last week with totals, a colour for every store.",
+   "📅 Money Hub: Payments get the next 7 days as date chips and a month calendar.",
+   "📈 Money Hub: Cash Forecast - your next 60 days, paydays in and bills out, and the day cash runs lowest.",
+   "💡 Money Hub: Smart Insights - a category that jumped, a bill that went up, a charge twice, a cash crunch ahead - each with its math.",
+   "🔐 Money Hub: Document Vault - receipts, bills, tax and insurance papers, kept on your phone.",
+   "🔗 Money Hub: your Auto Hub gas, service and car bills (and Home Hub bills) show up here, tagged - read, never copied, never counted twice.",
+   "🎨 Money Hub: Accounts, Budget, Subscriptions, Reports, Debt and Payday redrawn as pictures - rings, bars, a road to debt-free and a payday waterfall. Goals can wear a photo."
+  ],
   "1.44": [
    "💰 Money Hub: a new home - the Money Orbit. Your wallet in the middle, every part of your money around it, rings for the month, and your next smart action.",
    "🏝️ Money Hub: Goals & Savings - give each goal a picture, watch the ring fill, and see what a month gets you there.",

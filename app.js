@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.44";
+const VERSION = "1.45";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -1535,7 +1535,7 @@ function drawMailBox() {
 // RELEASE RULE: every push bumps VERSION here AND version.json, with notes.
 let UPDATE = null, NOTES = null;
 // v1.41: one version.json serves every hub. A note that starts with another hub's name ("🚗 Auto Hub: ...") shows only in that hub.
-const noteForMe = x => { const m = String(x).match(/^[^A-Za-z]*((?:Day|Cruise|Trip|Home|Auto) Hub):/); return !m || m[1] === APP_NAME; };
+const noteForMe = x => { const m = String(x).match(/^[^A-Za-z]*((?:Day|Cruise|Trip|Home|Auto|Money) Hub):/); return !m || m[1] === APP_NAME; };   // v1.45 + Money Hub (its notes were showing in every hub)
 async function checkUpdate() {
   try {
     const r = await fetch(new URL(`version.json?x=${Date.now()}`, BASE_URL), { cache: "no-store" });

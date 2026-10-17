@@ -20,10 +20,12 @@ const MH_CATS = [["housing", "🏠", "Housing"], ["utilities", "💡", "Utilitie
 const MH_INCATS = [["pay", "💵", "Paycheck"], ["side", "💼", "Side income"], ["benefits", "🏛️", "Benefits / Social Security"], ["income", "➕", "Other income"]];
 const MH_ACCTS = [["checking", "🏦", "Checking", true], ["savings", "🐷", "Savings", true], ["cash", "💵", "Cash", true], ["credit", "💳", "Credit card", false],
   ["loan", "🧾", "Loan", false], ["invest", "📈", "Investment / retirement", false]];   // 4th = counts as cash available
-const MH_TABS = [["spend", "🧾", "Spending"], ["accounts", "🏦", "Accounts"], ["bills", "💳", "Payments"], ["budget", "🎯", "Budget"],
-  ["debt", "⛓️", "Debt"], ["subs", "🔁", "Subs"], ["payday", "💵", "Payday"], ["goals", "🏝️", "Goals"], ["reports", "📊", "Reports"]];
+const MH_TABS = [["spend", "🧾", "Transactions"], ["accounts", "🏦", "Accounts"], ["bills", "💳", "Payments"], ["budget", "🎯", "Budget"],
+  ["debt", "⛓️", "Debt"], ["subs", "📅", "Subscriptions"], ["payday", "💵", "Payday"], ["goals", "🏝️", "Goals"], ["reports", "📊", "Reports"],
+  // v1.45 control-room pages (moneyviz.js) - reached from the bottom bar, the home tiles and More
+  ["add", "＋", "Add"], ["more", "☰", "Everything"], ["forecast", "📈", "Cash Forecast"], ["insights", "💡", "Smart Insights"], ["vault", "🔐", "Document Vault"]];
 // Words in a bank's description -> category (CSV import, and the hint when a spend is typed with no category).
-const MH_WORDS = [["groceries", /kroger|walmart|aldi|publix|safeway|heb\b|food lion|costco|sam'?s club|grocery|market/i], ["dining", /mcdonald|burger|wendy|taco|chick-?fil|starbucks|pizza|subway|sonic|doordash|uber ?eats|grubhub|restaurant|cafe|coffee/i],
+const MH_WORDS = [["groceries", /kroger|whole foods|trader joe|sprouts|wegmans|meijer|walmart|aldi|publix|safeway|heb\b|food lion|costco|sam'?s club|grocery|market/i], ["dining", /mcdonald|burger|wendy|taco|chick-?fil|starbucks|pizza|subway|sonic|doordash|uber ?eats|grubhub|restaurant|cafe|coffee/i],
   ["transport", /shell|exxon|chevron|valero|circle k|murphy|bp\b|gas|fuel|uber(?! ?eats)|lyft|parking|toll|auto|tire|jiffy/i], ["utilities", /electric|energy|water|sewer|gas co|entergy|at&t|verizon|t-?mobile|comcast|xfinity|spectrum|internet|phone/i],
   ["subs", /netflix|hulu|spotify|disney|apple\.com|google \*|youtube|prime video|amazon prime|paramount|max\b|patreon|whop/i], ["health", /pharmacy|cvs|walgreens|doctor|dental|clinic|hospital|teladoc/i],
   ["insurance", /insurance|geico|state farm|progressive|allstate/i], ["housing", /rent|mortgage|hoa\b|apartment/i], ["shopping", /amazon|target|best buy|ebay|etsy|kohl|home depot|lowe'?s/i],
@@ -135,7 +137,7 @@ function addTx(rows, acct) {
 
 // ------------------------------------------------------------ first run
 function mhSetupHtml() {
-  return `<section class="card welcome"><h2>Welcome to Money Hub 💰</h2>
+  return `${typeof mvWelcomeTop === "function" ? mvWelcomeTop() : ""}<section class="card welcome mv-welcome"><h2>Welcome to Money Hub 💰</h2>
     <p>See what you have, what's coming, and what you can afford. Start with one account - you can add the rest later.</p>
     <form class="qa-form" data-mhsetup="1">
       <input name="name" placeholder="Your first name" autocomplete="given-name">
@@ -161,8 +163,10 @@ function mhNext(t) {
   return { icon: "✅", text: "You're all caught up", why: nx ? `Next payday ${mDate(nx)}. Nothing late or over budget.` : "Nothing late or over budget.", tab: "payday" };
 }
 const MH_TONES = { housing: "#4da8da", utilities: "#ffd166", groceries: "#34d399", dining: "#fb923c", transport: "#60a5fa", health: "#f472b6", insurance: "#a78bfa", debt: "#f87171",
-  subs: "#22d3ee", shopping: "#e879f9", fun: "#facc15", family: "#fda4af", pets: "#a3e635", giving: "#f9a8d4", bills: "#93c5fd", other: "#94a3b8" };
+  subs: "#22d3ee", shopping: "#e879f9", fun: "#facc15", family: "#fda4af", pets: "#a3e635", giving: "#f9a8d4", bills: "#93c5fd", other: "#94a3b8",
+  pay: "#22c55e", side: "#14b8a6", benefits: "#10b981", income: "#16a34a" };   // v1.45 money in = greens
 function mhDashHtml() {
+  if (typeof mvHomeHtml === "function") { mvNavEnsure(); const h = mvHomeHtml(); if (h) return h; }   // v1.45 the control room (moneyviz.js)
   const t = today(), m = ym(t), T = monthTotals(m), M = mh(), P = payRows(t), un = P.filter(r => !r.paid), nx = payNext(t);
   const paidPct = P.length ? (P.length - un.length) / P.length * 100 : 0, B = budgetRows(m), bLim = B.reduce((n, r) => n + r.lim, 0), bSpent = B.reduce((n, r) => n + r.spent, 0);
   const free = T.inc - T.out - billsLeft(t), next = mhNext(t), subsMo = M.subs.filter(s => !s.off).reduce((n, s) => n + subMonthly(s), 0);
@@ -179,6 +183,7 @@ function mhDashHtml() {
     { attr: 'data-mhtab="payday"', icon: "💵", label: "Payday", val: nx ? mDate(nx) : "set", tone: "#facc15" },
     { attr: 'data-mhtab="goals"', icon: "🏝️", label: "Goals", val: S.goals.length ? `${Math.round(S.goals.reduce((n, g) => n + goalPct(g), 0) / S.goals.length)}%` : "add", tone: "#a78bfa" }];
   return `<section class="card hos hos-money"><div class="hos-head"><span>MONEY HUB</span><small>${monthName(m)}</small></div>
+    ${typeof mvHomeHtml === "function" ? `<button class="mv-switch top" data-mvview="room">▦ Control room</button>` : ""}
     ${hosOrbit(center, items)}
     <div class="hos-cash"><small>Cash available</small><b>${usd(cashNow())}</b><span>${nx ? `Next payday ${mDate(nx)} (${inDays(daysUntil(nx))})` : "Set your payday to see the forecast"}</span></div>
     <button class="hos-next" data-mhtab="${next.tab}"><span class="hos-next-ic" aria-hidden="true">${next.icon}</span><span class="grow"><small>Your next smart action</small><b>${esc(next.text)}</b><em>Why: ${esc(next.why)}</em></span><span class="hos-go" aria-hidden="true">›</span></button>
@@ -198,14 +203,15 @@ function mhSheet() {
   if (!el) { el = document.createElement("div"); el.id = "mhSheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); document.body.appendChild(el); }
   return el;
 }
-function hideMh() { const el = document.getElementById("mhSheet"); if (el) el.classList.add("hidden"); MH_OPEN = false; MH_MSG = ""; MH_IMPORT = null; MH_EDIT = null; MH_PADD = false; MH_PEDIT = null; }
+function hideMh() { const el = document.getElementById("mhSheet"); if (el) el.classList.add("hidden"); MH_OPEN = false; MH_MSG = ""; MH_IMPORT = null; MH_EDIT = null; MH_PADD = false; MH_PEDIT = null; if (typeof MV_SCAN !== "undefined") { MV_SCAN = null; MV_BIG = null; } }
 function showMh(tab) {
   if (tab) MH_TAB = tab; MH_OPEN = true;
   const el = mhSheet(), T = MH_TABS.find(x => x[0] === MH_TAB) || MH_TABS[0]; el.setAttribute("aria-label", T[2]);
-  el.innerHTML = `<div class="sheet-body${MH_TAB === "bills" || MH_TAB === "goals" ? " mhp-sheet" : ""}"><div class="grab"></div>
+  const viz = typeof mvNavHtml === "function";                          // v1.45: every page in the control-room look + the Home · Payments · ＋ · Goals · More bar
+  el.innerHTML = `<div class="sheet-body${MH_TAB === "bills" || MH_TAB === "goals" || viz ? " mhp-sheet" : ""}${viz ? " mv-sheet" : ""}"><div class="grab"></div>
     <div class="sheet-head"><h2>${T[1]} ${T[2]}</h2><button class="icon-btn" data-mhclose="1" aria-label="Close">✕</button></div>
     <div class="home-pane">${mhPane()}</div><p class="fine" id="mhMsg">${MH_MSG ? "⚠️ " + esc(MH_MSG) : ""}</p>
-    <nav class="auto-tabs" aria-label="Money Hub">${MH_TABS.map(([k, i, l]) => `<button class="${MH_TAB === k ? "on" : ""}" data-mhtab="${k}" aria-current="${MH_TAB === k ? "page" : "false"}"><span>${i}</span>${l}</button>`).join("")}</nav></div>`;
+    <nav class="auto-tabs${viz ? " mv-tabs" : ""}" aria-label="Money Hub">${viz ? mvNavHtml(MH_TAB) : MH_TABS.map(([k, i, l]) => `<button class="${MH_TAB === k ? "on" : ""}" data-mhtab="${k}" aria-current="${MH_TAB === k ? "page" : "false"}"><span>${i}</span>${l}</button>`).join("")}</nav></div>`;
   el.classList.remove("hidden");
   const on = el.querySelector(".auto-tabs .on"); if (on && on.scrollIntoView) on.scrollIntoView({ block: "nearest", inline: "nearest" });
 }
@@ -216,6 +222,7 @@ const proLock = what => `<p>${what} come with ${esc(PLAN.MONEY_NAME)} (${esc(PLA
 
 function mhPane() {
   const M = mh(), t = today(), m = ym(t);
+  if (typeof mvPane === "function") { const h = mvPane(MH_TAB); if (h != null) return h; }   // v1.45 moneyviz.js pages
   if (MH_TAB === "accounts") {
     const L = M.accounts;
     return `<div class="home-stats"><div class="home-stat"><b>${usd(cashNow())}</b><span>cash available</span></div><div class="home-stat"><b>${usd(netWorth())}</b><span>net worth</span></div>
@@ -254,7 +261,8 @@ function mhPane() {
         <select name="method" aria-label="Method"><option value="avalanche" ${meth === "avalanche" ? "selected" : ""}>Highest rate first (saves the most)</option><option value="snowball" ${meth === "snowball" ? "selected" : ""}>Smallest balance first (quick wins)</option></select></div>
         <button class="btn sm">Work it out</button></form>
       ${ex && !P.stuck && !base.stuck ? `<p class="fine">${usd(ex)} extra a month: debt-free ${yrs(base.months - P.months)} sooner and ${usd(base.interest - P.interest)} less interest.</p>` : ""}
-      ${P.order.length ? `<p class="sub" style="margin:10px 0 4px"><b>Order</b></p>${P.order.map((o, i) => `<div class="row"><span class="ci">${i + 1}</span><div class="grow">${esc(o.name)}<span class="sub">paid off in ${yrs(o.month)}</span></div></div>`).join("")}` : ""}
+      ${typeof mvDebtViz === "function" ? mvDebtViz(D, P) : ""}
+      ${P.order.length && typeof mvDebtViz !== "function" ? `<p class="sub" style="margin:10px 0 4px"><b>Order</b></p>${P.order.map((o, i) => `<div class="row"><span class="ci">${i + 1}</span><div class="grow">${esc(o.name)}<span class="sub">paid off in ${yrs(o.month)}</span></div></div>`).join("")}` : ""}
       <p class="fine">Estimates: interest monthly at today's APR, payments every month. Your statement is the real number.</p>`;
   }
   if (MH_TAB === "subs") {
@@ -272,10 +280,11 @@ function mhPane() {
   if (MH_TAB === "payday") {
     const P = M.plan, nx = payNext(t), after = nx ? payAfter(nx) : null, pa = payAmount();
     const billsDue = nx ? dueBetween(t, after).reduce((n, o) => n + o.amt, 0) : billsLeft(t);
-    const v = { start: P.start != null ? P.start : Math.round(cashNow() * 100) / 100, check: P.check != null ? P.check : Math.round((pa.amt || 0) * 100) / 100, bills: P.bills != null ? P.bills : billsDue, other: P.other || 0, save: P.save || 0 };
+    const v = { start: P.start != null ? P.start : Math.round(cashNow() * 100) / 100, check: P.check != null ? P.check : Math.round((pa.amt || 0) * 100) / 100, bills: P.bills != null ? P.bills : Math.round(billsDue * 100) / 100, other: P.other || 0, save: P.save || 0 };
     const left = paydayLeft(v.start, v.check, v.bills, v.other, v.save);
     return `${nx ? `<p class="fine" style="margin-top:0">Next payday <b>${mDate(nx)}</b> (${inDays(daysUntil(nx))}). Bills below = everything due from today until the payday after that${after ? ` (${mDate(after)})` : ""}.</p>`
         : `<p class="fine" style="margin-top:0">Set your payday in Day Hub's Payday card or the start screen to fill this in. You can type it all yourself too.</p>`}
+      ${typeof mvWaterfall === "function" ? mvWaterfall(v, left) : ""}
       <div class="hpv-ai"><p class="sub" style="margin:0">Left after all that</p><p class="hpv-big" style="${left < 0 ? "color:var(--red)" : ""}">${usd(left)}</p>
         <p class="fine" style="margin:4px 0 0">${usd(v.start)} + ${usd(v.check)} − ${usd(v.bills)} bills − ${usd(v.other)} other − ${usd(v.save)} savings${left < 0 ? " · ⚠️ short - move a bill or trim spending" : ""}</p></div>
       <form class="qa-form" data-mhplan="1">
@@ -354,7 +363,11 @@ const safeUrl = u => { u = String(u || "").trim(); return /^https:\/\/[^\s"'<>]+
 function mhPayments() {
   const M = mh(), t = today(), cash = M.payCash != null ? M.payCash : Math.round(cashNow() * 100) / 100, check = M.payCheck != null ? M.payCheck : Math.round((payAmount().amt || 0) * 100) / 100;
   const F = payForecast(t, cash, check), pct = F.rows.length ? Math.round(F.paid / F.rows.length * 100) : 0, mon = parseDay(t).toLocaleDateString("en-US", { month: "long" });
-  const shown = F.rows.filter(r => MH_PF === "all" || (MH_PF === "paid" ? r.paid : !r.paid));
+  const viz = typeof mvPayTop === "function", pday = viz && MV_PDAY;
+  const shown = F.rows.filter(r => (MH_PF === "all" || (MH_PF === "paid" ? r.paid : !r.paid)) && (!pday || r.due === pday));
+  // v1.45 the art's list: Due soon (7 days, late included) / Later this month / Paid
+  const grouped = () => !viz ? shown.map(r => card(r)).join("") : [["Due soon", r => !r.paid && daysUntil(r.due) <= 7], ["Later this month", r => !r.paid && daysUntil(r.due) > 7], ["Paid", r => r.paid]]
+    .map(([h, f]) => { const L = shown.filter(f); return L.length ? `<div class="mv-grp"><h4>${h}</h4><span>${L.length} · ${money(L.reduce((n, r) => n + (+r.b.amount || 0), 0))}</span></div>` + L.map(r => card(r)).join("") : ""; }).join("");
   const card = r => { const b = r.b, ic = PAY_ICONS[b.cat] || mcat(b.cat || "bills")[1];
     if (MH_PEDIT === b.id) return `<form class="mhp-bill mhp-edit" data-mhbillsave="${b.id}"><div class="mhp-sym" aria-hidden="true">${ic}</div><div class="mhp-fields">
         <input name="name" value="${esc(b.name)}" required aria-label="Bill name"><div class="hpv-row"><input name="amount" inputmode="decimal" value="${b.amount}" required aria-label="Amount">
@@ -362,7 +375,8 @@ function mhPayments() {
         <input name="url" inputmode="url" value="${esc(b.url || "")}" placeholder="Pay page link (https://…), optional" aria-label="Pay page link">
         <label class="fine" style="display:flex;gap:8px;align-items:center;margin:2px 0"><input type="checkbox" name="auto" style="width:auto;flex:none;margin:0" ${b.auto ? "checked" : ""}><span>On autopay</span></label>
         <div class="foot-actions"><button class="btn sm">Save</button><button class="btn sm ghost" type="button" data-mhbilledit="">Cancel</button><button class="btn sm ghost" type="button" data-mhdel="bill:${b.id}">Delete</button></div></div></form>`;
-    return `<article class="mhp-bill ${r.paid ? "paid" : ""}"><div class="mhp-sym" aria-hidden="true">${ic}</div>
+    const tone = typeof mvTone === "function" ? mvTone(b.name, b.cat) : "";   // v1.45 brand / category colour
+    return `<article class="mhp-bill ${r.paid ? "paid" : ""}"><div class="mhp-sym" aria-hidden="true"${tone ? ` style="background:linear-gradient(145deg, ${tone}, color-mix(in srgb, ${tone} 50%, #000))"` : ""}>${ic}</div>
       <div class="mhp-det"><strong>${esc(b.name)}</strong><small>${mDate(r.due)} · ${b.auto ? "Autopay expected" : "Manual payment"}</small>
         <div class="mhp-acts">${r.paid ? `<button data-mhunpaid="${b.id}" aria-label="Undo paid for ${esc(b.name)}">Undo paid</button>` : `<button data-mhpaid="${b.id}" aria-label="Mark ${esc(b.name)} paid">Mark paid</button>`}
           <button data-mhbilledit="${b.id}" aria-label="Edit ${esc(b.name)}">✏️ Edit</button>${safeUrl(b.url) ? `<a href="${esc(safeUrl(b.url))}" target="_blank" rel="noopener noreferrer">Pay ↗</a>` : ""}</div></div>
@@ -373,6 +387,7 @@ function mhPayments() {
           <div class="mhp-pill">Next payday <b class="sm">${F.nx ? mDate(F.nx) : "not set"}</b></div></div>
         <div class="mhp-prog"><p>${mon} payment progress <span>${pct}%</span></p><div class="mhp-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${mon} bills paid"><div style="width:${pct}%"></div></div></div></div>
       <div class="mhp-orb" aria-hidden="true"><img src="icon-192.png" alt="" onerror="this.replaceWith(document.createTextNode('👛'))"></div></section>
+    ${viz ? mvPayTop(F) : ""}
     <div class="mhp-sec"><div><h3>Payment Timeline</h3><small>${mon} ${t.slice(0, 4)}</small></div><button class="mhp-action" data-mhpadd="1">${MH_PADD ? "Close" : "+ Add bill"}</button></div>
     ${MH_PADD ? `<form class="qa-form mhp-panel" data-mhbill="1"><input name="name" placeholder="Bill, e.g. Electric" required aria-label="Bill name">
         <div class="hpv-row"><input name="amount" inputmode="decimal" placeholder="Amount $" required aria-label="Amount"><input name="day" inputmode="numeric" placeholder="Due day (1-31)" required aria-label="Due day of the month">
@@ -381,7 +396,7 @@ function mhPayments() {
         <label class="fine" style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" name="auto" style="width:auto;flex:none;margin:0"><span>On autopay</span></label>
         <button class="btn sm">Add bill</button></form>` : ""}
     <div class="mhp-filters" role="group" aria-label="Show">${[["all", "All"], ["unpaid", "Unpaid"], ["paid", "Paid"]].map(([k, l]) => `<button class="${MH_PF === k ? "on" : ""}" data-mhfilter="${k}" aria-pressed="${MH_PF === k}">${l}</button>`).join("")}</div>
-    <div class="mhp-cols"><div class="mhp-list">${shown.map(card).join("") || `<p class="fine">${F.rows.length ? "Nothing here." : "No bills yet - tap + Add bill."}</p>`}</div>
+    <div class="mhp-cols"><div class="mhp-list">${viz && MV_PVIEW === "cal" ? mvCalendar(F) + (pday ? grouped() : "") : grouped() || `<p class="fine">${F.rows.length ? "Nothing here." : "No bills yet - tap + Add bill."}</p>`}</div>
       <aside><section class="mhp-panel"><h3>✦ Cash Flow Preview</h3>
           <div class="mhp-row"><span>Current cash balance</span><strong data-mhpv="cash">${money(cash)}</strong></div>
           <div class="mhp-row"><span>Next paycheck</span><strong data-mhpv="check">${money(check)}</strong></div>
@@ -390,7 +405,8 @@ function mhPayments() {
           <form class="mhp-in" data-mhpaycash="1"><label>Current balance ($)<input name="cash" inputmode="decimal" value="${cash}" data-mhpin="cash"></label><label>Next paycheck ($)<input name="check" inputmode="decimal" value="${check}" data-mhpin="check"></label></form>
           <p class="mhp-mini">Cash + paycheck − every unpaid bill this month. Paid bills are assumed already out of your cash. Starts from your Accounts and Payday; type over them to try numbers.</p></section>
         <section class="mhp-panel"><h3>✨ Money Hub Insight</h3><div class="mhp-insight" data-mhpv="insight">${esc(payInsight(F))}</div></section>
-        <section class="mhp-panel"><h3>📸 Smart Scan</h3><p class="mhp-mini" style="font-size:.85rem">Coming with Snap-to-Action: photograph a bill, check what we read, and it lands on this timeline.</p></section></aside></div>
+        <section class="mhp-panel"><h3>📸 Snap a bill</h3><p class="mhp-mini" style="font-size:.85rem">Photograph a bill, check what we read, and it lands on this timeline.</p>
+          <button class="mhp-action" data-mvkind="bill" data-mvadd="photo">📷 Snap a bill</button></section></aside></div>
     <p class="mhp-mini">Mark paid only records it - Money Hub never moves money. Pay ↗ opens the link you saved.</p></div>`;
 }
 // Typing in the two forecast boxes updates the numbers straight away (no redraw, so the cursor stays put); kept on change.
@@ -419,10 +435,15 @@ function mhGoals() {
   return `<div class="mhp"><section class="mhp-hero"><div><div class="mhp-label">TOTAL SAVED</div><div class="mhp-big">${money(saved)}</div>
         <div class="mhp-pills"><div class="mhp-pill">Goals <b>${G.length}</b></div><div class="mhp-pill">Target <b class="sm">${usd(target)}</b></div>
           <div class="mhp-pill">Done <b>${G.filter(g => goalPct(g) >= 100).length}</b></div></div></div>
-      <div class="mhp-orb" aria-hidden="true"><span style="font-size:5rem;position:relative;z-index:1">🏝️</span></div></section>
+      ${typeof mvScene === "function" ? `<div class="mv-goalscene">${mvScene("goals")}<b>${target ? Math.round(saved / target * 100) : 0}%</b><small>of every goal</small></div>`
+        : `<div class="mhp-orb" aria-hidden="true"><span style="font-size:5rem;position:relative;z-index:1">🏝️</span></div>`}</section>
     <div class="mhp-list" style="margin-top:14px">${G.map(g => { const pc = goalPct(g), mo = goalMonthly(g, t);
-      return `<article class="mhp-bill goal-card"><div class="mhp-sym" aria-hidden="true">${esc(g.icon || "💰")}</div>
+      const tone = ["#14b8a6", "#0ea5e9", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6", "#6366f1", "#ec4899", "#22c55e", "#f43f5e", "#06b6d4", "#eab308"][Math.max(0, GOAL_ICONS.indexOf(g.icon))];   // v1.45 a colour per picture
+      const pic = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(g.pic || "") ? g.pic : "";   // v1.45 the goal's own photo (made on this phone)
+      return `<article class="mhp-bill goal-card"><label class="mhp-sym mv-gpic" title="Add a photo" style="background:linear-gradient(145deg, ${tone}, color-mix(in srgb, ${tone} 45%, #000));box-shadow:0 0 14px color-mix(in srgb, ${tone} 50%, transparent)">${pic ? `<img src="${pic}" alt="">` : `<span aria-hidden="true">${esc(g.icon || "💰")}</span>`}
+        <input type="file" accept="image/*" data-mvgoalpic="${g.id}" hidden aria-label="Photo for ${esc(g.name)}"><i aria-hidden="true">📷</i></label>
         <div class="mhp-det"><strong>${esc(g.name)}</strong><small>${money(g.saved)} of ${money(g.target)}${g.by ? ` · by ${mDate(g.by)}` : ""}</small>
+          <div class="mv-gbar" aria-hidden="true"><i style="width:${pc}%"></i></div>
           ${mo ? `<small>${usd(mo)} a month gets you there</small>` : pc >= 100 ? `<small>🎉 You did it</small>` : ""}
           <form class="mhp-acts" data-mhgoaladd="${g.id}"><input name="amt" inputmode="decimal" placeholder="+ $" aria-label="Add to ${esc(g.name)}" style="width:80px;padding:6px 8px;border-radius:9px;background:#081c2e;border:1px solid #41617a;color:#fff">
             <button>Add</button><button type="button" data-mhgoaldel="${g.id}" aria-label="Remove ${esc(g.name)}">✕</button></form></div>
@@ -431,14 +452,15 @@ function mhGoals() {
     <form class="qa-form mhp-panel" data-mhgoal="1" style="margin-top:14px"><h3 style="margin:0">＋ New goal</h3>
       <div class="mhp-icons" role="radiogroup" aria-label="Picture">${GOAL_ICONS.map((ic, i) => `<label><input type="radio" name="icon" value="${ic}" ${i ? "" : "checked"}><span>${ic}</span></label>`).join("")}</div>
       <input name="name" placeholder="e.g. Caribbean cruise" required aria-label="Goal name">
-      <div class="hpv-row"><input name="target" inputmode="decimal" placeholder="Target $" required aria-label="Target"><input name="saved" inputmode="decimal" placeholder="Saved so far $" aria-label="Saved so far">
-        <label class="field" style="margin:0">By <input type="date" name="by" aria-label="By date"></label></div>
+      <div class="two"><input name="target" inputmode="decimal" placeholder="Target $" required aria-label="Target"><input name="saved" inputmode="decimal" placeholder="Saved so far $" aria-label="Saved so far"></div>
+      <label class="field" style="margin:0">Reach it by (optional) <input type="date" name="by" aria-label="By date"></label>
       <button class="btn sm">Add goal</button></form></div>`;
 }
 
 // ------------------------------------------------------------ events (ui.js calls these first)
 function mhClick(ds) {
   if (MODE !== "money") return false;
+  if (typeof mvClick === "function" && mvClick(ds)) return true;      // v1.45 moneyviz.js
   if (ds.mhtab) { MH_MSG = ""; MH_IMPORT = null; MH_EDIT = null; showMh(ds.mhtab); return true; }
   if (ds.mhclose) { hideMh(); render(); return true; }
   const M = mh();
@@ -476,6 +498,7 @@ function addMonthsDayM(day, n) {
 }
 function mhSubmit(f, data) {
   if (MODE !== "money") return false;
+  if (typeof mvSubmit === "function" && mvSubmit(f, data)) return true;   // v1.45 moneyviz.js
   const M = mh(), day = v => /^\d{4}-\d{2}-\d{2}$/.test(v || "") ? v : today(), pos = v => Math.abs(amt(v));
   if (f.dataset.mhsetup) {
     S.name = String(data.name || "").trim().slice(0, 30); M.setup = today();

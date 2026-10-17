@@ -133,6 +133,10 @@
  *   scan - Smart Scan: read an odometer / receipt / VIN sticker / insurance card photo -> fields as JSON.
  *          The phone always shows a review screen; nothing is saved from the AI's reading alone.
  * Same passphrase / Pro / credits rules and the same counters as every other job (1 photo = 1 question).
+ *
+ * v16 (Money Hub v1.45 control room, Scott 10/16 "build money app"): mscan - Money Hub's Add by Photo reads a receipt,
+ * bill, pay stub or money paper -> fields as JSON (no account / card / SSN numbers). The phone always shows a review card.
+ * Until v16 is deployed the phone falls back to "scan" (it reads the total, date and shop well enough).
  */
 const MODEL = "claude-haiku-4-5";
 const DAILY_CAP = 200;              // requests per day, all tasks together
@@ -189,6 +193,17 @@ service (receipts only): one of oil, rotate, brakes, air, cabin, battery, wipers
 paperKind (papers only): insurance, registration, inspection, warranty, loan, roadside, other.
 Dates as YYYY-MM-DD. miles = the odometer reading as a whole number (on a receipt: the mileage written on it). amount = the total paid. gallons for fuel. vin = 17 characters exactly or leave it out.
 Reply with ONLY this JSON (leave out what isn't there): {"kind":"...","date":"","miles":0,"amount":0,"gallons":0,"shop":"","service":"","paperKind":"","company":"","expires":"","vin":"","car":"which of the listed cars, if the photo shows it","note":"under 12 words"}` },
+
+  // v16 (Money Hub v1.45 Add by Photo): a receipt / bill / pay stub / money paper -> fields. The phone shows a review card; nothing is saved from this alone.
+  mscan: { max: 400, img: true, system:
+`You read ONE photo for Money Hub, a personal budgeting app. Today is {today}. The text below says what the owner thinks it is. Read only what is really visible - never guess a number you can't read.
+kind: "receipt" (a store / restaurant / gas receipt), "bill" (a utility, phone, card or other bill or statement asking for payment), "paystub" (a pay stub / earnings statement) or "document" (any other money paper: tax form, insurance, warranty...).
+merchant = the store, company or employer name as printed (short). amount = the TOTAL paid on a receipt, the AMOUNT DUE on a bill. For a pay stub: net = take-home pay this period, gross = gross pay this period.
+date = the receipt / statement / pay date; due = the bill's due date. Dates as YYYY-MM-DD.
+category (receipts and bills only), one of: housing, utilities, groceries, dining, transport, health, insurance, debt, subs, shopping, fun, family, pets, giving, bills, other.
+autopay = true only if the bill says it will be paid automatically. docType (documents only): tax, insurance, warranty, receipt, bill, paystub, other. title (documents only) = a short name, e.g. "2025 W-2".
+Never include account numbers, card numbers or Social Security numbers.
+Reply with ONLY this JSON (leave out what isn't there): {"kind":"...","merchant":"","amount":0,"date":"","due":"","category":"","autopay":false,"net":0,"gross":0,"docType":"","title":"","note":"under 12 words"}` },
 };
 
 function doPost(e) {
