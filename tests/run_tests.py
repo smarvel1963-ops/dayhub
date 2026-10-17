@@ -35,6 +35,7 @@ CRUISE = "/../cruisehub/"     # Cruise Hub's own address, next to /dayhub/ (v0.4
 TRIP = "/../triphub/"         # Trip Hub's own address (v0.97, app #3)
 HOMEP = "/../homehub/"        # Home Hub's own address (v1.25, app #4)
 UNIP = "/../hubuniverse/"      # Hub Universe (v1.52, app #7)
+HEALTHP = "/../healthhub/"     # Health Hub (v1.53, app #8)
 MONEYP = "/../moneyhub/"      # Money Hub's own address (v1.42, app #6)
 AUTOP = "/../autohub/"        # Auto Hub's own address (v1.35, app #5)
 
@@ -1245,7 +1246,7 @@ def t_v039_short_home(b, base):
 def t_v040_switches(b, base):
     print("\n[v0.40 switchboard: everything OFF by default, owner switches, Pro key, legal pages, manifest]")
     a = App(b, base); setup(a)
-    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), TRIP_PASS + AI_CREDITS on (10/11), GMAIL + STORE + MONEY_PASS + UNIVERSE_PASS OFF", a.js("SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && SWITCHES.AI_CREDITS === true && SWITCHES.HOME_VALUE === true && SWITCHES.AUTO_PASS === true && SWITCHES.MONEY_PASS === false && SWITCHES.UNIVERSE_PASS === false && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS,AI_CREDITS,AUTO_PASS,UNIVERSE_PASS,MONEY_PASS,HOME_VALUE'"))
+    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), TRIP_PASS + AI_CREDITS on (10/11), GMAIL + STORE + MONEY_PASS + UNIVERSE_PASS + CHALLENGES OFF", a.js("SWITCHES.CHALLENGES === false && SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && SWITCHES.AI_CREDITS === true && SWITCHES.HOME_VALUE === true && SWITCHES.AUTO_PASS === true && SWITCHES.MONEY_PASS === false && SWITCHES.UNIVERSE_PASS === false && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS,AI_CREDITS,AUTO_PASS,UNIVERSE_PASS,CHALLENGES,MONEY_PASS,HOME_VALUE'"))
     check("plan: approved price, contact, Whop checkout", a.js("PLAN.MONTHLY") == "$4.99/month" and a.js("PLAN.YEARLY") == "$29.99/year" and a.js("PLAN.CONTACT_EMAIL") == "smarvel1963@gmail.com" and a.js("PLAN.WHOP_CHECKOUT_URL") == "https://whop.com/commander-marvel-por-picks/day-hub-pro")
     check("PRO_GATE on, free phone: Pro features locked, free ones open", a.js("!['ai','gcal','mail','sync'].some(can) && ['reminders','budget'].every(can)"))
     a.page.click("#settingsBtn")
@@ -4631,6 +4632,170 @@ def t_v152_hub_universe(b, base):
     check("Day Hub's family card lists Hub Universe with Open", "Hub Universe" in d.page.inner_text("[data-card=family]") and d.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/hubuniverse/\"]')"))
     d.close()
 
+def t_v153_health_hub(b, base):
+    print("\n[v1.53 Health Hub: app #8 at /healthhub/ - setup, meds + doses + refill, vitals bands, water, steps, sleep, appointments, score, emergency card, visit summary]")
+    a = App(b, base, path=HEALTHP)
+    check("Health Hub: its own name, id and data", a.js("[MODE, APP_NAME, APP_ID, STORE, TRAVEL]") == ["health", "Health Hub", "healthhub", "healthhub.v1", False] and a.page.title() == "Health Hub")
+    check("first run: the Health Hub welcome with name + 3 goals", "Welcome to Health Hub" in a.page.inner_text("#cards") and a.page.locator("form[data-hhsetup] [name=steps]").count() == 1)
+    a.page.fill('form[data-hhsetup] [name=name]', "Sam"); a.page.fill('form[data-hhsetup] [name=water]', "8")
+    a.page.fill('form[data-hhsetup] [name=steps]', "6000"); a.page.fill('form[data-hhsetup] [name=sleep]', "8")
+    a.page.click('form[data-hhsetup] button'); a.page.wait_for_function("S.hh && S.hh.setup")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    check("setup saved: name + goals", a.js("S.name") == "Sam" and a.js("hhGoals()") == {"water": 8, "steps": 6000, "sleep": 8})
+    check("home = Wellness Orbit: score orb + 6 bubbles (Meds, Water, Steps, Sleep, Vitals, Visits) + 5 rings + bottom bar",
+          a.page.locator("#cards .hh-orbit .hh-orb").count() == 1 and a.js("[...document.querySelectorAll('#cards .hh-orbit .hos-bub b')].map(x => x.textContent).join()") == "Meds,Water,Steps,Sleep,Vitals,Visits"
+          and a.page.locator("#cards .hh-rings .hos-ring").count() == 5 and a.js("[...document.querySelectorAll('#hhNav button')].map(b => b.getAttribute('aria-label')).join()") == "Home,Meds,Add,Vitals,More")
+    check("no Day Hub + button, no Arrange link; the family card stays", a.js("getComputedStyle(document.getElementById('fab')).display") == "none" and "Arrange my screen" not in a.page.inner_text("#cards") and "Hub family" in a.page.inner_text("#cards"))
+    # --- a medicine
+    a.page.click('#hhNav [data-hhtab="meds"]'); a.page.click('#hhSheet [data-hhmednew]')
+    a.page.fill('#hhSheet form[data-hhmed] [name=name]', "Lisinopril"); a.page.fill('#hhSheet form[data-hhmed] [name=strength]', "10 mg")
+    a.page.fill('#hhSheet form[data-hhmed] [name=t2]', "20:00"); a.page.fill('#hhSheet form[data-hhmed] [name=left]', "16")
+    a.page.fill('#hhSheet form[data-hhmed] [name=instr]', "Take 1 tablet by mouth twice a day"); a.page.click('#hhSheet form[data-hhmed] button.hh-go'); a.page.wait_for_timeout(150)
+    D = a.js("hhDoses(today()).map(d => d.time + ':' + d.st)")
+    check("added: today's doses 8:00 (due now) and 8:00 PM (later)", D == ["08:00:due", "20:00:later"], D)
+    check("16 pills, 2 a day = 8 days - not 'refill soon' yet; instructions shown as typed", a.js("hhRefill(S.hh.meds[0]).days") == 8 and not a.js("hhRefill(S.hh.meds[0]).soon")
+          and "“Take 1 tablet by mouth twice a day”" in a.page.inner_text("#hhSheet") and "REFILL SOON" not in a.page.inner_text("#hhSheet"))
+    a.page.click('#hhSheet [data-hhdose$="|08:00|taken"]'); a.page.wait_for_timeout(100)
+    check("Taken: logged, pills left 16 -> 15", a.js("hhDoses(today())[0].st") == "taken" and a.js("S.hh.meds[0].left") == 15)
+    check("15 pills = 7 days -> REFILL SOON on the card and in Needs you", a.js("hhRefill(S.hh.meds[0]).days") == 7 and a.js("hhRefill(S.hh.meds[0]).soon") and "REFILL SOON" in a.page.inner_text("#hhSheet")
+          and any("Refill soon" in n["text"] for n in a.js("hhNeeds(today())")))
+    a.page.click('#hhSheet [data-hhdose$="|08:00|taken"]'); a.page.wait_for_timeout(100)
+    check("tap Taken again = undo: not logged, the pill goes back (16)", a.js("hhDoses(today())[0].st") == "due" and a.js("S.hh.meds[0].left") == 16)
+    a.page.click('#hhSheet [data-hhdose$="|08:00|taken"]'); a.page.wait_for_timeout(100)
+    a.page.click('#hhSheet [data-hhdose$="|20:00|skipped"]'); a.page.wait_for_timeout(100)
+    check("Skipped is logged and doesn't count a pill", a.js("hhDoses(today())[1].st") == "skipped" and a.js("S.hh.meds[0].left") == 15)
+    a.page.click('#hhSheet [data-hhdose$="|20:00|skipped"]'); a.page.wait_for_timeout(100)
+    check("med change log: Started Lisinopril 10 mg", a.js("S.hh.medlog.map(x => x.text).join()") == "Started Lisinopril 10 mg")
+    # --- label scan: the review form, nothing saved from the AI alone
+    a.js("localStorage.setItem('dayhub.aipass', 'test-only-passphrase-x7')")
+    a.page.set_input_files('#hhSheet [data-hhscan]', {"name": "label.png", "mimeType": "image/png", "buffer": _png()}); a.page.wait_for_function("HH_SCAN && HH_SCAN.read")
+    check("label scan: relay task 'scan' with the photo; a review form with what it read; nothing saved yet",
+          a.ctx._scan.get("task") == "scan" and bool(a.ctx._scan.get("image")) and a.page.locator("#hhSheet .hh-shot img").count() == 1 and "check every field" in a.page.inner_text("#hhSheet")
+          and a.js("S.hh.meds.length") == 1 and a.js("document.querySelector('#hhSheet form[data-hhmed] [name=pharmacy]').value") == "Conway Tire")
+    a.page.click('#hhSheet [data-hhmedcancel]'); a.js("localStorage.removeItem('dayhub.aipass')")
+    check("cancel: still one medicine", a.js("S.hh.meds.length") == 1)
+    # --- vitals
+    a.page.click('#hhSheet nav [data-hhtab="vitals"]')
+    a.page.fill('#hhSheet form[data-hhvital] [name=sys]', "135"); a.page.fill('#hhSheet form[data-hhvital] [name=dia]', "85"); a.page.click('#hhSheet form[data-hhvital] button'); a.page.wait_for_timeout(100)
+    t = a.page.inner_text("#hhSheet")
+    check("135/85 = High (AHA: 130+ or 80+), with its general range; gauge drawn", a.js("hhBand(hhLatest('bp')).label") == "High" and "High" in t and "130 or higher" in t and a.page.locator("#hhSheet svg.hh-gauge").count() == 1, t[:300])
+    check("the not-medical-advice line is on the Vitals page", "not medical advice" in t and "ask your doctor" in t)
+    a.page.fill('#hhSheet form[data-hhvital] [name=sys]', "118"); a.page.fill('#hhSheet form[data-hhvital] [name=dia]', "76"); a.page.click('#hhSheet form[data-hhvital] button'); a.page.wait_for_timeout(100)
+    check("118/76 = Normal; 2 readings draw a trend chart (two lines + legend)", a.js("hhBand({kind:'bp', sys:118, dia:76}).label") == "Normal" and a.js("hhBand(hhLatest('bp')).k") == "good"
+          and a.page.locator("#hhSheet .hh-chart path.hh-line").count() == 2)
+    check("more bands: 182/90 seek care, 125/78 elevated, glucose 105 fasting caution, SpO2 93 caution, HR 72 typical",
+          a.js("[hhBand({kind:'bp',sys:182,dia:90}).k, hhBand({kind:'bp',sys:125,dia:78}).k, hhBand({kind:'glucose',v:105,fast:true}).k, hhBand({kind:'spo2',v:93}).k, hhBand({kind:'hr',v:72}).k].join()") == "seek,caution,caution,caution,good")
+    check("30-day average = (135+118)/2, (85+76)/2 -> 127/81", a.js("hhAvgTxt('bp', hhAvg('bp', 30))") == "127/81")
+    # --- water
+    a.js("showHh('water')")
+    for _ in range(4): a.page.click('#hhSheet .hh-wplus')
+    check("water: 4 taps = 4 of 8, the bottle fills, the ring is half", a.js("hhWater(today())") == 4 and "4 of 8" in a.page.inner_text("#hhSheet .hh-water") and a.js("hhScore(today()).parts.find(p => p.k === 'water').frac") == 0.5)
+    # --- steps
+    a.js("showHh('move')")
+    a.page.fill('#hhSheet form[data-hhsteps] [name=steps]', "3000"); a.page.click('#hhSheet form[data-hhsteps] button'); a.page.wait_for_timeout(100)
+    check("steps 3,000 of 6,000; automatic steps come with the store app", a.js("hhSteps(today())") == 3000 and "automatic steps come with the store app" in a.page.inner_text("#hhSheet"))
+    # --- sleep across midnight
+    a.js("showHh('sleep')")
+    a.page.fill('#hhSheet form[data-hhsleep] [name=bed]', "23:30"); a.page.fill('#hhSheet form[data-hhsleep] [name=wake]', "07:00"); a.page.click('#hhSheet form[data-hhsleep] button.hh-go'); a.page.wait_for_timeout(100)
+    check("sleep 11:30 PM -> 7:00 AM = 7.5 hours (7h 30m)", a.js("hhSleepOn(today()).hrs") == 7.5 and a.js("hhSleepHrs('23:30', '07:00')") == 7.5 and "7h 30m" in a.page.inner_text("#hhSheet"))
+    # --- the Health Score math
+    S1 = a.js("hhScore(today())")
+    check("Health Score = (meds 1/2 + water 4/8 + steps 3000/6000 + sleep 7.5/8 + vitals 1) / 5 x 100 = 69", S1["score"] == 69 and S1["max"] == 100 and [p["k"] for p in S1["parts"]] == ["meds", "water", "move", "sleep", "vitals"], S1)
+    a.js("showHh('score')")
+    check("score page shows its math", "69" in a.page.inner_text("#hhSheet") and "points of 100 possible" in a.page.inner_text("#hhSheet"))
+    # --- workout + streak
+    a.js("showHh('move')")
+    a.page.fill('#hhSheet form[data-hhsteps] [name=steps]', "7000"); a.page.fill('#hhSheet form[data-hhsteps] [name=date]', "2026-09-30"); a.page.click('#hhSheet form[data-hhsteps] button'); a.page.wait_for_timeout(100)
+    a.page.select_option('#hhSheet form[data-hhwork] [name=type]', "gym"); a.page.fill('#hhSheet form[data-hhwork] [name=min]', "40")
+    a.page.fill('#hhSheet form[data-hhwork] [name=sets]', "3"); a.page.fill('#hhSheet form[data-hhwork] [name=reps]', "10"); a.page.click('#hhSheet form[data-hhwork] button'); a.page.wait_for_timeout(100)
+    check("workout 40 min (3x10) logged; streak = today (workout) + yesterday (7,000 steps) = 2", a.js("S.hh.workouts[0].min") == 40 and a.js("hhStreak(today())") == 2 and "3×10" in a.page.inner_text("#hhSheet"))
+    check("movement counts the workout (40 min >= 30 = full)", a.js("hhScore(today()).parts.find(p => p.k === 'move').frac") == 1)
+    # --- appointment with questions
+    a.js("showHh('appts')"); a.page.click('#hhSheet [data-hhapnew]')
+    a.page.fill('#hhSheet form[data-hhapsave] [name=date]', "2026-10-06"); a.page.fill('#hhSheet form[data-hhapsave] [name=time]', "10:30")
+    a.page.fill('#hhSheet form[data-hhapsave] [name=doctor]', "Dr. Patel"); a.page.fill('#hhSheet form[data-hhapsave] [name=specialty]', "Primary care")
+    a.page.fill('#hhSheet form[data-hhapsave] [name=qs]', "Is my blood pressure OK?\nDo I need a flu shot?"); a.page.click('#hhSheet form[data-hhapsave] button.hh-go'); a.page.wait_for_timeout(100)
+    t = a.page.inner_text("#hhSheet")
+    check("appointment saved, opened, with 2 questions to ask", a.js("S.hh.appts.length") == 1 and a.js("S.hh.appts[0].q.length") == 2 and "Is my blood pressure OK?" in t and "Dr. Patel" in t)
+    a.page.fill('#hhSheet form[data-hhapq] [name=q]', "Should I keep the same dose?"); a.page.click('#hhSheet form[data-hhapq] button'); a.page.wait_for_timeout(100)
+    a.page.click('#hhSheet .hh-qtick >> nth=0'); a.page.wait_for_timeout(100)
+    check("add a question; tick one as asked", a.js("S.hh.appts[0].q.length") == 3 and a.js("S.hh.appts[0].q[0].done") is True)
+    # --- emergency card
+    a.js("showHh('card')")
+    a.page.fill('#hhSheet form[data-hhcard] [name=allergies]', "Penicillin (hives)"); a.page.select_option('#hhSheet form[data-hhcard] [name=blood]', "O+"); a.page.click('#hhSheet form[data-hhcard] button'); a.page.wait_for_timeout(100)
+    a.page.fill('#hhSheet form[data-hhcontact] [name=name]', "Jordan"); a.page.fill('#hhSheet form[data-hhcontact] [name=phone]', "501-555-0199"); a.page.click('#hhSheet form[data-hhcontact] button'); a.page.wait_for_timeout(100)
+    a.page.click('#hhSheet [data-hhsos]'); a.page.wait_for_timeout(100)
+    sos = a.page.inner_text("#hhSos")
+    check("Show my health info: full screen with allergies, blood type, the meds (from the list) and a tap-to-call contact",
+          "Penicillin (hives)" in sos and "O+" in sos and "Lisinopril 10 mg" in sos and a.js("document.querySelector('#hhSos a[href^=\"tel:\"]').getAttribute('href')") == "tel:5015550199", sos[:300])
+    a.page.click('#hhSos [data-hhsosclose]')
+    check("closes", a.page.locator("#hhSos").count() == 0)
+    # --- visit summary
+    a.js(f"HH_VISIT = S.hh.appts[0].id; showHh('visit')")
+    vs = a.page.inner_text("#hhSheet .hh-sum")
+    check("visit summary: the BP average 127/81, the med list, the questions, allergies", "average 127/81" in vs and "Lisinopril 10 mg" in vs and "Do I need a flu shot?" in vs and "Penicillin" in vs, vs[:400])
+    check("summary as text for Share", "average 127/81" in a.js("hhVisitText(S.hh.appts[0])"))
+    # --- check-in, challenges (switch off), AI context
+    a.js("showHh('checkin')"); a.page.click('#hhSheet [data-hhmood="4"]'); a.page.click('#hhSheet [data-hhsym="headache"]')
+    check("check-in: mood + symptom saved for today", a.js("S.hh.checkins[today()].mood") == 4 and a.js("S.hh.checkins[today()].sym") == ["headache"])
+    a.js("showHh('challenge')")
+    check("Step challenges: switch OFF -> 'Coming soon', no forms", "Coming soon" in a.page.inner_text("#hhSheet") and a.page.locator("#hhSheet form[data-hhchal]").count() == 0 and a.js("SWITCHES.CHALLENGES") is False)
+    a.js("setOwnerSwitch('CHALLENGES', true); showHh('challenge')")
+    check("owner switch on: nickname + code forms appear", a.page.locator("#hhSheet form[data-hhchal]").count() == 2)
+    a.js("setOwnerSwitch('CHALLENGES', false)")
+    ctx = a.js("JSON.parse(aiContext()).health")
+    check("AI reads only the person's own log: meds, vitals, sleep; never-advice note", ctx["medicines"][0]["name"] == "Lisinopril" and len(ctx["vitalsLast30Days"]) == 2 and "Never give medical advice" in ctx["about"])
+    a.js("hideHh(); render()")
+    t = a.page.inner_text("#cards")
+    check("home orbit reads it all: water 4/8, sleep 7h 30m, vitals 118/76, next visit", "4/8" in t and "7h 30m" in t and "118/76" in t and "Dr. Patel" in t, t[:400])
+    # --- 360px
+    a.page.set_viewport_size({"width": 360, "height": 780}); a.js("render()")
+    ok = a.js("document.documentElement.scrollWidth <= window.innerWidth + 1")
+    for tab in ("meds", "vitals", "sleep", "water", "move", "appts", "checkin", "card", "visit", "more", "add"):
+        a.js(f"showHh('{tab}')")
+        w = a.js("document.querySelector('#hhSheet .sheet-body').scrollWidth <= document.querySelector('#hhSheet .sheet-body').clientWidth + 1")
+        if not w: print("    wide:", tab)
+        ok = ok and w
+    check("fits a 360px phone: home and every page, no sideways scroll", ok)
+    before = a.js("localStorage.getItem('healthhub.v1')")
+    # --- Hub Universe: the Wellness orbit, read-only
+    a.page.set_viewport_size({"width": 390, "height": 844})
+    a.page.goto(base + UNIP); a.page.wait_for_function("typeof uniHomeHtml === 'function'"); a.page.wait_for_timeout(300)
+    H = a.js("(() => { const h = UNI_CACHE.find(x => x.id === 'health'); return {set: h.set, group: h.group, val: String(h.val), br: h.branches.map(b => b[1] + ' ' + b[2]), items: h.items.map(i => i.text)}; })()")
+    t = a.page.inner_text("#cards")
+    check("Hub Universe: Health Hub in a new WELLNESS orbit, in use, reading its data", "WELLNESS" in t and H["set"] and H["group"] == "Wellness" and "Water 4/8" in H["br"] and "Vitals 118/76" in H["br"] and "Meds 1/2 taken" in H["br"], H)
+    check("...its refill shows in Needs you; Health Hub no longer 'coming'", any("Refill Lisinopril" in x for x in H["items"]) and "Health Hub" not in a.page.inner_text(".uni-soon"))
+    check("READ-ONLY: Health Hub's saved data is byte-for-byte unchanged", a.js("localStorage.getItem('healthhub.v1')") == before)
+    a.js("document.querySelector('[data-uniplanet=health]').click()")
+    check("tap the planet: Meds / Water / Steps / Sleep / Vitals / Visits branches + Open Health Hub", "Open Health Hub" in a.page.inner_text("#uniSheet") and a.js("document.querySelector('#uniSheet a.uni-open').href").endswith("/healthhub/"))
+    a.close()
+    d = App(b, base); setup(d)
+    check("Day Hub's family card lists Health Hub with Open", "Health Hub" in d.page.inner_text("[data-card=family]") and d.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/healthhub/\"]')"))
+    d.close()
+
+
+def t_v153_health_reminders(b, base):
+    print("\n[v1.53 Health Hub: dose / appointment / refill reminders, missed doses, as-needed meds]")
+    a = App(b, base, path=HEALTHP, at="2026-10-01T11:00:00")
+    a.js("""S.name = 'Sam'; const H = hh(); H.setup = '2026-09-01';
+      H.meds = [{id:'m1', name:'Metformin', strength:'500 mg', color:'#f1f5f9', times:['08:00','20:00'], instr:'with meals', per:1, left:7, added:'2026-09-01'},
+                {id:'m2', name:'Ibuprofen', strength:'200 mg', color:'#fb923c', times:[], instr:'as needed', per:1, left:20, added:'2026-09-01'}];
+      H.appts = [{id:'a1', date:'2026-10-02', time:'09:30', doctor:'Dr. Lee', q:[{id:'q1', text:'Eyes?'}]}]; save(); render();""")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    check("8:00 dose not logged by 11:00 = missed (more than 2 hours)", a.js("hhDoses(today())[0].st") == "missed" and any("Missed" in n["text"] for n in a.js("hhNeeds(today())")))
+    keys = a.js("(() => { const out = []; hhReminders((k, s, at, title, body) => out.push(k), d => true); return out; })()")
+    check("reminders: tonight's 8:00 PM dose, tomorrow's doses, the appointment (eve + an hour before), refill at 3 days",
+          "hh:m1|20:00:2026-10-01" in keys and "hh:m1|08:00:2026-10-02" in keys and "hhap:a1:eve" in keys and "hhap:a1:soon" in keys and any(k.startswith("hhrf:m1:") for k in keys)
+          and "hh:m1|08:00:2026-10-01" in keys, keys)
+    a.js("showHh('meds')"); a.page.click('#hhSheet [data-hhprn="m2"]'); a.page.wait_for_timeout(100)
+    check("as needed: 'Took one' logs it and counts a pill (20 -> 19), not in the scheduled doses", a.js("hhPrnCount(S.hh.meds[1], today())") == 1 and a.js("S.hh.meds[1].left") == 19 and a.js("hhDoses(today()).length") == 2)
+    a.js("hideHh(); S.hh.meds[0].left = 3; save(); render()")
+    check("Life pulse: missed dose + refill in 3 days -> the hero chips", any("Metformin" in x["text"] for x in a.js("pulseItems()")))
+    a.js("showHh('meds')"); a.page.fill('#hhSheet form[data-hhrefill] [name=n]', "30"); a.page.click('#hhSheet form[data-hhrefill] button'); a.page.wait_for_timeout(100)
+    check("Refilled +30: 3 -> 33 pills, no longer 'refill soon'", a.js("S.hh.meds[0].left") == 33 and not a.js("hhRefill(S.hh.meds[0]).soon"))
+    a.close()
+
+
 def t_v127_email_codes(b, base):
     print("\n[v1.27 store audit S2: a NEW phone confirms the purchase email with a 6-digit emailed code]")
     a = App(b, base); setup(a)
@@ -4839,7 +5004,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete, t_v142_money_hub, t_v145_money_control_room, t_v146_connect_and_cash_flow, t_v147_share_and_rings, t_v148_money_advisor, t_v148_data_update, t_v150_store_mode_and_flash, t_v151_real_photos, t_v152_hub_universe):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete, t_v142_money_hub, t_v145_money_control_room, t_v146_connect_and_cash_flow, t_v147_share_and_rings, t_v148_money_advisor, t_v148_data_update, t_v150_store_mode_and_flash, t_v151_real_photos, t_v152_hub_universe, t_v153_health_hub, t_v153_health_reminders):
             if os.environ.get("ONLY") and not any(k in t.__name__ for k in os.environ["ONLY"].split(",")): continue   # ONLY=t_v145 python tests/run_tests.py
             try:
                 t(b, base)

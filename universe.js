@@ -26,8 +26,9 @@ const UNI_HUBS = [
   ["auto", "autohub.v1", "Auto Hub", "🚗", "#ef4444", () => AUTOHUB_URL, "Everyday", uniAuto],
   ["trip", "triphub.v1", "Trip Hub", "✈️", "#a855f7", () => TRIP_URL, "Travel", uniTrips],
   ["cruise", "cruisehub.v1", "Cruise Hub", "🚢", "#06b6d4", () => CRUISE_URL, "Travel", uniTrips],
+  ["health", "healthhub.v1", "Health Hub", "❤️", "#2dd4bf", () => HEALTHHUB_URL, "Wellness", uniHealth],   // v1.53 app #8
 ];
-const UNI_SOON = ["🐾 Pet Hub", "👨‍👩‍👧 Family Hub", "❤️ Health Hub"];    // shown faint under the orbits: more planets coming
+const UNI_SOON = ["🐾 Pet Hub", "👨‍👩‍👧 Family Hub"];    // shown faint under the orbits: more planets coming
 let UNI_OPEN = null, UNI_CACHE = null;
 if (typeof document !== "undefined" && typeof MODE !== "undefined" && MODE === "universe") document.body.classList.add("uniapp");   // hides the Day Hub ＋ button
 
@@ -93,7 +94,21 @@ function uniTrips(t) {
   return { set: true, val: n <= 0 ? "on now" : `${n} day${n === 1 ? "" : "s"}`, badge: items.length || "", items,
     branches: [[hub === "cruise" ? "🚢" : "🧳", hub === "cruise" ? "Cruises" : "Trips", `${trips.length} ahead`]].concat(trips.slice(0, 5).map(x => [hub === "cruise" ? "⚓" : "📍", (x.name || "Trip").slice(0, 11), daysUntil(x.start) <= 0 ? "now" : `${daysUntil(x.start)} days`])) };
 }
-let MODE_PEEK = "";                                                // which hub uniTrips is reading (trip / cruise share it)
+let MODE_PEEK = "";
+// v1.53 HEALTH HUB: doses due, today's appointment, refills running low - asked with health.js's own helpers.
+function uniHealth(t) {
+  if (typeof hhSet !== "function" || !hhSet()) return { set: false };
+  const D = hhDoses(t), due = D.filter(d => d.st === "due" || d.st === "missed"), taken = D.filter(d => d.st === "taken").length;
+  const ap = hhAppts().filter(a => a.date >= t).sort(hhApSort), apToday = ap.filter(a => a.date === t), low = hhMeds().filter(m => hhRefill(m).soon);
+  const items = due.map(d => uniItem("health", "💊", `${d.m.name}${d.m.strength ? " " + d.m.strength : ""}`, d.st === "missed" ? `missed ${hm(d.time)}` : `due ${hm(d.time)}`, t, d.st === "missed", "#2dd4bf"))
+    .concat(apToday.map(a => uniItem("health", "🩺", `${a.doctor || "Appointment"}${a.time ? " " + hm(a.time) : ""}`, "appointment today", t, false, "#a78bfa")))
+    .concat(low.map(m => { const r = hhRefill(m); return uniItem("health", "🧴", `Refill ${m.name}`, r.days <= 0 ? "out of pills" : `${r.days} day${r.days === 1 ? "" : "s"} left`, t, r.days <= 0, "#fb7185"); }));
+  const w = hhWater(t), st = hhSteps(t), sl = hhSleepOn(t), V = hhLatestAll(), g = hhGoals();
+  const nx = D.find(d => d.st === "later");
+  return { set: true, val: due.length ? `${due.length} dose${due.length === 1 ? "" : "s"} due` : nx ? `next ${hm(nx.time)}` : D.length ? "all taken" : `score ${hhScore(t).score}`, badge: items.length || "", items,
+    branches: [["💊", "Meds", D.length ? `${taken}/${D.length} taken` : "none"], ["💧", "Water", `${w}/${g.water}`], ["👟", "Steps", st ? st.toLocaleString("en-US") : "log"],
+      ["🌙", "Sleep", sl ? `${hhFmtH(sl.hrs)}` : "log"], ["❤️", "Vitals", V.bp ? `${V.bp.sys}/${V.bp.dia}` : "log"], ["🩺", "Visits", ap.length ? prettyDate(ap[0].date) : "none"]] };
+}                                                // which hub uniTrips is reading (trip / cruise share it)
 
 // Every hub's summary, once per render.
 function uniScan() {
@@ -107,7 +122,7 @@ function uniScan() {
 }
 const uniNeeds = H => H.flatMap(h => h.items).sort((a, b) => (b.late - a.late) || a.day.localeCompare(b.day));
 
-const UNI_GROUP_IC = { Everyday: "🏠", Travel: "🧳" };                // a new group without an icon gets a star
+const UNI_GROUP_IC = { Everyday: "🏠", Travel: "🧳", Wellness: "💚" };                // a new group without an icon gets a star
 function uniOrbitHtml(group, H, first) {
   const me = first ? `<div class="hos-core uni-me"><span class="uni-sun" aria-hidden="true"></span><b>${esc(S.name || "You")}</b></div>`
     : `<div class="hos-core uni-gcore"><span>${UNI_GROUP_IC[group] || "⭐"}</span><b>${esc(group)}</b></div>`;

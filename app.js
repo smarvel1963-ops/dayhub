@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.52";
+const VERSION = "1.53";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -32,19 +32,21 @@ const VERSION = "1.52";
 // Day Hub card screen with its own home-first top (rooms, outdoor spaces, whole-home systems). AUTO HUB (10/14, app #5): "auto" + auto.js.
 // MONEY HUB (10/15, app #6): "money" + money.js.
 // HUB UNIVERSE (10/17, app #7): "universe" + universe.js - every hub on this phone in one place.
-const MODE = ["cruise", "trip", "home", "auto", "money", "universe"].includes(window.DH_MODE) ? window.DH_MODE : "day";
+// HEALTH HUB (10/17, app #8): "health" + health.js - meds, appointments, vitals, sleep, water, steps; data stays on the phone.
+const MODE = ["cruise", "trip", "home", "auto", "money", "universe", "health"].includes(window.DH_MODE) ? window.DH_MODE : "day";
 const TRAVEL = MODE === "cruise" || MODE === "trip";
 const TW = MODE === "cruise" ? "cruise" : "trip";                // the word this hub uses for its trips
-const APP_NAME = { cruise: "Cruise Hub", trip: "Trip Hub", home: "Home Hub", auto: "Auto Hub", money: "Money Hub", universe: "Hub Universe" }[MODE] || "Day Hub";
+const APP_NAME = { cruise: "Cruise Hub", trip: "Trip Hub", home: "Home Hub", auto: "Auto Hub", money: "Money Hub", universe: "Hub Universe", health: "Health Hub" }[MODE] || "Day Hub";
 const BASE_URL = new URL(".", (document.currentScript && document.currentScript.src) || location.href).href;   // where app.js lives
-const APP_ID = { cruise: "cruisehub", trip: "triphub", home: "homehub", auto: "autohub", money: "moneyhub", universe: "hubuniverse" }[MODE] || "dayhub";
+const APP_ID = { cruise: "cruisehub", trip: "triphub", home: "homehub", auto: "autohub", money: "moneyhub", universe: "hubuniverse", health: "healthhub" }[MODE] || "dayhub";
 const CRUISE_URL = new URL("../cruisehub/", BASE_URL).href;    // Cruise Hub's own address (repo smarvel1963-ops/cruisehub)
 const TRIP_URL = new URL("../triphub/", BASE_URL).href;        // Trip Hub's own address (repo smarvel1963-ops/triphub)
 const HOMEHUB_URL = new URL("../homehub/", BASE_URL).href;    // Home Hub's own address (repo smarvel1963-ops/homehub)
 const AUTOHUB_URL = new URL("../autohub/", BASE_URL).href;    // Auto Hub's own address (repo smarvel1963-ops/autohub)
 const MONEYHUB_URL = new URL("../moneyhub/", BASE_URL).href;  // Money Hub's own address (repo smarvel1963-ops/moneyhub)
 const UNIVERSE_URL = new URL("../hubuniverse/", BASE_URL).href;  // Hub Universe's own address (repo smarvel1963-ops/hubuniverse)
-const HOME_URL = { cruise: CRUISE_URL, trip: TRIP_URL, home: HOMEHUB_URL, auto: AUTOHUB_URL, money: MONEYHUB_URL, universe: UNIVERSE_URL }[MODE] || BASE_URL;     // this app's own folder (its sw.js lives here)
+const HEALTHHUB_URL = new URL("../healthhub/", BASE_URL).href;  // Health Hub's own address (repo smarvel1963-ops/healthhub)
+const HOME_URL = { cruise: CRUISE_URL, trip: TRIP_URL, home: HOMEHUB_URL, auto: AUTOHUB_URL, money: MONEYHUB_URL, universe: UNIVERSE_URL, health: HEALTHHUB_URL }[MODE] || BASE_URL;     // this app's own folder (its sw.js lives here)
 
 const STORE = APP_ID + ".v1";
 const WX = "https://api.open-meteo.com/v1/forecast";
@@ -92,7 +94,7 @@ function deviceId() {
 // passphrase (or with the OWNER owner-switch) counts as Pro.
 const ownerPhone = () => !!aiPass() || !!ownerSwitches().OWNER;
 const proGood = p => !!(p.buyer && p.ok && Date.now() < (p.checked || 0) + (PLAN.RECHECK_DAYS + PLAN.GRACE_DAYS) * DAY_MS);
-const proViaDayHub = () => (TRAVEL || MODE === "auto" || MODE === "money") && !proGood(proState()) && proGood(readPro(DAY_PRO_KEY));   // v1.38: Day Hub Pro unlocks Auto Hub too
+const proViaDayHub = () => (TRAVEL || MODE === "auto" || MODE === "money" || MODE === "health") && !proGood(proState()) && proGood(readPro(DAY_PRO_KEY));   // v1.38: Day Hub Pro unlocks Auto Hub too
 function isPro() {
   return ownerPhone() || proGood(proState()) || proViaDayHub();
 }
@@ -132,7 +134,7 @@ const gmailAllowed = () => switchOn("GMAIL") || S.mail.on || !!S.mail.found.leng
 // reminders and bills, and in the Trips card as a row with an Open button.
 // A cruise Cruise Hub took over from Day Hub (S.adopted) is shown from Cruise
 // Hub in both, so there is one live copy. Off: Settings -> Hub family.
-const SIB = TRAVEL || MODE === "home" || MODE === "auto" || MODE === "money" || MODE === "universe"
+const SIB = TRAVEL || MODE === "home" || MODE === "auto" || MODE === "money" || MODE === "universe" || MODE === "health"
   ? { id: "dayhub", name: "Day Hub", store: "dayhub.v1", file: "dayhub.json", url: BASE_URL, icon: "☀️" }
   : { id: "cruisehub", name: "Cruise Hub", store: "cruisehub.v1", file: "cruisehub.json", url: CRUISE_URL, icon: "🚢" };
 const FAM_KEY = APP_ID + ".family";              // the other hub's trips from its Drive backup (a cache)
@@ -191,7 +193,7 @@ async function famDriveRefresh() {
 }
 
 // ---------------------------------------------------------------- packs
-const BASE = TRAVEL ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : MODE === "home" ? ["weather", "home", "bills", "todos", "lists"] : MODE === "auto" ? ["weather", "bills", "todos", "lists"] : MODE === "money" ? ["todos", "lists"] : MODE === "universe" ? [] : ["inbox", "trips", "top3", "schedule", "errands", "leave", "routines", "reset", "tomorrow", "work", "payday", "budget", "weather", "todos", "notes", "future", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
+const BASE = TRAVEL ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : MODE === "home" ? ["weather", "home", "bills", "todos", "lists"] : MODE === "auto" ? ["weather", "bills", "todos", "lists"] : MODE === "money" ? ["todos", "lists"] : MODE === "universe" || MODE === "health" ? [] : ["inbox", "trips", "top3", "schedule", "errands", "leave", "routines", "reset", "tomorrow", "work", "payday", "budget", "weather", "todos", "notes", "future", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
 const PACKS = {
   general:  { label: "General",              cards: [] },
   trucker:  { label: "Trucker / Dispatcher", cards: ["route", "loads"] },
@@ -356,7 +358,7 @@ const money = n => "$" + Number(n || 0).toLocaleString("en-US", { minimumFractio
 const buzz = () => { try { navigator.vibrate && navigator.vibrate(8); } catch (e) { /* no haptics */ } };
 
 function cardOrder() {
-  const want = [...BASE, ...(TRAVEL || MODE === "home" || MODE === "auto" || MODE === "money" || MODE === "universe" ? [] : PACKS[S.pack].cards), ...(MODE === "universe" ? [] : ["family"])];   // v1.52 Universe's orbits are the family   // v0.50 Hub family card: always last
+  const want = [...BASE, ...(TRAVEL || MODE === "home" || MODE === "auto" || MODE === "money" || MODE === "universe" || MODE === "health" ? [] : PACKS[S.pack].cards), ...(MODE === "universe" ? [] : ["family"])];   // v1.52 Universe's orbits are the family   // v0.50 Hub family card: always last
   let order = (S.order || []).filter(k => want.includes(k));
   // A card new in this version goes to its DEFAULT place, not to the bottom
   // of someone's saved order.
@@ -1035,6 +1037,7 @@ function reminderList() {
     add(`nr:${today()}`, atMs(today(), "23:59"), at, "🛏️ Nightly reset", resetSummary());
   }
   if (typeof cruiseReminders === "function") cruiseReminders(add, inWin);       // v0.56 final-night safe check (cruise.js)
+  if (MODE === "health" && typeof hhReminders === "function") hhReminders(add, inWin);   // v1.53 Health Hub: doses, appointments, refills
   if (R.billDays >= 0) upcomingBills().forEach(b => { const d = addDays(b.due, -R.billDays);
     if (inWin(d)) { const at = atMs(d, R.billHour); add(`bill:${b.id}:${b.due}`, atMs(d, "23:59"), at, `💳 ${b.name} ${money(b.amount)}`, `Due ${prettyDate(b.due)}`); } });
   return out;
@@ -1537,7 +1540,7 @@ function drawMailBox() {
 // RELEASE RULE: every push bumps VERSION here AND version.json, with notes.
 let UPDATE = null, NOTES = null;
 // v1.41: one version.json serves every hub. A note that starts with another hub's name ("🚗 Auto Hub: ...") shows only in that hub.
-const noteForMe = x => { const m = String(x).match(/^[^A-Za-z]*((?:Day|Cruise|Trip|Home|Auto|Money) Hub|Hub Universe):/); return !m || m[1] === APP_NAME; };   // v1.52 + Hub Universe   // v1.45 + Money Hub (its notes were showing in every hub)
+const noteForMe = x => { const m = String(x).match(/^[^A-Za-z]*((?:Day|Cruise|Trip|Home|Auto|Money|Health) Hub|Hub Universe):/); return !m || m[1] === APP_NAME; };   // v1.53 + Health Hub   // v1.52 + Hub Universe   // v1.45 + Money Hub (its notes were showing in every hub)
 async function checkUpdate() {
   try {
     const r = await fetch(new URL(`version.json?x=${Date.now()}`, BASE_URL), { cache: "no-store" });
@@ -2551,6 +2554,7 @@ function pulseItems() {
   { const nx = payNext(); if (nx && daysUntil(nx) <= 3) { const pa = payAmount(), c = dueBetween(nx, payAfter(nx)), tot = c.reduce((x, o) => x + o.amt, 0);
       if (pa.amt && pa.amt < tot) add(10, "💵", `Next check comes up ${money(tot - pa.amt)} short of the bills it covers`, "payday"); } }
   if (typeof autoPulse === "function") autoPulse(add);
+  if (typeof hhPulse === "function") hhPulse(add);                      // v1.53 Health Hub: doses due / missed, refills, appointment today
   if (typeof mhPulse === "function") mhPulse(add);                      // v1.42 Money Hub: budget over, renewals, bills > cash                  // v1.37 Auto Hub: overdue service, papers running out, park-it recalls
   return out.sort((a, b) => b.pts - a.pts);
 }
@@ -2609,7 +2613,8 @@ function aiContext() {
   { const tr = curTrip(); if (tr) out.trip = tripContext(tr); }          // v0.53: the trip / cruise, for Ask Cruise Hub
   if (S.prefs && !S.prefs.skipped) out.travelStyle = { travelingWith: S.prefs.with || undefined, loves: S.prefs.loves, top3: S.prefs.top3 };   // v0.60
   const pack = () => JSON.stringify(MODE === "auto" && typeof autoContext === "function" ? { garage: autoContext(), ...out }
-    : MODE === "money" && typeof mhContext === "function" ? { money: mhContext(), ...out } : out);   // v1.42 Ask Money Hub   // v1.39 Ask Auto Hub
+    : MODE === "money" && typeof mhContext === "function" ? { money: mhContext(), ...out }
+    : MODE === "health" && typeof hhContext === "function" ? { health: hhContext(), ...out } : out);   // v1.53 Ask Health Hub: only the person's own logged data   // v1.42 Ask Money Hub   // v1.39 Ask Auto Hub
   let j = pack();
   if (j.length > 14000) { out.notes = out.notes.slice(-5); out.schedule = out.schedule.filter(x => x.day <= d(7)); j = pack(); }
   return j.slice(0, 15000);
@@ -2650,7 +2655,7 @@ function showAsk() {
   let el = document.getElementById("askSheet");
   if (!el) { el = document.createElement("div"); el.id = "askSheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); document.body.appendChild(el); }
   const tr = TRAVEL ? curTrip() : null, away = tr && tr.start && daysUntil(tr.start) <= 0;
-  const ex = MODE === "money" && typeof MV_ASKS !== "undefined" ? MV_ASKS : !TRAVEL ? ["What's happening tomorrow?", "When is my next oil change?", "What haven't I finished this week?", "What bills are due before payday?"]
+  const ex = MODE === "money" && typeof MV_ASKS !== "undefined" ? MV_ASKS : MODE === "health" && typeof HH_ASKS !== "undefined" ? HH_ASKS : !TRAVEL ? ["What's happening tomorrow?", "When is my next oil change?", "What haven't I finished this week?", "What bills are due before payday?"]
     : away ? ["When do we need to be back on the ship?", "What's the plan tomorrow?", "What should I bring ashore tomorrow?", "Which perks haven't we used?"]
     : ["What am I forgetting?", "How much do I still owe, and when?", "What's left to pack?", "What should I do this week for my cruise?"];
   el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
@@ -2661,6 +2666,7 @@ function showAsk() {
       <div id="askOut">${ASK_LOG.map(a => `<div class="ask-q">${esc(a.q)}</div><div class="ask-a">${esc(a.a)}</div>`).join("")}</div>`
     : `<p class="fine" style="margin-top:4px">${TRAVEL ? `Ask in plain words — ${MODE === "cruise" ? `"When do we need to be back on the ship?"` : `"What time is our hotel check-in?"`} — and ${APP_NAME} answers from your own ${TW}.` : MODE === "money" ? `Ask in plain words — "Can I afford a $2,000 vacation in December?" — and Money Hub answers from your own numbers, with the math.`
        : MODE === "auto" ? `Ask in plain words — "When did I last change the oil?" — and Auto Hub answers from your own garage.`
+       : MODE === "health" ? `Ask in plain words — "How has my blood pressure looked this month?" — and Health Hub answers from what you've logged. Never medical advice.`
        : `Ask in plain words — "When's my next oil change?" — and Day Hub answers from your own planner.`}</p>
        <ol class="steps"><li>Tap ⚙ (top right).</li><li>${STORE_MODE ? `Find <b>🤖 AI helper</b> and enter the email that has your Pro or AI credits.` : creditsOn() ? `Find <b>🤖 AI helper</b> → get <b>${PLAN.AI_CREDITS_NAME}</b> (${PLAN.AI_PACKS.map(p => `${p.n} for ${p.price}`).join(" or ")}), then enter the email you bought with.` : `Find <b>🤖 AI helper</b>, type your passphrase, tap <b>Turn on</b>.`}</li></ol>
        <button class="btn sm" data-askclose="1" data-open="sheet">Open ⚙</button>`}
@@ -2673,6 +2679,7 @@ async function askDayHub(q) {
   ASK_BUSY = true; ASK_LOG.unshift({ q, a: "…thinking" }); showAsk();
   // Cruise Hub: the relay's "ask" job answers only from the JSON; the trip block holds the cruise facts.
   const lead = TRAVEL ? `(Asked in ${APP_NAME} - answer about my ${TW}, using the "trip" section first.) ` : MODE === "auto" ? `(Asked in Auto Hub - answer about my cars, using the "garage" section first. Say plainly when something isn't logged.) `
+    : MODE === "health" ? `(Asked in Health Hub - answer ONLY from the "health" section: the person's own logged data. Never give medical advice, a diagnosis or dosing, and never suggest starting, stopping or changing a medicine or a dose - for those say to ask their doctor or pharmacist. If a logged reading looks worrying, say to contact their doctor, and to call 911 in an emergency. Say plainly when something isn't logged.) `
     : MODE === "money" ? `(Asked in Money Hub - answer from the "money" section first. Show the math, say which numbers are estimates, and say plainly when something isn't logged. For "can I afford" questions use "next60Days" and "lastAffordCheck". Never recommend buying or selling any investment.) ` : "";
   try { ASK_LOG[0].a = String((await aiCall("ask", `QUESTION: ${lead}${q}\n\nMY PLANNER (JSON):\n${aiContext()}`)).text || "").trim() || `I couldn't find that in your ${TRAVEL ? TW : "planner"}.`; }
   catch (e) { ASK_LOG[0].a = `⚠️ ${/passphrase/.test(e.message) ? "The AI helper's passphrase changed — set it again in ⚙" : "Couldn't reach the AI helper right now. Try again in a minute."}`; }

@@ -19,7 +19,7 @@
  */
 "use strict";
 
-const SCENE_FOR = { day: "weather", cruise: "ocean", trip: "travel", home: "weather", auto: "weather", money: "weather" };   // v0.97 Trip Hub: skyline + plane; v1.25 Home Hub: live weather
+const SCENE_FOR = { day: "weather", cruise: "ocean", trip: "travel", home: "weather", auto: "weather", money: "weather", health: "weather" };   // v1.53 Health Hub: live weather; no photo set of its own yet -> Day Hub's   // v0.97 Trip Hub: skyline + plane; v1.25 Home Hub: live weather
 let SCENE_KEY = null;
 // v1.51 REAL PHOTOS (Scott 10/17: "a faded real picture in background with app motive" + "a few themed ones that rotate").
 // 3 Pexels photos per app (free licence, sources in photos/SOURCES.csv), faded under the clock, a different one each day.

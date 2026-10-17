@@ -1,6 +1,10 @@
 {
- "version": "1.52",
+ "version": "1.53",
  "notes": {
+  "1.53": [
+   "💚 New in the Hub family: Health Hub - your wellness command center. Meds with Taken / Skipped and refill countdowns, appointments with your questions, blood pressure, glucose, weight, heart rate and oxygen with gauges and trends, water, steps, sleep, a daily check-in, a records vault and an emergency card. Everything stays on your phone. Find it in ⚙ → Hub family.",
+   "🌌 Hub Universe: Health Hub joins as a new Wellness orbit - doses due, today's appointment and refills running low, right next to your other hubs."
+  ],
   "1.52": [
    "🌌 New in the Hub family: Hub Universe - every Hub app on your phone in one place. Your hubs orbit you with what's going on in each, plus what needs you across all of them and today across everything. Find it in ⚙ → Hub family."
   ],
