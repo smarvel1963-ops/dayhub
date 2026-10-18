@@ -142,6 +142,9 @@
  * emails Scott gives free lifetime Pro (commas, spaces or new lines between them, any capitals). A friend's email
  * unlocks Pro in EVERY hub, exactly like Day Hub Pro (same phone limit, same 6-digit email code on a new phone, same
  * daily AI cap), with no Whop purchase. Remove an email from FRIENDS and that phone loses Pro at its next check.
+ *
+ * v18 (Scott 10/18 "finish up money hub"): Money Hub accepts its own Money Hub Pro ($2.99/mo, Whop prod_xg2i3uygnEw5s,
+ * 30-day trial) as well as Day Hub Pro - same shape as Auto Hub Pro. Script Property MONEY_PRODUCT_ID overrides the id.
  */
 const MODEL = "claude-haiku-4-5";
 const DAILY_CAP = 200;              // requests per day, all tasks together
@@ -334,7 +337,9 @@ function proLookup(P, b, isMem, app) {
   const co = prop(P, "WHOP_COMPANY_ID") || WHOP_COMPANY;
   // v5: Cruise Hub accepts its own Cruise Hub Pass as well as Day Hub Pro. v6: Trip Hub the same with its Trip Hub Pass.
   // v14 (Auto Hub v1.38): Auto Hub accepts its own Auto Hub Pro ($2.99/mo) as well as Day Hub Pro.
-  const PASSES = { cruisehub: ["CRUISE_PRODUCT_ID", "Cruise Hub Pass"], triphub: ["TRIP_PRODUCT_ID", "Trip Hub Pass"], autohub: ["AUTO_PRODUCT_ID", "Auto Hub Pro", "prod_JZvlJLr71aVz4"] };   // 3rd = default id (public, on the checkout page); a Script Property overrides it
+  // v18 (Money Hub): Money Hub accepts its own Money Hub Pro ($2.99/mo) as well as Day Hub Pro.
+  const PASSES = { cruisehub: ["CRUISE_PRODUCT_ID", "Cruise Hub Pass"], triphub: ["TRIP_PRODUCT_ID", "Trip Hub Pass"], autohub: ["AUTO_PRODUCT_ID", "Auto Hub Pro", "prod_JZvlJLr71aVz4"],
+                   moneyhub: ["MONEY_PRODUCT_ID", "Money Hub Pro", "prod_xg2i3uygnEw5s"] };   // 3rd = default id (public, on the checkout page); a Script Property overrides it
   const pass = PASSES[app] || null;
   const cpid = pass ? (prop(P, pass[0]) || pass[2] || null) : null;
   const pids = cpid ? [pid, cpid] : [pid];

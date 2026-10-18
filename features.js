@@ -26,7 +26,7 @@ const SWITCHES = Object.freeze({
   AUTO_PASS: true,    // ON 2026-10-14 (Scott "yes do 1-5"). Whop "Auto Hub Pro" prod_JZvlJLr71aVz4 $2.99/mo, 30-day trial; relay v14 (deploy 19). Free = 1 car.
   UNIVERSE_PASS: false, // Hub Universe Pro - one membership, Pro in every hub (Scott 10/17 "yes to hub universe pro"). OFF until Scott sets the price + Whop product.
   CHALLENGES: false,  // Health Hub friend step challenges (Scott 10/17: "step competitions against friends"). OFF until the relay has a "challenge" task.
-  MONEY_PASS: false,  // Money Hub Pro $2.99/mo (Scott 10/15). OFF until the Whop product + relay PASSES moneyhub. Free = 3 accounts, no CSV / Reports.
+  MONEY_PASS: false,  // Money Hub Pro $2.99/mo (Scott 10/15). Whop product made 10/18 (prod_xg2i3uygnEw5s); relay v18 has PASSES moneyhub - ON once v18 is deployed. Free = 3 accounts, no CSV / Reports.
   HOME_VALUE: true,   // ON 2026-10-14 (Scott: "get it done"). Home Hub "Hub Predicted Value" card (homevalue.js), Redfin ZIP data in hpv/.
 });
 
@@ -71,7 +71,7 @@ const PLAN = Object.freeze({
   // MONEY HUB PRO (Scott 10/15: "$2.99/mo"). Money Hub only. Shown while MONEY_PASS is on.
   MONEY_NAME: "Money Hub Pro",
   MONEY_MONTHLY: "$2.99/month",
-  MONEY_CHECKOUT_URL: "",            // the Whop link once the product exists
+  MONEY_CHECKOUT_URL: "https://whop.com/commander-marvel-por-picks/money-hub-pro",   // prod_xg2i3uygnEw5s, created 10/18, 30-day trial
   UNIVERSE_NAME: "Hub Universe Pro",
   UNIVERSE_CHECKOUT_URL: "",         // the Whop link once Scott creates "Hub Universe Pro" (price not set yet)
   AI_PACKS: [{ n: 100, price: "$2.99", url: "https://whop.com/commander-marvel-por-picks/hub-ai-credits-100-questions" },   // prod_PZs1nowbQqbau
