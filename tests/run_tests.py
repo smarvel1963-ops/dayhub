@@ -1246,7 +1246,7 @@ def t_v039_short_home(b, base):
 def t_v040_switches(b, base):
     print("\n[v0.40 switchboard: everything OFF by default, owner switches, Pro key, legal pages, manifest]")
     a = App(b, base); setup(a)
-    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), TRIP_PASS + AI_CREDITS on (10/11), GMAIL + STORE + MONEY_PASS + UNIVERSE_PASS + CHALLENGES OFF", a.js("SWITCHES.CHALLENGES === false && SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && SWITCHES.AI_CREDITS === true && SWITCHES.HOME_VALUE === true && SWITCHES.AUTO_PASS === true && SWITCHES.MONEY_PASS === false && SWITCHES.UNIVERSE_PASS === false && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS,AI_CREDITS,AUTO_PASS,UNIVERSE_PASS,CHALLENGES,MONEY_PASS,HOME_VALUE'"))
+    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), TRIP_PASS + AI_CREDITS on (10/11), MONEY_PASS on (10/18), GMAIL + STORE + UNIVERSE_PASS + CHALLENGES OFF", a.js("SWITCHES.CHALLENGES === false && SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && SWITCHES.AI_CREDITS === true && SWITCHES.HOME_VALUE === true && SWITCHES.AUTO_PASS === true && SWITCHES.MONEY_PASS === true && SWITCHES.UNIVERSE_PASS === false && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS,AI_CREDITS,AUTO_PASS,UNIVERSE_PASS,CHALLENGES,MONEY_PASS,HOME_VALUE'"))
     check("plan: approved price, contact, Whop checkout", a.js("PLAN.MONTHLY") == "$4.99/month" and a.js("PLAN.YEARLY") == "$29.99/year" and a.js("PLAN.CONTACT_EMAIL") == "smarvel1963@gmail.com" and a.js("PLAN.WHOP_CHECKOUT_URL") == "https://whop.com/commander-marvel-por-picks/day-hub-pro")
     check("PRO_GATE on, free phone: Pro features locked, free ones open", a.js("!['ai','gcal','mail','sync'].some(can) && ['reminders','budget'].every(can)"))
     a.page.click("#settingsBtn")
@@ -4018,6 +4018,7 @@ def mh_go(a, tab):
 def t_v142_money_hub(b, base):
     print("\n[v1.42 Money Hub: app #6 at /moneyhub/ - dashboard, accounts, spending + CSV, bills, budget, debt, subs, payday, reports]")
     a = App(b, base, path=MONEYP)
+    a.js("setOwnerSwitch('OWNER', true)")                     # Pro (owner phone) - free keeps 3 accounts since MONEY_PASS went on (10/18)
     check("Money Hub: its own name, id and data", a.js("[MODE, APP_NAME, APP_ID, STORE, TRAVEL]") == ["money", "Money Hub", "moneyhub", "moneyhub.v1", False] and a.page.title() == "Money Hub")
     check("first run: the Money Hub welcome", "Welcome to Money Hub" in a.page.inner_text("#cards"))
     a.page.fill('form[data-mhsetup] [name=name]', "Scott"); a.page.fill('form[data-mhsetup] [name=bal]', "1,500")
@@ -4134,18 +4135,18 @@ def t_v142_money_hub(b, base):
     check("Ask Money Hub: the money section goes first", list(g.keys())[0] == "money" and g["money"]["cashAvailable"] == 1500 and any(x["name"] == "Visa" for x in g["money"]["accounts"]))
     a.page.click('#mhSheet [data-mhclose]')
     # Pro gate
-    a.js("setOwnerSwitch('MONEY_PASS', true)"); a.js("render()")
+    a.js("setOwnerSwitch('OWNER', false)"); a.js("render()")  # now a free phone (MONEY_PASS is on in the switchboard)
     check("MONEY_PASS on, free: 2 accounts ok, the 4th is Pro", a.js("mhCanAddAcct()"))
     a.js("S.mh.accounts.push({id: 'z1', kind: 'cash', name: 'Wallet', bal: 20}); save()")
     a.page.click('#cards [data-mhtab="accounts"]')
     t = a.page.inner_text("#mhSheet")
     check("3 accounts on free: no add form, Money Hub Pro offer", not a.js("!!document.querySelector('#mhSheet form[data-mhacct]')") and "Money Hub Pro" in t and "$2.99/month" in t, t[-300:])
+    check("free offer: 'Start 30 days free' goes to the Whop Money Hub Pro page", a.js("!!document.querySelector('#mhSheet a[href*=\"money-hub-pro\"]')") and "30 days free" in t, t[-300:])
     mh_go(a, "reports")
     check("free: Reports locked, CSV import is Pro", "Money Hub Pro" in a.page.inner_text("#mhSheet") and (mh_go(a, "spend") or True) and not a.js("!!document.querySelector('#mhSheet [data-mhcsv]')"))
     a.page.click('#mhSheet [data-mhclose]'); a.page.click("#settingsBtn"); a.page.wait_for_timeout(200)
     pb = a.page.inner_text("#proBox") if a.js("!!document.getElementById('proBox')") else ""
     check("Money Hub Pro box: name, price, CSV + reports, Day Hub Pro counts", "Money Hub Pro" in pb and "$2.99/month" in pb and "CSV" in pb and "Day Hub Pro" in pb, pb[:300])
-    a.js("setOwnerSwitch('MONEY_PASS', false)")
     check("its own data only - Day Hub's storage untouched", a.js("!!localStorage.getItem('moneyhub.v1') && !localStorage.getItem('dayhub.v1')"))
     a.close()
     d = App(b, base)
@@ -4161,6 +4162,7 @@ PNG1 = bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000
 def t_v145_money_control_room(b, base):
     print("\n[v1.45 Money Hub control room: home hero, bottom bar, Add by photo/hand/voice, Transactions, date chips + calendar, Cash Forecast, Smart Insights, Document Vault]")
     a = App(b, base, path=MONEYP)
+    a.js("setOwnerSwitch('OWNER', true)")                     # Pro phone (MONEY_PASS on since 10/18)
     a.page.fill('form[data-mhsetup] [name=name]', "Scott"); a.page.fill('form[data-mhsetup] [name=bal]', "1000")
     a.page.select_option('form[data-mhsetup] [name=freq]', "biweekly"); a.page.fill('form[data-mhsetup] [name=next]', "2026-10-09"); a.page.fill('form[data-mhsetup] [name=check]', "1000")
     a.page.click('form[data-mhsetup] button'); a.page.wait_for_function("S.mh && S.mh.setup")
@@ -4296,6 +4298,7 @@ def t_v145_money_control_room(b, base):
 def t_v146_connect_and_cash_flow(b, base):
     print("\n[v1.46 Money Hub: Connect (bank / card / Cash App / Venmo / PayPal / Apple Card / OFX files read on the phone), transfers never counted, Cash Flow + discretionary, debt payoff chart]")
     a = App(b, base, path=MONEYP)
+    a.js("setOwnerSwitch('OWNER', true)")                     # Pro phone (MONEY_PASS on since 10/18)
     a.page.fill('form[data-mhsetup] [name=name]', "Scott"); a.page.fill('form[data-mhsetup] [name=bal]', "1000")
     a.page.select_option('form[data-mhsetup] [name=freq]', "biweekly"); a.page.fill('form[data-mhsetup] [name=next]', "2026-10-09"); a.page.fill('form[data-mhsetup] [name=check]', "1000")
     a.page.click('form[data-mhsetup] button'); a.page.wait_for_function("S.mh && S.mh.setup")
@@ -4420,6 +4423,7 @@ def t_v146_connect_and_cash_flow(b, base):
 def t_v147_share_and_rings(b, base):
     print("\n[v1.47 Money Hub: Share a statement to Money Hub (Android share target), home rings tap through + fit]")
     a = App(b, base, path=MONEYP)
+    a.js("setOwnerSwitch('OWNER', true)")                     # Pro phone (MONEY_PASS on since 10/18)
     a.page.fill('form[data-mhsetup] [name=name]', "Scott"); a.page.fill('form[data-mhsetup] [name=bal]', "1000")
     a.page.select_option('form[data-mhsetup] [name=freq]', "biweekly"); a.page.fill('form[data-mhsetup] [name=next]', "2026-10-09"); a.page.fill('form[data-mhsetup] [name=check]', "1000")
     a.page.click('form[data-mhsetup] button'); a.page.wait_for_function("S.mh && S.mh.setup")
@@ -4494,6 +4498,7 @@ def t_v148_money_advisor(b, base):
 def t_v148_data_update(b, base):
     print("\n[v1.48 Money Hub: Data Update page - days since each account was updated, Sign in link, Update file, Checked; home strip]")
     a = App(b, base, path=MONEYP)
+    a.js("setOwnerSwitch('OWNER', true)")                     # Pro phone (MONEY_PASS on since 10/18)
     a.page.fill('form[data-mhsetup] [name=name]', "Scott"); a.page.fill('form[data-mhsetup] [name=bal]', "1000")
     a.page.select_option('form[data-mhsetup] [name=freq]', "biweekly"); a.page.fill('form[data-mhsetup] [name=next]', "2026-10-09"); a.page.fill('form[data-mhsetup] [name=check]', "1000")
     a.page.click('form[data-mhsetup] button'); a.page.wait_for_function("S.mh && S.mh.setup")
