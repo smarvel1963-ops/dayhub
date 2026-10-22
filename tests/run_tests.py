@@ -4567,6 +4567,18 @@ def t_v150_store_mode_and_flash(b, base):
     m = App(b, base, path=MONEYP + "?src=play")
     check("Money Hub Play app: proLock has no price / checkout", "$" not in m.js("proLock('Reports')") and "whop" not in m.js("proLock('Reports')").lower())
     m.close()
+    # v1.56: links from the Play app to OTHER hubs carry ?src=play (they open outside the app's own address)
+    a = App(b, base, path="/?src=play"); setup(a)
+    a.js("openSettings()")
+    fam = a.js("[...document.querySelectorAll('[data-famopen]')].map(x => x.getAttribute('href'))")
+    check("Play app: every Hub family link keeps store mode (?src=play)", bool(fam) and all("src=play" in h for h in fam), fam)
+    check("...and hubHref adds it once, with & when there's already a query", a.js("hubHref('https://x.test/moneyhub/')") == "https://x.test/moneyhub/?src=play" and a.js("hubHref('https://x.test/a/?q=1')") == "https://x.test/a/?q=1&src=play")
+    a.close()
+    w = App(b, base); setup(w)
+    w.js("openSettings()")
+    wf = w.js("[...document.querySelectorAll('[data-famopen]')].map(x => x.getAttribute('href'))")
+    check("web app: Hub family links stay plain", bool(wf) and not any("src=play" in h for h in wf), wf)
+    w.close()
 
 
 def t_v151_real_photos(b, base):

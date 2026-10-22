@@ -177,7 +177,7 @@ function showPlanet(id) {
     ${h.set ? `${h.branches.length ? `<div class="uni-orbit">${hosOrbit(core, h.branches.map(([ic, l, v]) => ({ attr: `data-unigo="${h.id}"`, icon: ic, label: l, val: v, tone: h.tone })))}</div>` : ""}
       ${h.items.length ? `<h3 class="mv-h">Needs you</h3><div class="uni-list">${h.items.map(x => `<div class="uni-row${x.late ? " late" : ""}" style="--tone:${x.tone}"><span class="uni-ic">${x.icon}</span><span class="grow"><b>${esc(x.text)}</b><small>${esc(x.sub)}</small></span></div>`).join("")}</div>` : `<p class="hos-hint">✅ Nothing needs you in ${esc(h.name)}.</p>`}`
       : `<p class="hos-hint">You haven't started ${esc(h.name)} on this phone yet.</p>`}
-    <a class="btn uni-open" href="${esc(h.url)}" style="--tone:${h.tone}">${h.set ? "Open" : "Start"} ${esc(h.name)} ›</a></div>`;
+    <a class="btn uni-open" href="${esc(hubHref(h.url))}" style="--tone:${h.tone}">${h.set ? "Open" : "Start"} ${esc(h.name)} ›</a></div>`;
   el.classList.remove("hidden");
 }
 function hidePlanet() { const el = document.getElementById("uniSheet"); if (el) el.classList.add("hidden"); UNI_OPEN = null; }
@@ -185,6 +185,6 @@ if (typeof document !== "undefined") document.addEventListener("click", e => {
   if (typeof MODE === "undefined" || MODE !== "universe") return;
   const b = e.target.closest && e.target.closest("[data-uniplanet],[data-uniclose],[data-unigo]"); if (!b) return;
   if (b.dataset.uniclose) { hidePlanet(); return; }
-  if (b.dataset.unigo) { const h = UNI_HUBS.find(x => x[0] === b.dataset.unigo); if (h) location.href = h[5](); return; }
+  if (b.dataset.unigo) { const h = UNI_HUBS.find(x => x[0] === b.dataset.unigo); if (h) location.href = hubHref(h[5]()); return; }
   showPlanet(b.dataset.uniplanet);
 });

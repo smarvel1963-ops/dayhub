@@ -505,7 +505,7 @@ function famTripRows() {
     const when = n === null ? "no dates yet" : n > 0 ? `in ${n} day${n === 1 ? "" : "s"}` : daysUntil(tr.end || tr.start) >= 0 ? "happening now" : "just back";
     return `<div class="row"><div class="grow">${isCruise(tr) ? "🚢" : "✈️"} <b>${esc(tr.name || "Trip")}</b>
       <span class="sub">${when}${tr.start ? ` · ${prettyDate(tr.start)}` : ""} · planned in ${SIB.name}</span></div>
-      <a class="btn sm ghost" href="${esc(SIB.url)}" data-famopen="1">Open ${SIB.name}</a></div>`; }).join("") + `</div>`;
+      <a class="btn sm ghost" href="${esc(hubHref(SIB.url))}" data-famopen="1">Open ${SIB.name}</a></div>`; }).join("") + `</div>`;
 }
 { const ownBody = CARDS.trips.body, ownMeta = CARDS.trips.meta;
   CARDS.trips.body = () => { const fam = famTripRows();
@@ -638,7 +638,7 @@ function hubRows() {
   const sd = sibData();
   return HUBS.filter(h => h.id !== APP_ID).map(h => `<div class="row"><span class="ci">${h.icon}</span><div class="grow"><b>${h.name}</b>${h.soon ? ` <span class="tag">COMING SOON</span>` : ""}
       ${h.id === SIB.id && sd && sd.src === "phone" ? ` <span class="tag">ON THIS PHONE ✓</span>` : ""}<span class="sub">${h.what}</span></div>
-      ${h.soon ? "" : `<a class="btn sm ghost" href="${esc(h.url)}" data-famopen="1">Open</a>`}</div>`).join("");
+      ${h.soon ? "" : `<a class="btn sm ghost" href="${esc(hubHref(h.url))}" data-famopen="1">Open</a>`}</div>`).join("");
 }
 CARDS.family = { icon: "🌐", title: "Hub family",
   body: () => hubRows() + `<p class="fine" style="margin-top:6px">Made by Marvel Corp. They work together — one Pro unlocks the family. No ads, ever.</p>` };
@@ -1835,7 +1835,7 @@ function drawFamBox() {
       <ol class="steps"><li>Here in ${APP_NAME}: ⚙ → <b>Backup & sync</b> → <b>Back up to my Google Drive</b>.</li>
       <li>Open ${SIB.name} → ⚙ → <b>Backup & sync</b> → the same button, the <b>same Google account</b>.</li>
       <li>Done — each app shows the other's trips after its next backup.</li></ol>` : ""}
-    <a class="btn sm ghost" href="${esc(SIB.url)}" data-famopen="1">Open ${SIB.name}</a>
+    <a class="btn sm ghost" href="${esc(hubHref(SIB.url))}" data-famopen="1">Open ${SIB.name}</a>
     <h3 style="margin-top:14px">More from the Hub family</h3>${hubRows()}`;
 }
 function drawOwnerBox() {

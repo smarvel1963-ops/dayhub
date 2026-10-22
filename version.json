@@ -1,6 +1,9 @@
 {
- "version": "1.55",
+ "version": "1.56",
  "notes": {
+  "1.56": [
+   "🔗 In the Google Play app, opening another Hub app from ⚙ → Hub family or Hub Universe now keeps the Play app version - no prices or outside links."
+  ],
   "1.55": [
    "💰 Money Hub Pro is here: $2.99/month with 30 days free. Free keeps 3 accounts; Pro adds unlimited accounts, CSV import and Reports. Day Hub Pro unlocks it too."
   ],

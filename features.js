@@ -86,6 +86,10 @@ const STORE_MODE = (() => {
   try { if (/[?&]src=play(&|$)/.test(location.search)) sessionStorage.setItem("hub.store", "play"); return sessionStorage.getItem("hub.store") === "play"; }
   catch (e) { return typeof location !== "undefined" && /[?&]src=play(&|$)/.test(location.search); }
 })();
+// v1.56 (Scott 10/21 "build play mode now"): a link from the Play app to ANOTHER hub opens outside the app's own address,
+// in a fresh tab that hasn't seen ?src=play - so in store mode every hub link carries the flag, and that hub hides its
+// prices / Whop links too. The web app's links stay plain.
+const hubHref = u => STORE_MODE && u ? u + (u.includes("?") ? "&" : "?") + "src=play" : u;
 
 const OWNER_KEY = "dayhub.owner";
 const ownerSwitches = () => { try { return JSON.parse(localStorage.getItem(OWNER_KEY) || "{}") || {}; } catch (e) { return {}; } };
