@@ -443,7 +443,7 @@ const ptag = k => PHOTO_TAGS.find(x => x[0] === k) || PHOTO_TAGS[PHOTO_TAGS.leng
 const PHOTO_CACHE = {};
 function photoDb() {
   return new Promise((ok, no) => { const r = indexedDB.open("autohub.photos", 1);
-    r.onupgradeneeded = () => r.result.createObjectStore("p", { keyPath: "id" }); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
+    r.onupgradeneeded = () => r.result.createObjectStore("p", { keyPath: "id" }); r.onsuccess = () => { r.result.onversionchange = () => r.result.close(); ok(r.result); }; r.onerror = () => no(r.error); });   // v1.58: let Erase delete it
 }
 async function photoTx(mode, fn) {
   const db = await photoDb();

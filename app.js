@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.57";
+const VERSION = "1.58";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -2028,12 +2028,24 @@ function eraseAll() {
 // v1.57 (Play review): Health Hub's Records-vault photos live in their own IndexedDB on this phone (healthhub.vault,
 // never in S or the backup), so Erase empties and deletes that database too - nothing is left behind. Undo brings
 // the planner back but not the photos, so the undo copy drops the vault list (no entries pointing at deleted photos).
+// v1.58 (erase gap, Scott 10/22 "fix the erase gap"): the same for Money Hub's Document Vault photos (moneyhub.vault) and
+// Auto Hub's full-size car photos (autohub.photos). Every Hub app shares this phone's storage, so each one clears ONLY
+// its own database - never another hub's. Money Hub also drops a shared file not yet opened (the moneyhub-share cache).
+// The car's small cover picture (c.thumb) is ordinary data in S and the backup, so Undo keeps it; the photo list goes.
+const ERASE_DBS = { health: "healthhub.vault", money: "moneyhub.vault", auto: "autohub.photos" };
 function eraseVault() {
-  if (MODE !== "health") return;
-  try { if (UNDO) { const u = JSON.parse(UNDO); if (u.hh) u.hh.vault = []; UNDO = JSON.stringify(u); } } catch (e) { /* no undo copy */ }
+  const name = ERASE_DBS[MODE]; if (!name) return;
+  try { if (UNDO) { const u = JSON.parse(UNDO);
+    if (MODE === "health" && u.hh) u.hh.vault = [];
+    if (MODE === "money" && u.mh) u.mh.vault = [];
+    if (MODE === "auto" && u.garage && Array.isArray(u.garage.cars)) u.garage.cars.forEach(c => { if (c && typeof c === "object") { c.photos = []; c.cover = ""; } });
+    UNDO = JSON.stringify(u); } } catch (e) { /* no undo copy */ }
+  if (MODE === "auto" && typeof PHOTO_CACHE !== "undefined") Object.keys(PHOTO_CACHE).forEach(k => delete PHOTO_CACHE[k]);
+  if (MODE === "money" && typeof caches !== "undefined") caches.delete("moneyhub-share").catch(() => {});
   if (typeof indexedDB === "undefined") return;
-  const del = () => { try { indexedDB.deleteDatabase("healthhub.vault"); } catch (e) { /* private mode */ } };
-  try { hhIdb("readwrite", s => s.clear()).then(del, del); } catch (e) { del(); }
+  const del = () => { try { indexedDB.deleteDatabase(name); } catch (e) { /* private mode */ } };
+  const clear = MODE === "health" ? () => hhIdb("readwrite", s => s.clear()) : MODE === "money" ? () => mvTx("readwrite", s => s.clear()) : () => photoTx("readwrite", s => s.clear());
+  try { clear().then(del, del); } catch (e) { del(); }
 }
 // v1.29 (store audit L-M1): Erase used to reset only the planner. It now also signs this phone out of Google
 // (and tells Google to drop the sign-in) and forgets the purchase emails, the AI passphrase, saved map places and

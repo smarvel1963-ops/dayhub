@@ -4684,6 +4684,88 @@ def t_v157_play_review(b, base):
     a.close()
 
 
+# Raw IndexedDB helpers for the erase-gap test: another hub's photo store, written on the same phone (same origin).
+IDB_SEED = """([name, store, key]) => new Promise((ok, no) => { const r = indexedDB.open(name, 1);
+  r.onupgradeneeded = () => key ? r.result.createObjectStore(store, { keyPath: key }) : r.result.createObjectStore(store);
+  r.onsuccess = () => { const db = r.result, t = db.transaction(store, 'readwrite');
+    key ? t.objectStore(store).put({ id: 'x1', data: 'data:image/jpeg;base64,BBBB' }) : t.objectStore(store).put('data:image/jpeg;base64,BBBB', 'x1');
+    t.oncomplete = () => { db.close(); ok(true); }; t.onerror = () => no(t.error); }; r.onerror = () => no(r.error); })"""
+IDB_COUNT = """([name, store]) => indexedDB.databases().then(l => !l.some(x => x.name === name) ? -1 : new Promise((ok, no) => {
+  const r = indexedDB.open(name); r.onsuccess = () => { const db = r.result;
+    if (!db.objectStoreNames.contains(store)) { db.close(); ok(0); return; }
+    const q = db.transaction(store, 'readonly').objectStore(store).count(); q.onsuccess = () => { db.close(); ok(q.result); }; q.onerror = () => no(q.error); };
+  r.onerror = () => no(r.error); }))"""
+
+
+def t_v158_erase_gap(b, base):
+    print("\n[v1.58 erase gap: Erase everything also deletes Money Hub's Document Vault photos and Auto Hub's car photos - only the app's own store]")
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    ver = json.load(open(os.path.join(root, "version.json"), encoding="utf-8"))
+    sw = open(os.path.join(root, "sw.js"), encoding="utf-8").read()
+    dbs = lambda x: x.js("indexedDB.databases().then(l => l.map(d => d.name))")
+    # Money Hub: a vault photo + a shared file waiting; Auto Hub's and Health Hub's stores sit on the same phone
+    m = App(b, base, path=MONEYP)
+    check("version 1.58 everywhere: app, version.json (with notes), offline cache", m.js("VERSION") == ver["version"] == "1.58" and "1.58" in ver["notes"] and '"dayhub-v1.58"' in sw)
+    m.page.fill('form[data-mhsetup] [name=name]', "Sam"); m.page.fill('form[data-mhsetup] [name=bal]', "1500")
+    m.page.click('form[data-mhsetup] button'); m.page.wait_for_function("S.mh && S.mh.setup")
+    if m.js("briefOpen()"): m.page.click('[data-brief="go"]')
+    m.js(IDB_SEED, ["autohub.photos", "p", "id"]); m.js(IDB_SEED, ["healthhub.vault", "docs", ""])
+    m.js("mvVaultPut({type: 'receipt', title: 'Receipt', date: today(), img: 'data:image/jpeg;base64,AAAA'}).then(() => save())"); m.page.wait_for_timeout(200)
+    m.js("caches.open('moneyhub-share').then(c => c.put('./shared-file', new Response('a,b')))")
+    m.js("showMh('vault')"); m.page.wait_for_timeout(200)                  # the vault page holds a connection open, like on a phone
+    check("Money Hub: vault photo saved in IndexedDB first (moneyhub.vault), shared file waiting", m.js("mvTx('readonly', s => s.count())") == 1 and m.js("S.mh.vault.length") == 1
+          and m.js("caches.has('moneyhub-share')") is True)
+    m.js("hideMh(); eraseAll(); eraseAll()"); m.page.wait_for_timeout(600)
+    check("Erase everything deletes the Document Vault photos (moneyhub.vault database gone)", "moneyhub.vault" not in dbs(m), dbs(m))
+    check("...and the shared file not yet opened (moneyhub-share cache gone)", m.js("caches.has('moneyhub-share')") is False)
+    check("...the planner is empty and Undo would not bring back entries for deleted photos", (m.js("S.mh ? (S.mh.vault || []).length : 0") == 0) and m.js("UNDO ? JSON.parse(UNDO).mh.vault.length : -1") == 0)
+    check("...Auto Hub's car photos and Health Hub's vault on this phone are untouched", m.js(IDB_COUNT, ["autohub.photos", "p"]) == 1 and m.js(IDB_COUNT, ["healthhub.vault", "docs"]) == 1)
+    m.page.click('#toast [data-undo]'); m.page.wait_for_timeout(100)
+    check("...Undo brings Money Hub back (name, setup) with an empty vault", m.js("S.mh.setup") and m.js("(S.mh.vault || []).length") == 0)
+    m.close()
+    # Auto Hub: two photos (one the cover) kept full-size on the phone; Money Hub's and Health Hub's stores beside them
+    pic = {"name": "car.png", "mimeType": "image/png", "buffer": _png()}
+    a = App(b, base, path=AUTOP)
+    a.page.fill('form[data-autosetup] [name=city]', "72032"); a.page.fill('form[data-autosetup] [name=vin]', "1FA6P8CF0L5100001"); a.page.fill('form[data-autosetup] [name=miles]', "30000")
+    a.page.click('form[data-autosetup] button'); a.page.wait_for_function("S.garage && S.garage.cars.length === 1")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    a.js(IDB_SEED, ["moneyhub.vault", "docs", ""]); a.js(IDB_SEED, ["healthhub.vault", "docs", ""])
+    cid = a.js("S.garage.cars[0].id"); C = f"carById('{cid}')"
+    a.page.click(f'[data-acar="{cid}"]'); a.page.click('#autoSheet [data-atab="photos"]')
+    a.page.set_input_files('#autoSheet [data-aphotoadd]', pic); a.page.wait_for_function(f"{C}.photos.length === 1 && {C}.thumb")
+    a.page.set_input_files('#autoSheet [data-aphotoadd]', pic); a.page.wait_for_function(f"{C}.photos.length === 2")
+    a.page.wait_for_function("[...document.querySelectorAll('#autoSheet .auto-ph img')].some(i => i.src.startsWith('data:image/jpeg'))")
+    check("Auto Hub: 2 car photos saved in IndexedDB (autohub.photos), first one the cover", a.js("photoTx('readonly', st => st.count())") == 2 and a.js(f"{C}.cover") == a.js(f"{C}.photos[0].id"))
+    a.js("hideAutoSheet(); eraseAll(); eraseAll()"); a.page.wait_for_timeout(600)
+    check("Erase everything deletes the full-size car photos (autohub.photos database gone, nothing cached in memory)", "autohub.photos" not in dbs(a) and a.js("Object.keys(PHOTO_CACHE).length") == 0, dbs(a))
+    check("...the garage is empty and Undo would not bring back photo entries or a cover pointing at a deleted photo",
+          a.js("S.garage ? S.garage.cars.length : 0") == 0 and a.js("JSON.parse(UNDO).garage.cars.every(c => c.photos.length === 0 && !c.cover)"))
+    check("...Money Hub's Document Vault and Health Hub's vault on this phone are untouched", a.js(IDB_COUNT, ["moneyhub.vault", "docs"]) == 1 and a.js(IDB_COUNT, ["healthhub.vault", "docs"]) == 1)
+    a.page.click('#toast [data-undo]'); a.page.wait_for_timeout(100)
+    check("...Undo brings the car back (its small cover picture is normal data), with no photos", a.js("S.garage.cars.length") == 1 and a.js(f"{C}.photos.length") == 0 and a.js(f"{C}.thumb.startsWith('data:image/jpeg')"))
+    a.page.click(f'[data-acar="{cid}"]'); a.page.click('#autoSheet [data-atab="photos"]')
+    a.page.set_input_files('#autoSheet [data-aphotoadd]', pic); a.page.wait_for_function(f"{C}.photos.length === 1 && {C}.cover === {C}.photos[0].id")
+    check("...a new photo after Erase is saved again and becomes the cover", a.js("photoTx('readonly', st => st.count())") == 1)
+    a.close()
+    # Health Hub (v1.57) keeps the other hubs' stores too
+    h = App(b, base, path=HEALTHP)
+    h.page.fill('form[data-hhsetup] [name=name]', "Sam"); h.page.click('form[data-hhsetup] button'); h.page.wait_for_function("S.hh && S.hh.setup")
+    if h.js("briefOpen()"): h.page.click('[data-brief="go"]')
+    h.js(IDB_SEED, ["moneyhub.vault", "docs", ""]); h.js(IDB_SEED, ["autohub.photos", "p", "id"])
+    h.js("hhVaultPut({type: 'insurance', title: 'Card', date: today(), img: 'data:image/jpeg;base64,AAAA'}).then(() => save())"); h.page.wait_for_timeout(200)
+    h.js("eraseAll(); eraseAll()"); h.page.wait_for_timeout(600)
+    check("Health Hub Erase: its vault gone, Money Hub's vault and Auto Hub's photos untouched", "healthhub.vault" not in dbs(h)
+          and h.js(IDB_COUNT, ["moneyhub.vault", "docs"]) == 1 and h.js(IDB_COUNT, ["autohub.photos", "p"]) == 1)
+    h.close()
+    # Hubs with no photo store of their own: Erase deletes no database at all
+    for path, name in ((HOMEP, "Home Hub"), (TRIP, "Trip Hub"), (CRUISE, "Cruise Hub"), (UNIP, "Hub Universe"), ("/", "Day Hub")):
+        x = App(b, base, path=path)
+        x.js(IDB_SEED, ["moneyhub.vault", "docs", ""]); x.js(IDB_SEED, ["autohub.photos", "p", "id"]); x.js(IDB_SEED, ["healthhub.vault", "docs", ""])
+        x.js("eraseAll(); eraseAll()"); x.page.wait_for_timeout(300)
+        check(f"{name} Erase: every hub's photo store on this phone is untouched", [x.js(IDB_COUNT, [n, st]) for n, st in (("moneyhub.vault", "docs"), ("autohub.photos", "p"), ("healthhub.vault", "docs"))] == [1, 1, 1])
+        x.close()
+
+
 def t_v151_real_photos(b, base):
     print("\n[v1.51 a faded real photo behind the clock, 3 per app, rotating daily; Background -> Real photo off]")
     root = os.path.dirname(os.path.abspath(__file__))
@@ -5124,7 +5206,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete, t_v142_money_hub, t_v145_money_control_room, t_v146_connect_and_cash_flow, t_v147_share_and_rings, t_v148_money_advisor, t_v148_data_update, t_v150_store_mode_and_flash, t_v151_real_photos, t_v152_hub_universe, t_v153_health_hub, t_v153_health_reminders, t_v157_play_review):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete, t_v142_money_hub, t_v145_money_control_room, t_v146_connect_and_cash_flow, t_v147_share_and_rings, t_v148_money_advisor, t_v148_data_update, t_v150_store_mode_and_flash, t_v151_real_photos, t_v152_hub_universe, t_v153_health_hub, t_v153_health_reminders, t_v157_play_review, t_v158_erase_gap):
             if os.environ.get("ONLY") and not any(k in t.__name__ for k in os.environ["ONLY"].split(",")): continue   # ONLY=t_v145 python tests/run_tests.py
             try:
                 t(b, base)

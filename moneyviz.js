@@ -444,7 +444,7 @@ function mvInsightsHtml() {
 
 // ------------------------------------------------------------ DOCUMENT VAULT (IndexedDB on this phone; the list in S.mh.vault)
 const mvDb = () => new Promise((ok, no) => { const r = indexedDB.open("moneyhub.vault", 1);
-  r.onupgradeneeded = () => r.result.createObjectStore("docs"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
+  r.onupgradeneeded = () => r.result.createObjectStore("docs"); r.onsuccess = () => { r.result.onversionchange = () => r.result.close(); ok(r.result); }; r.onerror = () => no(r.error); });   // v1.58: let Erase delete it
 const mvTx = async (mode, fn) => { const db = await mvDb(); return new Promise((ok, no) => { const t = db.transaction("docs", mode), s = t.objectStore("docs"), r = fn(s);
   t.oncomplete = () => ok(r && r.result); t.onerror = () => no(t.error); }); };
 async function mvVaultPut(d) {
