@@ -908,12 +908,15 @@ body.mv .toast { bottom: 100px; }
 .mv-sec h3 { margin: 0; font-size: 1rem; color: #f4f8ff; font-weight: 750; }
 .mv-sec button, .mv-sec select { background: none; border: 0; color: #38b6ff; font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; }
 .mv-sec select { background: #10224f; border: 1px solid #2b4690; border-radius: 10px; color: #fff; padding: 6px 8px; }
-.mv-accts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mv-accts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
 .mv-acct { display: flex; align-items: center; gap: 10px; text-align: left; padding: 12px; border-radius: 16px; cursor: pointer; font: inherit; color: #f4f8ff;
   background: linear-gradient(140deg, rgba(20,38,96,.85), rgba(10,20,56,.85)); border: 1px solid color-mix(in srgb, var(--tone) 40%, #1e3070); min-width: 0; }
 .mv-acct span:last-child { min-width: 0; } .mv-acct small { display: block; color: #9fb3d9; font-size: .74rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mv-acct b { display: block; font-size: 1.08rem; letter-spacing: -.3px; white-space: nowrap; }
 .mv-acct-add { border-style: dashed; opacity: .85; }
+/* v1.57: the empty "Add an account" tile's words wrap inside the box (at 390px "Checking, card…" ran past the dashed edge) */
+.mv-acct-add small, .mv-acct-add b { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
+.mv-acct-add b { font-size: .92rem; line-height: 1.2; }
 .mv-ic { width: 40px; height: 40px; flex: none; border-radius: 13px; display: grid; place-items: center; font-size: 1.15rem; border: 0; color: #fff;
   background: linear-gradient(145deg, color-mix(in srgb, var(--tone) 90%, #fff), color-mix(in srgb, var(--tone) 70%, #000)); box-shadow: 0 0 12px color-mix(in srgb, var(--tone) 40%, transparent); }
 .mv-ic.sm { width: 30px; height: 30px; border-radius: 10px; font-size: .9rem; }

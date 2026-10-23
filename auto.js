@@ -489,7 +489,7 @@ function photosPane(c) {
 const SCAN_KINDS = [["receipt", "🧾", "Service receipt"], ["fuel", "⛽", "Fill-up"], ["odometer", "📍", "Odometer"], ["paper", "📄", "Insurance / registration"], ["vin", "🔎", "VIN"], ["other", "📷", "Just keep the photo"]];
 const scanBtn = carId => `<label class="btn sm ghost" style="align-self:flex-start;margin-top:8px">📷 Smart Scan<input type="file" accept="image/*" data-ascan="${carId}" hidden></label>
   <span class="fine" style="display:block">Snap an odometer, receipt, gas pump or insurance card - we read it, you check it.</span>`;
-const aiMissing = what => `${what} uses the AI helper. Add Hub AI Credits in ⚙ (or use Day Hub Pro) to turn it on.`;
+const aiMissing = what => STORE_MODE ? `${what} uses the AI helper. Turn it on in ⚙ → AI helper.` : `${what} uses the AI helper. Add Hub AI Credits in ⚙ (or use Day Hub Pro) to turn it on.`;   // v1.57 Play app: no Pro wording
 // The AI's reading, cleaned: only known kinds, real dates, sane numbers. -> fields for the review screen
 function scanFields(j, carId) {
   j = j && typeof j === "object" ? j : {};
@@ -658,7 +658,7 @@ function showAddCar() {
   el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
     <div class="sheet-head"><h2>＋ Add a car</h2><button class="icon-btn" data-aclose="1" aria-label="Close">✕</button></div>
     ${autoCanAdd() ? `<form class="qa-form" data-anewcar="1">${carFormFields()}<button class="btn">Add car</button></form>`
-      : STORE_MODE ? `<p>Auto Hub free keeps <b>1 car</b>. ${esc(PLAN.AUTO_NAME)} keeps every car you own - have it? ⚙ → ${esc(PLAN.AUTO_NAME)} → enter your email.</p>`
+      : STORE_MODE ? `<p>${esc(storeLock("More than 1 car"))}</p>`   // v1.57 Play app: no Pro wording
       : `<p>Auto Hub free keeps <b>1 car</b>. ${esc(PLAN.AUTO_NAME)} (${esc(PLAN.AUTO_MONTHLY)}, 30 days free) keeps every car you own.</p>
          ${PLAN.AUTO_CHECKOUT_URL ? `<a class="btn" href="${esc(PLAN.AUTO_CHECKOUT_URL)}" target="_blank" rel="noopener">Start 30 days free</a>` : `<p class="fine">Coming soon.</p>`}`}
     <p class="fine" id="autoMsg">${AUTO_MSG ? "⚠️ " + esc(AUTO_MSG) : ""}</p></div>`;

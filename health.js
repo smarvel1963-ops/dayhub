@@ -26,7 +26,7 @@ const HH_TABS = [["home", "🏠", "Home"], ["meds", "💊", "Medications"], ["ad
 const HH_NAV = [["home", "🏠", "Home"], ["meds", "💊", "Meds"], ["add", "＋", "Add"], ["vitals", "❤️", "Vitals"], ["more", "☰", "More"]];
 const HH_PILLS = ["#f87171", "#fb923c", "#facc15", "#4ade80", "#2dd4bf", "#60a5fa", "#a78bfa", "#f472b6", "#f1f5f9"];
 const HH_VITALS = [["bp", "🩺", "Blood pressure", "mmHg"], ["glucose", "🩸", "Glucose", "mg/dL"], ["weight", "⚖️", "Weight", "lb"], ["hr", "💓", "Heart rate", "bpm"], ["spo2", "🫁", "Oxygen", "%"]];
-const HH_BANDS = { good: ["#4ade80", "Typical"], caution: ["#fbbf24", "Caution"], check: ["#fb923c", "Check"], seek: ["#fb7185", "Seek care"], none: ["#22d3ee", ""] };
+const HH_BANDS = { good: ["#4ade80", "Typical"], caution: ["#fbbf24", "Caution"], check: ["#fb923c", "Check"], seek: ["#fb7185", "Talk to your doctor"], none: ["#22d3ee", ""] };
 const HH_WORK = [["walk", "🚶", "Walk"], ["run", "🏃", "Run"], ["gym", "🏋️", "Gym / weights"], ["bike", "🚴", "Bike"], ["swim", "🏊", "Swim"], ["yoga", "🧘", "Yoga / stretch"], ["sport", "⛹️", "Sports"], ["other", "✨", "Other"]];
 const HH_MOODS = [[1, "😞", "Rough"], [2, "😕", "Low"], [3, "😐", "Okay"], [4, "🙂", "Good"], [5, "😄", "Great"]];
 const HH_ENERGY = [[1, "😪", "Drained"], [2, "🥱", "Low"], [3, "🙂", "Okay"], [4, "💪", "Good"], [5, "⚡", "Charged"]];
@@ -491,7 +491,7 @@ function hhChart(k) {
     <p class="fine hh-center">Dots are coloured by the general range. Dashed lines: ${refs.length ? refs.join(" and ") : "none"}${k === "glucose" ? " (fasting)" : ""}.</p>`;
 }
 const HH_RANGES = {
-  bp: ["Under 120 and under 80: normal", "120-129 and under 80: elevated", "130 or higher, or 80 or higher: high", "180 or higher, or 120 or higher: seek care", "Under 90/60: lower than typical", "Source: American Heart Association categories; NIH for low"],
+  bp: ["Under 120 and under 80: normal", "120-129 and under 80: elevated", "130 or higher, or 80 or higher: high", "180 or higher, or 120 or higher: talk to your doctor", "Under 90/60: lower than typical", "Source: American Heart Association categories; NIH for low"],
   glucose: ["Fasting: 70-99 typical · 100-125 above typical · 126 or higher high", "Any time: under 140 typical (2 hours after eating) · 140-199 above · 200 or higher high", "Under 70: low", "Source: American Diabetes Association"],
   hr: ["At rest: 60-100 beats a minute is typical", "Lower can be normal for very active people", "Source: American Heart Association"],
   spo2: ["95-100%: typical", "90-94%: below typical", "Under 90%: low - contact your doctor", "Home oximeters can read lower on cold hands or darker skin"],
@@ -508,7 +508,7 @@ function hhVitalsHtml() {
       <div class="hh-vread"><small>${icon} ${esc(name)}${r ? ` · ${esc(hhRel(r.date))}${r.time ? " " + hm(r.time) : ""}` : ""}</small><b>${r ? esc(hhVUnit(r)) : "No reading yet"}</b>
         ${r && b.label ? `<span class="hh-band ${b.k}">${esc(b.label)}</span><em>General range: ${esc(b.why)}</em>` : ""}
         ${w30 != null ? `<em>${w30 === 0 ? "Same as" : w30 > 0 ? `▲ ${w30} ${unit} vs` : `▼ ${-w30} ${unit} vs`} about 30 days ago</em>` : ""}</div></section>
-    ${seek ? `<div class="hh-seek" role="alert"><b>⚠️ This reading is in the "seek care" range.</b> Wait 5 minutes and measure again. If it is still this high, contact your doctor right away.
+    ${seek ? `<div class="hh-seek" role="alert"><b>⚠️ This reading is in the "talk to your doctor" range.</b> Wait 5 minutes and measure again. If it is still this high, contact your doctor right away.
       If you also have chest pain, shortness of breath, back pain, numbness or weakness, a change in vision or trouble speaking, <b>call 911</b>.</div>` : ""}
     <p class="hh-advline">ℹ️ ${HH_ADV}</p>
     <h3 class="mv-h">＋ Add a ${esc(name.toLowerCase())} reading</h3>
@@ -620,7 +620,7 @@ function hhCheckinHtml() {
 
 // ------------------------------------------------------------ RECORDS VAULT (IndexedDB on this phone; the list in S.hh.vault)
 const hhDb = () => new Promise((ok, no) => { const r = indexedDB.open("healthhub.vault", 1);
-  r.onupgradeneeded = () => r.result.createObjectStore("docs"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
+  r.onupgradeneeded = () => r.result.createObjectStore("docs"); r.onsuccess = () => { r.result.onversionchange = () => r.result.close(); ok(r.result); }; r.onerror = () => no(r.error); });   // v1.57: let Erase delete it
 const hhIdb = async (mode, fn) => { const db = await hhDb(); return new Promise((ok, no) => { const t = db.transaction("docs", mode), s = t.objectStore("docs"), r = fn(s);
   t.oncomplete = () => ok(r && r.result); t.onerror = () => no(t.error); }); };
 async function hhVaultPut(d) {

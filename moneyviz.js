@@ -286,7 +286,7 @@ function mvTxHtml() {
         <input name="amt" inputmode="decimal" placeholder="Amount $" required aria-label="Amount"><input type="date" name="date" value="${t}" aria-label="Date"></div>
       <div class="two"><input name="what" placeholder="What for, e.g. Kroger" aria-label="What for"><select name="cat" aria-label="Category"><option value="">Category: guess it</option>${catOpts("", true)}</select></div>
       <button class="btn sm">Add</button></form>
-    ${mhGate() ? `<p class="fine">📥 Import your bank's CSV: ${esc(PLAN.MONEY_NAME)}.</p>`
+    ${mhGate() ? `<p class="fine">📥 ${STORE_MODE ? esc(storeLock("Importing your bank's CSV")) : `Import your bank's CSV: ${esc(PLAN.MONEY_NAME)}.`}</p>`
       : `<div class="mv-links">${mvFileBtn("📥 Import a file", "", "btn sm ghost")}<button class="btn sm ghost" data-mhtab="connect">🔗 Bank, Cash App, Venmo…</button></div>
          <p class="fine" style="margin:4px 0 8px">The CSV / QFX download from your bank, card, Cash App, Venmo or PayPal. Read on this phone; duplicates are skipped.</p>`}`;
 }

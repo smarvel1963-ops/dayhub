@@ -1,6 +1,11 @@
 {
- "version": "1.56",
+ "version": "1.57",
  "notes": {
+  "1.57": [
+   "🔒 Privacy in ⚙ now opens each app's own privacy page, and settings name the app you're in.",
+   "❤️ Health Hub: Erase everything also deletes your Records vault photos, and a very high reading now says \"Talk to your doctor\".",
+   "🧹 Small fixes: the Ask button says the app's own name, the automatic Top 3 only runs where the Top 3 card is, and Money Hub's \"Add an account\" tile fits on small phones."
+  ],
   "1.56": [
    "🔗 In the Google Play app, opening another Hub app from ⚙ → Hub family or Hub Universe now keeps the Play app version - no prices or outside links."
   ],

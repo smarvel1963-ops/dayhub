@@ -262,7 +262,8 @@ function showMh(tab) {
 }
 const mhMsgShow = () => { const el = document.getElementById("mhMsg"); if (el) el.textContent = MH_MSG ? "⚠️ " + MH_MSG : ""; };
 const catOpts = (sel, inc) => [...MH_CATS, ...(inc ? MH_INCATS : [])].map(([k, i, l]) => `<option value="${k}" ${sel === k ? "selected" : ""}>${i} ${l}</option>`).join("");
-const proLock = what => STORE_MODE ? `<p>${what} come with ${esc(PLAN.MONEY_NAME)}. Have it? ⚙ → ${esc(PLAN.MONEY_NAME)} → enter your email.</p>` : `<p>${what} come with ${esc(PLAN.MONEY_NAME)} (${esc(PLAN.MONEY_MONTHLY)}, 30 days free).</p>
+// v1.57 Play app: no Pro wording (storeLock)
+const proLock = what => STORE_MODE ? `<p>${esc(storeLock(what))}</p>` : `<p>${what} come with ${esc(PLAN.MONEY_NAME)} (${esc(PLAN.MONEY_MONTHLY)}, 30 days free).</p>
   ${PLAN.MONEY_CHECKOUT_URL ? `<a class="btn" href="${esc(PLAN.MONEY_CHECKOUT_URL)}" target="_blank" rel="noopener">Start 30 days free</a>` : `<p class="fine">Coming soon.</p>`}`;
 
 function mhPane() {
@@ -329,7 +330,7 @@ function mhPane() {
     const v = { start: P.start != null ? P.start : Math.round(cashNow() * 100) / 100, check: P.check != null ? P.check : Math.round((pa.amt || 0) * 100) / 100, bills: P.bills != null ? P.bills : Math.round(billsDue * 100) / 100, other: P.other || 0, save: P.save || 0 };
     const left = paydayLeft(v.start, v.check, v.bills, v.other, v.save);
     return `${nx ? `<p class="fine" style="margin-top:0">Next payday <b>${mDate(nx)}</b> (${inDays(daysUntil(nx))}). Bills below = everything due from today until the payday after that${after ? ` (${mDate(after)})` : ""}.</p>`
-        : `<p class="fine" style="margin-top:0">Set your payday in Day Hub's Payday card or the start screen to fill this in. You can type it all yourself too.</p>`}
+        : `<p class="fine" style="margin-top:0">Set your payday on the Payday page or the start screen to fill this in. You can type it all yourself too.</p>`}
       ${typeof mvWaterfall === "function" ? mvWaterfall(v, left) : ""}
       <div class="hpv-ai"><p class="sub" style="margin:0">Left after all that</p><p class="hpv-big" style="${left < 0 ? "color:var(--red)" : ""}">${usd(left)}</p>
         <p class="fine" style="margin:4px 0 0">${usd(v.start)} + ${usd(v.check)} − ${usd(v.bills)} bills − ${usd(v.other)} other − ${usd(v.save)} savings${left < 0 ? " · ⚠️ short - move a bill or trim spending" : ""}</p></div>
@@ -372,7 +373,7 @@ function mhPane() {
         <input name="amt" inputmode="decimal" placeholder="Amount $" required aria-label="Amount"><input type="date" name="date" value="${t}" aria-label="Date"></div>
       <div class="two"><input name="what" placeholder="What for, e.g. Kroger" aria-label="What for"><select name="cat" aria-label="Category"><option value="">Category: guess it</option>${catOpts("", true)}</select></div>
       <button class="btn sm">Add</button></form>
-    ${mhGate() ? `<p class="fine">📥 Import your bank's CSV: ${esc(PLAN.MONEY_NAME)}.</p>`
+    ${mhGate() ? `<p class="fine">📥 ${STORE_MODE ? esc(storeLock("Importing your bank's CSV")) : `Import your bank's CSV: ${esc(PLAN.MONEY_NAME)}.`}</p>`
       : `<label class="btn sm ghost" style="align-self:flex-start">📥 Import bank CSV<input type="file" accept=".csv,.ofx,.qfx,.qbo,text/csv" data-mhcsv="1" hidden></label>
          <p class="fine" style="margin:4px 0 8px">On your bank's website: Activity → Download → CSV. Duplicates are skipped.</p>`}
     ${L.map(x => { const h = ym(x.date) !== mon ? `<p class="sub" style="margin:10px 0 4px"><b>${monthName(ym(x.date))}</b></p>` : ""; mon = ym(x.date);
@@ -602,7 +603,7 @@ async function mhShared() {
   history.replaceState(null, "", location.pathname);
   try { const c = await caches.open("moneyhub-share"), r = await c.match("./shared-file"); if (!r) return;
     const name = decodeURIComponent(r.headers.get("x-name") || "shared file"), text = await r.text(); await c.delete("./shared-file");
-    if (mhGate()) { MH_MSG = `📥 Importing files: ${PLAN.MONEY_NAME}.`; showMh("spend"); return; }
+    if (mhGate()) { MH_MSG = STORE_MODE ? `📥 ${storeLock("Importing files")}` : `📥 Importing files: ${PLAN.MONEY_NAME}.`; showMh("spend"); return; }
     const x = parseCsv(text); if (x.error) { MH_MSG = x.error; showMh("spend"); return; }
     MH_IMPORT = { name, rows: x.rows, src: x.src || "bank", bal: x.bal != null ? x.bal : null, balDate: x.balDate || "", acct: "" }; MH_MSG = ""; showMh("spend");
   } catch (e) { /* no shared file - nothing to do */ }

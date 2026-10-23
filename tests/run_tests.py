@@ -4581,6 +4581,109 @@ def t_v150_store_mode_and_flash(b, base):
     w.close()
 
 
+PLAY_BAD = r"/\bPro\b|whop|trial|\bsubscribe\b|\bupgrade to\b|\$\d+\.99/i"
+PLAY_SCAN = """() => { const re = %s, out = [];
+  const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); let n;
+  while ((n = w.nextNode())) { const el = n.parentElement; if (!el || el.closest('script,style,#proBox,#setJump')) continue;
+    if (re.test(n.nodeValue)) out.push(n.nodeValue.trim().slice(0, 120)); }
+  return out; }""" % PLAY_BAD
+
+
+def t_v157_play_review(b, base):
+    print("\n[v1.57 Google Play review batch: no Pro wording outside the unlock box, own app names + privacy, Ask label, vault erase, Top 3 only with its card, gauge label, Add-account tile]")
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    ver = json.load(open(os.path.join(root, "version.json"), encoding="utf-8"))["version"]
+    sw = open(os.path.join(root, "sw.js"), encoding="utf-8").read()
+    # 1. Play app: Money Hub home + every page + Settings, free phone - no Pro / Whop / trial / price outside the unlock box
+    m = App(b, base, path=MONEYP + "?src=play")
+    m.page.fill('form[data-mhsetup] [name=name]', "Sam"); m.page.fill('form[data-mhsetup] [name=bal]', "1500")
+    m.page.click('form[data-mhsetup] button'); m.page.wait_for_function("S.mh && S.mh.setup")
+    if m.js("briefOpen()"): m.page.click('[data-brief="go"]')
+    check("version bumped everywhere: app, version.json, offline cache", m.js("VERSION") == ver and f'"dayhub-v{ver}"' in sw, (m.js("VERSION"), ver))
+    bad = m.js(PLAY_SCAN)
+    for k in m.js("MH_TABS.map(t => t[0])"):
+        m.js(f"showMh('{k}')"); bad += m.js(PLAY_SCAN)
+    m.js("hideMh(); openSettings()") if m.js("typeof hideMh === 'function'") else m.js("openSettings()")
+    bad += m.js(PLAY_SCAN)
+    check("Play Money Hub: no Pro / Whop / trial / price wording outside the ⚙ unlock box (home, every page, Settings)", bad == [], bad[:8])
+    check("...the family card drops 'one Pro unlocks the family'", "Pro" not in m.page.inner_text("[data-card=family]") and "Made by Marvel Corp" in m.page.inner_text("[data-card=family]"))
+    check("...locked CSV / Reports say 'not turned on for this phone' + where to enter an email", "not turned on for this phone" in m.js("proLock('Reports')") and "Pro" not in m.js("proLock('Reports')"))
+    # 8. the empty Add-an-account tile fits its box at phone width
+    m.js("document.getElementById('sheet').classList.add('hidden'); render()")
+    fit = "[...document.querySelectorAll('#cards .mv-acct-add small, #cards .mv-acct-add b')].map(e => e.scrollWidth <= e.clientWidth + 1 && e.getBoundingClientRect().right <= e.closest('.mv-acct-add').getBoundingClientRect().right)"
+    f390 = m.js(fit)
+    check("Money Hub home 390px: 'Add an account' tile text stays inside its dashed box", len(f390) == 2 and all(f390), f390)
+    m.page.set_viewport_size({"width": 1280, "height": 800}); m.page.wait_for_timeout(100)
+    f1280 = m.js(fit)
+    check("...and on a desktop screen", len(f1280) == 2 and all(f1280), f1280)
+    m.close()
+    w = App(b, base, path=MONEYP)
+    w.page.fill('form[data-mhsetup] [name=name]', "Sam"); w.page.click('form[data-mhsetup] button'); w.page.wait_for_function("S.mh && S.mh.setup")
+    check("web Money Hub unchanged: family card still says one Pro unlocks the family; Reports lock still sells", "one Pro unlocks the family" in w.page.inner_text("[data-card=family]") and "30 days free" in w.js("proLock('Reports')"))
+    w.close()
+    # 1. Auto Hub in the Play app: the car limit and the AI-missing line carry no Pro wording
+    au = App(b, base, path=AUTOP + "?src=play")
+    check("Play Auto Hub: AI-missing line and car limit have no Pro wording", "Pro" not in au.js("aiMissing('Smart Scan')") and "Pro" not in au.js("storeLock('More than 1 car')"))
+    au.close()
+    # 2 + 3. Trip Hub Settings name Trip Hub; Privacy opens Trip Hub's own page, Terms stay Day Hub's
+    t = App(b, base, path=TRIP + "?src=play")
+    t.page.fill('form[data-setup] [name=name]', "Pat"); t.page.fill('form[data-setup] [name=city]', "72032"); t.page.click('form[data-setup] button'); t.page.wait_for_function("WXDATA && WXDATA.here")
+    if t.js("briefOpen()"): t.page.click('[data-brief="go"]')
+    t.js("openSettings()")
+    st = t.page.inner_text("#sheet")
+    check("Trip Hub Settings: 'Trip Hub's reminders', its own alarms / calendar / backup wording, no 'Day Hub's reminders'",
+          "Trip Hub's reminders" in st and "Day Hub's reminders" not in st and "Day Hub can't see" not in st and "hidden Day Hub folder" not in st, st[:300])
+    links = t.js("[...document.querySelectorAll('#legalLinks a')].map(a => a.href)")
+    check("Privacy opens /triphub/privacy.html; Terms stay /dayhub/terms.html", links[0].endswith("/triphub/privacy.html") and links[1].endswith("/dayhub/terms.html"), links)
+    bad = t.js(PLAY_SCAN)
+    check("Play Trip Hub: no Pro wording outside the unlock box (home + Settings)", bad == [], bad[:6])
+    t.close()
+    for path, name, slug in ((HOMEP, "Home Hub", "homehub"), (HEALTHP, "Health Hub", "healthhub"), ("/", "Day Hub", "dayhub")):
+        x = App(b, base, path=path + "?src=play")
+        x.js("openSettings()")
+        h = x.js("document.querySelector('#legalLinks a').href")
+        check(f"{name}: Privacy link is its own page", h.endswith(f"/{slug}/privacy.html"), h)
+        x.close()
+    # 4 + 6. Home Hub: the hero button says Ask Home Hub; the automatic Top 3 never runs (no Top 3 card here)
+    hm = App(b, base, path=HOMEP + "?src=play")
+    hm.page.fill('form[data-homesetup] [name=name]', "Pat"); hm.page.fill('form[data-homesetup] [name=city]', "72032")
+    hm.page.click('form[data-homesetup] button'); hm.page.wait_for_function("WXDATA && WXDATA.here")
+    if hm.js("briefOpen()"): hm.page.click('[data-brief="go"]')
+    check("Home Hub hero: 'Ask Home Hub' (not Ask Day Hub)", hm.js("document.querySelector('#hero [data-ask=open]').getAttribute('aria-label')") == "Ask Home Hub")
+    hm.js("S.top3 = {day: null, items: [], ai: false}; save()")
+    hm.js("syncOnOpen(true)"); hm.page.wait_for_timeout(400)
+    sent = [x for x in getattr(hm.ctx, "_relay", []) if x.get("task") == "top3"]
+    check("Home Hub: no Top 3 card, so the automatic Top 3 never runs and nothing goes to the AI", not hm.js("cardOrder().includes('top3')") and hm.js("S.top3.day") is None and sent == [], (hm.js("S.top3"), len(sent)))
+    bad = hm.js(PLAY_SCAN)
+    check("Play Home Hub: no Pro wording outside the unlock box", bad == [], bad[:6])
+    hm.close()
+    d = App(b, base); setup(d)
+    d.js("S.top3 = {day: null, items: [], ai: false}; save(); syncOnOpen(true)"); d.page.wait_for_timeout(300)
+    check("Day Hub keeps its Top 3 card, the automatic pick and 'Ask Day Hub'", d.js("cardOrder().includes('top3')") and d.js("S.top3.day === today()")
+          and d.js("document.querySelector('#hero [data-ask=open]').getAttribute('aria-label')") == "Ask Day Hub", d.js("S.top3"))
+    d.close()
+    # 4 + 5 + 6 + 7. Health Hub
+    a = App(b, base, path=HEALTHP + "?src=play")
+    a.page.fill('form[data-hhsetup] [name=name]', "Sam"); a.page.click('form[data-hhsetup] button'); a.page.wait_for_function("S.hh && S.hh.setup")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    check("Health Hub hero: 'Ask Health Hub'", a.js("document.querySelector('#hero [data-ask=open]').getAttribute('aria-label')") == "Ask Health Hub")
+    a.js("S.top3 = {day: null, items: [], ai: false}; save(); syncOnOpen(true)"); a.page.wait_for_timeout(300)
+    check("Health Hub: the automatic Top 3 does not run", a.js("S.top3.day") is None)
+    check("gauge band: 'Talk to your doctor' (other labels kept)", a.js("HH_BANDS.seek[1]") == "Talk to your doctor" and a.js("[HH_BANDS.good[1], HH_BANDS.caution[1], HH_BANDS.check[1]].join()") == "Typical,Caution,Check")
+    a.js("showHh('vitals')")
+    a.page.fill('#hhSheet form[data-hhvital] [name=sys]', "182"); a.page.fill('#hhSheet form[data-hhvital] [name=dia]', "90"); a.page.click('#hhSheet form[data-hhvital] button'); a.page.wait_for_timeout(100)
+    vt = a.page.inner_text("#hhSheet")
+    check("a 182/90 reading: the alert says the 'talk to your doctor' range, no 'seek care'", "talk to your doctor" in vt.lower() and "seek care" not in vt.lower(), vt[:300])
+    a.js("hideHh()")
+    a.js("hhVaultPut({type: 'insurance', title: 'Card', date: today(), img: 'data:image/jpeg;base64,AAAA'}).then(() => save())"); a.page.wait_for_timeout(200)
+    check("vault photo saved in IndexedDB first", a.js("hhIdb('readonly', s => s.count())") == 1 and a.js("S.hh.vault.length") == 1)
+    a.js("eraseAll(); eraseAll()"); a.page.wait_for_timeout(600)
+    dbs = a.js("indexedDB.databases ? indexedDB.databases().then(l => l.map(x => x.name)) : []")
+    check("Erase everything deletes the Records-vault photos (healthhub.vault database gone)", "healthhub.vault" not in dbs, dbs)
+    check("...the planner is empty and Undo would not bring back entries for deleted photos", a.js("S.hh ? S.hh.vault.length : 0") == 0 and a.js("UNDO ? JSON.parse(UNDO).hh.vault.length : -1") == 0)
+    a.close()
+
+
 def t_v151_real_photos(b, base):
     print("\n[v1.51 a faded real photo behind the clock, 3 per app, rotating daily; Background -> Real photo off]")
     root = os.path.dirname(os.path.abspath(__file__))
@@ -5021,7 +5124,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete, t_v142_money_hub, t_v145_money_control_room, t_v146_connect_and_cash_flow, t_v147_share_and_rings, t_v148_money_advisor, t_v148_data_update, t_v150_store_mode_and_flash, t_v151_real_photos, t_v152_hub_universe, t_v153_health_hub, t_v153_health_reminders):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete, t_v142_money_hub, t_v145_money_control_room, t_v146_connect_and_cash_flow, t_v147_share_and_rings, t_v148_money_advisor, t_v148_data_update, t_v150_store_mode_and_flash, t_v151_real_photos, t_v152_hub_universe, t_v153_health_hub, t_v153_health_reminders, t_v157_play_review):
             if os.environ.get("ONLY") and not any(k in t.__name__ for k in os.environ["ONLY"].split(",")): continue   # ONLY=t_v145 python tests/run_tests.py
             try:
                 t(b, base)

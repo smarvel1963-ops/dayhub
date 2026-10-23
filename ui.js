@@ -350,7 +350,7 @@ const CARDS = {
           <a class="btn sm ghost" href="${trackUrl(p)}" target="_blank" rel="noopener">Track</a>
           ${p.delivered ? "" : `<button class="btn sm ghost" data-pkgdone="${p.id}" aria-label="Delivered">✓</button>`}
           <button class="x" data-del="packages:${p.id}" aria-label="Remove">✕</button></div>`; }).join("") +
-        `<div class="fine" style="margin-top:6px">Track opens the carrier's page. Live status updates are planned for Day Hub Pro.</div>` + retHtml;
+        `<div class="fine" style="margin-top:6px">Track opens the carrier's page. Live status updates are planned${STORE_MODE ? "" : " for Day Hub Pro"}.</div>` + retHtml;
     } },
 
   people: { icon: "🎂", title: "People & dates", add: ["person", "Add a birthday or date"],
@@ -641,7 +641,7 @@ function hubRows() {
       ${h.soon ? "" : `<a class="btn sm ghost" href="${esc(hubHref(h.url))}" data-famopen="1">Open</a>`}</div>`).join("");
 }
 CARDS.family = { icon: "🌐", title: "Hub family",
-  body: () => hubRows() + `<p class="fine" style="margin-top:6px">Made by Marvel Corp. They work together — one Pro unlocks the family. No ads, ever.</p>` };
+  body: () => hubRows() + `<p class="fine" style="margin-top:6px">Made by Marvel Corp. They work together${STORE_MODE ? "" : " — one Pro unlocks the family"}. No ads, ever.</p>` };   // v1.57 Play app: no Pro wording
 
 // v0.51 Cruise Hub's second weather: where the cruise is (app.js cruiseWxDays).
 function cruiseWxBlock() {
@@ -730,8 +730,8 @@ function render() {
   const cardHtml = k => {
     const c = CARDS[k]; const col = S.collapsed.includes(k) && !MINI_OPEN.has(k);
     const tag = PACKS[S.pack].cards.includes(k) ? ` <span class="tag">${PACKS[S.pack].label}</span>` : "";
-    if (!can(k)) return `<section class="card" data-card="${k}"><h3><span class="ci">${c.icon}</span>${c.title} <span class="tag">PRO</span></h3>
-      <div class="body"><div class="empty">Part of ${proName()}. No ads, ever — Pro just does more.</div></div></section>`;
+    if (!can(k)) return `<section class="card" data-card="${k}"><h3><span class="ci">${c.icon}</span>${c.title} <span class="tag">${STORE_MODE ? "🔒" : "PRO"}</span></h3>
+      <div class="body"><div class="empty">${STORE_MODE ? esc(storeLock(c.title)) : `Part of ${proName()}. No ads, ever — Pro just does more.`}</div></div></section>`;
     if (isMini(k)) return miniHtml(k);
     return `<section class="card ${col ? "collapsed" : ""}" data-card="${k}">
       <h3 data-collapse="${k}"><span class="ci">${c.icon}</span>${c.title}${tag}<span class="meta">${c.meta ? c.meta() : ""}</span><span class="chev">⌄</span></h3>
@@ -831,9 +831,9 @@ function drawAiBox(msg) {
     : aiOn()
     ? `<div class="leg"><span>✅ On — Brain dump, 💡 Ask and 🎯 Top 3 use AI${msg ? ` · ${esc(msg)}` : ""}</span></div>
        <div class="foot-actions"><button class="btn sm" data-ai="test">Test it</button><button class="btn sm ghost" data-ai="off">Turn off</button></div>`
-    : (switchOn("PRO_GATE") && switchOn("AI_PUBLIC") ? `<p class="fine" style="margin-top:0"><b>Included with ${PLAN.NAME}</b> — unlock it in ${PLAN.NAME} above. Have your own relay passphrase? Use it here instead.</p>` : "") +
+    : (switchOn("PRO_GATE") && switchOn("AI_PUBLIC") ? `<p class="fine" style="margin-top:0">${STORE_MODE ? `Unlocked it already? Enter your email in the box above.` : `<b>Included with ${PLAN.NAME}</b> — unlock it in ${PLAN.NAME} above.`} Have your own relay passphrase? Use it here instead.</p>` : "") +
       `<p class="fine" style="margin-top:0">Smarter sorting for 🧠 Brain dump (more coming). Uses your own Claude helper — set up once:</p>
-       <ol class="steps"><li>Type the passphrase you saved as <b>PASS</b> in your Day Hub AI relay.</li><li>Tap <b>Turn on</b>.</li></ol>
+       <ol class="steps"><li>Type the passphrase you saved as <b>PASS</b> in your Hub AI relay.</li><li>Tap <b>Turn on</b>.</li></ol>
        <form class="inline-add" data-aipass="1"><input name="pass" type="password" placeholder="Passphrase" autocomplete="off" required><button class="btn sm">Turn on</button></form>
        ${msg ? `<p class="fine" style="margin-top:6px">⚠️ ${esc(msg)}</p>` : ""}`) + aiNotesHtml();
 }
@@ -1723,10 +1723,10 @@ function drawSettings() {
   if (!g) { g = document.createElement("div"); g.id = "gcalBox"; document.getElementById("cardList").before(g); }
   const ok = S.gcal.connected && S.gcal.scope === GCAL_SCOPE && !S.gcal.needsWrite;
   g.innerHTML = `<h3>Your phone calendar</h3>` + (ok
-    ? `<div class="leg"><span>✅ Connected — Day Hub events, bills and shifts go to your phone calendar${S.gcal.pushed ? ` · last sent ${fmtTime(S.gcal.pushed)}` : ""}</span></div>
+    ? `<div class="leg"><span>✅ Connected — ${APP_NAME} events, bills and shifts go to your phone calendar${S.gcal.pushed ? ` · last sent ${fmtTime(S.gcal.pushed)}` : ""}</span></div>
        <div class="foot-actions"><button class="btn sm" data-gsync="1">Sync now</button><button class="btn sm ghost" data-gdisc="1">Disconnect</button></div>
        <details class="steps"><summary>Not showing on your phone? Check these</summary>${phoneCalSteps()}</details>`
-    : `<p class="fine">Puts everything you add in Day Hub on your phone's own calendar, with alarms that ring even when Day Hub is closed. Your phone's events show here too.</p>
+    : `<p class="fine">Puts everything you add in ${APP_NAME} on your phone's own calendar, with alarms that ring even when ${APP_NAME} is closed. Your phone's events show here too.</p>
        <ol class="steps">
          <li>Tap <b>${S.gcal.connected ? "Reconnect" : "Connect"}</b> below.</li>
          <li>Pick your Google account.</li>
@@ -1741,7 +1741,8 @@ function drawSettings() {
   document.getElementById("ver").textContent = `Version ${VERSION}.`;
   let lg = document.getElementById("legalLinks");
   if (!lg) { lg = document.createElement("span"); lg.id = "legalLinks"; document.getElementById("ver").after(lg); }
-  lg.innerHTML = ` <a href="${new URL("privacy.html", BASE_URL).href}" target="_blank" rel="noopener">Privacy</a> · <a href="${new URL("terms.html", BASE_URL).href}" target="_blank" rel="noopener">Terms</a> · <a href="mailto:${PLAN.CONTACT_EMAIL}">Contact</a>`;
+  // v1.57 (Play review): Privacy opens THIS app's own policy (each hub has its own privacy.html); Terms stay Day Hub's
+  lg.innerHTML = ` <a href="${new URL("privacy.html", HOME_URL).href}" target="_blank" rel="noopener">Privacy</a> · <a href="${new URL("terms.html", BASE_URL).href}" target="_blank" rel="noopener">Terms</a> · <a href="mailto:${PLAN.CONTACT_EMAIL}">Contact</a>`;
 }
 
 // v0.40 - Day Hub Pro (shown only while PRO_GATE is on; everything is free while it's off).
@@ -1830,8 +1831,8 @@ function drawFamBox() {
     : `Waiting for ${SIB.name}.`;
   g.innerHTML = `<h3>${SIB.icon} Hub family</h3>
     <ul class="card-list"><li><span>See my ${SIB.name} trips here</span><input type="checkbox" data-fam="1" ${S.family ? "checked" : ""} aria-label="Link with ${SIB.name}"></li></ul>
-    <p class="fine" style="margin-top:6px"><b>${state}</b> ${APP_NAME} and ${SIB.name} are separate apps that work together: a trip planned in one shows in the other's schedule, morning brief, reminders and bills. Each app keeps its own data — ${APP_NAME} never changes ${SIB.name}'s. One Pro purchase unlocks both.</p>
-    ${S.family && !(sd && sd.src === "phone") ? `<p class="fine"><b>Phone that keeps each app apart (iPhone)? Link through backup (Pro):</b></p>
+    <p class="fine" style="margin-top:6px"><b>${state}</b> ${APP_NAME} and ${SIB.name} are separate apps that work together: a trip planned in one shows in the other's schedule, morning brief, reminders and bills. Each app keeps its own data — ${APP_NAME} never changes ${SIB.name}'s.${STORE_MODE ? "" : " One Pro purchase unlocks both."}</p>
+    ${S.family && !(sd && sd.src === "phone") ? `<p class="fine"><b>Phone that keeps each app apart (iPhone)? Link through backup${STORE_MODE ? "" : " (Pro)"}:</b></p>
       <ol class="steps"><li>Here in ${APP_NAME}: ⚙ → <b>Backup & sync</b> → <b>Back up to my Google Drive</b>.</li>
       <li>Open ${SIB.name} → ⚙ → <b>Backup & sync</b> → the same button, the <b>same Google account</b>.</li>
       <li>Done — each app shows the other's trips after its next backup.</li></ol>` : ""}
@@ -1858,8 +1859,8 @@ function phoneCalSteps() {
     <li>Open <b>Settings</b> → <b>Calendar</b> → <b>Accounts</b> → <b>Add Account</b> → <b>Google</b>.</li>
     <li>Sign in, then turn <b>Calendars</b> on → <b>Save</b>.</li></ol>`;
   return `${isIOS() ? iphone + samsung : samsung + iphone}
-    <p class="fine">Test it: add any event in Day Hub — within a minute it's in your phone's calendar.
-    Google lets Day Hub stay signed in for about an hour; after that, changes wait for one tap on <b>🔄 Sync Google Calendar</b>.</p>`;
+    <p class="fine">Test it: add any event in ${APP_NAME} — within a minute it's in your phone's calendar.
+    Google lets ${APP_NAME} stay signed in for about an hour; after that, changes wait for one tap on <b>🔄 Sync Google Calendar</b>.</p>`;
 }
 function drawCardList() {
   document.getElementById("cardList").innerHTML = cardOrder().map(k => `<li><span>${CARDS[k].icon} ${CARDS[k].title}</span>

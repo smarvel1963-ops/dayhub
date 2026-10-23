@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.56";
+const VERSION = "1.57";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -106,6 +106,9 @@ const autoPass = () => MODE === "auto" && switchOn("AUTO_PASS");   // v1.38 Auto
 const moneyPass = () => MODE === "money" && switchOn("MONEY_PASS");   // v1.42 Money Hub Pro, $2.99/month (OFF until the Whop product)
 const hubPass = () => cruisePass() || tripPass() || autoPass() || moneyPass();
 const proName = () => cruisePass() ? PLAN.CRUISE_NAME : tripPass() ? PLAN.TRIP_NAME : autoPass() ? PLAN.AUTO_NAME : moneyPass() ? PLAN.MONEY_NAME : PLAN.NAME;
+// v1.57 (Play review, Scott 10/22 "yes"): in the Play app no "Pro" / price / trial wording anywhere outside the
+// ⚙ unlock box - a locked extra just says it isn't on for this phone and where to enter an email already unlocked.
+const storeLock = what => `${what}: not turned on for this phone. Already unlocked it? ⚙ → enter your email.`;
 async function verifyPro(buyer) {                   // throws when the check can't be reached
   const j = await (await fetch(AI_URL, { method: "POST", body: JSON.stringify({ task: "verify", buyer, device: deviceId(), app: APP_ID }) })).json();
   if (typeof j.valid !== "boolean") throw new Error(j.error || "no answer");
@@ -629,7 +632,8 @@ async function syncOnOpen(force) {
   if (S.gcal.connected && gReady()) { await gcalFetch(true); await gcalPush(); gcalDates(); }
   if (S.sync.on && dReady()) { await syncDrive(); famDriveRefresh(); }
   if (S.mail.on && mReady() && can("mail")) scanMail();
-  if (!TRAVEL && S.top3.day !== today() && new Date().getHours() >= 4 && (S.name || hasData(S)) && !S.hidden.includes("top3")) top3Pick();
+  // v1.57 (Play review): only where a Top 3 card is on the screen - Home / Health / Money / Auto / Universe have none, so nothing goes to the AI there
+  if (!TRAVEL && S.top3.day !== today() && new Date().getHours() >= 4 && (S.name || hasData(S)) && !S.hidden.includes("top3") && cardOrder().includes("top3")) top3Pick();
   render();
 }
 // ZERO-TAP renew (Scott 10/2: "still need calendar to auto sync on open").
@@ -950,7 +954,7 @@ function drawSyncBox(delArmed) {
        <ol class="steps"><li>Tap <b>Back up to my Google Drive</b>.</li><li>Pick your Google account → <b>Continue</b> → <b>Allow</b>.</li>
          <li>Done — every change saves to Google's servers by itself from then on.</li></ol>
        <button class="btn sm" data-sync="on">☁️ Back up to my Google Drive</button>
-       <p class="fine" style="margin-top:8px">Brings everything back on a new or reset phone. Saved in a hidden Day Hub folder in your own Drive — only Day Hub can see it.</p>`);
+       <p class="fine" style="margin-top:8px">Brings everything back on a new or reset phone. Saved in a hidden ${APP_NAME} folder in your own Drive — only ${APP_NAME} and the other Hub apps can see it.</p>`);
 }
 
 // ------------------------------------------------------------- reminders
@@ -1097,7 +1101,7 @@ function drawRemindBox() {
          <select data-rset="billDays">${opt(-1, "Off", R.billDays)}${opt(0, "Morning of the due day", R.billDays)}${opt(1, "Morning, 1 day before", R.billDays)}${opt(3, "Morning, 3 days before", R.billDays)}</select></label>
        <div class="foot-actions" style="margin-top:10px"><button class="btn sm" data-remind="test">Send a test</button><button class="btn sm ghost" data-remind="off">Turn off</button></div>`
     : `<button class="btn sm" data-remind="on">Turn on reminders</button>`) +
-    `<p class="fine" style="margin-top:8px">Day Hub's reminders arrive while it's open or used recently. For a can't-miss item, tap 📲 on it — that puts it in your phone's own calendar, which alerts you even when Day Hub is closed.</p>`;
+    `<p class="fine" style="margin-top:8px">${APP_NAME}'s reminders arrive while it's open or used recently. For a can't-miss item, tap 📲 on it — that puts it in your phone's own calendar, which alerts you even when ${APP_NAME} is closed.</p>`;
 }
 
 // ------------------------------------------------- add to phone calendar (.ics)
@@ -2017,9 +2021,19 @@ function eraseAll() {
   // NOT closeSettings(): that saves the still-open form, which would write the
   // old name / city straight back into the erased app (caught by the test suite).
   S = blank(); saveLocal(); WXDATA = null; document.getElementById("sheet").classList.add("hidden");
-  forgetPhone();
+  forgetPhone(); eraseVault();
   render();
   toast(`Erased${keepName ? ", " + keepName : ""}`, true);
+}
+// v1.57 (Play review): Health Hub's Records-vault photos live in their own IndexedDB on this phone (healthhub.vault,
+// never in S or the backup), so Erase empties and deletes that database too - nothing is left behind. Undo brings
+// the planner back but not the photos, so the undo copy drops the vault list (no entries pointing at deleted photos).
+function eraseVault() {
+  if (MODE !== "health") return;
+  try { if (UNDO) { const u = JSON.parse(UNDO); if (u.hh) u.hh.vault = []; UNDO = JSON.stringify(u); } } catch (e) { /* no undo copy */ }
+  if (typeof indexedDB === "undefined") return;
+  const del = () => { try { indexedDB.deleteDatabase("healthhub.vault"); } catch (e) { /* private mode */ } };
+  try { hhIdb("readwrite", s => s.clear()).then(del, del); } catch (e) { del(); }
 }
 // v1.29 (store audit L-M1): Erase used to reset only the planner. It now also signs this phone out of Google
 // (and tells Google to drop the sign-in) and forgets the purchase emails, the AI passphrase, saved map places and
@@ -2668,7 +2682,7 @@ function showAsk() {
        : MODE === "auto" ? `Ask in plain words — "When did I last change the oil?" — and Auto Hub answers from your own garage.`
        : MODE === "health" ? `Ask in plain words — "How has my blood pressure looked this month?" — and Health Hub answers from what you've logged. Never medical advice.`
        : `Ask in plain words — "When's my next oil change?" — and Day Hub answers from your own planner.`}</p>
-       <ol class="steps"><li>Tap ⚙ (top right).</li><li>${STORE_MODE ? `Find <b>🤖 AI helper</b> and enter the email that has your Pro or AI credits.` : creditsOn() ? `Find <b>🤖 AI helper</b> → get <b>${PLAN.AI_CREDITS_NAME}</b> (${PLAN.AI_PACKS.map(p => `${p.n} for ${p.price}`).join(" or ")}), then enter the email you bought with.` : `Find <b>🤖 AI helper</b>, type your passphrase, tap <b>Turn on</b>.`}</li></ol>
+       <ol class="steps"><li>Tap ⚙ (top right).</li><li>${STORE_MODE ? `Find <b>🤖 AI helper</b> and enter the email you unlocked it with.` : creditsOn() ? `Find <b>🤖 AI helper</b> → get <b>${PLAN.AI_CREDITS_NAME}</b> (${PLAN.AI_PACKS.map(p => `${p.n} for ${p.price}`).join(" or ")}), then enter the email you bought with.` : `Find <b>🤖 AI helper</b>, type your passphrase, tap <b>Turn on</b>.`}</li></ol>
        <button class="btn sm" data-askclose="1" data-open="sheet">Open ⚙</button>`}
   </div>`;
   el.classList.remove("hidden");
@@ -2743,7 +2757,7 @@ const alarmDays = a => !a.days.length ? (a.once ? prettyDate(a.once) : "once") :
 function drawAlarmBox() {
   const g = document.getElementById("alarmBox"); if (!g) return;
   g.innerHTML = `<h3>⏰ My alarms</h3>
-    <p class="fine" style="margin-top:0">Day Hub can't see your phone's Clock app, so add your alarms here once — they show on your schedule and in the Nightly reset.</p>
+    <p class="fine" style="margin-top:0">${APP_NAME} can't see your phone's Clock app, so add your alarms here once — they show on your schedule and in the Nightly reset.</p>
     ${S.alarms.map(a => `<div class="row"><input type="checkbox" class="tick" data-alon="${a.id}" ${a.on ? "checked" : ""} aria-label="On">
       <span class="grow"><b>${hm(a.time)}</b> <span class="sub">${esc(alarmDays(a))}${a.label ? ` · ${esc(a.label)}` : ""}</span></span>
       <button class="x" data-aledit="${a.id}" aria-label="Edit">✏️</button></div>`).join("")}
@@ -2964,7 +2978,7 @@ function heroHtml() {
   // v0.54 (Scott 10/4: "across the top of the apps to signify app you're on - DAY HUB, CRUISE HUB"):
   // every hub shows its own name + icon at the top.
   return `<div class="hero-top"><div class="brand"><img src="icon-192.png" alt="" width="24" height="24"><span>${esc(APP_NAME.toUpperCase())}</span>${navigator.onLine === false ? `<span class="offline-pill" title="No connection - your plans still work; weather may be old">🟠 Offline</span>` : ""}</div>
-      <span class="hero-btns">${!TRAVEL ? `<button class="icon-btn" data-ask="open" aria-label="Ask Day Hub">💡</button><button class="icon-btn" data-leave="1" aria-label="Don't forget">🚪</button><button class="icon-btn" data-dump="1" aria-label="Brain dump">🧠</button>` : `<button class="icon-btn help-icon" data-help="home" aria-label="Need help">🛟</button><button class="icon-btn" data-ask="open" aria-label="Ask ${APP_NAME}">💡</button>`}<button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button></span></div>
+      <span class="hero-btns">${!TRAVEL ? `<button class="icon-btn" data-ask="open" aria-label="Ask ${APP_NAME}">💡</button><button class="icon-btn" data-leave="1" aria-label="Don't forget">🚪</button><button class="icon-btn" data-dump="1" aria-label="Brain dump">🧠</button>` : `<button class="icon-btn help-icon" data-help="home" aria-label="Need help">🛟</button><button class="icon-btn" data-ask="open" aria-label="Ask ${APP_NAME}">💡</button>`}<button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button></span></div>
     <div class="greet">${greet()}</div>
     <div class="hero-main"><div><div class="hero-clock" id="clockNow"></div><div class="hero-date">${longDate(today())}</div></div>${wx}</div>
     ${CD || `<div class="verdict-row">${!TRAVEL && (S.name || hasData(S)) ? pulseRing() : ""}<div class="verdict">${verdict}</div></div>`}

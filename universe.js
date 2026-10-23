@@ -157,7 +157,7 @@ function uniHomeHtml() {
   </section>`;
 }
 function uniProHtml() {
-  if (!switchOn("UNIVERSE_PASS")) return "";
+  if (!switchOn("UNIVERSE_PASS") || STORE_MODE) return "";   // v1.57 Play app: no Pro section
   return `<section class="uni-pro"><h3>🌌 Hub Universe Pro</h3><p>One membership for every hub - Pro in all of them, today and every new hub we add.</p>
     ${PLAN.UNIVERSE_CHECKOUT_URL && !STORE_MODE ? `<a class="btn" href="${esc(PLAN.UNIVERSE_CHECKOUT_URL)}" target="_blank" rel="noopener">Get Hub Universe Pro</a>` : `<p class="fine">Coming soon.</p>`}</section>`;
 }
