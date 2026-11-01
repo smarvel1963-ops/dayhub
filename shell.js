@@ -100,6 +100,7 @@ function bubblesHtml(items) {
 }
 function homeHtml() {
   if (S.simple) return simpleHomeHtml();                                    // v0.62 simple mode
+  if (typeof ctOn === "function" && ctOn()) return ctHomeHtml();           // Cruise Hub new look (cruisetiles.js, switch OFF)
   const tr = curTrip(), items = rightNow(tr), nx = nextUp(), bb = bigButton(tr);
   if (!tr) return MODE === "trip" ? addTripHtml() : addCruiseHtml();       // v0.60 no cruise / trip yet: the ways in
   const [bi, bl] = splitIcon(bb.label);                                     // the big button's job = the hot bubble
@@ -151,6 +152,7 @@ function aiTabHtml() {
 }
 // Called by render(): the content for the current tab.
 function shellHtml(cardHtml) {
+  if (typeof ctOn === "function" && ctOn()) return ctShellHtml(cardHtml);  // Cruise Hub new look (cruisetiles.js, switch OFF)
   if (TAB === "home") return homeHtml();
   if (TAB === "explore") return exploreHtml(cardHtml);
   if (TAB === "ai") return aiTabHtml();
@@ -159,10 +161,12 @@ function shellHtml(cardHtml) {
 }
 function paintTabs() {
   let nav = document.getElementById("tabbar");
-  if (!shellOn()) { if (nav) nav.remove(); document.body.classList.remove("shell"); return; }
+  if (!shellOn()) { if (nav) nav.remove(); document.body.classList.remove("shell", "ct"); return; }
   if (!nav) { nav = document.createElement("nav"); nav.id = "tabbar"; nav.setAttribute("aria-label", "Main"); document.body.appendChild(nav); }
   document.body.classList.add("shell"); document.body.dataset.tab = TAB; document.body.classList.toggle("simple", !!S.simple);
-  nav.innerHTML = SHELL_TABS.map(([k, ic, l]) => `<button class="${k === TAB ? "on" : ""}" data-shellgo="${k}" aria-current="${k === TAB ? "page" : "false"}"><span>${ic}</span>${l}</button>`).join("");
+  const ct = typeof ctOn === "function" && ctOn();                          // Cruise Hub new look: its own labels + icons
+  document.body.classList.toggle("ct", ct);
+  nav.innerHTML = (ct ? CT_TABS : SHELL_TABS).map(([k, ic, l]) => `<button class="${k === TAB ? "on" : ""}" data-shellgo="${k}" aria-current="${k === TAB ? "page" : "false"}"><span>${ic}</span>${l}</button>`).join("");
 }
 // Clicks that move between tabs (data-shellgo), optionally landing on a trips-card tab or list.
 function shellClick(ds) {
