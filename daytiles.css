@@ -1,0 +1,123 @@
+/* SAVE AS: daytiles.css · LOCATION: C:/MarvelApps/dayhub/daytiles.css
+ * Day Hub NEW LOOK - Phase 1 (Scott 11/01, Design Direction #1): Day Hub's own sky hero kept on top (time-of-day colour,
+ * scene and weather photo), a deep ocean-blue page, bright white cards, colourful round quick buttons, sunrise-gold
+ * accents. Everything is under body.dt, which shell.js paintTabs sets only while daytiles.js says the look is on
+ * (switch DT_ON, or one phone's ?look=tiles preview). Without body.dt this file changes nothing. */
+
+body.dt { --dt-ink: #0f2c55; --dt-line: rgba(255, 255, 255, .24);
+  background: linear-gradient(180deg, #0b2545 0%, #0e3a74 30%, #145da0 65%, #2b86d6 100%) fixed; min-height: 100vh; }
+html:has(body.dt) { background: #0b2545; }
+
+/* the hero keeps the classic dark-sky colours (the page below turns light) */
+body.dt #hero { --card: rgba(255, 255, 255, .055); --card-solid: #141a30; --line: rgba(255, 255, 255, .08); --text: #f2f4fb; --dim: #c3cbe6;
+  --accent: #5eead4; --accent2: #818cf8; --gold: #fcd34d; --red: #fb7185; --green: #4ade80; --orange: #fb923c; color: var(--text); }
+body.dt #hero .hero-btns .icon-btn:not(#settingsBtn) { display: none; }      /* Ask / Don't forget / Brain dump are the quick buttons */
+body.dt:not([data-tab="home"]) #hero .greet, body.dt:not([data-tab="home"]) #hero .verdict-row,
+body.dt:not([data-tab="home"]) #hero .chips { display: none; }               /* other tabs: just the name bar + ⚙ */
+body.dt:not([data-tab="home"]) #hero { padding-bottom: 12px; }
+
+/* page titles, empty line */
+body.dt .dt-title { color: #fff; font-size: 26px; font-weight: 800; letter-spacing: -.01em; margin: 14px 2px 8px; column-span: all; -webkit-column-span: all; }
+body.dt .dt-empty { color: #dbeafe; font-size: 15px; padding: 18px 4px; }
+
+/* HOME: the moment card - its colour follows the day (sunrise / day sky / sunset / night) */
+body.dt .dt-home, body.dt .dt-quick, body.dt .dt-tools, body.dt .dt-cruise { column-span: all; -webkit-column-span: all; }
+body.dt .dt-moment { display: block; width: 100%; text-align: left; font: inherit; color: #fff; border: 1px solid var(--dt-line); border-radius: 20px;
+  padding: 14px 16px; margin: 12px 0 0; box-shadow: 0 12px 28px rgba(0, 20, 60, .35); cursor: pointer; }
+body.dt section.dt-moment { cursor: default; }
+body.dt .dt-moment.am { background: linear-gradient(135deg, #c2410c, #be185d 65%, #7e22ce); }
+body.dt .dt-moment.pm { background: linear-gradient(135deg, #0369a1, #1d4ed8); }
+body.dt .dt-moment.pm-eve { background: linear-gradient(135deg, #9a3412, #9d174d 60%, #5b21b6); }
+body.dt .dt-moment.eve { background: linear-gradient(135deg, #312e81, #1e3a8a); }
+body.dt .dt-moment .dt-k { display: block; font-size: 12.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; opacity: .95; }
+body.dt .dt-moment b { display: block; font-size: 21px; font-weight: 800; margin-top: 4px; line-height: 1.2; }
+body.dt .dt-moment small { display: block; font-size: 14px; opacity: .95; margin-top: 3px; }
+body.dt .dt-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+body.dt .dt-moment .btn:not(.ghost):not(.on) { background: #fff; color: #0f2c55; border: 0; }   /* beats the gold button rule below */
+body.dt .dt-moment .btn.ghost { background: rgba(255, 255, 255, .16); color: #fff; border: 1px solid rgba(255, 255, 255, .55); }
+body.dt .dt-moment:active { transform: scale(.99); }
+body.dt .dt-home .card { margin-top: 12px; }
+
+/* Cruise help (Crisis Mode lives in Cruise Hub) - only while a cruise is on */
+body.dt .dt-cruise { display: flex; align-items: center; gap: 12px; margin: 12px 0 0; padding: 12px 14px; border-radius: 18px; text-decoration: none;
+  background: #fff1f2; color: #881337; border: 1px solid #fda4af; box-shadow: 0 8px 18px rgba(0, 30, 80, .2); }
+body.dt .dt-cruise > span:first-child { font-size: 28px; }
+body.dt .dt-cruise .grow { flex: 1; }
+body.dt .dt-cruise b { display: block; font-size: 16px; } body.dt .dt-cruise small { display: block; font-size: 13px; color: #9f1239; }
+body.dt .dt-cruise .chev { font-size: 22px; }
+
+/* the four round quick buttons (Scott's board: Add · Ask AI · Brain Dump · Don't Forget) */
+body.dt .dt-quick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 18px 0 4px; }
+body.dt .dt-q { display: flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: 0; color: #fff; font: inherit;
+  font-size: 13px; font-weight: 700; cursor: pointer; text-shadow: 0 1px 6px rgba(0, 0, 0, .35); }
+body.dt .dt-q span { width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; font-size: 26px; text-shadow: none;
+  border: 2px solid rgba(255, 255, 255, .4); box-shadow: 0 8px 18px rgba(0, 0, 0, .3); }
+body.dt .dt-q.add span { background: linear-gradient(145deg, #a855f7, #6d28d9); color: #fff; font-size: 32px; font-weight: 700; }
+body.dt .dt-q.ai span { background: linear-gradient(145deg, #fb923c, #ea580c); }
+body.dt .dt-q.dump span { background: linear-gradient(145deg, #38bdf8, #2563eb); }
+body.dt .dt-q.leave span { background: linear-gradient(145deg, #fb7185, #e11d48); }
+body.dt .dt-q:active span { transform: scale(.94); }
+
+/* your tools: the other cards as tiles */
+body.dt .dt-tools { margin-top: 16px; }
+body.dt .dt-tools h4 { display: flex; justify-content: space-between; align-items: center; margin: 0 2px 8px; color: #dbeafe; font-size: 12px;
+  letter-spacing: .1em; text-transform: uppercase; }
+body.dt .dt-arrange { background: rgba(255, 255, 255, .14); border: 1px solid var(--dt-line); color: #fff; border-radius: 999px; padding: 5px 11px;
+  font: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0; text-transform: none; cursor: pointer; }
+body.dt .dt-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+body.dt .dt-tile { min-height: 88px; border-radius: 18px; border: 1px solid rgba(255, 255, 255, .7); background: rgba(240, 246, 255, .95); color: var(--dt-ink);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 8px 4px; font: inherit; cursor: pointer;
+  text-align: center; box-shadow: 0 8px 18px rgba(0, 30, 80, .2); min-width: 0; }
+body.dt .dt-tile .dt-ic { font-size: 26px; line-height: 1; }
+body.dt .dt-tile b { font-size: 12.5px; font-weight: 800; line-height: 1.15; }
+body.dt .dt-tile small { font-size: 10.5px; font-weight: 600; color: #476a95; line-height: 1.2; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.dt .dt-tile:active { transform: scale(.97); }
+body.dt .dt-more { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 12px; column-span: all; -webkit-column-span: all; }
+@media (min-width: 700px) { body.dt .dt-more { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+
+/* bottom tab bar: navy glass, white line icons, the chosen one sunrise gold */
+body.dt #tabbar { background: rgba(7, 26, 60, .94); border-top: 1px solid rgba(255, 255, 255, .14); box-shadow: 0 -8px 24px rgba(0, 15, 45, .35); }
+body.dt #tabbar button { color: #dbe7ff; }
+body.dt #tabbar button span { display: flex; justify-content: center; }
+body.dt #tabbar button svg { width: 25px; height: 25px; }
+body.dt #tabbar button.on { color: #fbbf24; background: rgba(251, 191, 36, .14); }
+
+/* ---- the cards on the light page: the app's own colour tokens re-pointed (under body.dt only), then the pieces that
+   hard-code dark-theme colours. The same set Cruise Hub's new look needed (cruisetiles.css Phase 2 + its review). */
+body.dt { --card: rgba(255, 255, 255, .94); --card-solid: #ffffff; --line: rgba(15, 44, 85, .14); --text: #0f2c55; --dim: #4b6587;
+  --gold: #a16207; --red: #e11d48; --green: #15803d; --orange: #c2410c; --accent: #b45309; --accent2: #4f46e5; --muted: #4b6587; color: var(--text); }
+body.dt .card { border-color: rgba(255, 255, 255, .75); box-shadow: 0 8px 22px rgba(0, 30, 80, .16); }
+body.dt .sheet-body { background: #f3f7fd; color: var(--text); }
+body.dt .sheet .icon-btn { color: var(--text); background: #fff; border-color: rgba(15, 44, 85, .2); font-weight: 700; }
+body.dt input, body.dt select, body.dt textarea { background: #fff; color: var(--text); border-color: rgba(15, 44, 85, .22); }
+body.dt input:focus, body.dt select:focus, body.dt textarea:focus { border-color: #b45309; box-shadow: 0 0 0 3px rgba(245, 158, 11, .25); }
+body.dt input[type=date], body.dt input[type=time] { color-scheme: light; }
+body.dt .seg button:not(.on), body.dt .chip:not(.good):not(.warn):not(.on):not(.upd-flash) { background: #e8f0fb; color: #0f2c55; border-color: rgba(15, 44, 85, .14); }
+body.dt .chip.good { background: #dcfce7; border-color: #86efac; color: #14532d; }
+body.dt .chip.warn { background: #ffe4e6; border-color: #fda4af; color: #881337; }
+body.dt .chip.on { background: #fef3c7; border-color: #f59e0b; color: #78350f; font-weight: 700; }
+body.dt .add-link { color: #1d4ed8; }
+body.dt .btn:not(.ghost):not(.on), body.dt .fab, body.dt .seg button.on, body.dt .gbar span { background: linear-gradient(135deg, #fbbf24, #fb923c); color: #1c1206; }
+body.dt .btn.ghost { background: #fff; color: #0f2c55; border-color: rgba(15, 44, 85, .2); }
+body.dt #proBox { --text: #ffffff; --dim: #dbe7ff; background: linear-gradient(140deg, #0b2545, #1d4ed8 75%, #0369a1); color: #fff;
+  border-radius: 18px; padding: 14px 16px; margin: 12px 0; box-shadow: 0 10px 24px rgba(0, 30, 80, .25); }
+body.dt #proBox .btn.ghost { background: rgba(255, 255, 255, .14); color: #fff; border-color: rgba(255, 255, 255, .5); }
+body.dt #proBox a:not(.btn) { color: #fde68a; }
+body.dt #proBox input { background: rgba(255, 255, 255, .95); color: #0f2c55; }
+body.dt .tab.on { background: #0f2c55; color: #fff; }
+body.dt .seg button.on { color: #1c1206; }
+body.dt input[type=checkbox].tick:not(:checked) { border-color: rgba(15, 44, 85, .45); background: #fff; }
+body.dt .tl-row.now .tl-ic { background: #fbbf24; }
+body.dt .tile.on { box-shadow: 0 0 0 2px #b45309 inset; }
+body.dt .hour .r, body.dt .dayrow .rn { color: #0369a1; }
+body.dt .gbadge { color: #1d4ed8; background: #dbeafe; }
+body.dt .bar, body.dt .gbar { background: rgba(15, 44, 85, .1); }
+body.dt .ring { background: conic-gradient(var(--green) calc(var(--p) * 1%), rgba(15, 44, 85, .14) 0); }
+body.dt .grab { background: rgba(15, 44, 85, .22); }
+body.dt .hour, body.dt .fact { background: #eef4ff; }
+body.dt .card h3 .ci, body.dt .tl-row .tl-ic { background: #e8f0fb; }
+body.dt .tag { background: #fde68a; color: #78350f; }
+body.dt .paygrid .take { background: #dcfce7; }
+body.dt .row.late b { color: #c2410c; }                                     /* overdue upkeep / returns */
+body.dt .pay-left.neg b { color: #e11d48; }                                 /* payday "Short by $X" */
+@media (prefers-reduced-motion: reduce) { body.dt .dt-tile:active, body.dt .dt-q:active span, body.dt .dt-moment:active { transform: none; } }

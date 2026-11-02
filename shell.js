@@ -3,7 +3,8 @@
  * HOME | PLAN | EXPLORE | WALLET | AI. Those five never move." + "One giant button
  * ... its position never changes. Only its job changes.").
  *
- * On for Cruise Hub and Trip Hub (SHELL_MODES, Trip Hub v0.97). Day Hub keeps its cards for now.
+ * On for Cruise Hub and Trip Hub (SHELL_MODES, Trip Hub v0.97). Day Hub keeps its cards - except on a phone with its
+ * new look on (daytiles.js, Day Hub's own 5 tabs; switch OFF, 11/01).
  * A regular (non-cruise) trip gets trip words - no ship, ports or all aboard.
  *   HOME    - what matters right now: the hero, at most 3 RIGHT NOW items, NEXT UP,
  *             and the big contextual button.
@@ -33,11 +34,13 @@ const SHELL_CARDS = { plan: ["trips", "inbox", "schedule", "todos", "lists"], ex
 const SHELL_TRIP_TABS = { plan: null, wallet: ["money", "onboard", "perks"] };
 // Opens on HOME. "cruisehub.startTab" (phone storage) overrides it - used by the test suite.
 let TAB = (() => { try { return localStorage.getItem(APP_ID + ".startTab") || "home"; } catch (e) { return "home"; } })();
-const shellOn = () => SHELL_MODES.includes(MODE) && !!(S.city || S.name);
+// Day Hub's new look (daytiles.js, switch OFF) runs Day Hub on the shell too, with its own five tabs.
+const dtLook = () => typeof dtOn === "function" && dtOn();
+const shellOn = () => (SHELL_MODES.includes(MODE) || dtLook()) && !!(S.city || S.name);
 const shellTripTabOk = k => !shellOn() || !SHELL_TRIP_TABS[TAB] || SHELL_TRIP_TABS[TAB].includes(k);
-const shellTabFor = key => key === "trips" ? "plan" : (Object.entries(SHELL_CARDS).find(([, ks]) => ks.includes(key)) || ["plan"])[0];
+const shellTabFor = key => dtLook() ? dtTabFor(key) : key === "trips" ? "plan" : (Object.entries(SHELL_CARDS).find(([, ks]) => ks.includes(key)) || ["plan"])[0];
 function shellGo(tab) {
-  if (!SHELL_TABS.some(t => t[0] === tab)) return;
+  if (!(dtLook() ? DT_TABS : SHELL_TABS).some(t => t[0] === tab)) return;
   TAB = tab; render(); window.scrollTo({ top: 0 });
 }
 
@@ -152,6 +155,7 @@ function aiTabHtml() {
 }
 // Called by render(): the content for the current tab.
 function shellHtml(cardHtml) {
+  if (dtLook()) return dtShellHtml(cardHtml);                              // Day Hub new look (daytiles.js, switch OFF)
   if (typeof ctOn === "function" && ctOn()) return ctShellHtml(cardHtml);  // Cruise Hub new look (cruisetiles.js, switch OFF)
   if (TAB === "home") return homeHtml();
   if (TAB === "explore") return exploreHtml(cardHtml);
@@ -161,12 +165,13 @@ function shellHtml(cardHtml) {
 }
 function paintTabs() {
   let nav = document.getElementById("tabbar");
-  if (!shellOn()) { if (nav) nav.remove(); document.body.classList.remove("shell", "ct"); return; }
+  if (!shellOn()) { if (nav) nav.remove(); document.body.classList.remove("shell", "ct", "dt"); return; }
   if (!nav) { nav = document.createElement("nav"); nav.id = "tabbar"; nav.setAttribute("aria-label", "Main"); document.body.appendChild(nav); }
+  const ct = typeof ctOn === "function" && ctOn(), dt = dtLook();          // the new looks: their own labels + icons
+  if (dt && !DT_TABS.some(t => t[0] === TAB)) TAB = "home";               // Day Hub's tabs aren't Cruise Hub's
   document.body.classList.add("shell"); document.body.dataset.tab = TAB; document.body.classList.toggle("simple", !!S.simple);
-  const ct = typeof ctOn === "function" && ctOn();                          // Cruise Hub new look: its own labels + icons
-  document.body.classList.toggle("ct", ct);
-  nav.innerHTML = (ct ? CT_TABS : SHELL_TABS).map(([k, ic, l]) => `<button class="${k === TAB ? "on" : ""}" data-shellgo="${k}" aria-current="${k === TAB ? "page" : "false"}"><span>${ic}</span>${l}</button>`).join("");
+  document.body.classList.toggle("ct", ct); document.body.classList.toggle("dt", dt);
+  nav.innerHTML = (ct ? CT_TABS : dt ? DT_TABS : SHELL_TABS).map(([k, ic, l]) => `<button class="${k === TAB ? "on" : ""}" data-shellgo="${k}" aria-current="${k === TAB ? "page" : "false"}"><span>${ic}</span>${l}</button>`).join("");
 }
 // Clicks that move between tabs (data-shellgo), optionally landing on a trips-card tab or list.
 function shellClick(ds) {
