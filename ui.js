@@ -16,7 +16,7 @@ const CARDS = {
       let html = `<div class="daynav"><button class="nav" data-day="-1" aria-label="Previous day">‹</button>
         <button class="dn" data-day="0"><b>${dayName(VIEW)}</b><span>${longDate(VIEW)}</span></button>
         <button class="nav" data-day="1" aria-label="Next day">›</button></div>`;
-      if (S.gcal.connected && !gReady()) html += `<button class="sync" data-gsync="1">🔄 Tap to sync Google Calendar${S.gcal.fetched ? ` · last ${fmtTime(S.gcal.fetched)}` : ""}</button>`;
+      if (S.gcal.connected && !gReady() && syncOk("gcal")) html += `<button class="sync" data-gsync="1">🔄 Tap to sync Google Calendar${S.gcal.fetched ? ` · last ${fmtTime(S.gcal.fetched)}` : ""}</button>`;
       if (!items.length) return html + `<div class="tl-empty">Nothing scheduled ${isToday ? "today" : "this day"}.<br>Tap <b>+</b> to add something.</div>`;
       let nowDone = !isToday;
       const rows = [];
@@ -1721,8 +1721,11 @@ function drawSettings() {
   drawAiBox();
   let g = document.getElementById("gcalBox");
   if (!g) { g = document.createElement("div"); g.id = "gcalBox"; document.getElementById("cardList").before(g); }
-  const ok = S.gcal.connected && S.gcal.scope === GCAL_SCOPE && !S.gcal.needsWrite;
-  g.innerHTML = `<h3>Your phone calendar</h3>` + (ok
+  const ok = S.gcal.connected && S.gcal.scope === GCAL_SCOPE && !S.gcal.needsWrite, paused = S.gcal.connected && !syncOk("gcal");
+  g.innerHTML = `<h3>Your phone calendar</h3>` + (paused                // v1.58b
+    ? `<div class="leg"><span>⏸ Paused — ${STORE_MODE ? "not turned on for this phone" : `part of ${esc(lapsedName(lapsedRec()))}`}. ${APP_NAME} events already on your phone calendar stay there.</span></div>
+       <div class="foot-actions"><button class="btn sm ghost" data-gdisc="1">Disconnect</button></div>`
+    : ok
     ? `<div class="leg"><span>✅ Connected — ${APP_NAME} events, bills and shifts go to your phone calendar${S.gcal.pushed ? ` · last sent ${fmtTime(S.gcal.pushed)}` : ""}</span></div>
        <div class="foot-actions"><button class="btn sm" data-gsync="1">Sync now</button><button class="btn sm ghost" data-gdisc="1">Disconnect</button></div>
        <details class="steps"><summary>Not showing on your phone? Check these</summary>${phoneCalSteps()}</details>`
@@ -1746,6 +1749,43 @@ function drawSettings() {
 }
 
 // v0.40 - Day Hub Pro (shown only while PRO_GATE is on; everything is free while it's off).
+// v1.58b PRO LAPSE (Scott 11/01 "Yes, fix it" + his spec; PRO_LAPSE switch): Calendar sync + Drive backup are Pro, so
+// they PAUSE when this phone isn't Pro any more. Nothing is deleted, restoring your own backup stays open, AI credits
+// still work, and renewing picks up where it left off (Calendar matches events by their Day Hub key, so nothing
+// doubles; backup keeps the "changed on another device" choice). The 14-day grace (GRACE_DAYS) is unchanged.
+const proUntil = p => { const u = p && p.until; if (u == null || u === "") return 0;
+  const n = Number(u), t = Number.isFinite(n) ? (n < 1e12 ? n * 1000 : n) : Date.parse(u); return Number.isFinite(t) ? t : 0; };
+const syncPaused = () => (S.gcal.connected && !syncOk("gcal")) || (S.sync.on && !syncOk("sync"));
+const proEndsRec = () => proGood(proState()) ? proState() : proViaDayHub() ? readPro(DAY_PRO_KEY) : null;   // the unlock in use
+function proEndsIn() {                  // days left on a plan set NOT to renew (Whop "canceling"), 0-7; else -1
+  if (!switchOn("PRO_GATE") || !switchOn("PRO_LAPSE") || ownerPhone()) return -1;
+  const p = proEndsRec(), end = proUntil(p);
+  if (!p || p.status !== "canceling" || !end || end < Date.now()) return -1;   // past the end: the next check decides
+  const d = daysUntil(ymd(new Date(end)));
+  return d <= 7 ? Math.max(0, d) : -1;
+}
+const proEndsWhen = d => d === 0 ? "today" : d === 1 ? "tomorrow" : `in ${d} days`;
+// The unlock the paused line talks about: this hub's own, or (hubs Day Hub Pro covers) the Day Hub one.
+const lapsedRec = () => { const own = proState(), day = readPro(DAY_PRO_KEY); return own.buyer || !dayRides() || !day.buyer ? own : day; };
+const lapsedName = r => r && r.product === "dayhub" ? PLAN.NAME : proName();
+function pausedLine() {                 // the home-screen chip while paused (Play app: no Pro wording)
+  if (STORE_MODE) return "Your info is safe · Calendar sync and backup are off on this phone";
+  const r = lapsedRec();
+  // never Pro on this phone: sync turned on before Pro existed, or a backup file from another phone
+  if (!r.buyer) return `Calendar sync and backup are part of ${proName()} · your info is safe`;
+  const why = r.ok ? "needs a quick check" : /not found|no .*purchase/i.test(r.status || "") ? "ended" : "is off on this phone";
+  return `Your info is safe · Calendar sync and backup paused (${lapsedName(r)} ${why})`;
+}
+let PRO_BACK = "";                      // set by verifyPro: "back" = Pro returned on a phone that had it, "new" = first unlock
+function proWelcomeBack() {             // -> true when it said welcome back (the caller then skips its "unlocked" toast)
+  const how = PRO_BACK; if (!how) return false;
+  PRO_BACK = "";
+  const what = [S.gcal.connected && "Calendar sync", S.sync.on && "backup"].filter(Boolean).join(" and ") || "sync";
+  if (how === "back") toast("👋 Welcome back!");
+  syncOnOpen(true).finally(() => { if (how === "back") toast(needTap().length   // Google's sign-in ran out during the pause
+    ? `👋 Welcome back! Tap 🔄 Tap to sync to turn your ${what} back on` : `👋 Welcome back! Your ${what} ${what.includes(" and ") ? "are" : "is"} on again`); });
+  return how === "back";
+}
 let PRO_MSG = "";
 function drawProBox() {
   const g = document.getElementById("proBox"); if (!g) return;
@@ -1785,7 +1825,12 @@ function drawProBox() {
     : cruisePass() ? `<p class="fine"><b>${PLAN.CRUISE_YEARLY}</b> — every cruise you take that year.</p>`
     : tripPass() ? `<p class="fine"><b>${PLAN.TRIP_YEARLY}</b> — every trip you take that year.</p>` : `<p class="fine"><b>${PLAN.MONTHLY}</b> or <b>${PLAN.YEARLY}</b>.</p>`;
   const buyUrl = STORE_MODE ? "" : moneyPass() ? PLAN.MONEY_CHECKOUT_URL : autoPass() ? PLAN.AUTO_CHECKOUT_URL : cruisePass() ? PLAN.CRUISE_CHECKOUT_URL : tripPass() ? PLAN.TRIP_CHECKOUT_URL : PLAN.WHOP_CHECKOUT_URL;
-  g.innerHTML = `<h3>⭐ ${proName()}</h3>` + (ownerPhone()
+  // v1.58b: where Calendar sync / backup stand - paused (this phone isn't Pro now) or ending soon (plan set not to renew)
+  const ends = proEndsIn(), uses = S.gcal.connected || S.sync.on, r = lapsedRec();
+  const syncLine = syncPaused() ? `<p class="fine" style="margin-top:0">⏸ <b>Calendar sync and backup are paused.</b> Your info is safe — on this phone and in your Google Drive, and restoring a backup still works. ${!STORE_MODE && r.buyer && !r.ok ? `Renew ${esc(lapsedName(r))}, then tap Unlock below` : "Tap Unlock below"} and they pick up where they left off.</p>`
+    : ends < 0 ? "" : STORE_MODE ? (uses ? `<p class="fine" style="margin-top:0">⏳ Calendar sync and backup end ${proEndsWhen(ends)} on this phone.</p>` : "")
+    : `<p class="fine" style="margin-top:0">⏳ <b>Ends ${proEndsWhen(ends)}</b> — it's set not to renew. Renew on Whop to keep ${uses ? "automatic Calendar sync and backup" : "it"}.</p>`;
+  g.innerHTML = `<h3>⭐ ${proName()}</h3>` + syncLine + (ownerPhone()
     ? `<div class="leg"><span>✅ Pro — this is the owner's phone</span></div>`
     : proViaDayHub()
     ? `<div class="leg"><span>✅ Included with your ${PLAN.NAME} on this phone</span></div>`
@@ -1811,7 +1856,7 @@ function unlockPro(buyer) {
       PRO_MSG = ok ? "" : /phones/.test(st) ? `It's already on ${PLAN.MAX_PHONES} phones — tap Remove from this phone on one of them, then try again.`
         : `No active ${hubPass() ? `${proName()} or ${PLAN.NAME}` : PLAN.NAME} found for that — use the email you bought with${STORE_MODE ? "" : " on Whop"} (or your mem_ membership id).`;
       drawProBox(); drawAiBox(); render();
-      if (ok) toast(`⭐ ${proName()} unlocked`); })
+      if (ok && !proWelcomeBack()) toast(`⭐ ${proName()} unlocked`); })
     .catch(e => { PRO_MSG = "Couldn't reach the check — try again in a minute. (" + e.message + ")"; drawProBox(); });
 }
 

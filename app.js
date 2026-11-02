@@ -68,6 +68,7 @@ const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";      // re
 // everything unlocked) and what Pro covers is PLAN.PRO_FEATURES (AI, Google
 // Calendar sync, Gmail, Drive backup). Every local feature stays free forever.
 const can = f => !switchOn("PRO_GATE") || !PLAN.PRO_FEATURES.includes(f) || isPro();
+const syncOk = f => !switchOn("PRO_LAPSE") || can(f);   // v1.58b: Calendar sync + backup pause when Pro ends (PRO_LAPSE off = the old way)
 
 // ------------------------------------------------------- pro (Whop purchase)
 // v0.40/v0.41 (Scott 10/3, sold on Whop only). The EMAIL the buyer used on Whop
@@ -94,7 +95,8 @@ function deviceId() {
 // passphrase (or with the OWNER owner-switch) counts as Pro.
 const ownerPhone = () => !!aiPass() || !!ownerSwitches().OWNER;
 const proGood = p => !!(p.buyer && p.ok && Date.now() < (p.checked || 0) + (PLAN.RECHECK_DAYS + PLAN.GRACE_DAYS) * DAY_MS);
-const proViaDayHub = () => (TRAVEL || MODE === "auto" || MODE === "money" || MODE === "health") && !proGood(proState()) && proGood(readPro(DAY_PRO_KEY));   // v1.38: Day Hub Pro unlocks Auto Hub too
+const dayRides = () => TRAVEL || MODE === "auto" || MODE === "money" || MODE === "health";   // hubs a Day Hub Pro unlock on this phone also covers
+const proViaDayHub = () => dayRides() && !proGood(proState()) && proGood(readPro(DAY_PRO_KEY));   // v1.38: Day Hub Pro unlocks Auto Hub too
 function isPro() {
   return ownerPhone() || proGood(proState()) || proViaDayHub();
 }
@@ -112,14 +114,28 @@ const storeLock = what => `${what}: not turned on for this phone. Already unlock
 async function verifyPro(buyer) {                   // throws when the check can't be reached
   const j = await (await fetch(AI_URL, { method: "POST", body: JSON.stringify({ task: "verify", buyer, device: deviceId(), app: APP_ID }) })).json();
   if (typeof j.valid !== "boolean") throw new Error(j.error || "no answer");
-  // A "no" never wipes a known buyer: the email stays so Check now can retry.
-  setProState({ buyer, ok: j.valid, checked: Date.now(), status: j.status || "", until: j.until || null, product: j.product || "" });
+  const was = isPro(), prev = proState(), day = dayRides() ? readPro(DAY_PRO_KEY) : {}, had = !!(prev.buyer || day.buyer);
+  // A "no" never wipes a known buyer: the email stays so Check now can retry. v1.58b: it keeps which plan it was too -
+  // a hub on a Day Hub Pro unlock keeps "dayhub", so the paused line never names a plan they didn't buy.
+  const src = prev.buyer === buyer ? prev : day.buyer === buyer ? day : {};
+  setProState({ buyer, ok: j.valid, checked: Date.now(), status: j.status || "", until: j.until || null, product: j.product || src.product || "" });
+  if (switchOn("PRO_LAPSE") && !was && isPro() && (S.gcal.connected || S.sync.on)) PRO_BACK = had ? "back" : "new";   // v1.58b: sync picks up now
   return j.valid;
 }
+let PRO_TRIED = 0;
 function recheckPro() {
-  const p = proState();
-  if (!switchOn("PRO_GATE") || !p.buyer || Date.now() - (p.checked || 0) < PLAN.RECHECK_DAYS * DAY_MS) return;
-  verifyPro(p.buyer).then(() => render()).catch(() => { /* offline: grace period covers it */ });
+  const lapse = switchOn("PRO_LAPSE");          // the v1.58b additions below; off = the weekly check only, as before
+  // v1.58b: one try per 15 minutes, even while the check keeps failing (each try can cost a Whop lookup)
+  if (!switchOn("PRO_GATE") || (lapse && Date.now() - PRO_TRIED < 15 * 60000)) return;
+  // v1.58b: a hub with NO unlock of its own that counts on Day Hub Pro re-checks that buyer for itself (Day Hub may not
+  // be opened for weeks). A hub's own buyer always comes first, so a background "no" never replaces it.
+  const own = proState(), day = readPro(DAY_PRO_KEY), p = lapse && !own.buyer && dayRides() && day.buyer ? day : own;
+  if (!p.buyer) return;
+  // ...also half a day after the paid period's end date (renewed or ended - find out), and daily while sync is paused
+  const age = Date.now() - (p.checked || 0), end = proUntil(p);
+  if (!(age >= PLAN.RECHECK_DAYS * DAY_MS || (lapse && ((p.ok && end && end < Date.now() && age >= DAY_MS / 2) || (syncPaused() && age >= DAY_MS))))) return;
+  PRO_TRIED = Date.now();
+  verifyPro(p.buyer).then(() => { render(); proWelcomeBack(); }).catch(() => { /* offline: grace period covers it */ });
 }
 // Gmail waits on Google's verification (GMAIL switch). A phone that already
 // connected it keeps it - turning the switch off never breaks a working phone.
@@ -464,7 +480,7 @@ const gReady = () => GTOKEN && Date.now() < GTOKEN_EXP;
 
 // Must run from a tap: Google opens its own sign-in window.
 async function gcalConnect() {
-  if (!can("gcal")) { toast(`Google Calendar sync is part of ${proName()}`); return; }
+  if (!can("gcal")) { toast(STORE_MODE ? storeLock("Google Calendar sync") : `Google Calendar sync is part of ${proName()}`); return; }
   if (!GCAL_CLIENT_ID) { toast("Google Calendar link is being set up — coming soon"); return; }
   try { await loadGis(); } catch (e) { toast("Couldn't reach Google — check your connection"); return; }
   const client = google.accounts.oauth2.initTokenClient({
@@ -481,7 +497,7 @@ async function gcalConnect() {
 }
 
 async function gcalFetch(quiet) {
-  if (!gReady()) { render(); return; }
+  if (!gReady() || !syncOk("gcal")) { render(); return; }   // v1.58b: Pro ended = Calendar sync paused
   const from = parseDay(today()); from.setDate(from.getDate() - 1);
   const to = new Date(from); to.setDate(to.getDate() + 16);
   const u = "https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime" +
@@ -556,7 +572,7 @@ function gcalItemExists(key) {
        : k === "bill" ? S.bills.some(b => b.id === id) : k === "pp" ? S.people.some(p => p.id === id) : false;
 }
 async function gcalPush() {
-  if (!S.gcal.connected || !gReady() || gPushing) return;
+  if (!S.gcal.connected || !gReady() || gPushing || !syncOk("gcal")) return;
   gPushing = true;
   const api = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
   const call = async (method, url, body) => {
@@ -613,9 +629,10 @@ function loadTokens() {
   } catch (e) { /* none kept */ }
 }
 // Which Google links are on but signed out (they need the one tap).
-const needTap = () => [S.gcal.connected && !gReady() && "gcal", S.sync.on && !dReady() && "sync", S.mail.on && !mReady() && can("mail") && "mail"].filter(Boolean);
+const needTap = () => [S.gcal.connected && !gReady() && syncOk("gcal") && "gcal", S.sync.on && !dReady() && syncOk("sync") && "sync", S.mail.on && !mReady() && can("mail") && "mail"].filter(Boolean);
 let LAST_SYNC = 0;
 async function syncDrive() {
+  if (!syncOk("sync")) return;                       // v1.58b: Pro ended = backup paused (data stays on the phone; restore still works)
   try {
     const cloud = await driveDownload();
     const newer = cloud && hasData(cloud.data) && cloud.savedAt > (S.sync.last || "");
@@ -629,8 +646,8 @@ async function syncOnOpen(force) {
   LAST_SYNC = Date.now();
   if (Date.now() - WX_AT > 15 * 60000) loadWeather();
   checkUpdate();
-  if (S.gcal.connected && gReady()) { await gcalFetch(true); await gcalPush(); gcalDates(); }
-  if (S.sync.on && dReady()) { await syncDrive(); famDriveRefresh(); }
+  if (S.gcal.connected && gReady() && syncOk("gcal")) { await gcalFetch(true); await gcalPush(); gcalDates(); }   // v1.58b: re-checks Pro every open
+  if (S.sync.on && dReady() && syncOk("sync")) { await syncDrive(); famDriveRefresh(); }
   if (S.mail.on && mReady() && can("mail")) scanMail();
   // v1.57 (Play review): only where a Top 3 card is on the screen - Home / Health / Money / Auto / Universe have none, so nothing goes to the AI there
   if (!TRAVEL && S.top3.day !== today() && new Date().getHours() >= 4 && (S.name || hasData(S)) && !S.hidden.includes("top3") && cardOrder().includes("top3")) top3Pick();
@@ -650,7 +667,7 @@ const autoState = () => { try { return JSON.parse(localStorage.getItem(AUTO_KEY)
 const setAutoState = st => { try { localStorage.setItem(AUTO_KEY, JSON.stringify(st)); } catch (e) { /* private mode */ } };
 const redirectUri = () => location.origin + location.pathname.replace(/index\.html$/, "");
 function autoScopes() {
-  return [S.gcal.connected && S.gcal.scope === GCAL_SCOPE && !gReady() && GCAL_SCOPE, S.sync.on && !dReady() && DRIVE_SCOPE,
+  return [S.gcal.connected && S.gcal.scope === GCAL_SCOPE && !gReady() && syncOk("gcal") && GCAL_SCOPE, S.sync.on && !dReady() && syncOk("sync") && DRIVE_SCOPE,
           S.mail.on && !mReady() && can("mail") && GMAIL_SCOPE].filter(Boolean);
 }
 function autoRenew() {
@@ -887,14 +904,14 @@ async function driveUpload() {
 function scheduleBackup() {
   clearTimeout(backupTimer);
   backupTimer = setTimeout(async () => {
-    if (!dReady()) return;                                     // waits for a tap; "dirty" shows the button
+    if (!dReady() || !syncOk("sync")) return;                    // waits for a tap; "dirty" shows the button; Pro ended = paused
     try { await driveUpload(); drawSyncBox(); } catch (e) { /* stays dirty, retried next change */ }
   }, 6000);
 }
 // Turning backup on. A new phone (nothing here yet) restores by itself; a phone
 // that already has data and finds an older or different backup gets the CHOICE.
 async function syncOn() {
-  if (!can("sync")) { toast(`Backup & sync is part of ${proName()}`); return; }
+  if (!can("sync")) { toast(STORE_MODE ? storeLock("Backup & sync") : `Backup & sync is part of ${proName()}`); return; }
   if (!(await driveSignIn(S.sync.on ? "" : "consent"))) return;
   try {
     let cloud = await driveDownload();
@@ -910,6 +927,7 @@ async function syncOn() {
   } catch (e) { toast("Backup didn't go through — try again"); }
 }
 async function backupNow() {
+  if (!syncOk("sync")) { toast(STORE_MODE ? storeLock("Backup & sync") : `Backup & sync is part of ${proName()}`); return; }   // v1.58b
   if (!dReady() && !(await driveSignIn(""))) return;
   try { await driveUpload(); drawSyncBox(); render(); toast("Backed up ✓"); }
   catch (e) { toast("Backup didn't go through — try again"); }
@@ -919,9 +937,9 @@ async function restoreNow() {
   try { const cloud = await driveDownload(); cloud ? restoreFrom(cloud) : toast("No backup found yet"); }
   catch (e) { toast("Couldn't read the backup — try again"); }
 }
-function restoreFrom(cloud) {
+function restoreFrom(cloud, file) {
   snap();
-  const keepCal = S.gcal, keepFired = S.remind.fired, keepUI = { collapsed: S.collapsed, briefDay: S.briefDay, briefAuto: S.briefAuto };
+  const keepCal = S.gcal, keepSync = S.sync, keepFired = S.remind.fired, keepUI = { collapsed: S.collapsed, briefDay: S.briefDay, briefAuto: S.briefAuto };
   S = normalize(cloud.data);
   // Which cards are open or closed belongs to THIS phone (Scott 10/2: closing
   // the app keeps what you opened or closed) - a backup never changes it.
@@ -929,7 +947,9 @@ function restoreFrom(cloud) {
   // Keep this phone's "already fired" marks: an older backup's marks alone
   // would let a reminder from the last few hours fire a second time.
   S.remind.fired = Object.assign({}, S.remind.fired, keepFired);
-  S.gcal = keepCal; S.sync = { on: true, last: cloud.savedAt, dirty: false };
+  // v1.58b: a backup FILE keeps this phone's own backup setting (it used to switch Drive backup on, even on a free phone);
+  // with backup on, the loaded data goes up next time
+  S.gcal = keepCal; S.sync = file ? { ...keepSync, dirty: !!keepSync.on } : { on: true, last: cloud.savedAt, dirty: false };
   CLOUD_PENDING = null; saveLocal(); drawSyncBox(); render(); loadWeather();
   toast(`Restored from ${new Date(cloud.savedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`, true);
 }
@@ -946,8 +966,10 @@ function drawSyncBox(delArmed) {
        <div class="foot-actions"><button class="btn sm" data-sync="use">Use the backup</button>
        <button class="btn sm ghost" data-sync="keep">Keep this phone's</button></div>`
     : S.sync.on
-    ? `<div class="leg"><span>☁️ On — ${S.sync.last ? `last backup ${when(S.sync.last)}` : "not backed up yet"}${S.sync.dirty ? " · <b style='color:var(--orange)'>new changes</b>" : ""}</span></div>
-       <div class="foot-actions"><button class="btn sm" data-sync="now">Back up now</button>
+    ? (syncOk("sync") ? `<div class="leg"><span>☁️ On — ${S.sync.last ? `last backup ${when(S.sync.last)}` : "not backed up yet"}${S.sync.dirty ? " · <b style='color:var(--orange)'>new changes</b>" : ""}</span></div>
+       <div class="foot-actions"><button class="btn sm" data-sync="now">Back up now</button>`
+      : `<div class="leg"><span>⏸ Paused — ${STORE_MODE ? "not turned on for this phone" : `part of ${esc(lapsedName(lapsedRec()))}`}. Your info is safe${S.sync.last ? ` · last backup ${when(S.sync.last)}` : ""}</span></div>
+       <div class="foot-actions">`) + `
        <button class="btn sm ghost" data-sync="restore">Restore</button><button class="btn sm ghost" data-sync="off">Turn off</button>
        <button class="btn sm ${delArmed ? "" : "ghost"}" data-sync="delete" style="${delArmed ? "background:var(--red);color:#fff" : ""}">🗑️ ${delArmed ? "Tap again to delete" : "Delete my Drive backup"}</button></div>`
     : `<p class="fine" style="margin-top:0"><b>⚠️ Not backed up yet</b> — everything is only on this phone. Turn it on once:</p>
@@ -2010,7 +2032,7 @@ function importData(file) {
       let data = j && (j.app === APP_ID || j.app === SIB.id) ? j.data : null;
       if (!data || typeof data !== "object") { toast(`That file isn't a ${APP_NAME} backup`); return; }
       if (j.app !== APP_ID && MODE === "cruise") data = cruiseSlice(data);   // a Day Hub file: its cruises only
-      restoreFrom({ savedAt: j.savedAt || new Date().toISOString(), data });
+      restoreFrom({ savedAt: j.savedAt || new Date().toISOString(), data }, true);
     } catch (e) { toast("Couldn't read that file"); }
   };
   r.readAsText(file);
@@ -2975,6 +2997,11 @@ function heroHtml() {
   if (cd) chips.push(`<span class="chip">⏳ ${esc(cd.title)} ${daysUntil(cd.date) === 0 ? "today!" : inDays(daysUntil(cd.date))}</span>`);
   if (!TRAVEL && !S.sync.on && hasData(S) && can("sync")) chips.unshift(`<button class="chip warn" data-sync="on">☁️ Not backed up — tap to turn on</button>`);
   if (needTap().length) chips.push(`<button class="chip" data-syncall="1">🔄 Tap to sync${S.gcal.dirty || S.sync.dirty ? " · changes waiting" : ""}</button>`);
+  // v1.58b (Scott 11/01 "Yes, fix it"): Pro ended on a phone that had Calendar sync / backup on - both pause, nothing is deleted.
+  // A week before a plan set not to renew ends, one quiet heads-up. Play app: no Pro wording (only for phones that sync).
+  if (syncPaused()) chips.unshift(`<button class="chip warn" data-open="sheet" data-prolapse="1">⏸ ${esc(pausedLine())} · ⚙</button>`);
+  else { const d = proEndsIn(), uses = S.gcal.connected || S.sync.on;
+    if (d >= 0 && (uses || !STORE_MODE)) chips.unshift(`<button class="chip" data-open="sheet" data-prolapse="1">⏳ ${STORE_MODE ? `Calendar sync and backup end ${proEndsWhen(d)} on this phone` : `${esc(lapsedName(proEndsRec()))} ends ${proEndsWhen(d)}${uses ? " · renew to keep automatic syncing" : ""}`} · ⚙</button>`); }
   if (!TRAVEL && h >= 4 && h < 12 && (S.name || hasData(S))) chips.push(`<button class="chip" data-brief="open">☀️ Morning brief</button>`);
   // v1.50 (Scott 10/17: "when needed it should flash and draw attention to it"): the update chip pulses until tapped.
   if (UPDATE) chips.unshift(`<button class="chip good upd-flash" data-update="1">✨ New version ready — tap to update</button>`);
@@ -2986,7 +3013,7 @@ function heroHtml() {
               <div class="hl">H ${Math.round(w.day.hi)}° · L ${Math.round(w.day.lo)}°</div></div>`; })()
     : S.city && !WXDATA ? `<div class="hero-wx"><div class="skel" style="width:84px;height:74px"></div></div>` : "";
   // Cruise Hub's top line is about the cruise only (Day Hub's chips stay in Day Hub).
-  const keep = !TRAVEL ? chips : chips.filter(c => /forgetting|Final payment|🚢|✈️|[Rr]ain|New version|Install|⚓|data-cwx|data-gohome/.test(c));
+  const keep = !TRAVEL ? chips : chips.filter(c => /forgetting|Final payment|🚢|✈️|[Rr]ain|New version|Install|⚓|data-cwx|data-gohome|data-prolapse/.test(c));   // v1.58b: + the Pro-lapse notices
   // v0.54 (Scott 10/4: "across the top of the apps to signify app you're on - DAY HUB, CRUISE HUB"):
   // every hub shows its own name + icon at the top.
   return `<div class="hero-top"><div class="brand"><img src="icon-192.png" alt="" width="24" height="24"><span>${esc(APP_NAME.toUpperCase())}</span>${navigator.onLine === false ? `<span class="offline-pill" title="No connection - your plans still work; weather may be old">🟠 Offline</span>` : ""}</div>

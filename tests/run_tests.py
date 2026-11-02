@@ -557,6 +557,7 @@ def t_v019_calendar_arrange(b, base):
         if (m === 'POST') { const e = { ...JSON.parse(o.body), id: 'g' + (++n) }; window.__g[e.id] = e; return J(e); }
         if (m === 'PUT') { window.__g[id] = { ...JSON.parse(o.body), id }; return J(window.__g[id]); }
         if (m === 'DELETE') { delete window.__g[id]; return J(null, 204); } }; }""")
+    a.js("localStorage.setItem('dayhub.pro', JSON.stringify({ buyer: 'buyer@example.com', ok: true, checked: Date.now() }))")   # v1.58b: Calendar sync is Pro
     a.js("GTOKEN = 'test'; GTOKEN_EXP = Date.now() + 3600000; S.gcal.connected = true; S.gcal.scope = GCAL_SCOPE; saveLocal()")
     a.qa("event", {"title": "Dentist", "date": "2026-10-05", "time": "14:30", "where": "Main St", "rep": "monthly"})
     a.qa("bill", {"title": "Rent", "amount": "900", "day": "30"})
@@ -691,6 +692,7 @@ def t_v021_brief_sync(b, base):
     # sync on open: a kept Google sign-in syncs with no tap
     a = App(b, base); setup(a)
     a.ctx.add_init_script(FAKE_GCAL)
+    a.js("localStorage.setItem('dayhub.pro', JSON.stringify({ buyer: 'buyer@example.com', ok: true, checked: Date.now() }))")   # v1.58b: Calendar sync is Pro
     a.js("S.gcal.connected = true; S.gcal.scope = GCAL_SCOPE; S.events.push({id:'e1',day:'2026-10-03',time:'09:00',title:'Vet',rep:'none'}); saveLocal();"
          "localStorage.setItem('dayhub.gtok', JSON.stringify({g:['tok', Date.now() + 3000000]}))")
     a.page.reload(); a.page.wait_for_timeout(1200)
@@ -1246,7 +1248,7 @@ def t_v039_short_home(b, base):
 def t_v040_switches(b, base):
     print("\n[v0.40 switchboard: everything OFF by default, owner switches, Pro key, legal pages, manifest]")
     a = App(b, base); setup(a)
-    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), CRUISE_PASS on (10/7), TRIP_PASS + AI_CREDITS on (10/11), MONEY_PASS on (10/18), GMAIL + STORE + UNIVERSE_PASS + CHALLENGES OFF", a.js("SWITCHES.CHALLENGES === false && SWITCHES.PRO_GATE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && SWITCHES.AI_CREDITS === true && SWITCHES.HOME_VALUE === true && SWITCHES.AUTO_PASS === true && SWITCHES.MONEY_PASS === true && SWITCHES.UNIVERSE_PASS === false && Object.keys(SWITCHES).join() === 'PRO_GATE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS,AI_CREDITS,AUTO_PASS,UNIVERSE_PASS,CHALLENGES,MONEY_PASS,HOME_VALUE'"))
+    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), PRO_LAPSE on (11/1), CRUISE_PASS on (10/7), TRIP_PASS + AI_CREDITS on (10/11), MONEY_PASS on (10/18), GMAIL + STORE + UNIVERSE_PASS + CHALLENGES OFF", a.js("SWITCHES.CHALLENGES === false && SWITCHES.PRO_GATE === true && SWITCHES.PRO_LAPSE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && SWITCHES.AI_CREDITS === true && SWITCHES.HOME_VALUE === true && SWITCHES.AUTO_PASS === true && SWITCHES.MONEY_PASS === true && SWITCHES.UNIVERSE_PASS === false && Object.keys(SWITCHES).join() === 'PRO_GATE,PRO_LAPSE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS,AI_CREDITS,AUTO_PASS,UNIVERSE_PASS,CHALLENGES,MONEY_PASS,HOME_VALUE'"))
     check("plan: approved price, contact, Whop checkout", a.js("PLAN.MONTHLY") == "$4.99/month" and a.js("PLAN.YEARLY") == "$29.99/year" and a.js("PLAN.CONTACT_EMAIL") == "smarvel1963@gmail.com" and a.js("PLAN.WHOP_CHECKOUT_URL") == "https://whop.com/commander-marvel-por-picks/day-hub-pro")
     check("PRO_GATE on, free phone: Pro features locked, free ones open", a.js("!['ai','gcal','mail','sync'].some(can) && ['reminders','budget'].every(can)"))
     a.page.click("#settingsBtn")
@@ -1288,7 +1290,7 @@ def t_v040_switches(b, base):
     a.page.clock.fast_forward(14 * 86400000); a.js("recheckPro()"); a.page.wait_for_timeout(300)
     check("unreachable past the 14-day grace: back to free", not a.js("isPro()"))
     a.ctx._verify_down = False
-    a.js("recheckPro()"); a.page.wait_for_timeout(300)
+    a.page.clock.fast_forward(16 * 60000); a.js("recheckPro()"); a.page.wait_for_timeout(300)   # v1.58b: one try per 15 min
     check("check reachable again: Pro back", a.js("isPro()"))
     # AI on the key, only when AI_PUBLIC is on
     check("AI_PUBLIC on: a Pro key turns the AI on", a.js("aiOn()"))
