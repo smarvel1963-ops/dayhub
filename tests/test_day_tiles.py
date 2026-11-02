@@ -52,7 +52,11 @@ def main():
         check("Day Hub looks exactly as before: no tab bar, no new-look class, classic home + Arrange link",
               a.js("!document.getElementById('tabbar') && !document.body.classList.contains('dt') && !document.body.classList.contains('shell')")
               and a.js("!!document.querySelector('.arrange-link') && !document.querySelector('.dt-home')"))
+        ph = a.js("document.getElementById('setCity').placeholder")
+        check("Settings' city example is neutral, not Scott's town", "Conway" not in ph and "72032" not in ph and "Denver" in ph, ph)
         a.close()
+        sw = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sw.js"), encoding="utf-8").read()
+        check("the offline list holds both new files", '"daytiles.css"' in sw and '"daytiles.js"' in sw)
 
         print("\n[2. the preview link]")
         a = T.App(b, base, path="/?look=tiles")
@@ -61,6 +65,14 @@ def main():
         T.setup(a)
         check("after set-up: the new look with 5 tabs Home · Today · Tasks · Money · More",
               a.js("document.body.classList.contains('dt')") and a.js("[...document.querySelectorAll('#tabbar button')].map(b => b.textContent.trim()).join('|')") == "Home|Today|Tasks|Money|More")
+        a.page.evaluate("navigator.serviceWorker.ready.then(() => 1)")      # the offline copy is in place
+        a.page.reload(); a.page.wait_for_function("typeof render === 'function'"); a.page.wait_for_timeout(400)
+        a.ctx.set_offline(True)
+        a.page.reload(); a.page.wait_for_timeout(700)
+        check("opens with no internet IN the new look, styled (both files came from the offline copy)",
+              a.js("typeof dtOn === 'function' && dtOn() && document.body.classList.contains('dt')")
+              and a.js("getComputedStyle(document.querySelector('.dt-q span')).borderRadius") == "50%")
+        a.ctx.set_offline(False)
         a.close()
 
         print("\n[3. morning: the brief and the schedule first, then Top 3]")

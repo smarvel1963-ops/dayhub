@@ -5,7 +5,7 @@
  * fix to app.js did not show until every tab closed - users would sit on an
  * old version after each update. Online = always the newest files. */
 const CACHE = "dayhub-v1.58";
-const SHELL = ["./", "index.html", "styles.css", "features.js", "app.js", "scenes.js", "cruise.js", "shell.js", "trip.js", "ships.js", "ui.js", "privacy.html", "terms.html", "manifest.json", "icon-192.png", "icon-512.png", "icon-180.png"];   // Cruise Hub has its own sw.js in /cruisehub/
+const SHELL = ["./", "index.html", "styles.css", "features.js", "app.js", "scenes.js", "cruise.js", "shell.js", "daytiles.css", "daytiles.js", "trip.js", "ships.js", "ui.js", "privacy.html", "terms.html", "manifest.json", "icon-192.png", "icon-512.png", "icon-180.png"];   // Cruise Hub has its own sw.js in /cruisehub/
 self.addEventListener("install", e => {
   self.skipWaiting();
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));

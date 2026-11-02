@@ -10,8 +10,7 @@
  * SWITCH: DT_ON = false - nobody sees it. One phone previews it with the link ?look=tiles (kept on that phone,
  * dayhub.look); ?look=classic or More -> Classic look turns it back. Day Hub only, after set-up.
  * Loaded by index.html after shell.js (+ daytiles.css). Hooks: shell.js shellOn / shellGo / shellTabFor / shellHtml /
- * paintTabs - each guarded, so without this file Day Hub is exactly as before.
- * BEFORE DT_ON = true (everyone): add daytiles.js + daytiles.css to sw.js SHELL so a phone opens it offline.
+ * paintTabs - each guarded, so without this file Day Hub is exactly as before. sw.js keeps both files for offline.
  */
 "use strict";
 
