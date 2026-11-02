@@ -231,7 +231,7 @@ function autoSetupHtml() {
     <p>Your cars, looked after. Add your first one: type the VIN and we'll fill in the year, make and model for you, or type them yourself.</p>
     <form class="qa-form" data-autosetup="1">
       <input name="name" placeholder="Your first name" autocomplete="given-name">
-      <input name="city" placeholder="City or ZIP for weather (e.g. 72032)" required>
+      <input name="city" placeholder="City or ZIP for weather (e.g. 80202)" required>
       ${carFormFields()}
       <button class="btn">Add my car</button></form><p class="fine" id="autoMsg">${AUTO_MSG ? "⚠️ " + esc(AUTO_MSG) : ""}</p></section>`;
 }

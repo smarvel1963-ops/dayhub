@@ -55,6 +55,11 @@ def main():
         ph = a.js("document.getElementById('setCity').placeholder")
         check("Settings' city example is neutral, not Scott's town", "Conway" not in ph and "72032" not in ph and "Denver" in ph, ph)
         a.close()
+        root, bad = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."), []   # every Hub's page + the welcome forms
+        for f in [f"{h}/index.html" for h in ("dayhub", "cruisehub", "triphub", "homehub", "autohub", "moneyhub", "healthhub", "hubuniverse")] + ["dayhub/ui.js", "dayhub/auto.js", "dayhub/home.js"]:
+            t = open(os.path.join(root, f), encoding="utf-8").read()
+            if "Conway" in t or "72032" in t: bad.append(f)
+        check("no Hub's examples show Scott's town or ZIP (Settings + welcome forms)", not bad, bad)
         sw = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sw.js"), encoding="utf-8").read()
         check("the offline list holds both new files", '"daytiles.css"' in sw and '"daytiles.js"' in sw)
 

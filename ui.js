@@ -482,7 +482,7 @@ function welcomeHtml() {
   return `<section class="card welcome"><h2>${TRAVEL ? `Welcome to ${APP_NAME} ${MODE === "cruise" ? "🚢" : "✈️"}` : "Welcome to Day Hub 👋"}</h2>
     <p>${TRAVEL ? `Two quick things, then plan your ${TW}.` : "Two quick things and your day is set."}</p>
     <form class="qa-form" data-setup="1"><input name="name" placeholder="Your first name" autocomplete="given-name">
-      <input name="city" placeholder="${TRAVEL ? "Your home city or ZIP (e.g. 72032)" : "City or ZIP for weather (e.g. 72032)"}" required>
+      <input name="city" placeholder="${TRAVEL ? "Your home city or ZIP (e.g. 80202)" : "City or ZIP for weather (e.g. 80202)"}" required>
       ${TRAVEL ? `<input type="hidden" name="pack" value="general">`
         : `<select name="pack">${Object.entries(PACKS).map(([k, p]) => `<option value="${k}">${p.label}</option>`).join("")}</select>`}
       <button class="btn">Let's go</button></form></section>`;

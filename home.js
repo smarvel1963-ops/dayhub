@@ -85,7 +85,7 @@ function homeSetupHtml() {
     <p>Know your home. Fix it. Improve it. Protect it. Pick your rooms and outdoor spaces — you can add, rename or remove any of them later.</p>
     <form class="qa-form" data-homesetup="1">
       <input name="name" placeholder="Your first name" autocomplete="given-name">
-      <input name="city" placeholder="City or ZIP for weather (e.g. 72032)" required>
+      <input name="city" placeholder="City or ZIP for weather (e.g. 80202)" required>
       <label class="field">Property type <select name="type">${HOME_TYPES.map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select></label>
       ${group("indoor")}${group("outdoor")}
       <p class="fine" style="margin-top:6px">Whole-home systems (HVAC, electrical, plumbing, security) are added for you.</p>
