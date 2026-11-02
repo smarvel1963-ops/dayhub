@@ -146,6 +146,29 @@ function ctMoreHtml() {
     + (typeof aiTabHtml === "function" ? aiTabHtml() : "");
 }
 
+// Phase 2 - MONEY opens with the final-payment tracker (Scott's "Payments & Budget" screen): trip total / paid / left,
+// then the final payment due date with days to go (amber inside 14 days). Only when a fare total is saved.
+const ctYmd = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
+function ctMoneyTopHtml(tr) {
+  if (!tr || !(Number(tr.total) > 0)) return "";
+  const paid = tripPaid(tr), left = tripLeft(tr) || 0, fd = ctYmd(tr.finalDue) ? daysUntil(tr.finalDue) : null;
+  const due = left <= 0 ? `<div class="ct-due done"><span aria-hidden="true">✅</span><span><b>Paid in full</b></span></div>`
+    : fd !== null ? `<div class="ct-due${fd < 0 ? " late" : fd <= 14 ? " soon" : ""}"><span aria-hidden="true">🔔</span><span><b>Final payment ${fd < 0 ? "was due" : "due"} ${esc(prettyDate(tr.finalDue))}</b>
+        <small>${fd >= 0 ? esc(inDays(fd)) : `${-fd} day${fd === -1 ? "" : "s"} ago`} · ${esc(money(left))} left</small></span></div>` : "";
+  return `<section class="ct-money" aria-label="Payments"><div class="ct-stats"><div><small>Trip total</small><b>${esc(money(Number(tr.total)))}</b></div>
+      <div class="paid"><small>Paid</small><b>${esc(money(paid))}</b></div><div class="left"><small>Left to pay</small><b>${esc(money(left))}</b></div></div>${due}</section>`;
+}
+// The money tools Scott's outline puts on Money (they live inside the money cards today): package / upgrade / split / bill.
+function ctMoneyToolsHtml(tr) {
+  if (!tr) return "";
+  const cr = trCruise(tr), T = [
+    cr && ["🧮", "Package worth it?", 'data-pkgcalc="1"', "drinks, Wi-Fi, dining"],
+    cr && ["⬆️", "Upgrade worth it?", 'data-upopen="1"', "cabin bid or upgrade"],
+    ["➗", "Split the cost", `data-splitopen="${esc(tr.id)}"`, "who owes what"],
+    cr && ["🧾", "Final bill check", 'data-billcheck="1"', "match the ship's bill"]].filter(Boolean);
+  return `<nav class="ct-grid ct-tools" aria-label="Money tools">${T.map(ctTileHtml).join("")}</nav>`;
+}
+
 // Called by shell.js shellHtml() while the new look is on: the lifesaver header on every tab + the tab's content.
 function ctShellHtml(cardHtml) {
   if (TAB === "home") return homeHtml();                                   // homeHtml() hands over to ctHomeHtml()
@@ -153,7 +176,8 @@ function ctShellHtml(cardHtml) {
   if (TAB === "ai") return top + ctMoreHtml();
   if (TAB === "explore") return top + exploreHtml(cardHtml);
   if (TAB === "plan") return top + planHtml(cardHtml);
-  return top + SHELL_CARDS[TAB].filter(k => k !== "inbox" || S.mail.on || S.mail.found.length).map(k => cardHtml(k)).join("");
+  return top + (TAB === "wallet" ? ctMoneyTopHtml(curTrip()) + ctMoneyToolsHtml(curTrip()) : "")
+    + SHELL_CARDS[TAB].filter(k => k !== "inbox" || S.mail.on || S.mail.found.length).map(k => cardHtml(k)).join("");
 }
 
 // Taps that belong to the new look only.

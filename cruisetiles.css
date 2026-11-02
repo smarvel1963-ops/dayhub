@@ -95,3 +95,91 @@ body.ct #tabbar button svg { width: 25px; height: 25px; }
 body.ct #tabbar button.on { color: #38bdf8; background: rgba(56, 189, 248, .14); text-shadow: 0 0 12px rgba(56, 189, 248, .6); }
 @media (min-width: 700px) { body.ct .ct-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) { body.ct .ct-tile:active, body.ct .ct-life:active, body.ct .ct-gear:active { transform: none; } }
+
+/* ---------------------------------------------------------------- Phase 2: the inner screens + pop-ups
+   Every tab and sheet in the bright look: the app's own colour tokens re-pointed (under body.ct only), then the few
+   pieces that hard-code dark-theme colours. Buttons keep the bright teal/indigo gradient (dark text stays readable). */
+body.ct { --card: rgba(255, 255, 255, .93); --card-solid: #ffffff; --line: rgba(15, 44, 85, .14); --text: #0f2c55; --dim: #4b6587;
+  --gold: #a16207; --red: #e11d48; --green: #15803d; --orange: #c2410c; color: var(--text); }
+body.ct .card { border-color: rgba(255, 255, 255, .75); box-shadow: 0 8px 22px rgba(0, 30, 80, .16); }
+body.ct .sheet-body { background: #f3f7fd; color: var(--text); }
+body.ct input, body.ct select, body.ct textarea { background: #fff; color: var(--text); border-color: rgba(15, 44, 85, .22); }
+body.ct .seg button:not(.on), body.ct .chip:not(.good):not(.warn):not(.on):not(.upd-flash) { background: #e8f0fb; color: var(--text); border-color: rgba(15, 44, 85, .14); }
+body.ct .chip.good { background: #dcfce7; border-color: #86efac; color: #14532d; }               /* picked / done stays visible */
+body.ct .chip.warn { background: #ffe4e6; border-color: #fda4af; color: #881337; }
+body.ct .chip.on { background: #dbeafe; border-color: #1d6fe0; color: #0b3a7a; font-weight: 700; }
+body.ct .add-link { color: #0b6bcb; }
+
+/* Phase 2 - Money: the final-payment tracker (Trip total / Paid / Left to pay + the due date) */
+body.ct .ct-money { background: rgba(255, 255, 255, .95); border-radius: 18px; padding: 12px; box-shadow: 0 8px 22px rgba(0, 30, 80, .16); }
+body.ct .ct-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+body.ct .ct-stats > div { border-radius: 14px; padding: 10px 8px; text-align: center; background: #e8f0fb; }
+body.ct .ct-stats small { display: block; font-size: 12px; font-weight: 700; color: #4b6587; }
+body.ct .ct-stats b { display: block; font-size: clamp(12.5px, 4.1vw, 16px); font-weight: 800; color: #0f2c55; margin-top: 2px; white-space: nowrap; letter-spacing: -.01em; }
+body.ct .ct-stats .paid { background: #dcfce7; } body.ct .ct-stats .paid b { color: #15803d; }
+body.ct .ct-stats .left { background: #ffe4e6; } body.ct .ct-stats .left b { color: #be123c; }
+body.ct .ct-due { display: flex; gap: 10px; align-items: center; margin-top: 10px; padding: 10px 12px; border-radius: 14px; background: #eef4ff; border: 1px solid #d6e3f8; font-size: 15px; }
+body.ct .ct-due small { display: block; font-size: 13px; color: #4b6587; margin-top: 1px; }
+body.ct .ct-due.soon { background: #fff7e6; border-color: #fcd9a0; }
+body.ct .ct-due.done { background: #dcfce7; border-color: #bbf7d0; }
+
+/* Phase 2 - Crisis Mode: one big colour per emergency (Scott's design), full width, a short line under each */
+body.ct #helpSheet .help-grid { display: flex; flex-direction: column; gap: 10px; }
+body.ct #helpSheet .help-btn { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 14px; width: 100%; min-height: 64px; padding: 12px 16px; border-radius: 16px; border: 0;
+  color: #fff; font-size: 26px; text-align: left; box-shadow: 0 6px 16px rgba(0, 30, 80, .2); background: #2563eb; }
+body.ct #helpSheet .help-btn b { font-size: 17px; letter-spacing: .02em; }
+body.ct #helpSheet .help-btn b::after { display: block; font-size: 12.5px; font-weight: 600; letter-spacing: 0; opacity: .92; margin-top: 2px; }
+body.ct #helpSheet .help-btn[data-help="back"] { background: #2563eb; } body.ct #helpSheet .help-btn[data-help="back"] b::after { content: "From port or shore - all-aboard time, directions, port agent"; }
+body.ct #helpSheet .help-btn[data-help="get"] { background: #15803d; } body.ct #helpSheet .help-btn[data-help="get"] b::after { content: "Late, delays, missed connections"; }
+body.ct #helpSheet .help-btn[data-help="medical"] { background: #dc2626; } body.ct #helpSheet .help-btn[data-help="medical"] b::after { content: "On board or in port"; }
+body.ct #helpSheet .help-btn[data-help="travel"] { background: #c2410c; } body.ct #helpSheet .help-btn[data-help="travel"] b::after { content: "Flights, hotel, getting around"; }
+body.ct #helpSheet .help-btn[data-fixopen] { background: #0f766e; } body.ct #helpSheet .help-btn[data-fixopen] b::after { content: "Two bookings at the same time"; }
+body.ct #helpSheet .help-btn[data-help="docs"] { background: #7c3aed; } body.ct #helpSheet .help-btn[data-help="docs"] b::after { content: "Passport, ID - lost or stolen"; }
+body.ct #helpSheet .help-btn[data-help="contacts"] { background: #fff; color: #0f2c55; border: 1px solid #d6e3f8; }
+body.ct #helpSheet .help-btn[data-help="contacts"] b::after { content: "Tap-to-call numbers you saved - never made up"; }
+body.ct #helpSheet .help-btn .sub { color: #be123c; font-size: 12px; font-weight: 700; margin-left: auto; }
+body.ct .ct-tools { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 10px 0 2px; }
+body.ct .ct-tools .ct-tile { min-height: 70px; display: grid; grid-template-columns: 32px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 10px; row-gap: 1px;
+  align-items: center; align-content: center; justify-items: start; text-align: left; padding: 10px 12px; }
+body.ct .ct-tools .ct-tile .ct-ic { grid-row: 1 / span 2; }
+body.ct .ct-tools .ct-tile .ct-ic { font-size: 26px; }
+body.ct .ct-tools .ct-tile b { font-size: 14.5px; } body.ct .ct-tools .ct-tile small { display: block; }
+
+
+/* Phase 2 - Cruise Hub Pass (Settings): a premium card, the same deep-ocean blue as the hero */
+body.ct #proBox { --text: #ffffff; --dim: #dbe7ff; background: linear-gradient(140deg, #0a3d7a, #1d6fe0 75%, #0369a1); color: #fff;
+  border-radius: 18px; padding: 14px 16px; margin: 12px 0; box-shadow: 0 10px 24px rgba(0, 30, 80, .25); }
+body.ct #proBox a:not(.btn) { color: #fde68a; }
+body.ct #proBox input { background: rgba(255, 255, 255, .95); color: #0f2c55; }
+/* the ✕ on every sheet: dark on the bright sheet (its base style draws it white) */
+body.ct .sheet .icon-btn { color: var(--text); background: #fff; border-color: rgba(15, 44, 85, .2); font-weight: 700; }
+
+/* Phase 2 review fixes - text colours that were made for the dark theme, on the new white cards and sheets:
+   1. --accent / --accent2 are TEXT colours in ~15 shared rules (Crisis tap-to-call links, "What am I forgetting?" headings,
+      "+ Add" rows, day labels...): re-pointed to darker shades; the bright gradient is kept where they are a BACKGROUND. */
+body.ct { --accent: #0f766e; --accent2: #4f46e5; --muted: #4b6587; }
+body.ct .btn:not(.ghost):not(.on), body.ct .fab, body.ct .seg button.on, body.ct .gbar span { background: linear-gradient(135deg, #5eead4, #818cf8); }
+body.ct .btn.ghost { background: #fff; color: #0f2c55; border-color: rgba(15, 44, 85, .2); }          /* outline buttons stay outline (literal navy: #proBox makes --text white) */
+body.ct #proBox .btn.ghost { background: rgba(255, 255, 255, .14); color: #fff; border-color: rgba(255, 255, 255, .5); }
+body.ct .tl-row.now .tl-ic, body.ct .map-n { background: #5eead4; }
+body.ct .tile.on { box-shadow: 0 0 0 2px #0f766e inset; }
+body.ct input:focus, body.ct select:focus, body.ct textarea:focus { border-color: #0f766e; box-shadow: 0 0 0 3px rgba(15, 118, 110, .2); }
+/* 2. the chosen tab (bags, lists, trips) */
+body.ct .tab.on { background: #0f2c55; color: #fff; }
+/* 3. an unchecked round tick needs an edge on white (keep :not(:checked) - the green checked fill must win) */
+body.ct input[type=checkbox].tick:not(:checked) { border-color: rgba(15, 44, 85, .45); background: #fff; }
+/* 6/7. light-on-white leftovers: rain %, Google badge, tracks, the sheet grab, small icon chips, date pickers */
+body.ct .hour .r, body.ct .dayrow .rn { color: #0369a1; }
+body.ct .gbadge { color: #1d4ed8; background: #dbeafe; }
+body.ct .bar, body.ct .gbar { background: rgba(15, 44, 85, .1); }
+body.ct .ring { background: conic-gradient(var(--green) calc(var(--p) * 1%), rgba(15, 44, 85, .14) 0); }
+body.ct .grab { background: rgba(15, 44, 85, .22); }
+body.ct .hour, body.ct .fact { background: #eef4ff; }
+body.ct .card h3 .ci, body.ct .tl-row .tl-ic { background: #e8f0fb; }
+body.ct input[type=date], body.ct input[type=time] { color-scheme: light; }
+/* Money: an overdue final payment is red, not amber (the old money tab shows it as late) */
+body.ct .ct-due.late { background: #ffe4e6; border-color: #fda4af; }
+/* re-check fixes: the picked segment button keeps dark text on its light gradient (it is also a .tab.on); PRO tag; paid-off tint */
+body.ct .seg button.on { color: #0a0e1c; }
+body.ct .tag { background: #5eead4; }
+body.ct .paygrid .take { background: #dcfce7; }

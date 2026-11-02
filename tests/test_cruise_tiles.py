@@ -162,6 +162,45 @@ def main():
         check("Other trip: More has no ship-only tiles", "Ship Guide" not in more and "Final Bill Check" not in more, more)
         a.close()
 
+        print("\n[9. Phase 2: inner screens + pop-ups in the bright look]")
+        a = cruise(b, base)
+        a.js("shellGo('wallet')"); a.page.wait_for_timeout(200)
+        mt = a.page.inner_text(".ct-money") if a.js("!!document.querySelector('.ct-money')") else ""
+        check("Money: trip total / paid / left + final payment due", all(x in mt for x in ["$4,280.00", "$3,000.00", "$1,280.00", "Final payment due Jan 20", "80 days"]), mt)
+        tools = a.js("[...document.querySelectorAll('.ct-tools .ct-tile b')].map(x => x.textContent)")
+        check("Money tools: package / upgrade / split / bill", tools == ["Package worth it?", "Upgrade worth it?", "Split the cost", "Final bill check"], tools)
+        for name, sheet in (("Package worth it?", "#pkgSheet"), ("Upgrade worth it?", "#upSheet"), ("Split the cost", "#splitSheet"), ("Final bill check", "#billSheet")):
+            a.js("shellGo('wallet')"); tap(a, f".ct-tools .ct-tile:has(b:text-is('{name}'))")
+            check(f"{name} opens its screen", visible(a, sheet)); close_sheets(a)
+        a.js("shellGo('plan')"); a.page.wait_for_timeout(150)
+        check("inner screens are bright (white cards, navy text)", a.js("getComputedStyle(document.querySelector('#cards .card')).backgroundColor") == "rgba(255, 255, 255, 0.93)"
+              and a.js("getComputedStyle(document.body).color") == "rgb(15, 44, 85)")
+        a.js("showHelp(null)"); a.page.wait_for_timeout(150)
+        bg = lambda sel: a.js(f"getComputedStyle(document.querySelector('{sel}')).backgroundColor")
+        check("Crisis Mode: one colour per emergency", bg("#helpSheet [data-help=back]") == "rgb(37, 99, 235)" and bg("#helpSheet [data-help=medical]") == "rgb(220, 38, 38)"
+              and bg("#helpSheet [data-help=get]") == "rgb(21, 128, 61)" and bg("#helpSheet [data-help=docs]") == "rgb(124, 58, 237)")
+        check("the ✕ on a sheet is visible (dark on white)", a.js("getComputedStyle(document.querySelector('#helpSheet .icon-btn')).color") == "rgb(15, 44, 85)")
+        a.js("showHelp('medical')"); a.page.wait_for_timeout(150)
+        check("Crisis tap-to-call links are dark teal, not light teal (review 1)", a.js("getComputedStyle(document.querySelector('#helpSheet a[href^=\"tel:\"]')).color") == "rgb(15, 118, 110)")
+        close_sheets(a)
+        a.js("shellGo('plan'); PLAN_VIEW = 'packing'; render()"); a.page.wait_for_timeout(200)
+        tab_on = a.js("(() => { const t = document.querySelector('#cards .tab.on'); return t ? [getComputedStyle(t).backgroundColor, getComputedStyle(t).color] : null; })()")
+        check("the chosen tab is white on navy (review 2)", tab_on == ["rgb(15, 44, 85)", "rgb(255, 255, 255)"], tab_on)
+        tick = a.js("(() => { const t = document.querySelector('#cards input[type=checkbox].tick:not(:checked)'); return t ? getComputedStyle(t).borderTopColor : null; })()")
+        check("an unchecked tick has a visible edge on white (review 3)", tick == "rgba(15, 44, 85, 0.45)", tick)
+        a.js("const t = document.querySelector('#cards input[type=checkbox].tick:not(:checked)'); t.click()"); a.page.wait_for_timeout(200)
+        done = a.js("(() => { const t = document.querySelector('#cards input[type=checkbox].tick:checked'); return t ? getComputedStyle(t).backgroundColor : null; })()")
+        check("a checked tick keeps its green fill", done and done not in ("rgb(255, 255, 255)", "rgba(0, 0, 0, 0)"), done)
+        a.close()
+        a = cruise(b, base, at="2027-03-16T13:30:00")
+        a.js("showGuard()"); a.page.wait_for_timeout(150)
+        on = a.js("(() => { const s = [...document.querySelectorAll('#rgSheet .seg button, #rgSheet .chip')]; const o = s.find(x => x.classList.contains('on') || x.classList.contains('good')); const n = s.find(x => x !== o);"
+                  " return o && n ? [getComputedStyle(o).backgroundImage + getComputedStyle(o).backgroundColor, getComputedStyle(n).backgroundImage + getComputedStyle(n).backgroundColor] : null; })()")
+        check("Return Guard: the picked safety margin stays highlighted", bool(on) and on[0] != on[1], on)
+        txt = a.js("(() => { const o = document.querySelector('#rgSheet .seg button.on'); return o ? getComputedStyle(o).color : null; })()")
+        check("Return Guard: the picked margin's text is dark on its light gradient (re-check 1)", txt == "rgb(10, 14, 28)", txt)
+        a.close()
+
         print("\n[7. the link, and the other hubs]")
         a = T.App(b, base, path=T.CRUISE + "?src=play&look=tiles")
         check("?look=tiles is kept on the phone and dropped from the address; ?src=play stays", a.js("localStorage.getItem('cruisehub.look')") == "tiles"
