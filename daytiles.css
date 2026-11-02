@@ -121,3 +121,134 @@ body.dt .paygrid .take { background: #dcfce7; }
 body.dt .row.late b { color: #c2410c; }                                     /* overdue upkeep / returns */
 body.dt .pay-left.neg b { color: #e11d48; }                                 /* payday "Short by $X" */
 @media (prefers-reduced-motion: reduce) { body.dt .dt-tile:active, body.dt .dt-q:active span, body.dt .dt-moment:active { transform: none; } }
+
+/* ---------------------------------------------------------------- Phase 2: the big tools as their own screens */
+body.dt .dt-k { display: block; font-size: 12.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+body.dt .dt-title, body.dt .dt-seg, body.dt .dt-mtop, body.dt .dt-bigs, body.dt .dt-line, body.dt .dt-hours, body.dt .dt-wxhero, body.dt .dt-infos,
+body.dt .dt-prohero, body.dt .dt-lists { column-span: all; -webkit-column-span: all; }
+body.dt.dt-screen .fab { display: none; }
+
+/* the section bar (Money: Overview · Bills · Budget · Pay · Goals; Tasks: To-Do · Lists · Routines · Don't Forget) */
+body.dt .dt-seg { display: flex; gap: 4px; padding: 4px; margin: 2px 0 12px; border-radius: 999px; background: rgba(7, 26, 60, .55); border: 1px solid var(--dt-line); }
+body.dt .dt-seg button { flex: 1 1 auto; min-width: 0; padding: 9px 4px; border: 0; border-radius: 999px; background: none; color: #e6efff; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+body.dt .dt-seg button.on { background: #fff; color: #0f2c55; box-shadow: 0 3px 10px rgba(0, 15, 45, .35); }
+
+/* big full-width actions */
+body.dt .dt-bigs { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 2px; }
+body.dt .dt-big, body.dt a.dt-probuy { display: block; width: 100%; padding: 14px 16px; border: 0; border-radius: 16px; font: inherit; font-size: 16px; font-weight: 800; text-align: center; text-decoration: none;
+  cursor: pointer; color: #fff; box-shadow: 0 8px 18px rgba(0, 20, 60, .3); }
+body.dt .dt-big.green { background: linear-gradient(135deg, #16a34a, #15803d); }
+body.dt .dt-big.blue { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+body.dt a.dt-probuy { background: linear-gradient(135deg, #fbbf24, #fb923c); color: #1c1206; }
+body.dt .dt-price { margin: 0; text-align: center; color: #dbeafe; font-size: 13.5px; font-weight: 600; }
+
+/* MONEY overview */
+body.dt .dt-mtop { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 14px 16px; border-radius: 20px; background: #fff; color: #0f2c55; box-shadow: 0 10px 24px rgba(0, 30, 80, .22); margin-bottom: 12px; }
+body.dt .dt-mtop .dt-k { color: #476a95; margin-bottom: 4px; }
+body.dt .dt-mnums small { display: block; font-size: 13px; font-weight: 600; color: #4b6587; margin-top: 4px; }
+body.dt .dt-mnums b { display: block; font-size: clamp(22px, 7vw, 28px); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; color: #15803d; }
+body.dt .dt-mnums b.out { color: #be123c; }
+body.dt .dt-ring { --tone: #16a34a; width: 112px; height: 112px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--tone) calc(var(--p) * 1%), rgba(15, 44, 85, .12) 0); }
+body.dt .dt-ring > span { width: 84px; height: 84px; border-radius: 50%; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+body.dt .dt-ring b { font-size: 24px; font-weight: 800; line-height: 1; } body.dt .dt-ring small { font-size: 11.5px; font-weight: 700; color: #4b6587; margin-top: 2px; }
+body.dt .dt-mtop.tight .dt-ring { --tone: #d97706; } body.dt .dt-mtop.over .dt-ring { --tone: #e11d48; }
+body.dt .dt-msay { grid-column: 1 / -1; margin: 6px 0 0; padding-top: 8px; border-top: 1px solid #e3ecf8; font-size: 14px; font-weight: 600; color: #15803d; }
+body.dt .dt-mtop.tight .dt-msay { color: #b45309; } body.dt .dt-mtop.over .dt-msay { color: #be123c; }
+body.dt .dt-mtop.none { display: block; } body.dt .dt-mtop.none b { display: block; font-size: 19px; font-weight: 800; line-height: 1.2; }
+body.dt .dt-mtop.none small { display: block; font-size: 14px; color: #4b6587; margin-top: 4px; }
+body.dt .dt-link { margin-left: auto; background: none; border: 0; color: #1d4ed8; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; padding: 2px 4px; }
+body.dt .dt-line { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 10px; padding: 12px 14px; border: 0; border-radius: 16px; background: rgba(255, 255, 255, .94); color: #0f2c55; font: inherit; font-size: 15px; text-align: left; cursor: pointer; box-shadow: 0 8px 18px rgba(0, 30, 80, .16); }
+body.dt .dt-line .grow { flex: 1; } body.dt .dt-line .chev { color: #7a93b5; font-size: 20px; }
+
+/* TASKS: the list tiles */
+body.dt .dt-lists { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 12px; }
+body.dt .dt-lists .dt-tile { min-height: 76px; }
+body.dt .dt-lists .dt-tile.on { box-shadow: 0 0 0 3px #fbbf24 inset, 0 8px 18px rgba(0, 30, 80, .2); }
+body.dt .dt-lists .dt-tile.add .dt-ic { font-size: 24px; font-weight: 700; color: #1d4ed8; }
+body.dt [data-card="lists"] .tabs { display: none; }                         /* the tiles above are the tabs */
+body.dt .dt-todos [data-card="todos"] .add-link { display: none; }           /* the big Add Task button is right below */
+body.dt .dt-quicklists { margin-top: 14px; }
+
+/* TODAY: four points of today's weather */
+body.dt .dt-hours { display: flex; align-items: center; width: 100%; padding: 10px 8px; margin-bottom: 12px; border: 1px solid var(--dt-line); border-radius: 18px; background: rgba(7, 26, 60, .5); color: #fff; font: inherit; cursor: pointer; }
+body.dt .dt-h { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+body.dt .dt-h small { font-size: 12px; font-weight: 700; color: #dbeafe; } body.dt .dt-h i { font-size: 24px; font-style: normal; line-height: 1.1; } body.dt .dt-h b { font-size: 16px; font-weight: 800; }
+body.dt .dt-hours .chev { font-size: 22px; color: #dbeafe; padding: 0 4px; }
+
+/* WEATHER & ALERTS */
+body.dt .dt-backrow { display: flex; align-items: center; gap: 8px; }
+body.dt .dt-back { width: 40px; height: 40px; flex: none; border-radius: 50%; border: 1px solid var(--dt-line); background: rgba(7, 26, 60, .5); color: #fff; font: inherit; font-size: 26px; line-height: 1; cursor: pointer; }
+body.dt .dt-wxhero { display: block; padding: 18px; border-radius: 22px; color: #fff; text-align: center; background: linear-gradient(160deg, #0369a1, #0284c7 55%, #38bdf8); box-shadow: 0 12px 28px rgba(0, 20, 60, .35); }
+body.dt .dt-wxhero.night { background: linear-gradient(160deg, #1e1b4b, #1e3a8a); }
+body.dt .dt-wxhero.gloomy { background: linear-gradient(160deg, #334155, #475569); }
+body.dt .dt-wxrow { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 6px; }
+body.dt .dt-wxrow i { font-size: 56px; font-style: normal; line-height: 1; } body.dt .dt-wxrow b { font-size: 64px; font-weight: 800; letter-spacing: -.03em; line-height: 1; }
+body.dt .dt-wxword { display: block; font-size: 20px; font-weight: 700; margin-top: 4px; text-transform: capitalize; }
+body.dt .dt-wxhero small { display: block; font-size: 14px; font-weight: 600; margin-top: 4px; }
+body.dt .dt-infos { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+body.dt .dt-info { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: rgba(255, 255, 255, .94); color: #0f2c55; box-shadow: 0 8px 18px rgba(0, 30, 80, .16); }
+body.dt .dt-info > span:first-child { font-size: 26px; } body.dt .dt-info .grow { flex: 1; min-width: 0; }
+body.dt .dt-info b { display: block; font-size: 15.5px; font-weight: 800; } body.dt .dt-info small { display: block; font-size: 13.5px; color: #4b6587; margin-top: 1px; }
+
+/* BRAIN DUMP: the whole phone (the same form and sorter; daytiles.js dresses it) */
+body.dt #qa:has(textarea[name="dump"]) { background: none; }
+body.dt #qa:has(textarea[name="dump"]) .sheet-body { position: fixed; inset: 0; max-height: none; height: 100%; max-width: none; width: 100%; border-radius: 0; overflow-y: auto; color: #fff;
+  background: radial-gradient(90% 40% at 50% 12%, rgba(129, 140, 248, .35), transparent 70%), linear-gradient(180deg, #0b2545, #0e3a74 60%, #145da0); padding: max(14px, env(safe-area-inset-top)) 18px 40px; }
+body.dt #qa:has(textarea[name="dump"]) .grab, body.dt #qa:has(textarea[name="dump"]) #qaTypes, body.dt #qa:has(textarea[name="dump"]) .sheet-head h2 { display: none; }
+body.dt #qa:has(textarea[name="dump"]) .sheet-head { justify-content: flex-end; }
+body.dt #qa:has(textarea[name="dump"]) .sheet-head .icon-btn { background: rgba(255, 255, 255, .14); color: #fff; border-color: rgba(255, 255, 255, .4); }
+body.dt #qa:has(textarea[name="dump"]) #qaForm { max-width: 560px; margin: 0 auto; }
+body.dt .dt-dumphero { text-align: center; padding: 0 0 14px; }
+body.dt .dt-brain { font-size: 62px; line-height: 1; filter: drop-shadow(0 6px 18px rgba(129, 140, 248, .8)); }
+body.dt .dt-dumphero h2 { margin: 8px 0 2px; font-size: 26px; font-weight: 800; color: #0f2c55; } body.dt .dt-dumphero p { margin: 0; font-size: 15.5px; color: #4b6587; }   /* readable on the plain sheet where :has isn't supported */
+body.dt #qa:has(textarea[name="dump"]) .dt-dumphero h2 { color: #fff; } body.dt #qa:has(textarea[name="dump"]) .dt-dumphero p { color: #dbeafe; }
+body.dt .btn.dt-mic, body.dt .btn.dt-mic:not(.ghost):not(.on) { display: block; margin: 14px auto 0; width: 112px; height: 112px; padding: 0; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .55); font-size: 17px; font-weight: 800; color: #fff;
+  background: radial-gradient(circle at 35% 30%, #60a5fa, #1d4ed8); box-shadow: 0 0 0 10px rgba(96, 165, 250, .18), 0 12px 26px rgba(0, 0, 0, .35); }
+body.dt .btn.dt-mic.on { background: radial-gradient(circle at 35% 30%, #fb7185, #be123c); color: #fff; }
+body.dt #qa:has(textarea[name="dump"]) textarea { min-height: 110px; font-size: 16px; }
+body.dt #qa:has(textarea[name="dump"]) .hint { color: #dbeafe; }
+body.dt .dt-dumpinto { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 12px; font-size: 13px; color: #0f2c55; }
+body.dt .dt-dumpinto b { flex: 1 0 100%; font-size: 13.5px; }
+body.dt .dt-dumpinto span { padding: 4px 10px; border-radius: 999px; background: #e8f0fb; border: 1px solid rgba(15, 44, 85, .14); }
+body.dt #qa:has(textarea[name="dump"]) .dt-dumpinto { color: #fff; }
+body.dt #qa:has(textarea[name="dump"]) .dt-dumpinto span { background: rgba(255, 255, 255, .14); border-color: var(--dt-line); }
+/* sorted rows: white cards, so the type, the ✕ and the repeat line can all be read */
+body.dt #qa:has(textarea[name="dump"]) .dump-row { background: #fff; border-color: transparent; color: #0f2c55; --dim: #4b6587; }
+body.dt #qa:has(textarea[name="dump"]) .dump-row .x { color: #4b6587; opacity: 1; }
+body.dt #qa:has(textarea[name="dump"]) .dump-h { color: #fff; }
+body.dt #qa:has(textarea[name="dump"]) #dumpOut { color: #0f2c55; }
+body.dt #qa:has(textarea[name="dump"]) #dumpOut .dump-h { color: #fff; }
+body.dt #qa:has(textarea[name="dump"]) #qaForm > .btn { width: 100%; margin-top: 12px; }
+
+/* the + sheet: every kind on screen, no sideways hunting */
+body.dt #qaTypes { flex-wrap: wrap; overflow: visible; }
+
+/* PRO STATUS */
+body.dt .dt-prohero { display: block; padding: 16px 18px; border-radius: 20px; color: #fff; background: linear-gradient(140deg, #0b2545, #1d4ed8 75%, #0369a1); box-shadow: 0 12px 28px rgba(0, 20, 60, .35); margin-bottom: 12px; }
+body.dt .dt-prohero.on { background: linear-gradient(140deg, #14532d, #15803d 75%, #0f766e); }
+body.dt .dt-prohero.soon { background: linear-gradient(140deg, #7c2d12, #c2410c 75%, #b45309); }
+body.dt .dt-prohero b { display: block; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; margin-top: 2px; } body.dt .dt-prohero small { display: block; font-size: 14.5px; margin-top: 4px; }
+body.dt .dt-prorow { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 15px; }
+body.dt .dt-prorow:first-child { border-top: 0; } body.dt .dt-prorow .grow { flex: 1; min-width: 0; }
+body.dt .dt-prorow b { font-size: 14px; font-weight: 700; color: #4b6587; text-align: right; }
+body.dt .dt-prorow b.on { color: #15803d; } body.dt .dt-prorow b.soon { color: #c2410c; }
+body.dt .dt-prolist { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 7px; font-size: 15px; }
+body.dt .pulse svg { width: 52px; height: 52px; }                            /* the Life pulse ring reads at a glance */
+
+/* from the screen-by-screen check */
+body.dt input[type=checkbox].tick { position: relative; }                    /* the ✓: white and centred on the darker green */
+body.dt input[type=checkbox].tick::after { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; }
+body.dt:not([data-tab="today"]) .fab { display: none; }                      /* Home, Tasks, Money and More have their own Add buttons */
+body.dt [data-card="payday"] .goal, body.dt [data-card="payday"] form[data-goalnew], body.dt [data-card="payday"] .rs-h:has(+ .goal),
+body.dt [data-card="payday"] .rs-h:has(+ form[data-goalnew]) { display: none; }   /* goals have their own section */
+/* Brain Dump's one main button: Sort it (it shows "Sorting…" and locks while the AI works); Add all appears once there's something to add */
+body.dt #qa:has(textarea[name="dump"]) .dump-acts { display: block; }
+body.dt #qa:has(textarea[name="dump"]) [data-dumpsort] { display: block; width: 100%; padding: 13px 16px; font-size: 16px; font-weight: 800; }
+body.dt #qaForm:has(textarea[name="dump"]):has(#dumpOut:empty) > .btn:last-child { display: none; }
+/* a section's own card doesn't fold, so no fold arrow */
+body.dt[data-tab="money"] .card h3 .chev, body.dt[data-tab="tasks"] [data-card="lists"] h3 .chev, body.dt[data-tab="tasks"] [data-card="routines"] h3 .chev, body.dt[data-tab="tasks"] [data-card="leave"] h3 .chev { display: none; }
+body.dt .add-link[data-top3] { white-space: nowrap; flex: none; }
+body.dt .split-item { flex-wrap: wrap; } body.dt .split-item .grow { flex: 1 0 100%; } body.dt .split-item select { flex: 1 1 40%; min-width: 0; }
+/* tablets: the single cards on these screens run the full width, the tiles spread out */
+body.dt .dt-nextbills, body.dt .dt-goals, body.dt .dt-wxcard, body.dt .dt-prosync, body.dt .dt-proben, body.dt .dt-empty { column-span: all; -webkit-column-span: all; }
+@media (min-width: 700px) { body.dt .dt-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }

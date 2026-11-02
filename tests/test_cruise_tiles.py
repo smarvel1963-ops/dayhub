@@ -201,6 +201,48 @@ def main():
         check("Return Guard: the picked margin's text is dark on its light gradient (re-check 1)", txt == "rgb(10, 14, 28)", txt)
         a.close()
 
+        print("\n[11. Money and Packing don't repeat Home]")
+        a = cruise(b, base)
+        shown = "(() => { const h = document.querySelector('[data-card=\"trips\"] .trip-n'), f = document.querySelector('[data-card=\"trips\"] .btn[data-forget]'); return [h && getComputedStyle(h).display !== 'none', f && getComputedStyle(f).display !== 'none']; })()"
+        edit = "(() => { const e = document.querySelector('[data-card=\"trips\"] [data-tripedit]'); return !!e && e.offsetParent !== null; })()"
+        a.js("shellGo('wallet')"); a.page.wait_for_timeout(100)
+        check("Money: no second countdown or 'What am I forgetting?', but Edit stays (the cards say '(Edit)')", a.js(shown) == [False, False] and a.js(edit), a.js(shown))
+        a.js("shellGo('plan'); PLAN_VIEW = 'packing'; render()"); a.page.wait_for_timeout(100)
+        check("Packing: the same", a.js(shown) == [False, False] and a.js(edit), a.js(shown))
+        a.js("PLAN_VIEW = 'trip'; render()"); a.page.wait_for_timeout(100)
+        check("My Cruise → Trip keeps them, with Edit", a.js(shown) == [True, True] and a.js("!!document.querySelector('[data-card=\"trips\"] [data-tripedit]')"), a.js(shown))
+        a.close()
+
+        a = cruise(b, base, at="2027-03-20T15:00:00")                       # a port call the day before getting off, after 2 PM
+        a.qa("tport", {"pname": "Roatan", "pday": "2027-03-20", "arrive": "08:00", "allAboard": "17:30"}); a.js("closeQA(); shellGo('home')"); a.page.wait_for_timeout(200)
+        both = a.js("!!guardFor(curTrip()) && !!goHomeState(curTrip())")
+        check("Return Guard holding the card on final night: the car chip isn't lost", both and a.js("!!document.querySelector('.ct-notices [data-gohome]')"), both)
+        a.close()
+
+        print("\n[10. the hidden hero's must-see notices]")
+        a = cruise(b, base)
+        check("nothing to say: no notices row", not a.js("!!document.querySelector('.ct-notices')"))
+        a.js("UPDATE = { version: '9.9' }; render()")
+        check("a new version shows on the new home, tappable", a.js("!!document.querySelector('.ct-notices [data-update]')"))
+        a.js("UPDATE = null; INSTALL_EVT = { prompt() {} }; render()")
+        check("the install prompt too", a.js("!!document.querySelector('.ct-notices [data-install]')"))
+        a.js("INSTALL_EVT = null; localStorage.setItem('cruisehub.pro', JSON.stringify({ buyer: 'buyer@example.com', ok: false, checked: Date.now(), status: 'not found', product: 'cruisehub' })); S.sync.on = true; render()")
+        n = a.page.inner_text(".ct-notices")
+        check("Pro ended: the paused notice names the pass", "Calendar sync and backup paused (Cruise Hub Pass ended)" in n, n)
+        a.js("S.sync.on = false; UPDATE = { version: '9.9' }; shellGo('wallet')")
+        check("the notices are Home's: not on the other tabs", not a.js("!!document.querySelector('.ct-notices')"))
+        a.js("UPDATE = null; const n0 = window.navigator; Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false }); render(); 0")
+        check("no connection: the Offline pill sits in the top bar", "Offline" in a.page.inner_text(".ct-top"))
+        a.js("Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true }); 0")
+        a.close()
+        a = T.App(b, base, path=T.CRUISE + "?src=play&look=tiles")
+        a.page.fill('form[data-setup] [name=name]', "Sam"); a.page.fill('form[data-setup] [name=city]', "72032")
+        a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+        a.js("shellGo('ai')")
+        m = a.page.inner_text(".ct-more")
+        check("Play app: the More tile says Settings, no Pass wording", "Settings" in m and "Pass" not in m, m[:200])
+        a.close()
+
         print("\n[7. the link, and the other hubs]")
         a = T.App(b, base, path=T.CRUISE + "?src=play&look=tiles")
         check("?look=tiles is kept on the phone and dropped from the address; ?src=play stays", a.js("localStorage.getItem('cruisehub.look')") == "tiles"

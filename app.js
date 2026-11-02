@@ -3021,7 +3021,7 @@ function heroHtml() {
     <div class="greet">${greet()}</div>
     <div class="hero-main"><div><div class="hero-clock" id="clockNow"></div><div class="hero-date">${longDate(today())}</div></div>${wx}</div>
     ${CD || `<div class="verdict-row">${!TRAVEL && (S.name || hasData(S)) ? pulseRing() : ""}<div class="verdict">${verdict}</div></div>`}
-    <div class="chips">${chipsShown(keep).join("")}</div>`;
+    <div class="chips">${chipsShown(typeof dtChips === "function" ? dtChips(keep) : keep).join("")}</div>`;
 }
 // v0.39 (Scott 10/3 "do 1 2"): at most 3 chips up top, in the order above (= priority);
 // the rest fold into "+N more", which opens them in place. Open for this visit only.

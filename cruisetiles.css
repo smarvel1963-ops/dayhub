@@ -56,6 +56,23 @@ body.ct .ct-alert { padding: 6px; }                                         /* R
 body.ct .ct-alert .rg { width: 100%; margin: 0; }
 body.ct .ct-alert .chip { margin: 8px 6px 2px; }
 
+/* Money and Packing: Home already has the countdown and "What am I forgetting?". The trip's name + Edit stay as one slim row,
+   because the cards below say "(Edit)" when a price or date is missing. My Cruise → Trip keeps the whole thing. */
+body.ct[data-tab="wallet"] [data-card="trips"] .trip-n, body.ct[data-tab="wallet"] [data-card="trips"] .trip-hero .sub, body.ct[data-tab="wallet"] [data-card="trips"] .btn[data-forget],
+body.ct #cards:has(.planview .tile.on[data-planview="packing"]) [data-card="trips"] .trip-n,
+body.ct #cards:has(.planview .tile.on[data-planview="packing"]) [data-card="trips"] .trip-hero .sub,
+body.ct #cards:has(.planview .tile.on[data-planview="packing"]) [data-card="trips"] .btn[data-forget] { display: none; }
+/* Return Guard's bar: full width on Home, where there's no + button beside it */
+body.ct[data-tab="home"] .rg-bar { right: 16px; max-width: none; }
+@media (min-width: 600px) { body.ct[data-tab="home"] .rg-bar { left: calc(50% - 264px); right: calc(50% - 264px); } }
+
+/* Who paid what: the name and amount on their own line, the two pickers under them */
+body.ct .split-item { flex-wrap: wrap; } body.ct .split-item .grow { flex: 1 0 100%; } body.ct .split-item select { flex: 1 1 40%; min-width: 0; }
+
+/* the must-see notices from the hidden hero (new version, Install, Pro paused / ending, the car) */
+body.ct .ct-notices { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 2px; }
+body.ct .ct-brand .offline-pill { display: inline-block; margin-left: 6px; color: #fff; }
+
 /* travel day / first 10 minutes card, the big button, Needs you */
 body.ct .ct-phase .card { background: rgba(255, 255, 255, .94); color: var(--ct-ink); border: 0; border-radius: 18px; }
 body.ct .ct-phase .card h3, body.ct .ct-phase .card .today-line, body.ct .ct-phase .card .rn-row { color: var(--ct-ink); }
@@ -168,6 +185,8 @@ body.ct input:focus, body.ct select:focus, body.ct textarea:focus { border-color
 body.ct .tab.on { background: #0f2c55; color: #fff; }
 /* 3. an unchecked round tick needs an edge on white (keep :not(:checked) - the green checked fill must win) */
 body.ct input[type=checkbox].tick:not(:checked) { border-color: rgba(15, 44, 85, .45); background: #fff; }
+body.ct input[type=checkbox].tick { position: relative; }                    /* the ✓: white and centred on the darker green */
+body.ct input[type=checkbox].tick::after { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; }
 /* 6/7. light-on-white leftovers: rain %, Google badge, tracks, the sheet grab, small icon chips, date pickers */
 body.ct .hour .r, body.ct .dayrow .rn { color: #0369a1; }
 body.ct .gbadge { color: #1d4ed8; background: #dbeafe; }

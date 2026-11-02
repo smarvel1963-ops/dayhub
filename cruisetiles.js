@@ -11,8 +11,8 @@
  * SWITCH: CT_ON = false - nobody sees it. One phone can preview it with the link ?look=tiles (kept on that phone,
  * cruisehub.look); ?look=classic or More -> Classic look turns it back. Cruise Hub only; Simple mode always wins.
  * Loaded by ../cruisehub/index.html after shell.js (+ cruisetiles.css). Hooks: shell.js homeHtml / shellHtml / paintTabs.
- * BEFORE CT_ON = true (everyone): the hidden #hero's chips must move into ctTopHtml - "New version ready" (the update
- * prompt), Install, Offline and the trip's car chip (app.js heroHtml). Not needed while only a preview phone sees it.
+ * #hero is hidden in this look, so ctNoticesHtml brings over the chips people must not miss (new version, Install, Pro
+ * paused / ending, the car) and ctTopHtml the Offline pill.
  * DEPLOY ORDER: push dayhub first and let Pages publish, then cruisehub (its v7 worker caches these two files).
  */
 "use strict";
@@ -50,8 +50,19 @@ const CT_LIFE = `<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy=
 
 function ctTopHtml(home) {
   return `<div class="ct-top"><button class="ct-life" data-help="home" aria-label="Crisis Mode - help now">${CT_LIFE}</button>
-    <div class="ct-brand"><b>🛳️ Cruise Hub</b><small>${home ? "Plan · Prepare · Sail · Explore · Enjoy" : esc(CT_TAB_NAME[TAB] || "")}</small></div>
+    <div class="ct-brand"><b>🛳️ Cruise Hub</b><small>${home ? "Plan · Prepare · Sail · Explore · Enjoy" : esc(CT_TAB_NAME[TAB] || "")}${navigator.onLine === false ? ` <span class="offline-pill">🟠 Offline</span>` : ""}</small></div>
     <button class="ct-gear" data-ctgo="settings" aria-label="Settings">⚙️</button></div>`;
+}
+// The hidden hero's must-see chips (app.js heroHtml builds them; all of them for this one read, none folded behind "+N more").
+// The car chip stays out when the stage card already shows it (final night / last morning - unless Return Guard holds the card).
+function ctNoticesHtml(tr) {
+  const was = CHIPS_ALL; CHIPS_ALL = true; let html = "";
+  try { html = heroHtml(); } finally { CHIPS_ALL = was; }
+  const box = document.createElement("template"); box.innerHTML = html;
+  const staged = !!tr && !guardFor(tr) && typeof goHomeState === "function" && !!goHomeState(tr);
+  const keep = [...box.content.querySelectorAll(".chips > [data-update], .chips > [data-install], .chips > [data-prolapse], .chips > [data-gohome]")]
+    .filter(c => !(c.dataset.gohome && staged));
+  return keep.length ? `<div class="ct-notices">${keep.map(c => c.outerHTML).join("")}</div>` : "";
 }
 const ctDates = tr => tr.start ? prettyDate(tr.start) + (tr.end && tr.end !== tr.start ? ` – ${prettyDate(tr.end)}` : "") : "";
 const ctWho = tr => [tr.line, tr.ship].filter(Boolean).map(esc).join(" · ");
@@ -113,7 +124,7 @@ function ctHomeHtml() {
   const w = typeof WXDATA !== "undefined" && WXDATA && WXDATA.here, temp = w && w.cur && Number.isFinite(Number(w.cur.temperature_2m)) ? Math.round(w.cur.temperature_2m) : null;
   const hero = body => `<section class="ct-hero" ${ph ? `style="--ct-photo:url('${ph}')"` : ""}>${ctTopHtml(true)}
     ${temp !== null ? `<span class="ct-wx">${esc(String(temp))}° ${esc(w.label ? placeName(w.label) : "")}</span>` : ""}${body}</section>`;
-  if (!tr) return hero("") + `<div class="ct-ways">${addCruiseHtml()}</div>`;          // no cruise yet: the ways in
+  if (!tr) return hero("") + ctNoticesHtml(null) + `<div class="ct-ways">${addCruiseHtml()}</div>`;   // no cruise yet: the ways in
   // Needs you = the hero's RIGHT NOW rows (with their second line), minus the one the card already shows as "Next up";
   // on the trip, NEXT (the next port / all aboard / plan) closes the list, as on the old home.
   const R = tr.start ? readiness(tr) : null, nxt = R && R.next ? R.next.action.replace(/\s*\([^)]*\)/g, "").toLowerCase() : "";
@@ -124,7 +135,7 @@ function ctHomeHtml() {
   const needs = items.length || nx ? `<section class="ct-needs">${items.length ? "<h4>Needs you</h4>" : ""}${items.map(x => `<button class="ct-need" ${x.act || ""}>${x.icon ? `<span aria-hidden="true">${x.icon}</span>` : ""}<span class="grow">${esc(x.text)}${x.sub ? `<small>${esc(x.sub)}</small>` : ""}</span><span class="chev" aria-hidden="true">›</span></button>`).join("")}
       ${nx ? `<div class="ct-nextup"><span>NEXT</span>${nx}</div>` : ""}</section>` : "";
   const phase = typeof phaseCardHtml === "function" ? phaseCardHtml(tr) : "";   // travel day / sail day / first 10 minutes
-  return hero(ctStageHtml(tr))
+  return hero(ctStageHtml(tr)) + ctNoticesHtml(tr)
     + (phase ? `<div class="ct-phase">${phase}</div>` : "")
     + `<button class="ct-big" ${bb.act}>${esc(bb.label)}</button>`
     + needs
@@ -139,7 +150,7 @@ function ctMoreHtml() {
     tr && ["🧳", "Packing", 'data-shellgo="plan" data-planview="packing"', ""], tr && ["📔", "Trip Diary", 'data-shellgo="plan" data-planview="diary"', ""],
     tr && ["📍", "Map", 'data-shellgo="plan" data-planview="map"', ""], tr && ["🎟️", "Bookings", 'data-shellgo="plan" data-planview="reservations"', ""],
     cr && ["🛳️", "Ship Guide", 'data-ctgo="ship"', ""], cr && ["🌙", "Final Night", 'data-gohome="open"', ""],
-    cr && ["🧾", "Final Bill Check", 'data-billcheck="1"', ""], ["⚙️", "Settings & Pass", 'data-ctgo="settings"', ""],
+    cr && ["🧾", "Final Bill Check", 'data-billcheck="1"', ""], ["⚙️", STORE_MODE ? "Settings" : "Settings & Pass", 'data-ctgo="settings"', ""],
     ["👓", "Simple Mode", 'data-ctgo="settings"', "big buttons"], ["🎨", "Classic Look", 'data-ctgo="classic"', "the old screen"]].filter(Boolean);
   return `<nav class="ct-grid ct-more" aria-label="More">${T.map(ctTileHtml).join("")}</nav>`
     + (tr && typeof prefsCardHtml === "function" ? prefsCardHtml() : "")
