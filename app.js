@@ -651,7 +651,8 @@ async function syncDrive() {
     if (newer && !S.sync.dirty && !hasData(cloud.data) && backupHasData(S)) { CLOUD_PENDING = cloud; toast(`${APP_NAME} has a different copy in your backup — ⚙ Backup to choose`); return; }
     if (newer && !S.sync.dirty) { restoreFrom(cloud); return; }           // changed on another device
     if (newer) { CLOUD_PENDING = cloud; toast(`${APP_NAME} changed on another device too — ⚙ Backup to choose`); return; }
-    if (S.sync.dirty) await driveUpload();
+    if (cloud && CLOUD_PENDING) { CLOUD_PENDING = null; drawSyncBox(); }   // the copy it asked about is no longer newer
+    if (S.sync.dirty && !CLOUD_PENDING) await driveUpload();              // a question open = answer it first
   } catch (e) { /* stays dirty; next open tries again */ }
 }
 async function syncOnOpen(force) {
@@ -946,7 +947,7 @@ async function syncOn() {
     }
     if (cloud && backupHasData(cloud.data) && !backupHasData(S)) { restoreFrom(cloud); return; }
     if (cloud && backupHasData(cloud.data) && cloud.savedAt > (S.sync.last || "")) {
-      S.sync.on = true; saveLocal(); CLOUD_PENDING = cloud; drawSyncBox(); return;
+      S.sync.on = true; S.sync.dirty = true; saveLocal(); CLOUD_PENDING = cloud; drawSyncBox(); render(); toast(`${APP_NAME} has a different copy in your backup — ⚙ Backup to choose`); return;
     }
     S.sync.on = true; await driveUpload(); drawSyncBox(); toast("Backed up to your Google Drive ✓");
   } catch (e) { toast("Backup didn't go through — try again"); }
@@ -2069,7 +2070,7 @@ function eraseAll() {
   ERASE_ARMED = 0; snap(); const keepName = S.name;
   // NOT closeSettings(): that saves the still-open form, which would write the
   // old name / city straight back into the erased app (caught by the test suite).
-  S = blank(); saveLocal(); WXDATA = null; document.getElementById("sheet").classList.add("hidden");
+  CLOUD_PENDING = null; S = blank(); saveLocal(); WXDATA = null; document.getElementById("sheet").classList.add("hidden");
   forgetPhone(); eraseVault();
   render();
   toast(`Erased${keepName ? ", " + keepName : ""}`, true);
@@ -3022,6 +3023,7 @@ function heroHtml() {
   if (pkToday) chips.push(`<span class="chip">📦 ${pkToday} arriving today</span>`);
   const cd = liveCountdowns()[0];
   if (cd) chips.push(`<span class="chip">⏳ ${esc(cd.title)} ${daysUntil(cd.date) === 0 ? "today!" : inDays(daysUntil(cd.date))}</span>`);
+  if (CLOUD_PENDING) chips.unshift(`<button class="chip warn" data-cloudask="1">☁️ Backup is waiting: tap to choose</button>`);
   if (!TRAVEL && MODE !== "health" && !S.sync.on && backupHasData(S) && can("sync")) chips.unshift(`<button class="chip warn" data-sync="on">☁️ Not backed up — tap to turn on</button>`);
   if (needTap().length) chips.push(`<button class="chip" data-syncall="1">🔄 Tap to sync${S.gcal.dirty || S.sync.dirty ? " · changes waiting" : ""}</button>`);
   // v1.58b (Scott 11/01 "Yes, fix it"): Pro ended on a phone that had Calendar sync / backup on - both pause, nothing is deleted.
@@ -3040,7 +3042,7 @@ function heroHtml() {
               <div class="hl">H ${Math.round(w.day.hi)}° · L ${Math.round(w.day.lo)}°</div></div>`; })()
     : S.city && !WXDATA ? `<div class="hero-wx"><div class="skel" style="width:84px;height:74px"></div></div>` : "";
   // Cruise Hub's top line is about the cruise only (Day Hub's chips stay in Day Hub).
-  const keep = !TRAVEL ? chips : chips.filter(c => /forgetting|Final payment|🚢|✈️|[Rr]ain|New version|Install|⚓|data-cwx|data-gohome|data-prolapse/.test(c));   // v1.58b: + the Pro-lapse notices
+  const keep = !TRAVEL ? chips : chips.filter(c => /forgetting|Final payment|🚢|✈️|[Rr]ain|New version|Install|⚓|data-cwx|data-gohome|data-prolapse|data-cloudask/.test(c));   // v1.58b: + the Pro-lapse notices
   // v0.54 (Scott 10/4: "across the top of the apps to signify app you're on - DAY HUB, CRUISE HUB"):
   // every hub shows its own name + icon at the top.
   return `<div class="hero-top"><div class="brand"><img src="icon-192.png" alt="" width="24" height="24"><span>${esc(APP_NAME.toUpperCase())}</span>${navigator.onLine === false ? `<span class="offline-pill" title="No connection - your plans still work; weather may be old">🟠 Offline</span>` : ""}</div>

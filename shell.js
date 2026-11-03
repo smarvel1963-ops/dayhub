@@ -319,7 +319,7 @@ function simpleHomeHtml() {
   else if (tr && tr.start) { const sd = daysUntil(tr.start), pt = portOn(tr, today_()), end = tr.end || tr.start;
     today = sd > 0 ? `🚢 ${sd} day${sd === 1 ? "" : "s"} to your cruise` : sd === 0 ? "🚢 Today you sail" : daysUntil(end) < 0 ? "🏠 Welcome home"
       : pt ? `⚓ ${esc(pt.name)}${pt.allAboard ? ` — back by ${hm(guardBy(pt))}` : ""}` : today_() === end ? "🏠 Going home today" : "🌊 Sea day"; }
-  return `<section class="card simple-home"><div class="simple-big">${esc(greet())}</div><div class="simple-now">${today}</div>
+  return `${CLOUD_PENDING ? `<button class="chip warn" data-cloudask="1">☁️ Backup is waiting: tap to choose</button>` : ""}<section class="card simple-home"><div class="simple-big">${esc(greet())}</div><div class="simple-now">${today}</div>
       ${nx ? `<div class="simple-next"><span>NEXT</span>${nx}</div>` : ""}</section>
     <button class="big-btn simple" ${bb.act}>${bb.label}</button>
     <div class="simple-grid">

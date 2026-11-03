@@ -68,6 +68,10 @@ def main():
         a.js("S.garage = { cars: [{ id: 'c2', name: 'Van' }] }; S.sync.last = null; saveLocal()")
         a.page.evaluate("async () => { await syncOn(); }"); a.page.wait_for_timeout(250)
         check("a phone with its own car and a different Drive copy: asks, uploads nothing", a.js("__up") == 0 and a.js("__restored") == 0 and a.js("!!CLOUD_PENDING"), a.js("[__up, __restored]"))
+        check("...the screen says so", "different copy" in a.page.inner_text("#toast") and "Backup is waiting" in a.page.inner_text("#hero"), a.page.inner_text("#toast"))
+        a.js("CLOUD_PENDING = null")                                        # a reload: the question isn't kept in memory
+        a.page.evaluate("async () => { await syncDrive(); }"); a.page.wait_for_timeout(200)
+        check("...and after a reload it asks again, never replacing", a.js("__restored") == 0 and a.js("__up") == 0 and a.js("!!CLOUD_PENDING"), a.js("[__up, __restored]"))
         a.close()
         a = open_hub(b, base, T.MONEYP)
         a.js("setOwnerSwitch('OWNER', true)")
@@ -94,6 +98,15 @@ def main():
             if name == "Auto Hub":
                 a.js("S.todos.push({ id: 't2', title: 'Edit while it asks', done: false, rep: 'none', day: today() }); scheduleBackup()"); a.page.wait_for_timeout(6400)
                 check("...and an edit while it asks doesn't upload over the copy in question", a.js("__up") == 0, a.js("__up"))
+                a.js("render()"); T.hero(a)
+                check("...and the top of the screen says backup is waiting", "Backup is waiting" in a.page.inner_text("#hero") and a.js("!!document.querySelector('#hero [data-cloudask]')"), a.page.inner_text("#hero")[:160])
+                a.page.click('#hero [data-cloudask]'); a.page.wait_for_timeout(800)   # the smooth scroll
+                check("...tap it: Settings, with the question on screen", a.js("!document.getElementById('sheet').classList.contains('hidden')") and a.js("(r => r.top < innerHeight && r.bottom > 0)(document.getElementById('syncBox').getBoundingClientRect())") and "Which one" in a.js("document.getElementById('syncBox').innerText"), repr([a.js("document.getElementById('sheet').classList.contains('hidden')"), a.js("(r => [r.top, r.bottom, innerHeight])(document.getElementById('syncBox').getBoundingClientRect())"), a.js("document.getElementById('syncBox').innerText")[:80]]))
+                a.js("closeSettings(); CLOUD_PENDING = { savedAt: '2026-09-30T12:00:00Z', data: {} }")
+                a.page.evaluate("async () => { const old = driveDownload; driveDownload = async () => null; S.sync.dirty = true; await syncDrive(); driveDownload = old; }"); a.page.wait_for_timeout(120)
+                check("...no copy found this time (a sign-in hiccup, or Cruise Hub's older file): the question stays, nothing uploads", a.js("!!CLOUD_PENDING") and a.js("__up") == 0, a.js("[__up, !!CLOUD_PENDING]"))
+                a.page.evaluate("async () => { S.sync.last = '2026-10-01T00:00:00Z'; S.sync.dirty = true; driveDownload = async () => ({ savedAt: '2026-09-01T00:00:00Z', data: { garage: { cars: [{ id: 'z' }] } } }); await syncDrive(); }"); a.page.wait_for_timeout(150)
+                check("...the copy no longer newer: the question goes, and the edit uploads", not a.js("CLOUD_PENDING") and a.js("__up") == 1, a.js("[__up, !!CLOUD_PENDING]"))
             a.close()
         a = open_hub(b, base, T.AUTOP)
         a.js("setOwnerSwitch('OWNER', true)")

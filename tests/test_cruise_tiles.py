@@ -203,6 +203,13 @@ def main():
         check("no trip yet: only the tiles that work", all(x not in a.js("[...document.querySelectorAll('.ct-more .ct-tile b')].map(x => x.textContent)") for x in ["Packing", "Road Trip", "First 10 Minutes", "Final Night"]))
         a.close()
 
+        a = cruise(b, base)
+        a.js("CLOUD_PENDING = { savedAt: '2026-09-30T12:00:00Z', data: {} }; shellGo('home')"); a.page.wait_for_timeout(120)
+        check("the new Home shows 'Backup is waiting' (the old hero is hidden there)", a.js("!!document.querySelector('.ct-notices [data-cloudask]')"), a.page.inner_text(".ct-notices") if a.js("!!document.querySelector('.ct-notices')") else "no notices")
+        a.js("S.simple = true; save(); shellGo('home')"); a.page.wait_for_timeout(120)
+        check("...and so does Simple Mode, where the top chips are hidden", a.is_visible('#cards [data-cloudask]') if hasattr(a, 'is_visible') else a.page.is_visible('#cards [data-cloudask]'))
+        a.js("CLOUD_PENDING = null; S.simple = false; save(); render()"); a.close()
+
         print("\n[6. the stage card follows the trip]")
         a = cruise(b, base, at="2027-03-16T13:30:00")
         check("port day: Return Guard on top", a.js("!!document.querySelector('.ct-stage .rg')") and "ALL ABOARD" in a.page.inner_text(".ct-stage"), a.page.inner_text(".ct-stage"))

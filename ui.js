@@ -1417,6 +1417,7 @@ document.addEventListener("click", e => {
   if (!t) return;
   const ds = t.dataset;
   if (t.id === "fab") { const T = qaTypes().map(x => x[0]); openQA(T.includes("event") ? "event" : T.find(k => k !== "dump") || "todo"); return; }
+  if (ds.cloudask) { openSettings(); setTimeout(() => { const el = document.getElementById("syncBox"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); return; }   // the question, in view
   if (t.id === "settingsBtn" || ds.open === "sheet") { openSettings(); return; }
   if (ds.close === "qa") { closeQA(); return; }
   if (ds.close === "sheet") { closeSettings(); return; }

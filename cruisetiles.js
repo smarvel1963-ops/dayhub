@@ -64,7 +64,7 @@ function ctNoticesHtml(tr) {
   try { html = heroHtml(); } finally { CHIPS_ALL = was; }
   const box = document.createElement("template"); box.innerHTML = html;
   const staged = !!tr && !guardFor(tr) && typeof goHomeState === "function" && !!goHomeState(tr);
-  const keep = [...box.content.querySelectorAll(".chips > [data-update], .chips > [data-install], .chips > [data-prolapse], .chips > [data-gohome]")]
+  const keep = [...box.content.querySelectorAll(".chips > [data-update], .chips > [data-install], .chips > [data-prolapse], .chips > [data-gohome], .chips > [data-cloudask]")]
     .filter(c => !(c.dataset.gohome && staged));
   return keep.length ? `<div class="ct-notices">${keep.map(c => c.outerHTML).join("")}</div>` : "";
 }
