@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import run_tests as T
 from playwright.sync_api import sync_playwright
 
+TOWN, ZIP = bytes.fromhex("436f6e776179").decode(), "720" + "32"   # never in the app or its examples; written like this so the public repo doesn't carry them either
 OK = FAIL = 0
 def check(name, cond, extra=""):
     global OK, FAIL
@@ -59,12 +60,12 @@ def main():
               a.js("!document.getElementById('tabbar') && !document.body.classList.contains('dt') && !document.body.classList.contains('shell')")
               and a.js("!!document.querySelector('.arrange-link') && !document.querySelector('.dt-home')"))
         ph = a.js("document.getElementById('setCity').placeholder")
-        check("Settings' city example is neutral, not Scott's town", "Conway" not in ph and "72032" not in ph and "Denver" in ph, ph)
+        check("Settings' city example is neutral, not Scott's town", TOWN not in ph and ZIP not in ph and "Denver" in ph, ph)
         a.close()
         root, bad = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."), []   # every Hub's page + the welcome forms
         for f in [f"{h}/index.html" for h in ("dayhub", "cruisehub", "triphub", "homehub", "autohub", "moneyhub", "healthhub", "hubuniverse")] + ["dayhub/ui.js", "dayhub/auto.js", "dayhub/home.js"]:
             t = open(os.path.join(root, f), encoding="utf-8").read()
-            if "Conway" in t or "72032" in t: bad.append(f)
+            if TOWN in t or ZIP in t: bad.append(f)
         check("no Hub's examples show Scott's town or ZIP (Settings + welcome forms)", not bad, bad)
         sw = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sw.js"), encoding="utf-8").read()
         check("the offline list holds both new files", '"daytiles.css"' in sw and '"daytiles.js"' in sw)

@@ -104,7 +104,7 @@ def route(ctx):
         if "zippopotam.us" in u.netloc:
             if u.path.endswith("/00000"):
                 return r.fulfill(status=404, body="{}")
-            return r.fulfill(json={"places": [{"place name": "Conway", "state abbreviation": "AR", "latitude": "35.09", "longitude": "-92.44"}]})
+            return r.fulfill(json={"places": [{"place name": "Boise", "state abbreviation": "ID", "latitude": "43.61", "longitude": "-116.20"}]})
         if u.netloc == "script.google.com" and "/macros/s/" in u.path:
             body = json.loads(r.request.post_data or "{}")
             ctx._relay = getattr(ctx, "_relay", []) + [body]
@@ -173,7 +173,7 @@ def route(ctx):
                 return r.fulfill(json={"text": "Your next oil change is due Fri, Jan 1."})
             if body.get("task") == "scan":                       # v1.40 Auto Hub Smart Scan
                 ctx._scan = body
-                return r.fulfill(json={"text": json.dumps({"kind": "receipt", "date": "2026-09-28", "miles": 30500, "amount": 89.5, "shop": "Conway Tire", "company": "Conway Tire", "service": "rotate", "note": "rotate and balance"})})
+                return r.fulfill(json={"text": json.dumps({"kind": "receipt", "date": "2026-09-28", "miles": 30500, "amount": 89.5, "shop": "Boise Tire", "company": "Boise Tire", "service": "rotate", "note": "rotate and balance"})})
             if body.get("task") == "mech":                       # v1.40 Auto Hub AI Mechanic
                 ctx._mech = body
                 return r.fulfill(json={"text": "Here you go: " + json.dumps({"urgency": "soon", "summary": "Most likely worn front brake pads.", "causes": [
@@ -250,7 +250,7 @@ class App:
         self.ctx.close()
 
 
-def setup(app, city="72032", name="Scott", pack="general"):
+def setup(app, city="83702", name="Scott", pack="general"):
     app.page.fill('form[data-setup] [name=name]', name)
     app.page.fill('form[data-setup] [name=city]', city)
     app.page.select_option('form[data-setup] [name=pack]', pack)
@@ -277,7 +277,7 @@ def t_first_run(b, base):
     check("fresh phone shows the welcome card", "Welcome to Day Hub" in a.page.inner_text("#cards"))
     setup(a)
     check("greeting uses the name", "Scott" in a.page.inner_text("#hero .greet"))
-    check("ZIP 72032 resolves to Conway, AR", "Conway, AR" in a.card("weather"), a.card("weather")[:120])
+    check("ZIP 83702 resolves to Boise, ID", "Boise, ID" in a.card("weather"), a.card("weather")[:120])
     check("hero shows the current temperature", "72°" in a.page.inner_text("#hero"))
     check("rain timing chip (fixture: 70% from 3 PM)", "Rain from 3:00 PM" in a.page.inner_text("#hero"), a.page.inner_text("#hero"))
     check("12-hour strip + 5-day rows", a.js("document.querySelectorAll('.hour').length") == 12 and a.js("document.querySelectorAll('.dayrow').length") == 6)
@@ -420,7 +420,7 @@ def t_reminders_backup_update(b, base):
     check("reminder fires 15 min before (and only once)", any(k.startswith("ev:") for k in a.js("Object.keys(S.remind.fired)")))
     before = a.js("Object.keys(S.remind.fired).length"); a.js("checkReminders()"); a.page.wait_for_timeout(100)
     check("…and never twice", a.js("Object.keys(S.remind.fired).length") == before)
-    a.js("restoreFrom({savedAt:'2026-10-01T12:00:00Z', data:{name:'Backup', city:'72032', todos:[{id:'b1',title:'From backup',done:false}]}})")
+    a.js("restoreFrom({savedAt:'2026-10-01T12:00:00Z', data:{name:'Backup', city:'83702', todos:[{id:'b1',title:'From backup',done:false}]}})")
     check("restore from backup", a.js("S.name") == "Backup" and a.js("S.todos[0].title") == "From backup")
     a.page.click('[data-undo]')
     check("Undo after restore", a.js("S.name") == "Scott")
@@ -536,7 +536,7 @@ def t_v018_fixes(b, base):
 
     for label, data in [("empty slots", '{"name":"S","events":null,"todos":null,"bills":null,"lists":null}'),
                         ("text instead of lists", '{"name":"S","events":"x","todos":"y","lists":"z","pack":"nope"}'),
-                        ("entries missing their date", '{"name":"S","city":"72032","events":[{"id":"a"}],"bills":[{"id":"c"}],"work":{"shifts":[{"id":"s"}]}}')]:
+                        ("entries missing their date", '{"name":"S","city":"83702","events":[{"id":"a"}],"bills":[{"id":"c"}],"work":{"shifts":[{"id":"s"}]}}')]:
         before = len(ERRORS)
         a = boot_with(b, base, data)
         check(f"damaged data ({label}) still opens", a.js("document.querySelectorAll('[data-card]').length > 0") and len(ERRORS) == before,
@@ -1321,7 +1321,7 @@ def t_v040_switches(b, base):
     check("owner's phone with PRO_GATE on: still Pro, passphrase AI unchanged", a.js("isPro() && can('gcal') && aiOn() && !aiByKey()"))
     a.close()
     # a phone that already connected Gmail keeps it with GMAIL off
-    a = boot_with(b, base, json.dumps({"name": "Scott", "city": "72032", "mail": {"on": True, "last": None, "seen": {}, "found": []}}))
+    a = boot_with(b, base, json.dumps({"name": "Scott", "city": "83702", "mail": {"on": True, "last": None, "seen": {}, "found": []}}))
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.page.click("#settingsBtn")
     check("GMAIL off never breaks a phone that already connected it", a.js("gmailAllowed()") and not a.js("document.getElementById('mailBox').hidden"))
@@ -1356,7 +1356,7 @@ def t_v045_cruise_hub(b, base):
     a = App(b, base, path=CRUISE)
     w = a.page.inner_text("#cards")
     check("cruise welcome card, no profession picker", "Welcome to Cruise Hub" in w and "Welcome to Day Hub" not in w and "Trucker" not in w and not a.js("!!document.querySelector('form[data-setup] select')"))
-    setup_c = lambda: (a.page.fill('form[data-setup] [name=name]', "Pat"), a.page.fill('form[data-setup] [name=city]', "72032"),
+    setup_c = lambda: (a.page.fill('form[data-setup] [name=name]', "Pat"), a.page.fill('form[data-setup] [name=city]', "83702"),
                        a.page.click('form[data-setup] button'), a.page.wait_for_function("WXDATA && WXDATA.here"))
     setup_c()
     check("setup works without a profession (pack = general)", a.js("S.pack") == "general" and a.js("S.name") == "Pat")
@@ -1422,7 +1422,7 @@ def t_v046_hub_family(b, base):
     # same phone: open Cruise Hub for the first time
     go(CRUISE)
     check("Cruise Hub keeps its OWN data + backup file", a.js("STORE") == "cruisehub.v1" and a.js("DFILE") == "cruisehub.json" and a.js("!!localStorage.getItem('cruisehub.v1')"))
-    check("first open: Day Hub's cruise came over (+ name, city), the Vegas trip did not", a.js("S.trips.map(t => t.name).join()") == "Alaska" and a.js("S.name") == "Scott" and a.js("S.city") == "72032" and a.js("S.adopted.length") == 1)
+    check("first open: Day Hub's cruise came over (+ name, city), the Vegas trip did not", a.js("S.trips.map(t => t.name).join()") == "Alaska" and a.js("S.name") == "Scott" and a.js("S.city") == "83702" and a.js("S.adopted.length") == 1)
     check("Day Hub's data left untouched", a.js("JSON.parse(localStorage.getItem('dayhub.v1')).trips.length") == 2)
     t = a.card("trips")
     check("Cruise Hub shows Day Hub's Vegas trip as a family row with Open", "From Day Hub" in t and "Vegas" in t and "Open Day Hub" in t and a.js("famTrips().map(x => x.name).join()") == "Vegas")
@@ -1537,7 +1537,7 @@ def t_v050_countdown_family(b, base):
     print("\n[v0.50 Cruise Hub countdown hero + Hub family card]")
     def mk(at):
         a = App(b, base, path=CRUISE, at=at)
-        a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+        a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
         a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
         if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
         return a
@@ -1591,7 +1591,7 @@ def t_v050_countdown_family(b, base):
 def t_v051_cruise_weather(b, base):
     print("\n[v0.51 Cruise Hub: two weathers - where the cruise is + where you are, with alerts]")
     a = App(b, base, path=CRUISE, at="2026-10-04T09:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-10-04", "end": "2026-10-11", "line": "Princess",
@@ -1615,7 +1615,7 @@ def t_v051_cruise_weather(b, base):
     check("calm day: no alerts", a.js("cruiseWxAlerts({code: 1, rain: 5, hi: 82, lo: 74, uv: 4, gust: 12}, 'port').length") == 0)
     a.close()
     a = App(b, base, path=CRUISE, at="2026-10-01T09:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Alaska", "start": "2027-06-20", "end": "2027-06-27", "line": "Princess", "port": "Seattle"})
@@ -1633,7 +1633,7 @@ def t_v052_return_guard(b, base):
     print("\n[v0.52 Return Guard: all aboard in phone time, head-back time, GOOD -> PLAN -> LEAVE -> CRITICAL, BACK TO SHIP bar]")
     # clock: 10:00 -05:00 = 9:00 AM Chicago (CST in November)
     a = App(b, base, path=CRUISE, at="2026-11-14T10:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess"})
@@ -1666,7 +1666,7 @@ def t_v052_return_guard(b, base):
     a.close()
     # same ship and local clock: no ship-time note; independent tour = 45 min trip back by default
     a = App(b, base, path=CRUISE, at="2026-11-14T10:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess"})
@@ -1682,7 +1682,7 @@ def t_v052_return_guard(b, base):
 def t_v053_ask_cruise_hub(b, base):
     print("\n[v0.53 Ask Cruise Hub: the AI answers from the cruise's own facts]")
     a = App(b, base, path=CRUISE, at="2026-10-01T09:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess", "port": "Port Canaveral"})
@@ -1711,7 +1711,7 @@ def t_v053_ask_cruise_hub(b, base):
     a.close()
     # on the trip: on-board questions
     a = App(b, base, path=CRUISE, at="2026-11-13T10:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess"})
@@ -1733,7 +1733,7 @@ def t_v054_name_bar_wallet(b, base):
     check("greeting still there under it", "Good" in a.page.inner_text("#hero .greet"))
     a.close()
     a = App(b, base, path=CRUISE)
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     check("Cruise Hub: CRUISE HUB name bar", a.js("document.querySelector('#hero .brand').textContent.trim()") == "CRUISE HUB")
@@ -1762,7 +1762,7 @@ def t_v054_name_bar_wallet(b, base):
 def t_v055_packing_bags(b, base):
     print("\n[v0.55 packing by bag + suggestions from the trip's forecast and excursions + final-night bag]")
     a = App(b, base, path=CRUISE, at="2026-10-04T09:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-10-06", "end": "2026-10-11", "line": "Princess", "port": "Port Canaveral"})
@@ -1803,7 +1803,7 @@ def t_v056_go_home(b, base):
     print("\n[v0.56 final night + safe check + remember my car + time to go home]")
     def mk(at):
         a = App(b, base, path=CRUISE, at=at)
-        a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+        a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
         a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
         if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
         a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess"})
@@ -1847,7 +1847,7 @@ def t_v056_go_home(b, base):
 def t_v057_crisis(b, base):
     print("\n[v0.57 crisis mode: 🛟 five big choices from the trip's own contacts]")
     a = App(b, base, path=CRUISE, at="2026-11-14T15:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess", "port": "Port Canaveral"})
@@ -1883,7 +1883,7 @@ def t_v058_shell(b, base):
     def mk(at):
         a = App(b, base, path=CRUISE, at=at)
         a.js("localStorage.setItem('cruisehub.startTab', 'home')"); a.page.reload(); a.page.wait_for_function("typeof render === 'function' && document.querySelector('#hero .greet')")
-        a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+        a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
         a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
         if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
         a.js("S.magicSeen = true; S.prefs = { skipped: true, loves: [] }; save(); render()")     # v0.60 one-time onboarding done
@@ -1948,7 +1948,7 @@ def t_v058_shell(b, base):
 def t_v059_plan_timeline(b, base):
     print("\n[v0.59 PLAN: Today | Trip | Packing | Reservations + the day-by-day timeline + day screen]")
     a = App(b, base, path=CRUISE, at="2026-11-13T09:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-16", "line": "Princess", "ship": "Caribbean Princess", "port": "Port Canaveral"})
@@ -1983,7 +1983,7 @@ def t_v060_onboarding(b, base):
     print("\n[v0.60 onboarding: add my cruise, paste a confirmation, YOU'RE GOING!, make it yours]")
     a = App(b, base, path=CRUISE, at="2026-10-01T09:00:00")
     a.js("localStorage.setItem('cruisehub.startTab', 'home')"); a.page.reload(); a.page.wait_for_function("document.querySelector('#hero .greet')")
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     h = a.page.inner_text("#cards")
@@ -2011,7 +2011,7 @@ def t_v060_onboarding(b, base):
     # by hand: the magic moment too (on HOME)
     a = App(b, base, path=CRUISE, at="2026-10-01T09:00:00")
     a.js("localStorage.setItem('cruisehub.startTab', 'home')"); a.page.reload(); a.page.wait_for_function("document.querySelector('#hero .greet')")
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Alaska", "start": "2027-06-20", "end": "2027-06-27", "line": "Princess"})
@@ -2026,7 +2026,7 @@ def t_v061_travel_day_offline(b, base):
     def mk(at):
         a = App(b, base, path=CRUISE, at=at)
         a.js("localStorage.setItem('cruisehub.startTab', 'home')"); a.page.reload(); a.page.wait_for_function("document.querySelector('#hero .greet')")
-        a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+        a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
         a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
         if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
         a.js("S.magicSeen = true; S.prefs = { skipped: true, loves: [] }; save()")
@@ -2060,7 +2060,7 @@ def t_v062_simple_mode(b, base):
     print("\n[v0.62 simple mode: big text, today, next, four big buttons]")
     a = App(b, base, path=CRUISE, at="2026-11-13T09:00:00")
     a.js("localStorage.setItem('cruisehub.startTab', 'home')"); a.page.reload(); a.page.wait_for_function("document.querySelector('#hero .greet')")
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.js("S.magicSeen = true; S.prefs = { skipped: true, loves: [] }; save()")
@@ -2088,7 +2088,7 @@ def t_v062_simple_mode(b, base):
 def t_v062_itemized(b, base):
     print("\n[v0.62 itemized running cost of the trip]")
     a = App(b, base, path=CRUISE, at="2026-11-14T10:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess", "travelers": "2"})
@@ -2112,7 +2112,7 @@ def t_v062_itemized(b, base):
 def t_v063_icon_tiles(b, base):
     print("\n[v0.63 the hub navigation: big icon tiles everywhere you choose a section]")
     a = App(b, base, path=CRUISE, at="2026-10-01T09:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess"})
@@ -2134,7 +2134,7 @@ def t_v063_icon_tiles(b, base):
 def t_v064_ship_guide(b, base):
     print("\n[v0.64 ship guide: Caribbean Princess from princess.com - deck + included / extra]")
     a = App(b, base, path=CRUISE, at="2026-10-01T09:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "caribbean  princess"})
@@ -2160,7 +2160,7 @@ def t_v064_ship_guide(b, base):
 def t_v065_port_guides(b, base):
     print("\n[v0.65 port guides: Nassau, Grand Turk, Cozumel from official sources + live advisory link]")
     a = App(b, base, path=CRUISE, at="2026-10-01T09:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess"})
@@ -2196,7 +2196,7 @@ def t_v066_more_ports(b, base):
 def t_v067_tender(b, base):
     print("\n[v0.67 tender ports in Return Guard + Princess Cays guide]")
     a = App(b, base, path=CRUISE, at="2026-11-14T10:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess"})
@@ -2419,7 +2419,7 @@ def t_v085_home_layout(b, base):
     a.close()
     a = App(b, base, path=CRUISE, at="2026-10-01T09:00:00")
     a.js("localStorage.setItem('cruisehub.startTab', 'home')"); a.page.reload(); a.page.wait_for_function("document.querySelector('#hero .greet')")
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.js("S.magicSeen = true; S.prefs = { skipped: true, loves: [] }; save(); render()")
@@ -2551,7 +2551,7 @@ def t_v097_trip_hub(b, base):
     w = a.page.inner_text("#cards")
     check("trip welcome, no profession picker, no cruise", "Welcome to Trip Hub" in w and "plan your trip" in w and "cruise" not in w.lower().split("hub family")[0]
           and not a.js("!!document.querySelector('form[data-setup] select')"), w[:200])
-    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     a.js("shellGo('home')")
     check("5-tab shell on, no trip yet = Add my trip", a.js("shellOn()") and "Add my trip" in a.page.inner_text("#cards"))
@@ -2590,7 +2590,7 @@ def t_v097_trip_hub(b, base):
 def t_v098_bookings(b, base):
     print("\n[v0.98 Trip Hub bookings: flights, hotels, cars land on their days, one detail screen, cost in the money]")
     a = App(b, base, path=TRIP)
-    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     a.qa("trip", {"tname": "Florida road trip", "start": "2026-10-20", "end": "2026-10-25", "port": "Orlando, FL"})
     a.page.wait_for_timeout(150)
@@ -2634,7 +2634,7 @@ def t_v098_bookings(b, base):
 def t_v099_map(b, base):
     print("\n[v0.99 trip map: free OpenStreetMap, numbered pins in date order, looked up once, not-found listed]")
     a = App(b, base, path=TRIP)
-    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     a.qa("trip", {"tname": "Florida road trip", "start": "2026-10-20", "end": "2026-10-25", "port": "Orlando, FL"})
     a.page.wait_for_timeout(150)
@@ -2730,7 +2730,7 @@ def t_v100_paste(b, base):
     check("'Reservation Confirmed' is not a confirmation number", X("Reservation Confirmed\nCheck-in: Oct 20, 2026\nHotel Luna")[0]["num"] == "")
     check("nothing travel-like = nothing found", X("Hi Pat, lunch Tuesday? Love, Mom") == [])
     # the flow: paste -> Found 3 -> check + add each, nothing saved before Add
-    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     a.qa("trip", {"tname": "Florida trip", "start": "2026-10-20", "end": "2026-10-25", "port": "Orlando, FL"})
     a.page.wait_for_timeout(150)
@@ -2753,7 +2753,7 @@ def t_v100_paste(b, base):
 def t_v101_diary(b, base):
     print("\n[v1.01 trip diary: a mood, a few lines and the best moment per day - Trip Hub and Cruise Hub]")
     a = App(b, base, path=TRIP, width=360, at="2026-10-01T19:00:00")      # day 3 of the trip, evening
-    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     a.qa("trip", {"tname": "Florida trip", "start": "2026-09-29", "end": "2026-10-03", "port": "Orlando, FL"})
     a.page.wait_for_timeout(150)
@@ -2794,7 +2794,7 @@ def t_v101_diary(b, base):
     a.close()
     # Cruise Hub: the same diary, cruise words; the week after the trip, Home points back to it
     c = App(b, base, path=CRUISE, at="2026-10-06T09:00:00")
-    c.page.fill('form[data-setup] [name=name]', "Pat"); c.page.fill('form[data-setup] [name=city]', "72032")
+    c.page.fill('form[data-setup] [name=name]', "Pat"); c.page.fill('form[data-setup] [name=city]', "83702")
     c.page.click('form[data-setup] button'); c.page.wait_for_function("WXDATA && WXDATA.here")
     c.qa("trip", {"ttype": "cruise", "tname": "Bahamas", "start": "2026-09-30", "end": "2026-10-03", "line": "Carnival"})
     c.page.wait_for_timeout(150)
@@ -2809,7 +2809,7 @@ def t_v101_diary(b, base):
 def t_v102_port_reality(b, base):
     print("\n[v1.02 port reality: real time ashore = off the ship -> head back by]")
     a = App(b, base, path=CRUISE, at="2026-11-13T09:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Princess", "ship": "Caribbean Princess"})
@@ -2849,7 +2849,7 @@ def t_v102_port_reality(b, base):
 def t_v103_final_bill(b, base):
     print("\n[v1.03 final bill check: the ship's bill vs Cruise Hub's count + what to look for]")
     a = App(b, base, path=CRUISE, at="2026-11-18T19:00:00")              # final night (cruise ends 11/19)
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Carnival", "travelers": "2"})
@@ -2889,7 +2889,7 @@ def t_v103_final_bill(b, base):
 def t_v104_fun_finder(b, base):
     print("\n[v1.04 Fun Finder: must see / interested / skip -> the day builds itself around the must-sees]")
     a = App(b, base, path=CRUISE, at="2026-11-13T09:00:00")              # a sea day
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Carnival"})
@@ -2930,7 +2930,7 @@ def t_v104_fun_finder(b, base):
 def t_v105_package_calc(b, base):
     print("\n[v1.05 package: buy or skip - what it's worth to YOU vs what it costs, no line prices built in]")
     a = App(b, base, path=CRUISE)
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Bahamas", "start": "2026-11-12", "end": "2026-11-19", "line": "Carnival", "travelers": "2"})
@@ -2969,7 +2969,7 @@ def t_v105_package_calc(b, base):
 def t_v106_secrets(b, base):
     print("\n[v1.06 secret engine: one general cruise tip for where the cruise is right now]")
     a = App(b, base, path=CRUISE)                                            # today 2026-10-01
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Bahamas", "start": "2026-12-10", "end": "2026-12-14", "line": "Carnival"})
@@ -2995,7 +2995,7 @@ def t_v106_secrets(b, base):
     check("every tip has a known moment and a unique id", a.js("(() => { const ok = ['booked','close','week','eve','sail','port','sea','final']; return SECRETS.every(s => ok.includes(s[1])) && new Set(SECRETS.map(s => s[0])).size === SECRETS.length; })()"))
     a.close()
     t = App(b, base, path=TRIP)
-    t.page.fill('form[data-setup] [name=name]', "Pat"); t.page.fill('form[data-setup] [name=city]', "72032")
+    t.page.fill('form[data-setup] [name=name]', "Pat"); t.page.fill('form[data-setup] [name=city]', "83702")
     t.page.click('form[data-setup] button'); t.page.wait_for_function("WXDATA && WXDATA.here")
     t.qa("trip", {"tname": "Florida trip", "start": "2026-10-01", "end": "2026-10-05", "port": "Orlando, FL"})
     t.page.wait_for_timeout(150); t.js("shellGo('home')")
@@ -3006,7 +3006,7 @@ def t_v106_secrets(b, base):
 def t_v107_upgrade(b, base):
     print("\n[v1.07 upgrade: worth it? - the plain math per person, per night, per sea day + the checklist]")
     a = App(b, base, path=CRUISE)
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Caribbean", "start": "2026-11-12", "end": "2026-11-19", "line": "Carnival", "travelers": "2"})
@@ -3034,7 +3034,7 @@ def t_v107_upgrade(b, base):
 def t_v108_wrap_up(b, base):
     print("\n[v1.08 wrap-up: one page after the cruise - numbers, best moments, day by day, money; share or PDF]")
     a = App(b, base, path=CRUISE)                                            # today 2026-10-01, cruise ended 9/28
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Bahamas", "start": "2026-09-24", "end": "2026-09-28", "line": "Carnival", "ship": "Carnival Breeze", "travelers": "2"})
@@ -3094,7 +3094,7 @@ def t_v110_scene_pick(b, base):
 def t_v111_fix_my_trip(b, base):
     print("\n[v1.11 Fix my trip: a booking moves -> what it knocks out -> you tick -> your plan changes, calls listed]")
     a = App(b, base, path=TRIP, at="2026-10-19T09:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-25", "port": "Orlando, FL"})
@@ -3151,7 +3151,7 @@ def t_v111_fix_my_trip(b, base):
 def t_v112_leave_time(b, base):
     print("\n[v1.12 leave-time engine: drive + park + check-in + buffer -> LEAVE AT, on the day list + 2 reminders]")
     a = App(b, base, path=TRIP, at="2026-10-19T09:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-25", "port": "Orlando, FL"})
@@ -3193,7 +3193,7 @@ def t_v112_leave_time(b, base):
 def t_v113_split(b, base):
     print("\n[v1.13 split the cost: who paid what, each one's share, who owes whom, fewest payments]")
     a = App(b, base, path=TRIP, at="2026-10-19T09:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"tname": "Vegas", "start": "2026-11-05", "end": "2026-11-08", "port": "Las Vegas, NV"})
@@ -3238,7 +3238,7 @@ def t_v114_hotel_mode(b, base):
       { id: 'h1', kind: 'hotel', a: 'Coronado Springs', b: '', day: '2026-10-20', t: '15:00', endDay: '2026-10-23', endT: '11:00', num: 'R-1', phone: '407-939-1000' }]; save(); render(); })()"""
     def start(at):
         a = App(b, base, path=TRIP, at=at)
-        a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+        a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "83702")
         a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
         if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
         a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-23", "port": "Orlando, FL"})
@@ -3285,7 +3285,7 @@ def t_v114_hotel_mode(b, base):
 def t_v115_cancel_refunds(b, base):
     print("\n[v1.15 free-cancel deadlines + refunds owed (and Fix my trip offers the refund)]")
     a = App(b, base, path=TRIP, at="2026-10-10T09:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-23", "port": "Orlando, FL"})
@@ -3334,7 +3334,7 @@ def t_v115_cancel_refunds(b, base):
 def t_v116_road_trip(b, base):
     print("\n[v1.16 road trip brain (free): typed miles + drive time -> breaks, meals, fuel, arrival, does it make check-in]")
     a = App(b, base, path=TRIP, at="2026-10-19T09:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-25", "port": "Orlando, FL"})
@@ -3378,7 +3378,7 @@ def t_v116_road_trip(b, base):
 def t_v117_free_time(b, base):
     print("\n[v1.17 free time finder: open stretches in the day + our own ideas that fit, one tap into the day]")
     a = App(b, base, path=TRIP, at="2026-10-21T12:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-25", "port": "Orlando, FL"})
@@ -3421,7 +3421,7 @@ def t_v117_free_time(b, base):
 def t_v118_group_vote(b, base):
     print("\n[v1.18 group vote: pass the phone, 👍/👎 each idea, favourites first, voted-down ideas left out]")
     a = App(b, base, path=TRIP, at="2026-10-21T12:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-25", "port": "Orlando, FL"})
@@ -3459,7 +3459,7 @@ def t_v118_group_vote(b, base):
 def t_v119_money_export(b, base):
     print("\n[v1.19 trip money export (CSV) + spending logged twice]")
     a = App(b, base, path=TRIP, at="2026-10-22T09:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-25", "port": "Orlando, FL"})
@@ -3499,7 +3499,7 @@ def t_v119_money_export(b, base):
 def t_v120_doc_expiry(b, base):
     print("\n[v1.20 document expiry: whose + when it runs out (no numbers) checked against every trip]")
     a = App(b, base, path=TRIP, at="2026-10-09T09:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"tname": "Cancun", "start": "2026-11-10", "end": "2026-11-17", "port": "Cancun, Mexico"})
@@ -3532,7 +3532,7 @@ def t_v120_doc_expiry(b, base):
 def t_v121_spend_pulse(b, base):
     print("\n[v1.21 daily spending pulse: a day's worth, today's use, where the pace finishes, Home warns when ahead]")
     a = App(b, base, path=TRIP, at="2026-10-22T15:00:00")
-    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-26", "port": "Orlando, FL"})
@@ -3567,7 +3567,7 @@ def t_v121_spend_pulse(b, base):
 def t_v123_trip_pass(b, base):
     print("\n[v1.23 Trip Hub Pass: $9.99/year, every trip that year; Day Hub Pro also unlocks Trip Hub; the AI stays Day Hub Pro]")
     a = App(b, base, path=TRIP)
-    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.js("setOwnerSwitch('TRIP_PASS', true)")
@@ -3607,7 +3607,7 @@ def t_v123_trip_pass(b, base):
 def t_v124_ai_credits(b, base):
     print("\n[v1.24 Hub AI Credits: pay-as-you-go AI in every hub, on that app's own data (switch OFF until the Whop packs exist)]")
     a = App(b, base, path=TRIP)
-    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.page.click("#settingsBtn")
@@ -3649,7 +3649,7 @@ def t_v125_home_hub(b, base):
           and not a.js("!!document.querySelector('form[data-homesetup] select[name=pack]')") and "cruise" not in w.lower(), w[:300])
     ticked = a.js("[...document.querySelectorAll('form[data-homesetup] input[type=checkbox]:checked')].map(i => i.name.slice(3))")
     check("the plan's 8 spaces come ticked", sorted(ticked) == sorted(["living", "kitchen", "main_bed", "bath", "laundry", "garage", "front_yard", "backyard"]), ticked)
-    a.page.fill('form[data-homesetup] [name=name]', "Pat"); a.page.fill('form[data-homesetup] [name=city]', "72032")
+    a.page.fill('form[data-homesetup] [name=name]', "Pat"); a.page.fill('form[data-homesetup] [name=city]', "83702")
     a.page.select_option('form[data-homesetup] [name=type]', "condo")
     a.page.check('form[data-homesetup] [name=sp_dining]'); a.page.uncheck('form[data-homesetup] [name=sp_laundry]')
     a.page.click('form[data-homesetup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
@@ -3713,11 +3713,11 @@ def t_v125_home_hub(b, base):
 def t_v133_home_value(b, base):
     print("\n[v1.33 Home Hub: Hub Predicted Value card - HOME_VALUE on 10/14, priced from Redfin ZIP data]")
     a = App(b, base, path=HOMEP)
-    shard = {"72032": {"all": [150, 300000, 40, 0.06, "2026-05-31"], "sfr": [400, 900000, 1, 0, "2025-09-30"], "condo": [160, 250000, 5, 0.0, "2026-05-31"]},
+    shard = {"83702": {"all": [150, 300000, 40, 0.06, "2026-05-31"], "sfr": [400, 900000, 1, 0, "2025-09-30"], "condo": [160, 250000, 5, 0.0, "2026-05-31"]},
              "72034": {"all": [130, 260000, 20, 0.02, "2026-04-30"]}}
-    a.ctx.route("**/dayhub/hpv/720.json", lambda r: r.fulfill(json=shard))     # ctx, not page: the service worker makes the fetch
+    a.ctx.route("**/dayhub/hpv/837.json", lambda r: r.fulfill(json=shard))     # ctx, not page: the service worker makes the fetch
     a.ctx.route("**/dayhub/hpv/999.json", lambda r: r.fulfill(json={}))   # an area with no rows
-    a.page.fill('form[data-homesetup] [name=city]', "72032"); a.page.click('form[data-homesetup] button')
+    a.page.fill('form[data-homesetup] [name=city]', "83702"); a.page.click('form[data-homesetup] button')
     a.page.wait_for_function("S.house && S.house.spaces.length")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     check("on for everyone (10/14): the Hub Predicted Value card is on the dashboard", a.js("!!document.getElementById('hpvCard')") and "Predicted Value" in a.page.inner_text("#cards"))
@@ -3726,26 +3726,26 @@ def t_v133_home_value(b, base):
     e = a.js("hpvEstimate([150, 300000, 4, 0, '2026-05-31'], {sqft: 4000, cond: 'work'}, false, '2026-05-31')")
     check("big house costs less per sq ft (capped -15%), needs work -12%, few sales = +/-15%", abs(e["size"] - 2 ** -0.2) < 1e-9 and e["shape"] == 0.88 and e["spread"] == 0.15, e)
     w = a.page.inner_text("#hpvCard")
-    check("the card asks for the home, ZIP prefilled from setup", "Hub Predicted Value" in w and a.js("document.querySelector('form[data-hpvform] [name=zip]').value") == "72032", w[:200])
+    check("the card asks for the home, ZIP prefilled from setup", "Hub Predicted Value" in w and a.js("document.querySelector('form[data-hpvform] [name=zip]').value") == "83702", w[:200])
     a.page.fill('form[data-hpvform] [name=sqft]', "2000"); a.page.click('form[data-hpvform] button')
     a.page.wait_for_function("S.house.value && S.house.value.est")
     v = a.js("S.house.value")
     want = a.js("hpvEstimate([150, 300000, 40, 0.06, '2026-05-31'], {sqft: 2000, cond: 'avg'}, false, today()).est")
     w = a.page.inner_text("#hpvCard")
     check("house skips a thin, old single-family row (1 sale) and uses the ZIP's all-homes row and shows the value + range + source", v["est"] == want and not v["area"] and "$" + format(want, ",") in w and "Likely range" in w and "Redfin" in w and "not an appraisal" in w, (v, w[:300]))
-    a.page.click('[data-hpv="edit"]'); a.page.fill('form[data-hpvform] [name=zip]', "72099"); a.page.click('form[data-hpvform] button')
-    a.page.wait_for_function("S.house.value.zip === '72099'")
+    a.page.click('[data-hpv="edit"]'); a.page.fill('form[data-hpvform] [name=zip]', "83799"); a.page.click('form[data-hpvform] button')
+    a.page.wait_for_function("S.house.value.zip === '83799'")
     check("ZIP not in the data = wider-area blend, range +/-20%, said on screen", a.js("S.house.value.area && S.house.value.spread === 0.2") and "wider area" in a.page.inner_text("#hpvCard"))
     a.page.click('[data-hpv="edit"]'); a.page.fill('form[data-hpvform] [name=zip]', "99999"); a.page.click('form[data-hpvform] button')
     a.page.wait_for_function("!HPV_BUSY"); a.page.wait_for_timeout(50)
-    check("no data for the area = a plain message, the old value is kept", "No recent home sales data for 99999" in a.page.inner_text("#hpvCard") or a.js("S.house.value.zip") == "72099")
+    check("no data for the area = a plain message, the old value is kept", "No recent home sales data for 99999" in a.page.inner_text("#hpvCard") or a.js("S.house.value.zip") == "83799")
     a.page.click('[data-hpv="cancel"]') if a.js("!!document.querySelector('[data-hpv=cancel]')") else None
     a.page.click('[data-hpv="explain"]'); a.page.wait_for_timeout(50)
     check("Explain with no AI = points to Hub AI Credits, nothing sent", "Hub AI Credits" in a.page.inner_text("#hpvCard"))
     a.page.click('[data-hpv="edit"]'); a.page.fill('form[data-hpvform] [name=sqft]', "12"); a.page.click('form[data-hpvform] button'); a.page.wait_for_timeout(50)
     check("bad square feet is refused with a reason", "between 300 and 20,000" in a.page.inner_text("#hpvCard"))
     a.page.reload(); a.page.wait_for_function("typeof render === 'function' && document.querySelector('#hero .greet')")
-    check("value survives a reload", a.js("S.house.value.zip") == "72099" and "Hub Predicted Value" in a.page.inner_text("#cards"))
+    check("value survives a reload", a.js("S.house.value.zip") == "83799" and "Hub Predicted Value" in a.page.inner_text("#cards"))
     a.close()
 
 
@@ -3755,9 +3755,9 @@ def t_v135_auto_hub(b, base):
     check("Auto Hub: its own name, id, data, not a travel hub", a.js("[MODE, APP_NAME, APP_ID, STORE, TRAVEL]") == ["auto", "Auto Hub", "autohub", "autohub.v1", False] and a.page.title() == "Auto Hub")
     w = a.page.inner_text("#cards .welcome")
     check("first open = add your first car", "Welcome to Auto Hub" in w and "Add my car" in w and "VIN" in a.page.inner_html("#cards .welcome"), w[:200])
-    a.page.fill('form[data-autosetup] [name=city]', "72032"); a.page.fill('form[data-autosetup] [name=vin]', "1FA6P8")
+    a.page.fill('form[data-autosetup] [name=city]', "83702"); a.page.fill('form[data-autosetup] [name=vin]', "1FA6P8")
     a.page.click('form[data-autosetup] button'); a.page.wait_for_timeout(100)
-    check("a short VIN is refused with a reason, and what was typed stays", "17 letters" in a.page.inner_text("#autoMsg") and a.page.input_value('form[data-autosetup] [name=city]') == "72032")
+    check("a short VIN is refused with a reason, and what was typed stays", "17 letters" in a.page.inner_text("#autoMsg") and a.page.input_value('form[data-autosetup] [name=city]') == "83702")
     a.page.fill('form[data-autosetup] [name=vin]', "1fa6p8cf0l5100001"); a.page.fill('form[data-autosetup] [name=miles]', "30,000")
     a.page.click('form[data-autosetup] button'); a.page.wait_for_function("S.garage && S.garage.cars.length === 1")
     c = a.js("S.garage.cars[0]")
@@ -3810,7 +3810,7 @@ def t_v135_auto_hub(b, base):
 def t_v136_auto_more(b, base):
     print("\n[v1.36 Auto Hub release 2: papers + reminders, extras garage, cost to own, value, build sheet, VIN barcode]")
     a = App(b, base, path=AUTOP)
-    a.page.fill('form[data-autosetup] [name=city]', "72032"); a.page.fill('form[data-autosetup] [name=vin]', "1FA6P8CF0L5100001"); a.page.fill('form[data-autosetup] [name=miles]', "30000")
+    a.page.fill('form[data-autosetup] [name=city]', "83702"); a.page.fill('form[data-autosetup] [name=vin]', "1FA6P8CF0L5100001"); a.page.fill('form[data-autosetup] [name=miles]', "30000")
     a.page.click('form[data-autosetup] button'); a.page.wait_for_function("S.garage && S.garage.cars.length === 1")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     cid = a.js("S.garage.cars[0].id"); C = f"carById('{cid}')"
@@ -3858,7 +3858,7 @@ def t_v136_auto_more(b, base):
 def t_v138_auto_finish(b, base):
     print("\n[v1.38 Auto Hub: own intervals, journal, build sheet PDF, Auto Hub Pro box]")
     a = App(b, base, path=AUTOP)
-    a.page.fill('form[data-autosetup] [name=city]', "72032"); a.page.fill('form[data-autosetup] [name=vin]', "1FA6P8CF0L5100001"); a.page.fill('form[data-autosetup] [name=miles]', "30000")
+    a.page.fill('form[data-autosetup] [name=city]', "83702"); a.page.fill('form[data-autosetup] [name=vin]', "1FA6P8CF0L5100001"); a.page.fill('form[data-autosetup] [name=miles]', "30000")
     a.page.click('form[data-autosetup] button'); a.page.wait_for_function("S.garage && S.garage.cars.length === 1")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     cid = a.js("S.garage.cars[0].id"); C = f"carById('{cid}')"
@@ -3917,7 +3917,7 @@ def t_v140_auto_complete(b, base):
     print("\n[v1.40 Auto Hub release 3: photos, Smart Scan, AI Mechanic + Find a shop, Road Trip checklist, Share & sell]")
     a = App(b, base, path=AUTOP)
     pic = {"name": "car.png", "mimeType": "image/png", "buffer": _png()}
-    a.page.fill('form[data-autosetup] [name=city]', "72032"); a.page.fill('form[data-autosetup] [name=vin]', "1FA6P8CF0L5100001"); a.page.fill('form[data-autosetup] [name=miles]', "30000")
+    a.page.fill('form[data-autosetup] [name=city]', "83702"); a.page.fill('form[data-autosetup] [name=vin]', "1FA6P8CF0L5100001"); a.page.fill('form[data-autosetup] [name=miles]', "30000")
     a.page.click('form[data-autosetup] button'); a.page.wait_for_function("S.garage && S.garage.cars.length === 1")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     cid = a.js("S.garage.cars[0].id"); C = f"carById('{cid}')"
@@ -3952,7 +3952,7 @@ def t_v140_auto_complete(b, base):
     sent = a.ctx._scan
     check("Smart Scan: the photo goes as a small JPEG (no data: prefix) with the car list", len(sent.get("image", "")) > 100 and not sent["image"].startswith("data:") and "2020 Ford Mustang" in sent.get("input", ""), {k: str(v)[:60] for k, v in sent.items()})
     v = lambda n: a.page.input_value(f'#autoSheet form[data-ascansave] [name={n}]')
-    check("review screen: what the AI read, filled in for checking", v("kind") == "receipt" and v("miles") == "30500" and v("cost") == "89.5" and v("service") == "rotate" and v("company") == "Conway Tire" and v("date") == "2026-09-28")
+    check("review screen: what the AI read, filled in for checking", v("kind") == "receipt" and v("miles") == "30500" and v("cost") == "89.5" and v("service") == "rotate" and v("company") == "Boise Tire" and v("date") == "2026-09-28")
     check("nothing saved before Save", a.js(f"{C}.services.length") == 0)
     a.page.fill('#autoSheet form[data-ascansave] [name=miles]', "30510")
     a.page.select_option('#autoSheet form[data-ascansave] [name=kind]', "fuel"); a.page.wait_for_selector('#autoSheet form[data-ascansave] [name=gal]')
@@ -3961,7 +3961,7 @@ def t_v140_auto_complete(b, base):
     a.page.click('#autoSheet form[data-ascansave] button.btn'); a.page.wait_for_function(f"{C}.services.length === 1 && {C}.photos.length === 1")
     s = a.js(f"{C}.services[0]")
     check("Save: tire rotation logged with shop + note, miles moved, receipt photo kept, Service tab open",
-          s["kind"] == "rotate" and s["cost"] == 89.5 and s["miles"] == 30510 and s["note"] == "Conway Tire · rotate and balance" and a.js(f"{C}.miles") == 30510
+          s["kind"] == "rotate" and s["cost"] == 89.5 and s["miles"] == 30510 and s["note"] == "Boise Tire · rotate and balance" and a.js(f"{C}.miles") == 30510
           and a.js(f"{C}.photos[0].tag") == "receipt" and a.js("AUTO_TAB") == "service", s)
     f = a.js("scanFields({kind: 'bogus', miles: 'abc', amount: '-5', vin: 'SHORT', date: 'yesterday'}, '')")
     check("a strange AI reading is cleaned: unknown kind = just the photo, no made-up numbers", f["kind"] == "other" and f["miles"] == "" and f["cost"] == "" and f["vin"] == "" and f["date"] == "2026-10-01", f)
@@ -3976,7 +3976,7 @@ def t_v140_auto_complete(b, base):
     check("answer: urgency, causes most likely first with cost, check now, not-a-diagnosis line", "Get it checked soon" in t and "Worn brake pads" in t and "Most likely" in t and "$150-$300" in t
           and "Check now" in t and "not a diagnosis" in t, t[:400])
     href = a.js("document.querySelector('#autoSheet a[href*=\"google.com/maps\"]').href")
-    check("Find a shop: a maps search near the owner's city", "auto%20repair%20near%2072032" in href, href)
+    check("Find a shop: a maps search near the owner's city", "auto%20repair%20near%2083702" in href, href)
     a.page.click('#autoSheet [data-amechsave]'); a.page.wait_for_timeout(100)
     check("Save to journal", any("squeals when I brake" in n["text"] and "Worn brake pads" in n["text"] for n in a.js(f"{C}.notes")))
     m = a.js("mechAnswer({urgency: 'panic', causes: [{cause: 'X', likely: 'sure', diy: 'robot'}, {why: 'no cause'}]})")
@@ -4629,7 +4629,7 @@ def t_v157_play_review(b, base):
     au.close()
     # 2 + 3. Trip Hub Settings name Trip Hub; Privacy opens Trip Hub's own page, Terms stay Day Hub's
     t = App(b, base, path=TRIP + "?src=play")
-    t.page.fill('form[data-setup] [name=name]', "Pat"); t.page.fill('form[data-setup] [name=city]', "72032"); t.page.click('form[data-setup] button'); t.page.wait_for_function("WXDATA && WXDATA.here")
+    t.page.fill('form[data-setup] [name=name]', "Pat"); t.page.fill('form[data-setup] [name=city]', "83702"); t.page.click('form[data-setup] button'); t.page.wait_for_function("WXDATA && WXDATA.here")
     if t.js("briefOpen()"): t.page.click('[data-brief="go"]')
     t.js("openSettings()")
     st = t.page.inner_text("#sheet")
@@ -4648,7 +4648,7 @@ def t_v157_play_review(b, base):
         x.close()
     # 4 + 6. Home Hub: the hero button says Ask Home Hub; the automatic Top 3 never runs (no Top 3 card here)
     hm = App(b, base, path=HOMEP + "?src=play")
-    hm.page.fill('form[data-homesetup] [name=name]', "Pat"); hm.page.fill('form[data-homesetup] [name=city]', "72032")
+    hm.page.fill('form[data-homesetup] [name=name]', "Pat"); hm.page.fill('form[data-homesetup] [name=city]', "83702")
     hm.page.click('form[data-homesetup] button'); hm.page.wait_for_function("WXDATA && WXDATA.here")
     if hm.js("briefOpen()"): hm.page.click('[data-brief="go"]')
     check("Home Hub hero: 'Ask Home Hub' (not Ask Day Hub)", hm.js("document.querySelector('#hero [data-ask=open]').getAttribute('aria-label')") == "Ask Home Hub")
@@ -4728,7 +4728,7 @@ def t_v158_erase_gap(b, base):
     # Auto Hub: two photos (one the cover) kept full-size on the phone; Money Hub's and Health Hub's stores beside them
     pic = {"name": "car.png", "mimeType": "image/png", "buffer": _png()}
     a = App(b, base, path=AUTOP)
-    a.page.fill('form[data-autosetup] [name=city]', "72032"); a.page.fill('form[data-autosetup] [name=vin]', "1FA6P8CF0L5100001"); a.page.fill('form[data-autosetup] [name=miles]', "30000")
+    a.page.fill('form[data-autosetup] [name=city]', "83702"); a.page.fill('form[data-autosetup] [name=vin]', "1FA6P8CF0L5100001"); a.page.fill('form[data-autosetup] [name=miles]', "30000")
     a.page.click('form[data-autosetup] button'); a.page.wait_for_function("S.garage && S.garage.cars.length === 1")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.js(IDB_SEED, ["moneyhub.vault", "docs", ""]); a.js(IDB_SEED, ["healthhub.vault", "docs", ""])
@@ -4875,7 +4875,7 @@ def t_v153_health_hub(b, base):
     a.page.set_input_files('#hhSheet [data-hhscan]', {"name": "label.png", "mimeType": "image/png", "buffer": _png()}); a.page.wait_for_function("HH_SCAN && HH_SCAN.read")
     check("label scan: relay task 'scan' with the photo; a review form with what it read; nothing saved yet",
           a.ctx._scan.get("task") == "scan" and bool(a.ctx._scan.get("image")) and a.page.locator("#hhSheet .hh-shot img").count() == 1 and "check every field" in a.page.inner_text("#hhSheet")
-          and a.js("S.hh.meds.length") == 1 and a.js("document.querySelector('#hhSheet form[data-hhmed] [name=pharmacy]').value") == "Conway Tire")
+          and a.js("S.hh.meds.length") == 1 and a.js("document.querySelector('#hhSheet form[data-hhmed] [name=pharmacy]').value") == "Boise Tire")
     a.page.click('#hhSheet [data-hhmedcancel]'); a.js("localStorage.removeItem('dayhub.aipass')")
     check("cancel: still one medicine", a.js("S.hh.meds.length") == 1)
     # --- vitals
@@ -5029,7 +5029,7 @@ def t_v127_email_codes(b, base):
     # credits: the same step in the AI helper box (Trip Hub)
     a = App(b, base, path=TRIP)
     a.ctx._codes = True
-    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.page.click("#settingsBtn")
@@ -5132,7 +5132,7 @@ def t_v132_sri_and_sw(b, base):
 def t_v122_trip_briefing(b, base):
     print("\n[v1.22 daily travel briefing: the morning brief leads with the trip + an 8 PM 'tomorrow' note]")
     a = App(b, base, path=TRIP, at="2026-10-21T06:30:00")
-    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Pat"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"tname": "Orlando", "start": "2026-10-20", "end": "2026-10-26", "port": "Orlando, FL"})
@@ -5158,7 +5158,7 @@ def t_v122_trip_briefing(b, base):
 def t_v109_port_wx_alerts(b, base):
     print("\n[v1.09 port-day weather notifications: 7 AM on the day, 8 PM the night before only with a warning]")
     a = App(b, base, path=CRUISE, at="2026-10-01T06:00:00")                # sail day, before 7 AM
-    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "72032")
+    a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
     a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
     if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
     a.qa("trip", {"ttype": "cruise", "tname": "Western Caribbean", "start": "2026-10-01", "end": "2026-10-05", "line": "Carnival", "port": "Galveston, TX"})
