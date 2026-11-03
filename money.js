@@ -189,6 +189,7 @@ function mhSetupHtml() {
       <input name="bal" inputmode="decimal" placeholder="Checking balance today $ (optional)" aria-label="Checking balance">
       <label class="field">How often do you get paid? <select name="freq"><option value="">Skip for now</option>${Object.entries(PAY_FREQ).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></label>
       <div class="two"><label class="field">Next payday <input type="date" name="next"></label><input name="check" inputmode="decimal" placeholder="Take-home per check $" aria-label="Take-home per check"></div>
+      ${MH_TWICE("")}
       <button class="btn">Start Money Hub</button></form>
     <p class="fine">Everything you type stays on this phone. Money Hub never asks for a bank password.</p></section>`;
 }
@@ -329,8 +330,8 @@ function mhPane() {
     const billsDue = nx ? dueBetween(t, after).reduce((n, o) => n + o.amt, 0) : billsLeft(t);
     const v = { start: P.start != null ? P.start : Math.round(cashNow() * 100) / 100, check: P.check != null ? P.check : Math.round((pa.amt || 0) * 100) / 100, bills: P.bills != null ? P.bills : Math.round(billsDue * 100) / 100, other: P.other || 0, save: P.save || 0 };
     const left = paydayLeft(v.start, v.check, v.bills, v.other, v.save);
-    return `${nx ? `<p class="fine" style="margin-top:0">Next payday <b>${mDate(nx)}</b> (${inDays(daysUntil(nx))}). Bills below = everything due from today until the payday after that${after ? ` (${mDate(after)})` : ""}.</p>`
-        : `<p class="fine" style="margin-top:0">Set your payday on the Payday page or the start screen to fill this in. You can type it all yourself too.</p>`}
+    return `${mhPayHtml()}${nx ? `<p class="fine" style="margin-top:10px">Next payday <b>${mDate(nx)}</b> (${inDays(daysUntil(nx))}). Bills below = everything due from today until the payday after that${after ? ` (${mDate(after)})` : ""}.</p>`
+        : `<p class="fine" style="margin-top:10px">Set your pay above to fill this in. You can type it all yourself too.</p>`}
       ${typeof mvWaterfall === "function" ? mvWaterfall(v, left) : ""}
       <div class="hpv-ai"><p class="sub" style="margin:0">Left after all that</p><p class="hpv-big" style="${left < 0 ? "color:var(--red)" : ""}">${usd(left)}</p>
         <p class="fine" style="margin:4px 0 0">${usd(v.start)} + ${usd(v.check)} − ${usd(v.bills)} bills − ${usd(v.other)} other − ${usd(v.save)} savings${left < 0 ? " · ⚠️ short - move a bill or trim spending" : ""}</p></div>
@@ -543,15 +544,54 @@ function addMonthsDayM(day, n) {
   const d = parseDay(day), x = new Date(d.getFullYear(), d.getMonth() + Number(n), 1), last = new Date(x.getFullYear(), x.getMonth() + 1, 0).getDate();
   x.setDate(Math.min(d.getDate(), last)); return ymd(x);
 }
+// YOUR PAY (Scott 11/03: "finish what you can on hubs"; the inventory's Broken #1): it could only be set on the welcome, the "twice a
+// month" dates were always the 1st and 15th, and choosing how often with no date lost it without a word. Same fields Day Hub's Payday
+// card saves. Returns what's wrong, or "" once saved.
+const MH_TWICE = (v, hide = true) => `<label class="field mh-twice" ${hide ? "hidden" : ""}>Twice a month only: the other payday (day of the month, 31 = last day) <input type="number" name="d2" min="1" max="31" value="${esc(String(v))}"></label>`;
+function mhSetPay(data) {
+  if (!PAY_FREQ[data.freq]) return "Choose how often you get paid.";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data.next || "")) return "Add your next payday.";
+  const P = S.payday, amount = Math.abs(amt(data.check)) || null, typed = Math.min(31, Math.max(0, Math.round(Number(data.d2) || 0)));
+  const same = P.freq === data.freq && data.next === payNext(today()), d1 = same && data.freq === "semimonthly" ? mhPayDays(P).here : Number(data.next.slice(8));   // the date as shown, untouched
+  if (data.freq === "semimonthly" && typed === d1) return "Your two paydays need different days.";
+  if (same && (data.freq !== "semimonthly" || typed === mhPayDays(P).other)) { S.payday = { ...P, amount }; return ""; }
+  const pay = { ...P, freq: data.freq, next: same ? P.next : data.next, amount };
+  if (data.freq === "semimonthly") { pay.d1 = d1; pay.d2 = typed || (d1 === 1 ? 15 : d1 <= 15 ? d1 + 15 : d1 - 15); }   // blank: the usual gap
+  S.payday = pay; return "";
+}
+// Twice a month: which of the two days the next payday is, and the other one. A 31st lands on the 30th in a short month, so compare the days as they land.
+function mhPayDays(P) {
+  const nx = payNext(today()), landed = Number(nx.slice(8)), last = new Date(Number(nx.slice(0, 4)), Number(nx.slice(5, 7)), 0).getDate(), lands = d => Math.min(Number(d), last);
+  return lands(P.d1) === landed ? { here: Number(P.d1), other: Number(P.d2) } : { here: Number(P.d2), other: Number(P.d1) };
+}
+function mhPayHtml() {
+  const P = S.payday, nx = payNext(today()), twice = P.freq === "semimonthly", other = twice && nx ? mhPayDays(P).other : "";
+  return `<details style="background:rgba(255,255,255,.06);border-radius:12px;padding:10px 12px;margin-top:10px" ${P.freq ? "" : "open"}><summary><b>💵 Your pay</b> · ${P.freq ? `${esc(PAY_FREQ[P.freq])}${P.amount ? ` · ${usd(P.amount)}` : ""}` : "not set yet"}</summary>
+    <form class="qa-form" data-mhpay="1" style="margin-top:8px">
+      <label class="field">How often do you get paid? <select name="freq">${P.freq ? "" : `<option value="">Choose…</option>`}${Object.entries(PAY_FREQ).map(([k, v]) => `<option value="${k}" ${k === P.freq ? "selected" : ""}>${v}</option>`).join("")}${P.freq ? `<option value="">I don't want a payday here</option>` : ""}</select></label>
+      <label class="field">Next payday <input type="date" name="next" value="${esc(nx || "")}"></label>
+      ${MH_TWICE(other, !twice)}
+      <label class="field">Take-home per check $ <input name="check" inputmode="decimal" value="${esc(String(P.amount || ""))}"></label>
+      <button class="btn sm">Save my pay</button></form></details>`;
+}
+document.addEventListener("change", e => {                             // the other payday shows only for twice a month
+  const sel = e.target, form = sel.name === "freq" && sel.closest && sel.closest("form[data-mhsetup], form[data-mhpay]"), box = form && form.querySelector(".mh-twice");
+  if (box) box.hidden = sel.value !== "semimonthly";
+});
 function mhSubmit(f, data) {
   if (MODE !== "money") return false;
   if (typeof mvSubmit === "function" && mvSubmit(f, data)) return true;   // v1.45 moneyviz.js
   const M = mh(), day = v => /^\d{4}-\d{2}-\d{2}$/.test(v || "") ? v : today(), pos = v => Math.abs(amt(v));
   if (f.dataset.mhsetup) {
+    if (data.freq) { const err = mhSetPay(data); if (err) { toast(`${err} Or choose Skip for now.`); return true; } }
     S.name = String(data.name || "").trim().slice(0, 30); M.setup = today();
     if (String(data.bal || "").trim()) M.accounts.push({ id: uid(), kind: "checking", name: "Checking", bal: amt(data.bal), at: today() });
-    if (data.freq && PAY_FREQ[data.freq] && /^\d{4}-\d{2}-\d{2}$/.test(data.next || "")) { S.payday.freq = data.freq; S.payday.next = data.next; if (pos(data.check)) S.payday.amount = pos(data.check); }
     save(); render(); toast("💰 Money Hub is ready"); return true; }
+  if (f.dataset.mhpay) {
+    if (!data.freq) S.payday = { ...S.payday, freq: null, next: null, amount: null };
+    else { const err = mhSetPay(data); if (err) { MH_MSG = err; mhMsgShow(); return true; } }
+    if (M.plan) { delete M.plan.check; delete M.plan.bills; }           // the planner below works from the new pay, not the old one
+    MH_MSG = ""; save(); showMh("payday"); render(); toast(data.freq ? "💵 Your pay is saved" : "Payday cleared"); return true; }
   if (f.dataset.mhquick || f.dataset.mhtx) { const a = pos(data.amt); if (!a) { MH_MSG = "Type an amount."; mhMsgShow(); return true; }
     const inn = data.dir === "in", what = String(data.what || "").trim().slice(0, 80), cat = data.cat || (inn ? "income" : catGuess(what));
     M.tx.push({ id: uid(), date: day(data.date), amt: inn ? a : -a, what, cat, acct: "" }); MH_MSG = ""; save(); render();

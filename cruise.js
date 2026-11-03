@@ -164,7 +164,7 @@ const mapsLink = q => `https://www.google.com/maps/search/?api=1&query=${encodeU
 let HELP_VIEW = null;
 function showHelp(view) {
   const tr = curTrip(); HELP_VIEW = view || null;
-  const cr = !tr || isCruise(tr), carrier = cr ? "Cruise line" : "Airline / hotel";   // v0.97: a regular trip has no ship
+  const cr = tr ? isCruise(tr) : MODE !== "trip", carrier = cr ? "Cruise line" : "Airline / hotel";   // v0.97: a regular trip has no ship
   let el = document.getElementById("helpSheet");
   if (!el) { el = document.createElement("div"); el.id = "helpSheet"; el.className = "sheet help"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Need help"); document.body.appendChild(el); }
   const pt = tr && portOn(tr, today()), line = (k, label) => helpVal(tr || {}, k) ? `<div class="row"><span class="grow"><b>${label}</b><span class="sub">${telLinks(helpVal(tr, k))}</span></span></div>` : "";
@@ -189,7 +189,7 @@ function showHelp(view) {
       ${tr.booking ? `<div class="row"><span class="grow"><b>Booking #</b><span class="sub">${esc(tr.booking)}</span></span></div>` : ""}
       ${line("line", "Cruise line")}${line("agent", "Travel agent")}
       <p class="fine">Running late? Call the cruise line first. Don't book anything else until they tell you what's possible.</p>
-      ${tr.start && daysUntil(tr.start) === 0 && !tr.aboard ? `<button class="btn" data-aboard="1" style="width:100%;margin-top:8px">✅ We're on board</button>` : ""}` : `<p class="fine">Plan a cruise first.</p>`;
+      ${tr.start && daysUntil(tr.start) === 0 && !tr.aboard ? `<button class="btn" data-aboard="1" style="width:100%;margin-top:8px">✅ We're on board</button>` : ""}` : `<p class="fine">Plan a ${MODE === "trip" ? "trip" : "cruise"} first.</p>`;
   else if (view === "medical") body = `${cr ? `<div class="today-line"><b>On the ship:</b> use your cabin phone to call the ship's medical center or emergency number (it's printed on or by the phone).</div>` : ""}
       ${!cr ? `<div class="today-line"><b>Where you are:</b> call the local emergency number, or ask your hotel front desk for help.</div>` : ""}${cr ? `<div class="today-line"><b>Ashore:</b> ${pt && pt.emergency ? `local emergency number ${telLinks(pt.emergency)}` : "ask port staff or the ship's port agent for local emergency help"}${pt && pt.agent ? ` · port agent ${telLinks(pt.agent)}` : ""}.</div>` : ""}
       <div class="today-line"><b>In the US:</b> <a href="tel:911">911</a></div>` + (tr ? line("ins", "Travel insurance") + line("policy", "Policy #") + line("contact", "Emergency contact") : "");
@@ -202,8 +202,8 @@ function showHelp(view) {
       (D.length ? D.map(i => `<div class="today-line">${i.done ? "✅" : "⬜"} ${esc(i.text)}</div>`).join("") : `<p class="fine">No documents list yet.</p>`) +
       `<p class="fine">Keep a photo of your passport / ID in your phone's photos and a paper copy apart from it.</p>`
       + (typeof docsVaultHtml === "function" ? docsVaultHtml(tr) : ""); }                 // v1.20 when they run out (trip.js)
-  else body = tr ? `<form class="help-form" data-helpform="${tr.id}">${HELP_FIELDS.map(([k, l]) => `<label class="field">${l}<input name="${k}" value="${esc(helpVal(tr, k))}" autocomplete="off"></label>`).join("")}
-      <button class="btn" style="width:100%;margin-top:8px">Save contacts</button></form><p class="fine">Saved on this phone only (and in your backup if it's on).</p>` : `<p class="fine">Plan a cruise first.</p>`;
+  else body = tr ? `<form class="help-form" data-helpform="${tr.id}">${HELP_FIELDS.map(([k, l]) => `<label class="field">${k === "line" && !cr ? "Airline / hotel phone" : l}<input name="${k}" value="${esc(helpVal(tr, k))}" autocomplete="off"></label>`).join("")}
+      <button class="btn" style="width:100%;margin-top:8px">Save contacts</button></form><p class="fine">Saved on this phone only (and in your backup if it's on).</p>` : `<p class="fine">Plan a ${MODE === "trip" ? "trip" : "cruise"} first.</p>`;
   const titles = { back: "🚢 Back to ship", get: "🚗 Get to the ship", medical: "🩺 Medical / safety", travel: "✈️ Travel problem", docs: "📄 My documents", contacts: "📇 My trip contacts" };
   el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
     <div class="sheet-head"><h2>${view ? titles[view] : "🛟 Need help?"}</h2><button class="icon-btn" data-helpclose="1" aria-label="Close">✕</button></div>

@@ -17,6 +17,7 @@
 "use strict";
 const SWITCHES = Object.freeze({
   PRO_GATE: true,     // ON 2026-10-03 (Scott "go": Whop product live). OFF = everything free, no Pro section anywhere.
+  TRAVEL_CAL: false,  // Cruise Hub + Trip Hub: trips, port days, final payments, bookings and plans on Google Calendar (the Passes promise it; only plain events went). OFF until Scott says go.
   PRO_LAPSE: true,    // ON 2026-11-01 (Scott "Yes, fix it"): Calendar sync + Drive backup PAUSE when Pro ends, with notices + smarter re-checks (v1.58b). OFF = they keep running after Pro ends, as before.
   AI_PUBLIC: true,    // ON 2026-10-03 (Scott: "turn it on"). Relay also needs Script Property AI_PUBLIC=true. OFF = only the owner passphrase works.
   GMAIL: false,       // Gmail -> plans. Waits on Google's restricted-scope verification.

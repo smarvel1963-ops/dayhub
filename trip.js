@@ -58,6 +58,37 @@ function bookingItems(tr, day) {
   });
   return out;
 }
+// ---- YOUR TRIP ON THE PHONE'S CALENDAR (Scott 11/03: the Pass boxes and privacy pages promise "your trip, flights, hotels and plans" and
+// "your trip, payments and port days", and only plain events ever went). Called from app.js gcalWanted behind TRAVEL_CAL. Each key is
+// the item's own id, so an edit updates its one calendar copy and a delete removes it (gcalTripExists). A place's times are that place's, and Google
+// needs a time zone we don't have for a port or a destination: each is an all-day entry with its time in the title, never an alarm at the wrong hour.
+function gcalTrips(put, allDay, old) {
+  if (!TRAVEL) return;                                                     // a trip in Day Hub stays Day Hub's own business
+  const at = t => (t ? `${hm(t)} · ` : ""), day = (key, title, where, d) => put(key, title, where, allDay(d), null, null, 900);
+  myTrips().forEach(tr => {
+    const cr = isCruise(tr), end = tr.end && tr.end >= tr.start ? tr.end : tr.start;
+    if (tr.start && end >= old) put(`tr:${tr.id}`, `${cr ? "🚢" : "✈️"} ${tr.name || "My trip"}`, tr.port ? placeName(tr.port) : "", [{ date: tr.start }, { date: addDays(end, 1) }], null, null, 900);
+    if (tr.finalDue && tr.finalDue >= old && tripLeft(tr) !== 0) put(`fp:${tr.id}`, `💳 Final payment — ${tr.name || "My trip"}`, "", allDay(tr.finalDue), null, null, 3 * 1440 - 540);
+    (tr.ports || []).forEach(pt => { if (!pt.day || pt.day < old) return;
+      day(`pt:${pt.id}`, pt.allAboard ? `⚓ ALL ABOARD ${hm(pt.allAboard)}${Number(pt.shipOffset) ? " ship time" : ""} — ${pt.name}` : `⚓ ${pt.name} — port day`, pt.name, pt.day);
+      if (pt.meet && pt.excursion && pt.excursion.toLowerCase() !== "none") day(`ex:${pt.id}`, `🤿 ${at(pt.meet)}${pt.excursion}`, pt.where || pt.name, pt.day); });
+    tripBookings(tr).forEach(b => { if (!b.day || b.day < old) return;
+      const K = bookKind(b), title = bookTitle(b), ed = b.endDay || (b.endT ? b.day : ""), where = ["flight", "train"].includes(b.kind) ? "" : b.b || "", word = K.start === "Time" ? "" : `${K.start} — `;
+      day(`bk:${b.id}`, `${K.icon} ${at(b.t)}${word}${title}${ed === b.day && b.endT ? ` · ${K.end.toLowerCase()} ${hm(b.endT)}` : ""}`, where, b.day);
+      if (K.end && ed && ed !== b.day) day(`be:${b.id}`, `${K.icon} ${at(b.endT)}${K.end} — ${title}`, where, ed); });
+    tripDrives(tr).forEach(dv => { if (!dv.day || dv.day < old) return;
+      day(`dv:${dv.id}`, `🚗 ${at(dv.t)}Drive ${dv.from || "?"} → ${dv.to || "?"}`, dv.to || "", dv.day); });
+    tripFun(tr).filter(f => f.day && f.t && f.day >= old && ["must", "maybe"].includes(f.pick)).forEach(f => {
+      if (funPlan(tr, f.day).plan.some(x => x.id === f.id)) day(`fn:${f.id}`, `🎉 ${at(f.t)}${f.title}`, f.where || "", f.day); });
+  });
+}
+function gcalTripExists(k, id) {                                           // still here? (aged out is not deleted; paid off, removed or dropped is)
+  const T = myTrips(), any = fn => T.some(fn);
+  return k === "tr" ? any(t => t.id === id && !!t.start) : k === "fp" ? any(t => t.id === id && !!t.finalDue && tripLeft(t) !== 0)
+    : k === "pt" ? any(t => (t.ports || []).some(p => p.id === id)) : k === "ex" ? any(t => (t.ports || []).some(p => p.id === id && !!p.meet && !!p.excursion && p.excursion.toLowerCase() !== "none"))
+    : k === "bk" ? any(t => tripBookings(t).some(b => b.id === id && !!b.day)) : k === "be" ? any(t => tripBookings(t).some(b => b.id === id && (b.endDay || b.day) !== b.day))
+    : k === "dv" ? any(t => tripDrives(t).some(d => d.id === id)) : k === "fn" ? any(t => tripFun(t).some(f => f.id === id && ["must", "maybe"].includes(f.pick) && funPlan(t, f.day).plan.some(x => x.id === id))) : false;
+}
 // Short words for the timeline row of one day ("🏨 check-in", "✈️ 7:05 AM").
 function bookingBits(tr, d) {
   return bookingItems(tr, d).map(x => `${x.icon} ${x.t ? hm(x.t) : x.title.split(" — ")[0].toLowerCase()}`);

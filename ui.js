@@ -162,7 +162,7 @@ const CARDS = {
     meta: () => S.bills.length ? `${money(S.bills.reduce((s, b) => s + Number(b.amount || 0), 0))}/mo` : "",
     body: () => {
       const up = upcomingBills();
-      if (!up.length) return `<div class="empty">Add your monthly bills — Day Hub reminds you before they're due.</div>`;
+      if (!up.length) return `<div class="empty">Add your monthly bills — ${APP_NAME} reminds you before they're due.</div>`;
       return up.map(b => { const n = daysUntil(b.due);
         return `<div class="row"><div class="grow">${esc(b.name)}<span class="sub">${money(b.amount)} · ${prettyDate(b.due)}</span></div>
           <span class="pill ${n < 0 ? "late" : n <= 3 ? "soon" : ""}">${inDays(n)}</span>
@@ -177,7 +177,7 @@ const CARDS = {
     body: () => {
       const f = S.mail.found.slice().sort((a, b) => (a.day || "9999").localeCompare(b.day || "9999"));
       const top = S.mail.on && !mReady() ? `<button class="sync" data-mail="scan">📬 Tap to check your email${S.mail.last ? ` · last ${fmtTime(S.mail.last)}` : ""}</button>` : "";
-      if (!f.length) return top + `<div class="empty">${S.mail.on ? "Nothing waiting. New cruise bookings, appointments, flights and deliveries show up here." : "Connect Gmail in ⚙ — use the email you book trips with — and Day Hub finds cruises, appointments, flights, reservations and packages in it."}</div>`;
+      if (!f.length) return top + `<div class="empty">${S.mail.on ? "Nothing waiting. New cruise bookings, appointments, flights and deliveries show up here." : `Connect Gmail in ⚙ — use the email you book trips with — and ${APP_NAME} finds cruises, appointments, flights, reservations and packages in it.`}</div>`;
       return top + f.map(x => x.type === "cruise" ? (() => { const ad = cruiseAdds(x.cruise), c = x.cruise;
           return `<div class="row"><div class="grow">${esc(x.title)}${c.line ? ` <span class="tag">${esc(c.line)}</span>` : ""}
             <span class="sub">${[c.start && `${prettyDate(c.start)}${c.end ? " – " + prettyDate(c.end) : ""}`, c.booking && `booking ${esc(c.booking)}`, esc(c.cabin || c.category || ""), c.ports && `${c.ports.length} ports`, c.finalDue && `final payment ${prettyDate(c.finalDue)}`].filter(Boolean).map(String).join(" · ")}
@@ -196,7 +196,7 @@ const CARDS = {
       if (!tr) return `<div class="empty">${MODE === "trip" ? "Got a trip coming? Trip Hub counts down, lays it out day by day, keeps your payments and spending and hands you ready-made packing and document lists."
         : `Got a cruise or trip coming? ${APP_NAME} counts down, reminds you about the final payment, tracks onboard spending and hands you ready-made packing and document lists.`}</div>
         ${gmailAllowed() ? `<div class="today-line" style="margin-top:8px">✨ <b>Zero effort:</b> connect the email you booked with (⚙ → Connect Gmail) and the ship, dates, booking number, cabin and ports fill in by themselves.</div>` : ""}
-        <button class="btn sm" data-qa="trip" style="margin-top:10px">🚢 Plan a trip</button>`;
+        <button class="btn sm" data-qa="trip" style="margin-top:10px">${MODE === "trip" ? "✈️" : "🚢"} Plan a trip</button>`;
       const all = upcomingTrips();
       const pick = all.length > 1 ? `<div class="tabs">${all.map(t => `<button class="tab ${t.id === tr.id ? "on" : ""}" data-tripsel="${t.id}">${esc(t.name)}</button>`).join("")}</div>` : "";
       const sd = tr.start ? daysUntil(tr.start) : null, nights = tripNights(tr);
@@ -218,7 +218,7 @@ const CARDS = {
             <div class="grow"><b>${R.pct >= 100 ? "Ready to go!" : "Ready"}</b><span class="sub">Stage: ${esc(R.phase)}</span>
             ${R.next ? `<div class="next">➡️ <b>Next:</b> ${esc(R.next.action)}</div>` : `<div class="next">✅ Nothing needs you right now.</div>`}</div></div>` +
           R.items.map(i => `<div class="today-line">${i.score >= 1 ? "✅" : i.now ? "⚠️" : "⏳"} ${esc(i.label)}${i.score > 0 && i.score < 1 ? ` <span class="sub" style="display:inline">${Math.round(i.score * 100)}%</span>` : ""}</div>`).join("") +
-          `<div class="fine" style="margin-top:6px">⚠️ = matters now · ⏳ = later — Day Hub brings it up when it's time.</div>`;
+          `<div class="fine" style="margin-top:6px">⚠️ = matters now · ⏳ = later — ${APP_NAME} brings it up when it's time.</div>`;
       } else if (tab === "ports") {
         const days = []; if (tr.start) for (let d = tr.start; d <= (tr.end || tr.start); d = addDays(d, 1)) days.push(d);
         ensurePortWx(tr);
@@ -233,7 +233,7 @@ const CARDS = {
             ${pt ? `<button class="x" data-portedit="${pt.id}" aria-label="Edit">✏️</button><button class="x" data-tripdel="${tr.id}:ports:${pt.id}" aria-label="Remove">✕</button>`
                  : d !== tr.start && d !== tr.end ? `<button class="btn sm ghost" data-portadd="${d}">＋ Port</button>` : ""}</div>`; }).join("")
           : `<div class="empty">Add the sailing dates (Edit) and every day shows up here.</div>`;
-        body += `<div class="fine" style="margin-top:6px">⚓ Day Hub alarms you 60 and 30 minutes before all-aboard — the ship will not wait.</div>`;
+        body += `<div class="fine" style="margin-top:6px">⚓ ${APP_NAME} alarms you 60 and 30 minutes before all-aboard — the ship will not wait.</div>`;
       } else if (tab === "money") {
         const paid = tripPaid(tr), left = tripLeft(tr), spm = savePerMonth(tr), fd = tr.finalDue ? daysUntil(tr.finalDue) : null;
         body = tr.total ? `<div class="paygrid"><div class="fact">Total<b>${money(tr.total)}</b></div><div class="fact">Paid<b>${money(paid)}</b></div>
@@ -271,7 +271,7 @@ const CARDS = {
         const cats = {}; (tr.spends || []).forEach(x => { cats[x.cat] = (cats[x.cat] || 0) + Number(x.amt || 0); });
         body = `<div class="paygrid"><div class="fact">Budget<b>${bud ? money(bud) : "--"}</b></div><div class="fact">Spent<b>${money(spent)}</b></div>
             <div class="fact ${bud && spent > bud ? "" : "take"}">Left<b>${bud ? money(bud - spent) : "--"}</b></div></div>`;
-        if (bud && spent > bud) body += `<div class="bstat over" style="margin-top:8px">⚠ ${money(spent - bud)} over your onboard budget.</div>`;
+        if (bud && spent > bud) body += `<div class="bstat over" style="margin-top:8px">⚠ ${money(spent - bud)} over your ${isCruise(tr) ? "onboard " : ""}budget.</div>`;
         if (typeof spendPulseHtml === "function") body += spendPulseHtml(tr);                     // v1.21 daily pace
         if (typeof dupesHtml === "function") body += dupesHtml(tr);                     // v1.19 logged twice?
         if (isCruise(tr)) { const credit = Number(tr.credit || 0), bal = spent + gr - credit;
@@ -509,7 +509,7 @@ function famTripRows() {
 }
 { const ownBody = CARDS.trips.body, ownMeta = CARDS.trips.meta;
   CARDS.trips.body = () => { const fam = famTripRows();
-    return !curTrip() && fam ? fam + `<button class="btn sm" data-qa="trip" style="margin-top:10px">🚢 Plan a trip</button>` : ownBody() + fam; };
+    return !curTrip() && fam ? fam + `<button class="btn sm" data-qa="trip" style="margin-top:10px">${MODE === "trip" ? "✈️" : "🚢"} Plan a trip</button>` : ownBody() + fam; };
   CARDS.trips.meta = () => ownMeta() || (famUpcoming().length ? `in ${SIB.name}` : ""); }
 
 // ------------------------------------------------------------ cruise countdown
@@ -605,7 +605,7 @@ function celebrate(msg) {
 function showReady() {
   const tr = curTrip(); if (!tr) return;
   let el = document.getElementById("readySheet");
-  if (!el) { el = document.createElement("div"); el.id = "readySheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Cruise checklist"); document.body.appendChild(el); }
+  if (!el) { el = document.createElement("div"); el.id = "readySheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Checklist"); document.body.appendChild(el); }
   const R = readiness(tr), sd = tr.start ? daysUntil(tr.start) : null;
   el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
     <div class="sheet-head"><h2>${esc(tr.ship || tr.name)} · ${R.pct}% ready</h2><button class="icon-btn" data-readyclose="1" aria-label="Close">✕</button></div>
@@ -614,7 +614,7 @@ function showReady() {
     ${R.next ? `<div class="today-line">➡️ <b>Next:</b> ${esc(R.next.action)}</div>` : `<div class="today-line">✅ Nothing needs you right now.</div>`}
     ${R.items.map(i => `<div class="row ready-row"><span class="grow">${i.score >= 1 ? "✅" : i.now ? "⚠️" : "⏳"} ${esc(i.label)}</span>
       <span class="sub">${i.score >= 1 ? "done" : i.score > 0 ? Math.round(i.score * 100) + "%" : i.now ? "now" : "later"}</span></div>`).join("")}
-    <p class="fine" style="margin-top:6px">⚠️ = matters now · ⏳ = later — Cruise Hub brings it up when it's time.</p>
+    <p class="fine" style="margin-top:6px">⚠️ = matters now · ⏳ = later — ${APP_NAME} brings it up when it's time.</p>
     <button class="btn" data-readygo="1" style="width:100%;margin-top:10px">Open my trip</button></div>`;
   el.classList.remove("hidden");
 }
@@ -763,7 +763,7 @@ function showForget() {
   if (!el) { el = document.createElement("div"); el.id = "forgetSheet"; el.className = "sheet"; el.setAttribute("role", "dialog");
     el.setAttribute("aria-label", "What am I forgetting?"); document.body.appendChild(el); }
   el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
-    <div class="sheet-head"><h2>🛳️ What am I forgetting?</h2><button class="icon-btn" data-forgetclose="1" aria-label="Close">✕</button></div>
+    <div class="sheet-head"><h2>${MODE === "trip" ? "🧳" : "🛳️"} What am I forgetting?</h2><button class="icon-btn" data-forgetclose="1" aria-label="Close">✕</button></div>
     <div class="qa-form">${forgetHtml()}<button class="btn" data-forgetclose="1">Got it</button></div></div>`;
   el.classList.remove("hidden");
 }
@@ -992,12 +992,15 @@ function dumpClassify(piece, now = new Date()) {
   return { kind: "todo", title: dumpClean(raw) };
 }
 const dumpParse = (text, now = new Date()) => dumpSplit(text).map(p => dumpClassify(p, now)).filter(x => x.title);
+// A Hub with no Notes or Future me card keeps those as to-dos, where they can be seen and ticked (Day Hub has them all). A reminder stays one: it rings and shows up top.
+const DUMP_CARD = { note: "notes", future: "future" };
+const dumpKindHere = k => QA_HUBS.includes(MODE) && DUMP_CARD[k] && !BASE.includes(DUMP_CARD[k]) ? "todo" : k;
 function drawDump() {
   const out = document.getElementById("dumpOut"); if (!out) return;
   if (!DUMP.length) { out.innerHTML = ""; return; }
   const opt = (v, cur) => `<option value="${v}" ${v === cur ? "selected" : ""}>${DUMP_KINDS[v]}</option>`;
   out.innerHTML = `<div class="dump-h">Here's how I sorted it — change anything, then Add all</div>` + DUMP.map((x, i) => `<div class="dump-row">
-      <div class="dump-line"><select data-dkind="${i}">${Object.keys(DUMP_KINDS).map(k => opt(k, x.kind)).join("")}</select>
+      <div class="dump-line"><select data-dkind="${i}">${Object.keys(DUMP_KINDS).filter(k => dumpKindHere(k) === k).map(k => opt(k, dumpKindHere(x.kind))).join("")}</select>
         <button type="button" class="x" data-ddel="${i}" aria-label="Remove">✕</button></div>
       <input data-dtext="${i}" value="${esc(x.title)}" autocomplete="off">
       ${x.kind === "event" ? `<div class="two"><input type="date" data-dday="${i}" value="${x.day || today()}"><input type="time" data-dtime="${i}" value="${x.time || "09:00"}"></div>
@@ -1028,11 +1031,11 @@ async function dumpSort() {
 function dumpAdd() {
   const n = { todo: 0, event: 0, item: 0, note: 0, future: 0 }, L = S.lists.find(l => /grocer|shop/i.test(l.name)) || S.lists[0];
   DUMP.filter(x => (x.title || "").trim()).forEach(x => {
-    const title = x.title.trim(); n[x.kind]++;
-    if (x.kind === "todo") S.todos.push({ id: uid(), title, done: false, rep: "none", day: today() });
-    else if (x.kind === "event") S.events.push({ id: uid(), day: x.day || today(), time: x.time || "09:00", title, where: "", rep: x.rep || "none" });
-    else if (x.kind === "item") L.items.push({ id: uid(), text: title, done: false });
-    else if (x.kind === "future") S.future.push({ id: uid(), created: new Date().toISOString(), seen: 0, text: title, words: futureWords(title), day: null });
+    const title = x.title.trim(), kind = dumpKindHere(x.kind); n[kind]++;
+    if (kind === "todo") S.todos.push({ id: uid(), title, done: false, rep: "none", day: today() });
+    else if (kind === "event") S.events.push({ id: uid(), day: x.day || today(), time: x.time || "09:00", title, where: "", rep: x.rep || "none" });
+    else if (kind === "item") L.items.push({ id: uid(), text: title, done: false });
+    else if (kind === "future") S.future.push({ id: uid(), created: new Date().toISOString(), seen: 0, text: title, words: futureWords(title), day: null });
     else S.notes.push({ id: uid(), text: title, pinned: false, updated: new Date().toISOString() });
   });
   DUMP = [];
@@ -1051,16 +1054,24 @@ function micToggle(btn) {
       if (e.results[i].isFinal) finals += (finals ? ", " : "") + tx.trim(); else interim += tx; }
     ta.value = base + finals + (interim ? (finals ? ", " : "") + interim : ""); };
   RECOG.onend = () => { RECOG = null; btn.textContent = "🎤 Talk"; btn.classList.remove("on"); if (ta.value.trim()) dumpSort(); };
-  RECOG.onerror = e => { if (e.error === "not-allowed") toast("Allow the microphone for Day Hub, or use the 🎤 on your keyboard"); };
+  RECOG.onerror = e => { if (e.error === "not-allowed") toast(`Allow the microphone for ${APP_NAME}, or use the 🎤 on your keyboard`); };
   RECOG.start(); btn.textContent = "⏹ Stop"; btn.classList.add("on");
 }
 
 function qaTypes() {
-  const t = [["dump", "🧠 Brain dump"], ["event", "📅 Event"], ["person", "🎂 Birthday / date"], ["upkeep", "🏠 Home / car"], ["routine", "🔁 Routine"], ["alarm", "⏰ Alarm"], ["return", "↩️ Return"], ["future", "🔮 Future me"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["package", "📦 Package"], ["trip", "🚢 Trip"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
+  const t = [["dump", "🧠 Brain dump"], ["event", "📅 Event"], ["person", "🎂 Birthday / date"], ["upkeep", "🏠 Home / car"], ["routine", "🔁 Routine"], ["alarm", "⏰ Alarm"], ["return", "↩️ Return"], ["future", "🔮 Future me"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["package", "📦 Package"], ["trip", MODE === "trip" ? "✈️ Trip" : "🚢 Trip"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
   if (S.pack === "trucker") t.splice(1, 0, ["loads", "🚚 Load"]);
   if (S.pack === "trades") t.splice(1, 0, ["jobs", "🔧 Job"]);
-  return t;
+  if (!QA_HUBS.includes(MODE)) return t;
+  // The full list is Day Hub's. Elsewhere an entry with no card to show it was simply lost: Spending went to a log only Day Hub reads, and a Package,
+  // a Return or a Birthday had nowhere to be seen, ticked or removed. Each Hub offers what it has. Spending on a trip goes on the trip.
+  const here = t.filter(([k]) => k === "dump" || BASE.includes(QA_CARD[k]) || (MODE === "money" && k === "bill"));
+  if (TRAVEL && curTrip()) here.push(["tspend", "💵 Spending"]);
+  return here;
 }
+const QA_HUBS = ["cruise", "trip", "home", "auto", "money"];
+const QA_CARD = { event: "schedule", person: "people", upkeep: "home", routine: "routines", alarm: "schedule", return: "packages", future: "future", shift: "work", todo: "todos", spend: "budget",
+  item: "lists", bill: "bills", package: "packages", trip: "trips", countdown: "countdowns", list: "lists" };
 function qaFields(type) {
   const d = VIEW || today();
   const F = {
@@ -1086,11 +1097,11 @@ function qaFields(type) {
     trip: (() => { const tr = S.trips.find(x => x.id === TRIP_EDIT) || {}; const v = k => esc(tr[k] ?? "");
       // v0.97 Trip Hub: a new trip there is a regular trip; cruise-only boxes are hidden (still sent, so nothing is lost).
       const tt = tr.type || (MODE === "trip" ? "trip" : "cruise"), co = `data-cruiseonly ${tt === "cruise" ? "" : "hidden"}`;
-      return `<div class="two"><select name="ttype" onchange="this.form.querySelectorAll('[data-cruiseonly]').forEach(e => e.hidden = this.value !== 'cruise')"><option value="cruise" ${tt !== "trip" ? "selected" : ""}>🚢 Cruise</option><option value="trip" ${tt === "trip" ? "selected" : ""}>✈️ ${MODE === "trip" ? "Trip" : "Other trip"}</option></select>
+      return `<div class="two"><select name="ttype" onchange="this.form.querySelectorAll('[data-cruiseonly]').forEach(e => e.hidden = this.value !== 'cruise')">${MODE === "trip" && tt !== "cruise" ? "" : `<option value="cruise" ${tt !== "trip" ? "selected" : ""}>🚢 Cruise</option>`}<option value="trip" ${tt === "trip" ? "selected" : ""}>✈️ ${MODE === "trip" ? "Trip" : "Other trip"}</option></select>
         <input name="tname" placeholder="${MODE === "trip" ? "Name (e.g. Florida road trip)" : "Name (e.g. Caribbean cruise)"}" value="${v("name")}" required autocomplete="off"></div>
       <div class="two"><label class="field" style="margin:0">Leave<input name="start" type="date" value="${v("start")}" required></label>
         <label class="field" style="margin:0">Back<input name="end" type="date" value="${v("end")}"></label></div>
-      <div class="two"><input name="line" list="lineList" placeholder="Cruise line / airline" value="${v("line")}" autocomplete="off"><input name="ship" placeholder="Ship (optional)" value="${v("ship")}" ${co}></div>
+      <div class="two"><input name="line" ${MODE === "trip" && tt !== "cruise" ? "" : `list="lineList"`} placeholder="${MODE === "trip" && tt !== "cruise" ? "Airline (optional)" : "Cruise line / airline"}" value="${v("line")}" autocomplete="off"><input name="ship" placeholder="Ship (optional)" value="${v("ship")}" ${co}></div>
       <datalist id="lineList">${CRUISE_LINE_LIST.map(n => `<option value="${esc(n)}">`).join("")}</datalist>
       <div class="two"><input name="port" placeholder="${tt === "cruise" ? "Leaving from (port / city)" : "Going to (city)"}" value="${v("port")}"><input name="travelers" type="number" min="1" inputmode="numeric" placeholder="People" value="${v("travelers")}"></div>
       <div class="two"><input name="total" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Total price $" value="${v("total")}">
@@ -1101,7 +1112,7 @@ function qaFields(type) {
       <label class="field" style="margin:0">Travel insurance<select name="insurance">${["undecided", "bought", "declined"].map(o => `<option value="${o}" ${(tr.insurance || "undecided") === o ? "selected" : ""}>${{ undecided: "Not decided yet", bought: "Bought", declined: "Decided not to" }[o]}</option>`).join("")}</select></label>
       <input name="travel" placeholder="Getting there (drive / flight + hotel night before…)" value="${v("travel")}" autocomplete="off">
       <label class="field" style="margin:0" ${co}>Package<select name="pkg"><option value="">Custom package (add your own perks)</option>${linePkgs(tr.line).concat(tr.pkg && PACKAGES[tr.pkg] && !linePkgs(tr.line).includes(tr.pkg) ? [tr.pkg] : []).map(k => `<option value="${k}" ${tr.pkg === k ? "selected" : ""}>${esc(PACKAGES[k].name)}</option>`).join("")}</select></label>
-      <div class="hint">Day Hub never asks for passport or ID numbers — only whether they're ready.</div>
+      <div class="hint">${APP_NAME} never asks for passport or ID numbers — only whether they're ready.</div>
       <div class="hint">${TRIP_EDIT ? "Changing a trip keeps its payments, spending and lists." : "Packing, documents and before-you-go lists are filled in for you."}</div>
       ${TRIP_EDIT ? `<button type="button" class="btn sm ghost" data-tripremove="${TRIP_EDIT}">Delete this trip</button>` : ""}`; })(),
     tpay: `<input name="amt" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount paid $" required>
@@ -1150,7 +1161,7 @@ function qaFields(type) {
       ${PERSON_EDIT ? `<button type="button" class="btn sm ghost" data-pdel="${PERSON_EDIT}">Delete this date</button>` : ""}`; })(),
     future: (() => { const f = S.future.find(x => x.id === FUTURE_EDIT) || { text: "", words: [], day: "" };
       return `<textarea name="text" rows="3" required placeholder="What should future you remember — and why? e.g. Next time we travel, don't book a 6 AM flight. We were wrecked all day.">${esc(f.text)}</textarea>
-        <label class="field">Bring it back when I add something about… (words, comma between)<input name="words" value="${esc(f.words.join(", "))}" placeholder="leave blank — Day Hub picks the words" autocomplete="off"></label>
+        <label class="field">Bring it back when I add something about… (words, comma between)<input name="words" value="${esc(f.words.join(", "))}" placeholder="leave blank — ${APP_NAME} picks the words" autocomplete="off"></label>
         <label class="field">…or on this day (optional)<input name="day" type="date" value="${f.day || ""}"></label>
         ${FUTURE_EDIT ? `<button type="button" class="btn sm ghost" data-futdel="${FUTURE_EDIT}">Delete this note</button>` : ""}`; })(),
     return: `<input name="what" placeholder="What are you returning? (e.g. Boots — too small)" required autocomplete="off">
@@ -1158,12 +1169,12 @@ function qaFields(type) {
       <div class="two"><label class="field">Return by<input name="by" type="date" value="${addDays(today(), 30)}" required></label>
         <label class="field">Money back (optional)<input name="amount" type="number" min="0" step="0.01" placeholder="$"></label></div>
       <label class="field">How<select name="how">${Object.entries(RETURN_HOW).map(([k, v]) => `<option value="${k}">${v[0]} ${v[1]}</option>`).join("")}</select></label>
-      <div class="hint">Most stores give 30 days from delivery — check the receipt or order page. Day Hub reminds you 3 days and 1 day before.</div>`,
+      <div class="hint">Most stores give 30 days from delivery — check the receipt or order page. ${APP_NAME} reminds you 3 days and 1 day before.</div>`,
     alarm: (() => { const a = S.alarms.find(x => x.id === ALARM_EDIT) || { time: "06:00", days: [1, 2, 3, 4, 5], label: "" };
       return `<label class="field">Alarm time<input name="time" type="time" value="${a.time}" required></label>
         <div class="field">Which days?<div class="dow">${DOW.map((n, i) => `<label><input type="checkbox" name="d${i}" ${a.days.includes(i) ? "checked" : ""}>${n}</label>`).join("")}</div></div>
         <input name="label" placeholder="Label (optional — Work, Gym…)" value="${esc(a.label || "")}" autocomplete="off">
-        <div class="hint">Set the same alarm in your phone's Clock app — Day Hub shows it on your schedule and in the Nightly reset. No days ticked = just tomorrow.</div>
+        <div class="hint">Set the same alarm in your phone's Clock app — ${APP_NAME} ${MODE === "day" ? "shows it on your schedule and in the Nightly reset" : "keeps it in ⚙ Settings"}. No days ticked = just tomorrow.</div>
         ${ALARM_EDIT ? `<button type="button" class="btn sm ghost" data-aldel="${ALARM_EDIT}">Delete this alarm</button>` : ""}`; })(),
     routine: (() => { const r = S.routines.find(x => x.id === ROUTINE_EDIT) || { name: "", steps: [], days: [], time: "" };
       return `<input name="name" placeholder="Name (e.g. 🏋️ Gym day)" value="${esc(r.name)}" required autocomplete="off">
@@ -1405,7 +1416,7 @@ document.addEventListener("click", e => {
   const t = e.target.closest("button, h3[data-collapse]");
   if (!t) return;
   const ds = t.dataset;
-  if (t.id === "fab") { openQA(VIEW === today() ? "event" : "event"); return; }
+  if (t.id === "fab") { const T = qaTypes().map(x => x[0]); openQA(T.includes("event") ? "event" : T.find(k => k !== "dump") || "todo"); return; }
   if (t.id === "settingsBtn" || ds.open === "sheet") { openSettings(); return; }
   if (ds.close === "qa") { closeQA(); return; }
   if (ds.close === "sheet") { closeSettings(); return; }
@@ -1549,7 +1560,8 @@ document.addEventListener("click", e => {
     const el = document.querySelector('[data-card="weather"]'); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   if (ds.readyclose) { document.getElementById("readySheet").classList.add("hidden"); return; }
   if (ds.readygo) { document.getElementById("readySheet").classList.add("hidden"); S.tripTab = "ready";
-    S.hidden = S.hidden.filter(x => x !== "trips"); S.collapsed = S.collapsed.filter(x => x !== "trips"); save(); render();
+    S.hidden = S.hidden.filter(x => x !== "trips"); S.collapsed = S.collapsed.filter(x => x !== "trips"); save();
+    if (TRAVEL && typeof shellGo === "function" && typeof shellOn === "function" && shellOn()) { PLAN_VIEW = "trip"; shellGo("plan"); } else render();
     const el = document.querySelector('[data-card="trips"]'); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   if (ds.pulse) { showPulse(); return; }
   if (ds.pulseclose) { document.getElementById("pulseSheet").classList.add("hidden"); return; }
@@ -1596,7 +1608,7 @@ document.addEventListener("click", e => {
   if (ds.remind) {
     if (ds.remind === "on") remindOn();
     else if (ds.remind === "off") { S.remind.on = false; saveLocal(); drawRemindBox(); toast("Reminders off"); }
-    else if (ds.remind === "test") notify("🔔 Day Hub test", "This is what a reminder looks like.", "dh-test");
+    else if (ds.remind === "test") notify(`🔔 ${APP_NAME} test`, "This is what a reminder looks like.", "dh-test");
     return;
   }
   if (ds.sync) {
@@ -1867,6 +1879,13 @@ const OWNER_ROWS = [["PRO_GATE", "Pro gate — free vs Pro"], ["AI_PUBLIC", "AI 
   ["STORE", "Google Play link"], ["CRUISE_PASS", "Cruise Hub Pass ($9.99/yr)"], ["TRIP_PASS", "Trip Hub Pass ($9.99/yr)"], ["AI_CREDITS", "Hub AI Credits (packs)"], ["HOME_VALUE", "Home Hub: Hub Predicted Value"], ["AUTO_PASS", "Auto Hub Pro ($2.99/mo)"], ["MONEY_PASS", "Money Hub Pro ($2.99/mo)"], ["CHALLENGES", "Health Hub: friend step challenges"], ["OWNER", "Count this phone as Pro"]];
 // v0.46 HUB FAMILY (Scott 10/4): separate apps that work together. The steps
 // are in the box (Scott 10/2: every setting carries its own easy setup).
+// The switch for another Hub's trips, and how to link two phones that keep apps apart.
+const FAM_TRIPS = (state, sd) => `<ul class="card-list"><li><span>See my ${SIB.name} trips here</span><input type="checkbox" data-fam="1" ${S.family ? "checked" : ""} aria-label="Link with ${SIB.name}"></li></ul>
+    <p class="fine" style="margin-top:6px"><b>${state}</b> ${APP_NAME} and ${SIB.name} are separate apps that work together: a trip planned in one shows in the other's schedule, morning brief, reminders and bills. Each app keeps its own data — ${APP_NAME} never changes ${SIB.name}'s.${STORE_MODE ? "" : " One Pro purchase unlocks both."}</p>
+    ${S.family && !(sd && sd.src === "phone") ? `<p class="fine"><b>Phone that keeps each app apart (iPhone)? Link through backup${STORE_MODE ? "" : " (Pro)"}:</b></p>
+      <ol class="steps"><li>Here in ${APP_NAME}: ⚙ → <b>Backup & sync</b> → <b>Back up to my Google Drive</b>.</li>
+      <li>Open ${SIB.name} → ⚙ → <b>Backup & sync</b> → the same button, the <b>same Google account</b>.</li>
+      <li>Done — each app shows the other's trips after its next backup.</li></ol>` : ""}`;
 function drawFamBox() {
   const g = document.getElementById("famBox"); if (!g) return;
   const sd = S.family ? sibData() : null, n = sd ? sd.trips.length : 0;
@@ -1874,13 +1893,10 @@ function drawFamBox() {
     : sd && sd.src === "phone" ? `✓ Linked — ${SIB.name} is on this phone${n ? ` (${n} trip${n === 1 ? "" : "s"})` : ""}.`
     : sd ? `✓ Linked through your Google Drive backup${n ? ` (${n} trip${n === 1 ? "" : "s"} from ${SIB.name})` : ""}.`
     : `Waiting for ${SIB.name}.`;
+  const famLink = MODE !== "money" ? FAM_TRIPS(state, sd) : `<ul class="card-list"><li><span>Count my other Hubs here</span><input type="checkbox" data-fam="1" ${S.family ? "checked" : ""} aria-label="Count my other Hubs"></li></ul>
+    <p class="fine" style="margin-top:6px">Money Hub reads Auto Hub and Home Hub costs and Day Hub trip payments from this phone. It never changes them.</p>`;
   g.innerHTML = `<h3>${SIB.icon} Hub family</h3>
-    <ul class="card-list"><li><span>See my ${SIB.name} trips here</span><input type="checkbox" data-fam="1" ${S.family ? "checked" : ""} aria-label="Link with ${SIB.name}"></li></ul>
-    <p class="fine" style="margin-top:6px"><b>${state}</b> ${APP_NAME} and ${SIB.name} are separate apps that work together: a trip planned in one shows in the other's schedule, morning brief, reminders and bills. Each app keeps its own data — ${APP_NAME} never changes ${SIB.name}'s.${STORE_MODE ? "" : " One Pro purchase unlocks both."}</p>
-    ${S.family && !(sd && sd.src === "phone") ? `<p class="fine"><b>Phone that keeps each app apart (iPhone)? Link through backup${STORE_MODE ? "" : " (Pro)"}:</b></p>
-      <ol class="steps"><li>Here in ${APP_NAME}: ⚙ → <b>Backup & sync</b> → <b>Back up to my Google Drive</b>.</li>
-      <li>Open ${SIB.name} → ⚙ → <b>Backup & sync</b> → the same button, the <b>same Google account</b>.</li>
-      <li>Done — each app shows the other's trips after its next backup.</li></ol>` : ""}
+    ${famLink}
     <a class="btn sm ghost" href="${esc(hubHref(SIB.url))}" data-famopen="1">Open ${SIB.name}</a>
     <h3 style="margin-top:14px">More from the Hub family</h3>${hubRows()}`;
 }

@@ -355,9 +355,12 @@ function proLookup(P, b, isMem, app) {
     const mems = got.mems;
     const mine = mems.filter(function (m) { return pids.indexOf(memProd(m)) >= 0; });
     const good = mine.filter(function (m) { return OK_STATUS.indexOf(m.status) >= 0; });
-    const m = good[0] || mine[0];
+    const m = good.filter(function (x) { return x.status !== "canceling" && x.cancel_at_period_end !== true; })[0] || good[0] || mine[0];   // a renewal beats an old plan winding down
+    // Whop's docs list a "canceling" status AND a cancel_at_period_end flag without saying which a plan set not to renew gets, and their
+    // example shows a trial with the flag on. Either way it's "ends soon" to the phone (its 7-day notice), and still paid up.
+    const ending = m && (m.status === "active" || m.status === "trialing") && m.cancel_at_period_end === true;
     res = good.length
-      ? { valid: true, status: String(m.status), until: m.current_period_end || m.renewal_period_end || null, who: keyHash(memUser(m) || m.id),
+      ? { valid: true, status: ending ? "canceling" : String(m.status), until: m.current_period_end || m.renewal_period_end || null, who: keyHash(memUser(m) || m.id),
           product: memProd(m) === pid ? "dayhub" : app }
       : { valid: false, status: NOT_FOUND };
     cache.put(ck, JSON.stringify(res), res.valid ? 6 * 3600 : 300);

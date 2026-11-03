@@ -131,6 +131,13 @@ def main():
         a.page.click(".dt-moment.pm-eve"); a.page.wait_for_timeout(200)
         check("tap the reset: Today with the Nightly reset", a.js("TAB") == "today" and a.js("!!document.querySelector('#cards [data-card=\"reset\"]')"))
 
+        a.close()
+        a = phone(b, base, "2026-10-01T20:00:00")
+        a.qa("event", {"title": "Late game", "date": "2026-10-01", "time": "21:00"}); a.js("closeQA(); VIEW = today(); shellGo('home')"); a.page.wait_for_timeout(120)
+        check("a plan still to come tonight shows on Home, after the reset and tomorrow", "Late game" in a.page.inner_text(".dt-home") and a.js(ORDER)[:2] == ["dt-moment pm-eve", "dt-moment eve"], a.js(ORDER))
+        a.js("S.events = S.events.filter(e => e.title !== 'Late game'); save(); render()")
+        a.page.click(".dt-moment.pm-eve"); a.page.wait_for_timeout(200)
+
         print("\n[6. every card is on exactly one tab - nothing lost]")
         seen = {}
         for t in TABS:

@@ -1632,7 +1632,7 @@ const HOME_PORTS = {
 };
 const homePort = name => { const n = String(name || "").toLowerCase(); return Object.values(HOME_PORTS).find(g => g.keys.some(k => n.includes(k))) || null; };
 function homePortHtml(tr, open) {
-  const G = tr && tr.port && homePort(tr.port); if (!G) return "";
+  const G = tr && tr.type !== "trip" && tr.port && homePort(tr.port); if (!G) return "";   // cruise-terminal tips: not for a land trip to the same city
   const body = `${G.facts.map(f => `<div class="today-line">${f.icon} ${esc(f.text)}</div>`).join("")}
     <p class="fine" style="margin-top:6px">From ${Object.entries(G.sources).map(([n, u]) => `<a href="${u}" target="_blank" rel="noopener">${esc(n)}</a>`).join(" · ")} — checked ${prettyDate(G.verified)}, ${G.verified.slice(0, 4)}. Prices change — your cruise line's boarding pass wins.</p>`;
   return open ? `<div class="day-label" style="margin-top:10px">⚓ Good to know at ${esc(G.name)}</div>${body}`
