@@ -13,6 +13,10 @@
  * Loaded by ../cruisehub/index.html after shell.js (+ cruisetiles.css). Hooks: shell.js homeHtml / shellHtml / paintTabs.
  * #hero is hidden in this look, so ctNoticesHtml brings over the chips people must not miss (new version, Install, Pro
  * paused / ending, the car) and ctTopHtml the Offline pill.
+ * Phase 3 (Scott 11/03: "finish what you can on hubs"; his 11/01 cross-check: "a beautiful home screen isn't enough. Every
+ * feature needs to have a logical place") = More lists everything by when you need it (Road Trip Brain, Home Port, Fix My Trip,
+ * First 10 Minutes, Free Time, Group Vote, Reminders), Money adds Spending Pulse + Export, Cruise Hub Pass gets a status screen,
+ * and One Cruise Secret is back on Home. Each opens what Cruise Hub already has.
  * DEPLOY ORDER: push dayhub first and let Pages publish, then cruisehub (its v7 worker caches these two files).
  */
 "use strict";
@@ -82,7 +86,7 @@ function ctStageHtml(tr) {
   if (!tr.start) return `<button class="ct-stage ct-card" data-tripedit="${esc(tr.id)}">${head}
       <span class="ct-row"><span class="ct-bigic" aria-hidden="true">🗓️</span><span class="ct-say"><b>Add your dates</b><small>Then the countdown, ports and reminders start</small></span></span></button>`;
   const R = readiness(tr), sd = daysUntil(tr.start), end = tr.end || tr.start, ed = daysUntil(end);
-  if (ed < 0) return `<button class="ct-stage ct-card" data-shellgo="plan" data-triplistgo="after">${head}
+  if (ed < 0) return `<button class="ct-stage ct-card" data-shellgo="plan" ${cr ? 'data-triplistgo="after"' : 'data-planview="diary"'}>${head}
       <span class="ct-row"><span class="ct-bigic" aria-hidden="true">🏠</span><span class="ct-say"><b>Welcome home</b><small>The after-the-trip list is ready</small></span></span></button>`;
   const ready = `<span class="ct-ready"><b>${R.pct}%</b><small>${R.pct >= 100 ? "Ready to go! 🎉" : "Ready"}</small><span class="ct-bar"><i style="width:${R.pct}%"></i></span></span>`;
   let big, lab;
@@ -97,11 +101,14 @@ function ctStageHtml(tr) {
 
 // The 12 tiles (Scott's design). Each opens what Cruise Hub already has. An "Other trip" drops the ship-only ones.
 const ctPl = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+// The day the fun tools open on: today during the trip, else the first port day, else sail day.
+function ctFunDay(tr) {
+  const end = tr.end || tr.start, during = !!tr.start && daysUntil(tr.start) <= 0 && daysUntil(end) >= 0;
+  return during ? today() : (tr.ports || []).map(p => p.day).filter(Boolean).sort()[0] || tr.start;
+}
 function ctTiles(tr) {
   const cr = trCruise(tr), ports = (tr.ports || []).length, left = tripLeft(tr), [pd, pn] = typeof listFrac === "function" ? listFrac(tr, "packing") : [0, 0];
-  const end = tr.end || tr.start, during = !!tr.start && daysUntil(tr.start) <= 0 && daysUntil(end) >= 0, nights = tr.start ? tripNights(tr) : 0;
-  const firstPort = (tr.ports || []).map(p => p.day).filter(Boolean).sort()[0];
-  const funDay = during ? today() : firstPort || tr.start;
+  const nights = tr.start ? tripNights(tr) : 0, funDay = ctFunDay(tr);
   return [
     ["🗓️", cr ? "My Cruise" : "My Trip", 'data-shellgo="plan" data-planview="trip"', [nights && ctPl(nights, "night"), ports && ctPl(ports, "port")].filter(Boolean).join(" · ")],
     ["📋", "Lists & Prep", 'data-shellgo="plan" data-planview="packing"', pn ? `packed ${pd}/${pn}` : ""],
@@ -111,7 +118,7 @@ function ctTiles(tr) {
     cr && ["🛳️", "On Board", 'data-ctgo="ship"', ""],
     ["🌴", cr ? "Port Days" : "Things to Do", 'data-shellgo="explore"', ports ? ctPl(ports, "port") : ""],
     ["🎭", "Activities & Fun", funDay ? `data-tlday="${esc(funDay)}"` : 'data-shellgo="explore"', ""],     // the day screen holds the Fun Finder
-    ["🏠", "Coming Home", cr ? 'data-gohome="open"' : 'data-shellgo="plan" data-triplistgo="after"', ""],   // the final-night checklist is cruise-only
+    ["🏠", "Coming Home", cr ? 'data-gohome="open"' : 'data-shellgo="plan" data-planview="diary"', ""],   // the final-night checklist is cruise-only
     ["🛟", "Crisis Mode", 'data-help="home"', "", "red"],
     ["✨", "AI Helper", 'data-ask="open"', ""],
     ["▦", "More", 'data-shellgo="ai"', ""],
@@ -139,20 +146,30 @@ function ctHomeHtml() {
     + (phase ? `<div class="ct-phase">${phase}</div>` : "")
     + `<button class="ct-big" ${bb.act}>${esc(bb.label)}</button>`
     + needs
+    + (typeof secretHtml === "function" && secretHtml(tr) ? `<div class="ct-phase">${secretHtml(tr)}</div>` : "")   // one cruise secret for right now, as on the old home
     + `<nav class="ct-grid" aria-label="${esc(APP_NAME)}">${ctTiles(tr).map(ctTileHtml).join("")}</nav>`;
 }
 
-// MORE: everything that isn't one of the four - AI, diary, map, bookings, ship guide, final night, settings, the look.
-// The trip-only tiles show only once there is a trip (no dead taps).
+// MORE: everything that isn't one of the four, by when you need it. The trip-only tiles show only once there is a trip (no dead
+// taps); a tool that needs something (a booking with a time, two ideas to vote on, a known home port) waits for it.
 function ctMoreHtml() {
-  const tr = curTrip(), cr = !!tr && trCruise(tr);
-  const T = [["✨", "AI Helper", 'data-ask="open"', ""], ["📅", "My Day", 'data-shellgo="plan" data-planview="today"', ""],
-    tr && ["🧳", "Packing", 'data-shellgo="plan" data-planview="packing"', ""], tr && ["📔", "Trip Diary", 'data-shellgo="plan" data-planview="diary"', ""],
-    tr && ["📍", "Map", 'data-shellgo="plan" data-planview="map"', ""], tr && ["🎟️", "Bookings", 'data-shellgo="plan" data-planview="reservations"', ""],
-    cr && ["🛳️", "Ship Guide", 'data-ctgo="ship"', ""], cr && ["🌙", "Final Night", 'data-gohome="open"', ""],
-    cr && ["🧾", "Final Bill Check", 'data-billcheck="1"', ""], ["⚙️", STORE_MODE ? "Settings" : "Settings & Pass", 'data-ctgo="settings"', ""],
-    ["👓", "Simple Mode", 'data-ctgo="settings"', "big buttons"], ["🎨", "Classic Look", 'data-ctgo="classic"', "the old screen"]].filter(Boolean);
-  return `<nav class="ct-grid ct-more" aria-label="More">${T.map(ctTileHtml).join("")}</nav>`
+  const tr = curTrip(), cr = !!tr && trCruise(tr), when = !!tr && !!tr.start, on = when && daysUntil(tr.end || tr.start) >= 0, fun = when ? ctFunDay(tr) : "";
+  const wishes = tr && typeof tripWish === "function" ? tripWish(tr).length : 0;
+  const groups = [
+    ["Before you go", [tr && ["🧳", "Packing", 'data-shellgo="plan" data-planview="packing"', ""], tr && ["📄", "Documents", 'data-shellgo="plan" data-triplistgo="docs"', ""],
+      tr && ["🎟️", "Bookings", 'data-shellgo="plan" data-planview="reservations"', ""],
+      tr && typeof fixClashes === "function" && (tr.bookings || []).some(b => b.day && b.t) && ["🔄", "Fix My Trip", 'data-fixopen="pick"', ""],
+      on && ["🚗", "Road Trip", `data-ctgo="day:${esc(tr.start)}:drive"`, "breaks, food, fuel"],
+      cr && when && typeof homePort === "function" && !!tr.port && !!homePort(tr.port) && ["⚓", "Home Port", `data-tlday="${esc(tr.start)}"`, "parking + terminal"]]],
+    [cr ? "On board" : "On the trip", [tr && ["📅", "My Day", 'data-shellgo="plan" data-planview="today"', ""], cr && ["🛳️", "Ship Guide", 'data-ctgo="ship"', ""], cr && ["🎉", "First 10 Minutes", 'data-ctgo="first10"', ""],
+      on && ["⏳", "Free Time", `data-ctgo="day:${esc(fun)}:free"`, ""], on && ["🎭", "Activities & Fun", `data-tlday="${esc(fun)}"`, ""],
+      on && ["🗳️", "Group Vote", wishes >= 2 ? `data-voteopen="${esc(tr.id)}"` : `data-ctgo="day:${esc(fun)}:free"`, wishes >= 2 ? "" : "add 2 ideas first"],
+      tr && ["📔", "Trip Diary", 'data-shellgo="plan" data-planview="diary"', ""], tr && ["📍", "Map", 'data-shellgo="plan" data-planview="map"', ""]]],
+    ["Coming home", [cr && ["🌙", "Final Night", 'data-gohome="open"', ""], cr && ["🧾", "Final Bill Check", 'data-billcheck="1"', ""], tr && ["📸", "After the Trip", cr ? 'data-shellgo="plan" data-triplistgo="after"' : 'data-shellgo="plan" data-planview="diary"', ""]]],
+    ["This app", [["✨", "AI Helper", 'data-ask="open"', ""], ["🔔", "Reminders", 'data-ctgo="reminders"', ""], ctPassOffered() && ["⭐", proName(), 'data-ctgo="pass"', hubProState().word], ["⚙️", "Settings", 'data-ctgo="settings"', ""],
+      ["👓", "Simple Mode", 'data-ctgo="settings"', "big buttons"], ["🎨", "Classic Look", 'data-ctgo="classic"', "the old screen"]]]];
+  return groups.map(([h, T]) => { const t = T.filter(Boolean);
+      return t.length ? `<h4 class="ct-more-h">${esc(h)}</h4><nav class="ct-grid ct-more" aria-label="${esc(h)}">${t.map(ctTileHtml).join("")}</nav>` : ""; }).join("")
     + (tr && typeof prefsCardHtml === "function" ? prefsCardHtml() : "")
     + (typeof aiTabHtml === "function" ? aiTabHtml() : "");
 }
@@ -176,14 +193,46 @@ function ctMoneyToolsHtml(tr) {
     cr && ["🧮", "Package worth it?", 'data-pkgcalc="1"', "drinks, Wi-Fi, dining"],
     cr && ["⬆️", "Upgrade worth it?", 'data-upopen="1"', "cabin bid or upgrade"],
     ["➗", "Split the cost", `data-splitopen="${esc(tr.id)}"`, "who owes what"],
-    cr && ["🧾", "Final bill check", 'data-billcheck="1"', "match the ship's bill"]].filter(Boolean);
+    cr && ["🧾", "Final bill check", 'data-billcheck="1"', "match the ship's bill"],
+    ["📊", "Spending pulse", 'data-spendgo="1"', "your daily pace"],
+    typeof exportMoney === "function" && ["📤", "Export the money", `data-moneyexport="${esc(tr.id)}"`, "CSV for a spreadsheet"]].filter(Boolean);
   return `<nav class="ct-grid ct-tools" aria-label="Money tools">${T.map(ctTileHtml).join("")}</nav>`;
+}
+
+// ---- full screens opened from More: ‹ comes back to it, a tab leaves them
+let CT_SCREEN = null;
+const ctBackHtml = t => `<h2 class="ct-title"><button class="ct-back" data-ctgo="back" aria-label="Back">‹</button>${esc(t)}</h2>`;
+// FIRST 10 MINUTES: the same ticks Home shows the moment you board (cruise.js), here to read ahead or come back to.
+function ctFirstHtml(tr) {
+  const F = tr.firstThings || {}, n = FIRST_THINGS.filter(([k]) => F[k]).length;
+  return ctBackHtml("First 10 Minutes") + `<section class="card"><h3>🎉 First things — before the crowds<span class="meta">${n}/${FIRST_THINGS.length}</span></h3><div class="body">
+    ${FIRST_THINGS.map(([k, l]) => `<label class="row"><input type="checkbox" class="tick" data-first="${k}" ${F[k] ? "checked" : ""}><span class="grow">${esc(l)}</span></label>`).join("")}</div></section>`;
+}
+// CRUISE HUB PASS (Scott's batch 1, and his "clearly visible Pro status screen"): where you stand, what's syncing, what it includes.
+// Never in the Play app (no Pass wording outside ⚙ there). Someone already paying is never told to pay. No price is decided here.
+const ctPassOffered = () => switchOn("PRO_GATE") && !STORE_MODE;
+function ctPassHtml() {
+  const st = hubProState(), pro = isPro(), when = iso => { try { return new Date(iso).toLocaleDateString([], { month: "short", day: "numeric" }); } catch (e) { return ""; } };
+  const row = (ic, name, state, tone) => `<div class="ct-prorow"><span aria-hidden="true">${ic}</span><span class="grow">${esc(name)}</span><b class="${tone}">${esc(state)}</b></div>`;
+  const cal = !S.gcal.connected ? ["Not connected", ""] : syncOk("gcal") ? [S.gcal.pushed ? `On · sent ${when(S.gcal.pushed)}` : "On", "on"] : ["Paused", "soon"];
+  const bak = !S.sync.on ? ["Off", ""] : syncOk("sync") ? [S.sync.last ? `On · saved ${when(S.sync.last)}` : "On", "on"] : ["Paused", "soon"];
+  const ben = ["🗓️ Your trip, payments and port days on your phone's calendar", switchOn("GMAIL") && "📬 Your cruise booking found in your email", "☁️ Backup to your own Google Drive", `📱 Works on up to ${PLAN.MAX_PHONES} phones`].filter(Boolean);
+  const rec = proEndsRec() || lapsedRec(), own = cruisePass() && rec.product !== "dayhub";   // someone on Day Hub Pro renews Day Hub Pro, never a product they didn't buy
+  const url = own ? PLAN.CRUISE_CHECKOUT_URL : PLAN.WHOP_CHECKOUT_URL, price = own ? `${PLAN.CRUISE_YEARLY} — every cruise you take that year` : `${PLAN.MONTHLY} or ${PLAN.YEARLY}`, plan = own ? proName() : PLAN.NAME;
+  return ctBackHtml(proName()) + `<section class="ct-prohero ${st.tone}"><span class="ct-k">Status</span><b>${esc(st.word)}</b><small>${esc(st.say)}</small></section>
+    <section class="card"><h3>🔄 Your sync</h3><div class="body">${row("🗓️", "Google Calendar", cal[0], cal[1])}${row("☁️", "Drive backup", bak[0], bak[1])}</div></section>
+    <section class="card"><h3>⭐ What it includes</h3><div class="body"><ul class="ct-prolist">${ben.map(x => `<li>${esc(x)}</li>`).join("")}</ul>
+      <p class="fine" style="margin:8px 0 0">Everything else — countdown, payments, ports and all-aboard alarms, onboard spending, perks, lists, tips — is free forever. No ads, ever.</p></div></section>
+    <div class="ct-probtns">${st.buy ? `<a class="ct-big ct-probuy" href="${esc(url)}" target="_blank" rel="noopener">${esc(st.buy)} ${esc(plan)}</a><p class="ct-price">${esc(price)}</p>` : ""}
+      <button class="ct-big ct-promanage" data-ctgo="passsettings">${pro ? "Manage on this phone" : st.buy ? "Already bought? Enter your email" : "Check on this phone"}</button></div>`;
 }
 
 // Called by shell.js shellHtml() while the new look is on: the lifesaver header on every tab + the tab's content.
 function ctShellHtml(cardHtml) {
   if (TAB === "home") return homeHtml();                                   // homeHtml() hands over to ctHomeHtml()
   const top = `<section class="ct-band">${ctTopHtml(false)}</section>`;
+  if (CT_SCREEN === "pass" && ctPassOffered()) return top + ctPassHtml();
+  if (CT_SCREEN === "first10" && curTrip()) return top + ctFirstHtml(curTrip());
   if (TAB === "ai") return top + ctMoreHtml();
   if (TAB === "explore") return top + exploreHtml(cardHtml);
   if (TAB === "plan") return top + planHtml(cardHtml);
@@ -192,11 +241,27 @@ function ctShellHtml(cardHtml) {
 }
 
 // Taps that belong to the new look only.
+// Open a Settings box and bring it up.
+function ctSettingsAt(id) { openSettings(); setTimeout(() => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); }
+// Open a day's screen at one of its tools.
+function ctDayAt(d, what) {
+  showDay(d);
+  setTimeout(() => { const sh = document.getElementById("daySheet"); if (!sh) return;
+    const el = what === "drive" ? sh.querySelector(".drive-box, .drive-add") : [...sh.querySelectorAll(".day-label")].find(x => /Free time/.test(x.textContent));
+    if (el) { if (el.tagName === "DETAILS") el.open = true; el.scrollIntoView({ behavior: "smooth", block: "start" }); } }, 60);
+}
 document.addEventListener("click", e => {
+  if (e.target.closest && e.target.closest("button[data-shellgo]")) CT_SCREEN = null;   // a tab or a tile that goes to one leaves a full screen
+  if (ctOn() && e.target.closest && e.target.closest("button[data-spendgo]")) setTimeout(() => { const c = document.querySelector('#cards [data-card="trips"]'); if (c) c.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60);   // the card sits below the tools
   const b = e.target.closest && e.target.closest("button[data-ctgo]");
   if (!b) return;
   const go = b.dataset.ctgo;
+  if (go === "back") { CT_SCREEN = null; render(); window.scrollTo({ top: 0 }); return; }
+  if (go === "pass" || go === "first10") { CT_SCREEN = go; render(); window.scrollTo({ top: 0 }); return; }
+  if (go === "reminders") { ctSettingsAt("remindBox"); return; }
+  if (go === "passsettings") { ctSettingsAt("proBox"); return; }
+  if (go.startsWith("day:")) { const [, d, what] = go.split(":"); ctDayAt(d, what); return; }
   if (go === "settings") { if (typeof openSettings === "function") openSettings(); return; }
-  if (go === "classic") { try { localStorage.setItem(CT_KEY, "classic"); } catch (e2) { /* private mode */ } render(); window.scrollTo({ top: 0 }); toast("Classic look on this phone"); return; }
+  if (go === "classic") { try { localStorage.setItem(CT_KEY, "classic"); } catch (e2) { /* private mode */ } CT_SCREEN = null; render(); window.scrollTo({ top: 0 }); toast("Classic look on this phone"); return; }
   if (go === "ship") { shellGo("explore"); setTimeout(() => { const el = document.querySelector("#cards .my-ship"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); }
 });

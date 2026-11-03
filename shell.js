@@ -34,6 +34,30 @@ const SHELL_CARDS = { plan: ["trips", "inbox", "schedule", "todos", "lists"], ex
 const SHELL_TRIP_TABS = { plan: null, wallet: ["money", "onboard", "perks"] };
 // Opens on HOME. "cruisehub.startTab" (phone storage) overrides it - used by the test suite.
 let TAB = (() => { try { return localStorage.getItem(APP_ID + ".startTab") || "home"; } catch (e) { return "home"; } })();
+// What the phone knows about Pro, in plain words, for a new look's status screen (Day Hub, Cruise Hub). Nothing here decides access.
+// buy = the button to offer ("Get" / "Renew"), or none: someone already paying is never told to pay.
+function hubProState() {
+  if (ownerPhone()) return { tone: "on", word: "On", say: "This is the owner's phone" };
+  const p = proEndsRec();
+  if (p) { const end = proUntil(p), on = end > Date.now() ? prettyDate(ymd(new Date(end))) : "", d = proEndsIn(), checked = p.checked ? ` · checked ${prettyDate(ymd(new Date(p.checked)))}` : "";   // a date already past is never printed
+    if (d >= 0) return { tone: "soon", word: `Ends ${proEndsWhen(d)}`, say: `Set not to renew${on ? ` · access until ${on}` : ""}`, buy: "Renew" };
+    if (p.status === "friend") return { tone: "on", word: "On", say: "Included for you, free" };
+    if (p.status === "completed") return { tone: "on", word: "On", say: `Paid in full${checked}` };
+    if (p.status === "past_due") return { tone: "soon", word: "Payment problem", say: "Your card didn't go through. Update it in your Whop account to keep Pro on." };
+    if (proViaDayHub()) return { tone: "on", word: "On", say: `Included with your ${PLAN.NAME}` };
+    if (p.status === "trialing") return { tone: "on", word: "Free trial", say: `${on ? `Trial runs until ${on}` : "Trial is on"}${checked}` };
+    if (p.status === "canceling") return { tone: "on", word: "On", say: `Set not to renew${on ? ` · access until ${on}` : ""}` };
+    return { tone: "on", word: "On", say: `${on ? `Renews ${on}` : "Active"}${checked}` }; }
+  const r = lapsedRec(), s = r.status || "";
+  if (!r.buyer) return { tone: "off", word: "Free", say: "Everything except the extras below is free forever", buy: "Get" };
+  if (r.ok) return { tone: "soon", word: "Needs a check", say: "Couldn't reach the check for a while. Tap below and check again. Your info is safe." };
+  if (/phones/.test(s)) return { tone: "soon", word: "Too many phones", say: `It's already on ${PLAN.MAX_PHONES} phones. Remove it from one, then check again here.` };
+  if (s === "needs code") return { tone: "soon", word: "One step left", say: "Confirm this phone with a code sent to your email. Tap below to start." };
+  if (/not found|no .*purchase/i.test(s)) return r.product
+    ? { tone: "off", word: "Ended", say: `${lapsedName(r)} has ended. Your info is safe.`, buy: "Renew" }
+    : { tone: "off", word: "No active plan", say: "No active plan found for that email. Your info is safe.", buy: "Get" };
+  return { tone: "off", word: "Not active", say: "It isn't on for this phone. Your info is safe." };
+}
 // Day Hub's new look (daytiles.js, switch OFF) runs Day Hub on the shell too, with its own five tabs.
 const dtLook = () => typeof dtOn === "function" && dtOn();
 const shellOn = () => (SHELL_MODES.includes(MODE) || dtLook()) && !!(S.city || S.name);
@@ -53,7 +77,7 @@ function bigButton(tr) {
   if (gh === "final") return { label: "🌙 GET ME HOME READY", act: 'data-gohome="open"' };
   if (gh === "leave") return { label: "🏠 GET ME HOME", act: 'data-gohome="open"' };
   if (guardFor(tr)) return { label: "🚢 BACK TO SHIP", act: 'data-rg="open"' };
-  if (daysUntil(end) < 0) return { label: "🏠 AFTER THE TRIP", act: 'data-shellgo="plan" data-triplistgo="after"' };
+  if (daysUntil(end) < 0) return { label: "🏠 AFTER THE TRIP", act: trCruise(tr) ? 'data-shellgo="plan" data-triplistgo="after"' : 'data-shellgo="plan" data-planview="diary"' };
   if (trCruise(tr) && (sd === 1 || (sd === 0 && !tr.aboard))) return { label: "🚗 GET ME TO MY SHIP", act: 'data-help="get"' };
   if (sd >= 1) return { label: `${trCruise(tr) ? "🛳️" : "🧳"} WHAT AM I FORGETTING?`, act: 'data-forget="1"' };
   return h >= 16 && h < 23 ? { label: "🌙 PLAN TONIGHT", act: `data-askq="${trCruise(tr) ? "Plan tonight for us on the ship." : "Plan tonight for us."}"` }
@@ -189,7 +213,8 @@ function shellClick(ds) {
   if ((ds.portedit || ds.portadd) && document.getElementById("daySheet")) hideSheet("daySheet");
   if (!ds.shellgo) return false;
   if (ds.triptabgo) S.tripTab = ds.triptabgo;
-  if (ds.triplistgo) { S.tripTab = "lists"; S.tripList = ds.triplistgo; }
+  if (ds.triplistgo) { S.tripTab = "lists"; S.tripList = ds.triplistgo; if (!ds.planview) PLAN_VIEW = ds.triplistgo === "packing" ? "packing" : "trip";
+    setTimeout(() => { const c = document.querySelector('#cards [data-card="trips"]'); if (c) c.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); }
   shellGo(ds.shellgo); return true;
 }
 

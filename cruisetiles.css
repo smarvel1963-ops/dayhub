@@ -202,3 +202,21 @@ body.ct .ct-due.late { background: #ffe4e6; border-color: #fda4af; }
 body.ct .seg button.on { color: #0a0e1c; }
 body.ct .tag { background: #5eead4; }
 body.ct .paygrid .take { background: #dcfce7; }
+
+/* ---------------------------------------------------------------- Phase 3: every feature has a place */
+body.ct .ct-more-h { margin: 16px 2px 8px; color: #fff; font-size: 13px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; text-shadow: 0 1px 6px rgba(0, 20, 60, .5); }
+body.ct .ct-more { margin-top: 0; }
+body.ct .ct-title { display: flex; align-items: center; gap: 8px; margin: 6px 2px 12px; color: #fff; font-size: 24px; font-weight: 800; letter-spacing: -.01em; }
+body.ct .ct-back { width: 40px; height: 40px; flex: none; border-radius: 50%; border: 1px solid var(--ct-line); background: rgba(7, 26, 60, .5); color: #fff; font: inherit; font-size: 26px; line-height: 1; cursor: pointer; }
+body.ct .ct-prohero { display: block; padding: 16px 18px; margin-bottom: 12px; border-radius: 20px; color: #fff; background: linear-gradient(140deg, #0b2545, #1d4ed8 75%, #0369a1); box-shadow: 0 12px 28px rgba(0, 20, 60, .35); }
+body.ct .ct-prohero.on { background: linear-gradient(140deg, #14532d, #15803d 75%, #0f766e); } body.ct .ct-prohero.soon { background: linear-gradient(140deg, #7c2d12, #c2410c 75%, #b45309); }
+body.ct .ct-prohero .ct-k { display: block; font-size: 12.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+body.ct .ct-prohero b { display: block; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; margin-top: 2px; } body.ct .ct-prohero small { display: block; font-size: 14.5px; margin-top: 4px; }
+body.ct .ct-prorow { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 15px; }
+body.ct .ct-prorow:first-child { border-top: 0; } body.ct .ct-prorow .grow { flex: 1; min-width: 0; }
+body.ct .ct-prorow b { font-size: 14px; font-weight: 700; color: #4b6587; text-align: right; } body.ct .ct-prorow b.on { color: #15803d; } body.ct .ct-prorow b.soon { color: #c2410c; }
+body.ct .ct-prolist { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 7px; font-size: 15px; }
+body.ct .ct-probtns { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 2px; }
+body.ct a.ct-probuy { display: block; text-align: center; text-decoration: none; background: linear-gradient(135deg, #fbbf24, #fb923c); color: #1c1206; }
+body.ct .ct-promanage { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff; }
+body.ct .ct-price { margin: 0; text-align: center; color: #fff; font-size: 13.5px; font-weight: 600; text-shadow: 0 1px 6px rgba(0, 20, 60, .5); }

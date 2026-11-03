@@ -252,3 +252,47 @@ body.dt .split-item { flex-wrap: wrap; } body.dt .split-item .grow { flex: 1 0 1
 /* tablets: the single cards on these screens run the full width, the tiles spread out */
 body.dt .dt-nextbills, body.dt .dt-goals, body.dt .dt-wxcard, body.dt .dt-prosync, body.dt .dt-proben, body.dt .dt-empty { column-span: all; -webkit-column-span: all; }
 @media (min-width: 700px) { body.dt .dt-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+
+/* ---------------------------------------------------------------- Phase 3: the rest of the board */
+body.dt .dt-triphero, body.dt .dt-triprows, body.dt .dt-uphero, body.dt .dt-resethero, body.dt .dt-resetcard, body.dt .dt-famwrap, body.dt .dt-editing { column-span: all; -webkit-column-span: all; }
+body.dt .fab { display: none; }                                              /* Today has its own Add event + Add task */
+body.dt .dt-bigs.two { flex-direction: row; } body.dt .dt-bigs.two > * { flex: 1 1 0; min-width: 0; padding: 13px 8px; font-size: 15px; }
+body.dt a.dt-line { text-decoration: none; }
+body.dt .dt-line small { display: block; font-size: 13px; color: #4b6587; margin-top: 1px; }
+
+/* TODAY: the NOW line in sunrise gold; the form while it changes a plan */
+body.dt [data-card="schedule"] .now-line::before { background: #f59e0b; height: 2px; }
+body.dt [data-card="schedule"] .now-line span { background: #f59e0b; color: #1c1206; font-weight: 800; }
+body.dt [data-card="schedule"] .ctl { flex: none; display: inline-flex; align-items: center; gap: 2px; }
+body.dt #qa:has(input[name="dtevedit"]) #qaTypes, body.dt #qa:has(input[name="dtevedit"]) .sheet-head h2 { display: none; }
+body.dt .dt-editing { margin-bottom: 8px; } body.dt .dt-editing b { display: block; font-size: 18px; font-weight: 800; color: #0f2c55; } body.dt .dt-editing small { display: block; font-size: 13.5px; color: #4b6587; }
+
+/* TRIPS & CRUISES */
+body.dt .dt-triphero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 16px; margin-bottom: 10px; border-radius: 22px; color: #fff;
+  background: linear-gradient(150deg, #0369a1, #0e7490 60%, #0f766e); box-shadow: 0 12px 28px rgba(0, 20, 60, .35); }
+body.dt .dt-tripnums .nm { display: block; font-size: 21px; font-weight: 800; line-height: 1.2; margin-top: 3px; } body.dt .dt-tripnums small { display: block; font-size: 14px; margin-top: 2px; }
+body.dt .dt-tripn { display: block; font-size: 15px; font-weight: 700; margin-top: 8px; } body.dt .dt-tripn b { font-size: 34px; font-weight: 800; letter-spacing: -.02em; line-height: 1; }
+body.dt .dt-triphero .dt-ring { --tone: #fbbf24; background: conic-gradient(var(--tone) calc(var(--p) * 1%), rgba(255, 255, 255, .25) 0); }
+body.dt .dt-ring > span { color: #0f2c55; }
+body.dt .dt-tripnext { grid-column: 1 / -1; margin: 8px 0 0; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, .35); font-size: 14.5px; font-weight: 600; }
+body.dt .dt-triprows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; } body.dt .dt-triprows .dt-line { margin-top: 0; }
+body.dt.dt-screen [data-card="trips"] > h3, body.dt.dt-screen [data-card="home"] > h3, body.dt.dt-screen [data-card="auto"] > h3 { display: none; }   /* the screen's title says it */
+body.dt.dt-screen [data-card="trips"] .trip-n, body.dt.dt-screen [data-card="trips"] .trip-hero .sub:first-of-type, body.dt.dt-screen [data-card="trips"] .foot-actions:has([data-qa="trip"]),
+body.dt.dt-screen [data-card="home"] .add-link[data-qa="upkeep"], body.dt.dt-screen [data-card="auto"] .add-link[data-qa="upkeep"] { display: none; }   /* said above, or a big button below */
+
+/* UPKEEP + NIGHTLY RESET */
+body.dt .dt-uphero, body.dt .dt-resethero { display: block; padding: 16px 18px; margin-bottom: 12px; border-radius: 20px; color: #fff; box-shadow: 0 12px 28px rgba(0, 20, 60, .35); }
+body.dt .dt-uphero { background: linear-gradient(140deg, #0f766e, #0369a1); } body.dt .dt-uphero.late { background: linear-gradient(140deg, #9f1239, #c2410c); }
+body.dt .dt-resethero { background: linear-gradient(140deg, #9a3412, #9d174d 60%, #5b21b6); }
+body.dt .dt-uphero b, body.dt .dt-resethero b { display: block; font-size: 24px; font-weight: 800; line-height: 1.2; margin-top: 3px; }
+body.dt .dt-uphero small, body.dt .dt-resethero small { display: block; font-size: 14.5px; margin-top: 3px; }
+body.dt .dt-resetcard { margin-top: 12px; }
+
+/* HUB FAMILY */
+body.dt .dt-fam { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+body.dt .dt-famtile { display: flex; flex-direction: column; gap: 3px; padding: 14px; border-radius: 18px; background: rgba(240, 246, 255, .95); color: #0f2c55; text-decoration: none; box-shadow: 0 8px 18px rgba(0, 30, 80, .2); min-width: 0; }
+body.dt .dt-famtile .dt-ic { font-size: 32px; line-height: 1.1; } body.dt .dt-famtile b { font-size: 16px; font-weight: 800; } body.dt .dt-famtile small { font-size: 13px; line-height: 1.3; color: #4b6587; }
+body.dt .dt-famtile .tag { align-self: flex-start; }
+body.dt .dt-famtile.wide { grid-column: 1 / -1; background: linear-gradient(135deg, #312e81, #1e3a8a); color: #fff; } body.dt .dt-famtile.wide small { color: #dbeafe; }
+body.dt .dt-famfine { color: #dbeafe; font-size: 13.5px; margin: 12px 2px 0; }
+@media (min-width: 700px) { body.dt .dt-fam { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

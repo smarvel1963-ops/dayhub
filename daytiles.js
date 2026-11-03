@@ -11,6 +11,9 @@
  * mini-apps rather than cramped dashboard widgets") = Money and Tasks get their own sections, Weather and the Pro status
  * screen (his recommendation) are full screens, Brain Dump takes over the whole phone. Each is laid over the data and
  * handlers Day Hub already has - nothing new is stored and no number is worked out a new way.
+ * Phase 3 (Scott 11/03: "finish what you can on hubs") = the rest of his board: the Today timeline with Add event / Add task,
+ * Trips & Cruises (Pack & Prep is its Lists tab), Upkeep, Nightly Reset and Hub Family as full screens, Top 3 in the morning
+ * brief, and ✏️ on a plan (the classic app can only delete and re-add one).
  * SWITCH: DT_ON = false - nobody sees it. One phone previews it with the link ?look=tiles (kept on that phone,
  * dayhub.look); ?look=classic or More -> Classic look turns it back. Day Hub only, after set-up.
  * Loaded by index.html after shell.js (+ daytiles.css). Hooks: shell.js shellOn / shellGo / shellTabFor / shellHtml /
@@ -69,7 +72,7 @@ function dtOrder() {
   if (!S.order && S.mail.found.length && o.includes("inbox")) up("inbox");
   return o;
 }
-const dtCards = (tab, cardHtml) => dtOrder().filter(k => dtTabFor(k) === tab).map(cardHtml).join("");
+const dtCards = (tab, cardHtml) => dtOrder().filter(k => dtTabFor(k) === tab && !DT_SCREENS[k]).map(cardHtml).join("");
 // A card's own one-line summary as plain text (some come back as HTML, already escaped).
 const dtText = html => { const t = document.createElement("template"); t.innerHTML = String(html || ""); return t.content.textContent.trim(); };
 
@@ -156,17 +159,19 @@ function dtHomeHtml() {
 }
 
 // ---------------------------------------------------------------- Phase 2: the big tools as their own screens
-let DT_MONEY = "overview", DT_TASKS = "todo", DT_SCREEN = null, DT_FROM = null;
+let DT_MONEY = "overview", DT_TASKS = "todo", DT_UPKEEP = "home", DT_SCREEN = null, DT_FROM = null;
+// A card that opens as a full screen of its own (with a ‹ back to where it was opened from). Its tile stays in the tools.
+const DT_SCREENS = { weather: "weather", trips: "trips", home: "upkeep", auto: "upkeep", reset: "reset", family: "family" };
 // The section each card opens in, so a tile or a chip always lands on it.
 const DT_VIEW = { bills: ["money", "bills"], budget: ["money", "budget"], payday: ["money", "pay"], work: ["money", "pay"],
   top3: ["tasks", "todo"], todos: ["tasks", "todo"], errands: ["tasks", "todo"], loads: ["tasks", "todo"], jobs: ["tasks", "todo"],
   lists: ["tasks", "lists"], routines: ["tasks", "routines"], leave: ["tasks", "leave"] };
-const dtSegHtml = (name, segs, cur) => `<nav class="dt-seg" aria-label="${esc(DT_TAB_NAME[name])}">${segs.map(([k, l]) =>
+const dtSegHtml = (name, segs, cur) => `<nav class="dt-seg" aria-label="${esc(DT_TAB_NAME[name] || "Upkeep")}">${segs.map(([k, l]) =>
   `<button class="${k === cur ? "on" : ""}" data-dtseg="${name}:${k}" aria-current="${k === cur ? "page" : "false"}">${esc(l)}</button>`).join("")}</nav>`;
 const dtBackHtml = title => `<h2 class="dt-title dt-backrow"><button class="dt-back" data-dtback="1" aria-label="Back">‹</button>${esc(title)}</h2>`;
 // A card that IS the section: always the full card, never folded or the one-line ＋ (render() reads MINI_OPEN for both), so its
 // header doesn't fold it here either (the click listener + daytiles.css). To-Do's cards are several on a page and fold as usual.
-const DT_ALONE = ["bills", "budget", "payday", "work", "lists", "routines", "leave"];
+const DT_ALONE = ["bills", "budget", "payday", "work", "lists", "routines", "leave", "trips", "home", "auto"];
 const dtForceOpen = k => MINI_OPEN.add(k);
 
 // ---- MONEY: Overview · Bills · Budget · Pay · Goals. The numbers are budget()'s, the same ones the Budget card shows.
@@ -268,28 +273,7 @@ function dtWeatherHtml() {
 // ---- PRO STATUS (Scott: "a clearly visible Pro status screen showing subscription status, remaining access, benefits, and
 // sync status"). Reads what the phone already knows. Never in the Play app (no Pro wording outside ⚙ there).
 const dtProOffered = () => switchOn("PRO_GATE") && !STORE_MODE;
-// buy = the button to offer ("Get" / "Renew"), or none: someone already paying is never told to pay.
-function dtProState() {
-  if (ownerPhone()) return { tone: "on", word: "On", say: "This is the owner's phone" };
-  const p = proEndsRec();
-  if (p) { const end = proUntil(p), on = end > Date.now() ? prettyDate(ymd(new Date(end))) : "", d = proEndsIn(), checked = p.checked ? ` · checked ${prettyDate(ymd(new Date(p.checked)))}` : "";   // a date already past is never printed
-    if (d >= 0) return { tone: "soon", word: `Ends ${proEndsWhen(d)}`, say: `Set not to renew${on ? ` · access until ${on}` : ""}`, buy: "Renew" };
-    if (p.status === "friend") return { tone: "on", word: "On", say: "Included for you, free" };
-    if (p.status === "completed") return { tone: "on", word: "On", say: `Paid in full${checked}` };
-    if (p.status === "past_due") return { tone: "soon", word: "Payment problem", say: "Your card didn't go through. Update it in your Whop account to keep Pro on." };
-    if (p.status === "trialing") return { tone: "on", word: "Free trial", say: `${on ? `Trial runs until ${on}` : "Trial is on"}${checked}` };
-    if (p.status === "canceling") return { tone: "on", word: "On", say: `Set not to renew${on ? ` · access until ${on}` : ""}` };
-    return { tone: "on", word: "On", say: `${on ? `Renews ${on}` : "Active"}${checked}` }; }
-  const r = lapsedRec(), s = r.status || "";
-  if (!r.buyer) return { tone: "off", word: "Free", say: "Everything except the extras below is free forever", buy: "Get" };
-  if (r.ok) return { tone: "soon", word: "Needs a check", say: "Couldn't reach the check for a while. Tap below and check again. Your info is safe." };
-  if (/phones/.test(s)) return { tone: "soon", word: "Too many phones", say: `It's already on ${PLAN.MAX_PHONES} phones. Remove it from one, then check again here.` };
-  if (s === "needs code") return { tone: "soon", word: "One step left", say: "Confirm this phone with a code sent to your email. Tap below to start." };
-  if (/not found|no .*purchase/i.test(s)) return r.product
-    ? { tone: "off", word: "Ended", say: `${lapsedName(r)} has ended. Your info is safe.`, buy: "Renew" }
-    : { tone: "off", word: "No active plan", say: "No active plan found for that email. Your info is safe.", buy: "Get" };
-  return { tone: "off", word: "Not active", say: "It isn't on for this phone. Your info is safe." };
-}
+const dtProState = () => hubProState();                               // shell.js: Cruise Hub's Pass screen says the same
 function dtProHtml() {
   const st = dtProState(), pro = isPro(), when = iso => { try { return new Date(iso).toLocaleDateString([], { month: "short", day: "numeric" }); } catch (e) { return ""; } };
   const row = (ic, name, state, tone) => `<div class="dt-prorow"><span aria-hidden="true">${ic}</span><span class="grow">${esc(name)}</span><b class="${tone}">${esc(state)}</b></div>`;
@@ -304,11 +288,108 @@ function dtProHtml() {
       <button class="dt-big blue" data-dtgo="prosettings">${pro ? "Manage on this phone" : st.buy ? "Already bought? Enter your email" : "Check on this phone"}</button></div>`;
 }
 
+// ---------------------------------------------------------------- Phase 3: the rest of the board
+// ---- TODAY: the Schedule card (its day arrows, NOW line and rows), a ✏️ on every plan you made, and the two Add buttons
+const dtScheduleHtml = cardHtml => cardHtml("schedule").replace(/<button class="x" data-del="(?:events:|occ:)([^":]+)[^"]*"/g,
+  (m, id) => `<button class="x" data-dtevedit="${esc(id)}" aria-label="Edit">✏️</button>${m}`);
+const dtResetLine = () => `<button class="dt-line" data-dtgo="today" data-dtcard="reset"><span aria-hidden="true">${CARDS.reset.icon}</span><span class="grow"><b>Nightly reset</b> · ${esc(dtMeta("reset"))}</span><span class="chev" aria-hidden="true">›</span></button>`;
+function dtTodayTabHtml(cardHtml) {
+  const body = dtOrder().filter(k => dtTabFor(k) === "today" && k !== "weather").map(k => k === "reset" ? dtResetLine() : k !== "schedule" ? cardHtml(k)
+    : dtScheduleHtml(cardHtml) + `<div class="dt-bigs two"><button class="dt-big blue" data-qa="event">＋ Add event</button><button class="dt-big green" data-qa="todo">＋ Add task</button></div>`).join("");
+  return dtHourStripHtml() + (body || `<div class="dt-empty">Nothing here right now — ⚙ → Arrange shows hidden cards again.</div>`);
+}
+// Change a plan you made, in the same form that added it. It is edited in place, so its id, its skipped days and the Google copy
+// (matched by id, sent again when it changes) all stay right. A repeating plan changes every repeat, and says so.
+function dtEditEvent(id) {
+  const ev = S.events.find(x => x.id === id); if (!ev) return;
+  openQA("event");
+  const f = document.getElementById("qaForm"), set = (n, v) => { const el = f.querySelector(`[name="${n}"]`); if (el) el.value = v == null ? "" : v; };
+  set("title", ev.title); set("date", ev.day); set("time", ev.time); set("where", ev.where); set("rep", ev.rep || "none");
+  if (!ev.time) { const t = f.querySelector('[name="time"]'); if (t) t.required = false; }             // an imported all-day plan stays all-day
+  f.insertAdjacentHTML("afterbegin", `<input type="hidden" name="dtevedit" value="${esc(id)}"><div class="dt-editing"><b>Change this plan</b>${isRep(ev) ? "<small>This changes every repeat.</small>" : ""}</div>`);
+  const b = f.querySelector("button.btn:last-of-type"); if (b) b.textContent = "Save";
+}
+document.addEventListener("submit", e => {                             // before ui.js, which would add a new plan
+  const f = e.target, h = f.id === "qaForm" && f.querySelector('[name="dtevedit"]');
+  if (!h) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  const ev = S.events.find(x => x.id === h.value), d = Object.fromEntries(new FormData(f));
+  if (!ev) { closeQA(); return; }
+  snap(); const moved = ev.day !== d.date || ev.time !== d.time;
+  Object.assign(ev, { title: d.title.trim(), day: d.date, time: d.time, where: (d.where || "").trim(), rep: d.rep || "none" });
+  if (moved) Object.keys(S.remind.fired).forEach(k => { if (k.startsWith(`ev:${ev.id}:`)) delete S.remind.fired[k]; });   // a new time rings again; a new title doesn't
+  if (!occursOn(ev, VIEW)) VIEW = d.date;                              // stay on the day you were looking at, if the plan is still on it
+  save(); closeQA(); render(); buzz(); toast("Saved ✓", true);
+}, true);
+
+// ---- TRIPS & CRUISES (board: next trip, Trip ready %, final payment / packing / documents / excursions, View trip, Add trip).
+// The head reads readiness() and the trip's own lists; below it is the Trips card with every tab it has. Pack & Prep = its Lists.
+const dtHubLink = (url, cls, label) => `<a class="${cls}" href="${esc(hubHref(url))}" data-famopen="1">${label}</a>`;
+function dtTripHeadHtml(tr) {
+  const R = readiness(tr), sd = tr.start ? daysUntil(tr.start) : null, nights = tripNights(tr), cr = isCruise(tr), L = tr.lists || {};
+  const away = sd !== null && sd <= 0 && daysUntil(tr.end || tr.start) >= 0, back = sd !== null && sd <= 0 && !away;
+  const count = k => { const a = L[k] || []; return `${a.filter(i => i.done).length} of ${a.length}`; };
+  const row = (ic, name, state, go) => `<button class="dt-line" data-dttrip="${go}"><span aria-hidden="true">${ic}</span><span class="grow">${esc(name)} <b>${esc(state)}</b></span><span class="chev" aria-hidden="true">›</span></button>`;
+  const left = tr.total ? tripLeft(tr) : null, ports = tr.ports || [];
+  const pay = tr.total ? (left === 0 ? "paid in full ✓" : `${money(left)} left${tr.finalDue ? ` · by ${prettyDate(tr.finalDue)}` : ""}`) : "add the price";
+  return `<section class="dt-triphero"><div class="dt-tripnums"><span class="dt-k">${away ? "Right now" : back ? "Just back" : "Next trip"}</span><b class="nm">${cr ? "🚢" : "✈️"} ${esc(tr.name)}</b>
+      <small>${tr.start ? `${esc(prettyDate(tr.start))}${tr.end ? ` – ${esc(prettyDate(tr.end))}` : ""}${nights ? ` · ${nights} nights` : ""}` : "Add the dates"}</small>
+      ${sd !== null && sd > 0 ? `<span class="dt-tripn"><b>${sd}</b> ${sd === 1 ? "day" : "days"} to go</span>` : away ? `<span class="dt-tripn">🎉 You're away!</span>` : ""}</div>
+    <div class="dt-ring" style="--p:${R.pct}" role="img" aria-label="Trip ${R.pct}% ready"><span><b>${R.pct}%</b><small>ready</small></span></div>
+    <p class="dt-tripnext">${R.next ? `➡️ ${esc(R.next.action)}` : "✅ Nothing needs you right now."}</p></section>
+    <nav class="dt-triprows" aria-label="Trip ready">${row("💳", "Final payment", pay, "money")}${row("🧳", "Packing", `${count("packing")} packed`, "lists:packing")}${row("📄", "Documents", `${count("docs")} done`, "lists:docs")}
+      ${cr ? row("🤿", "Excursions", ports.length ? `${ports.filter(p => p.excursion).length} of ${ports.length} ports planned` : "add your port days", "ports") : ""}</nav>`;
+}
+function dtTripsHtml(cardHtml) {
+  const tr = curTrip(); dtForceOpen("trips");
+  return dtBackHtml("Trips & Cruises") + (tr ? dtTripHeadHtml(tr) : "") + cardHtml("trips")
+    + `<div class="dt-bigs two"><button class="dt-big green" data-qa="trip">＋ Add a trip</button>${dtHubLink(tr && !isCruise(tr) ? TRIP_URL : CRUISE_URL, "dt-big blue", tr && !isCruise(tr) ? "✈️ More in Trip Hub" : "🛳️ More in Cruise Hub")}</div>`;
+}
+
+// ---- UPKEEP (board: Home / Auto, soonest first). The Home and Car cards with what's next on top. Miles are Auto Hub's job.
+function dtUpkeepHtml(cardHtml) {
+  const areas = ["home", "auto"].filter(dtShown), a = areas.includes(DT_UPKEEP) ? DT_UPKEEP : areas[0] || "home"; DT_UPKEEP = a; dtForceOpen(a);
+  const first = S.upkeep.filter(x => x.area === a).map(x => ({ x, day: upkeepNext(x) })).sort((p, q) => p.day.localeCompare(q.day))[0], n = first ? daysUntil(first.day) : 0;
+  const hub = HUBS.find(h => h.id === (a === "home" ? "homehub" : "autohub"));
+  return dtBackHtml("Upkeep") + (areas.length > 1 ? dtSegHtml("upkeep", [["home", "🏠 Home"], ["auto", "🚗 Car"]], a) : "")
+    + (first ? `<section class="dt-uphero ${n < 0 ? "late" : ""}"><span class="dt-k">${n < 0 ? "Overdue" : "Next up"}</span><b>${esc(first.x.name)}</b><small>${esc(dtText(upkeepWhen(first.x, first.day)))} · ${esc(prettyDate(first.day))}</small></section>` : "")
+    + cardHtml(a) + `<div class="dt-bigs"><button class="dt-big blue" data-dtupadd="1">＋ Add something</button></div>`
+    + (hub ? dtHubLink(hub.url, "dt-line", `<span aria-hidden="true">${hub.icon}</span><span class="grow"><b>${esc(hub.name)}</b><small>${esc(hub.what)}</small></span><span class="chev" aria-hidden="true">›</span>`) : "");
+}
+
+// ---- NIGHTLY RESET (board: brain dump, completed today, still open, move to tomorrow, remember for tomorrow). resetHtml() is all of it.
+function dtResetHtml() {
+  const { done, open } = resetData(), closed = S.resetDay === today();
+  return dtBackHtml("Nightly Reset") + `<section class="dt-resethero"><span class="dt-k">${esc(longDate(today()))}</span>
+      <b>${closed ? "Day closed ✓" : open.length ? `${dtPlural(open.length, "thing")} to wrap up` : "All wrapped up"}</b><small>${dtPlural(done.length, "thing")} done${open.length ? ` · ${open.length} still open` : ""}</small></section>`
+    + (closed ? "" : `<button class="dt-line" data-dump="1"><span aria-hidden="true">🧠</span><span class="grow"><b>Brain dump</b><small>Get it out of your head before bed</small></span><span class="chev" aria-hidden="true">›</span></button>`)
+    + `<section class="card dt-resetcard" data-card="reset"><div class="body">${resetHtml()}</div></section>`;
+}
+
+// ---- HUB FAMILY (board: every Hub as a tile, Hub Universe last). The same list as the card, with the same links.
+function dtFamilyHtml() {
+  const sd = sibData(), list = HUBS.filter(h => h.id !== APP_ID), rows = list.filter(h => h.id !== "hubuniverse").concat(list.filter(h => h.id === "hubuniverse"));
+  const inner = h => `<span class="dt-ic" aria-hidden="true">${h.icon}</span><b>${esc(h.name)}</b>${h.soon ? `<span class="tag">COMING SOON</span>` : ""}${h.id === SIB.id && sd && sd.src === "phone" ? `<span class="tag">ON THIS PHONE ✓</span>` : ""}<small>${esc(h.what)}</small>`;
+  return dtBackHtml("Hub Family") + `<section class="dt-famwrap" data-card="family"><nav class="dt-fam" aria-label="Hub family">${rows.map(h => h.soon ? `<div class="dt-famtile">${inner(h)}</div>` : dtHubLink(h.url, `dt-famtile${h.id === "hubuniverse" ? " wide" : ""}`, inner(h))).join("")}</nav>
+    <p class="dt-famfine">Made by Marvel Corp. They work together${STORE_MODE ? "" : " — one Pro unlocks the family"}. No ads, ever.</p></section>`;
+}
+
+// ---- MORNING BRIEF (board: Top 3 for today). The same brief; a Top 3 you picked takes the place of the to-do list. Called from
+// app.js showBrief, which also opens it by itself in the morning.
+function dtBriefDress(el) {
+  if (!dtOn()) return;
+  const T = S.top3.day === today() ? S.top3.items.filter(x => !x.done) : [];
+  if (!T.length) return;
+  const html = `<section class="brief-sec"><h3>Top 3 today</h3>${T.map(x => `<div class="row"><span class="grow">🎯 ${esc(x.title)}</span></div>`).join("")}</section>`;
+  const old = [...el.querySelectorAll(".brief-sec")].find(s => /^Top to-dos/.test(s.querySelector("h3").textContent));
+  if (old) old.outerHTML = html; else { const go = el.querySelector(".brief-go"); if (go) go.insertAdjacentHTML("beforebegin", html); }
+}
+
 // MORE: the tools that are not a card, the look, every tool as a tile, then the cards that live here.
 function dtMoreHtml(cardHtml) {
   const T = [["💡", "Ask AI", 'data-ask="open"', ""], ["🧠", "Brain Dump", 'data-dump="1"', ""], ["☀️", "Morning brief", 'data-brief="open"', ""],
     dtProOffered() && ["⭐", PLAN.NAME, 'data-dtgo="pro"', dtProState().word],
-    ["⚙️", "Settings", 'data-dtgo="settings"', ""], ["↕", "Arrange", 'data-arrange="1"', "order + hide"], ["🎨", "Classic Look", 'data-dtgo="classic"', "the old screen"]].filter(Boolean);
+    ["🔔", "Reminders", 'data-dtgo="reminders"', ""], ["⚙️", "Settings", 'data-dtgo="settings"', ""], ["↕", "Arrange", 'data-arrange="1"', "order + hide"], ["🎨", "Classic Look", 'data-dtgo="classic"', "the old screen"]].filter(Boolean);
   return `<nav class="dt-grid dt-more" aria-label="More">${T.map(t => dtTileHtml(...t)).join("")}</nav>`
     + dtToolsHtml([], 99, "All your tools", false) + dtCards("more", cardHtml);   // Arrange is a tile just above
 }
@@ -319,13 +400,16 @@ function dtShellHtml(cardHtml) {
   document.body.classList.toggle("dt-screen", !!DT_SCREEN);
   if (DT_SCREEN === "weather") return dtWeatherHtml();
   if (DT_SCREEN === "pro") return dtProHtml();
+  if (DT_SCREEN === "trips") return dtTripsHtml(cardHtml);
+  if (DT_SCREEN === "upkeep") return dtUpkeepHtml(cardHtml);
+  if (DT_SCREEN === "reset") return dtResetHtml();
+  if (DT_SCREEN === "family") return dtFamilyHtml();
   if (TAB === "home") return dtHomeHtml();
   const head = `<h2 class="dt-title">${esc(DT_TAB_NAME[TAB] || "")}</h2>`;
   if (TAB === "more") return head + dtMoreHtml(cardHtml);
   if (TAB === "money") return head + dtMoneyHtml(cardHtml);
   if (TAB === "tasks") return head + dtTasksHtml(cardHtml);
-  const body = dtOrder().filter(k => dtTabFor(k) === "today" && k !== "weather").map(cardHtml).join("");   // Weather is its own screen
-  return head + dtHourStripHtml() + (body || `<div class="dt-empty">Nothing here right now — ⚙ → Arrange shows hidden cards again.</div>`);
+  return head + dtTodayTabHtml(cardHtml);
 }
 
 // Fewer, better chips up top (Scott: "Less crowding on the home screen"; the inventory found bills buried behind "+N more").
@@ -361,17 +445,17 @@ function dtDumpDress() {
 function dtReveal(k, unhide) {
   let ch = false;
   if (unhide && S.hidden.includes(k)) { S.hidden = S.hidden.filter(x => x !== k); ch = true; }
-  if (S.collapsed.includes(k)) { S.collapsed = S.collapsed.filter(x => x !== k); ch = true; }
+  if (!DT_SCREENS[k] && S.collapsed.includes(k)) { S.collapsed = S.collapsed.filter(x => x !== k); ch = true; }   // a full screen ignores folding, so nothing changes
   dtForceOpen(k);
   if (k === "schedule") VIEW = today();
   if (ch) save();
   const v = DT_VIEW[k]; if (v) { if (v[0] === "money") DT_MONEY = v[1]; else DT_TASKS = v[1]; }
-  if (k === "weather") DT_FROM = TAB;                                  // ‹ goes back to where it was opened from
-  DT_SCREEN = k === "weather" ? "weather" : null;
+  DT_SCREEN = DT_SCREENS[k] || null; DT_FROM = DT_SCREEN ? TAB : null;  // ‹ goes back to where it was opened from
+  if (k === "home" || k === "auto") DT_UPKEEP = k;
   const tab = dtTabFor(k);
   if (tab !== TAB) shellGo(tab); else { render(); window.scrollTo({ top: 0 }); }
   // A screen or section that IS this card opens at its top, with its back button or section bar. A card among others is scrolled to.
-  if (k === "work" || (k !== "weather" && k !== "top3" && !DT_ALONE.includes(k))) setTimeout(() => { const el = document.querySelector(`#cards [data-card="${k}"]`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60);
+  if (k === "work" || (!DT_SCREENS[k] && k !== "top3" && !DT_ALONE.includes(k))) setTimeout(() => { const el = document.querySelector(`#cards [data-card="${k}"]`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60);
 }
 
 // Taps that belong to the new look. Taps ui.js already handles by scrolling to a card on THIS page (the hero's 🚪 Don't
@@ -383,19 +467,23 @@ document.addEventListener("click", e => {
   const b = e.target.closest && e.target.closest("button, a");
   if (!b) return;
   const ds = b.dataset;
-  const after = ds.pulsego || (ds.leave && "leave") || (ds.errands && "errands") || (ds.ropen && b.closest("#hero") && "routines");
+  const after = ds.pulsego || (ds.leave && "leave") || (ds.errands && "errands") || (ds.ropen && b.closest("#hero") && "routines") || (ds.readygo && "trips");
   if (after) { setTimeout(() => { if (!document.querySelector(`#cards [data-card="${after}"]`)) dtReveal(after); }, 0); return; }
   if (ds.dump || ds.qtype === "dump") { setTimeout(dtDumpDress, 0); return; }   // ui.js opens it; then it gets dressed
-  if (ds.shellgo) { DT_SCREEN = null; return; }                       // a tab: leave any full screen (shell.js does the rest)
-  if (ds.dtback) { const from = DT_SCREEN === "weather" && DT_FROM; DT_SCREEN = null; DT_FROM = null; if (from && from !== TAB) shellGo(from); else { render(); window.scrollTo({ top: 0 }); } return; }
-  if (ds.dtseg) { const [name, v] = ds.dtseg.split(":"); if (name === "money") DT_MONEY = v; else DT_TASKS = v;
+  if (ds.shellgo) { DT_SCREEN = null; DT_FROM = null; return; }       // a tab: leave any full screen (shell.js does the rest)
+  if (ds.dtback) { const from = DT_FROM; DT_SCREEN = null; DT_FROM = null; if (from && from !== TAB) shellGo(from); else { render(); window.scrollTo({ top: 0 }); } return; }
+  if (ds.dtevedit) { dtEditEvent(ds.dtevedit); return; }
+  if (ds.dtupadd) { openQA("upkeep"); const a = document.querySelector('#qaForm [name="area"]'); if (a) a.value = DT_UPKEEP; return; }   // the Car tab adds to the car
+  if (ds.dttrip) { const [t, l] = ds.dttrip.split(":"); S.tripTab = t; if (l) S.tripList = l; saveLocal(); render();
+    const c = document.querySelector('#cards [data-card="trips"]'); if (c) c.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+  if (ds.dtseg) { const [name, v] = ds.dtseg.split(":"); if (name === "money") DT_MONEY = v; else if (name === "upkeep") DT_UPKEEP = v; else DT_TASKS = v;
     if (ds.listsel) setTimeout(() => window.scrollTo({ top: 0 }), 0); else { render(); window.scrollTo({ top: 0 }); } return; }   // data-listsel: ui.js picks the list + renders
   if (ds.dtadd) { openQA("event"); return; }
   const go = ds.dtgo;
   if (!go) return;
   if (go === "settings") { if (typeof openSettings === "function") openSettings(); return; }
-  if (go === "pro") { DT_SCREEN = "pro"; render(); window.scrollTo({ top: 0 }); return; }
-  if (go === "prosettings") { openSettings(); setTimeout(() => { const el = document.getElementById("proBox"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); return; }
+  if (go === "pro") { DT_SCREEN = "pro"; DT_FROM = null; render(); window.scrollTo({ top: 0 }); return; }
+  if (go === "prosettings" || go === "reminders") { openSettings(); setTimeout(() => { const el = document.getElementById(go === "reminders" ? "remindBox" : "proBox"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); return; }
   if (go === "classic") { try { localStorage.setItem(DT_KEY, "classic"); } catch (e2) { /* private mode */ } DT_SCREEN = null; MINI_OPEN.clear(); render(); window.scrollTo({ top: 0 }); toast("Classic look on this phone"); return; }   // the classic cards fold as they were
   if (ds.dtcard) dtReveal(ds.dtcard, !!ds.dtshow); else shellGo(go);
 });

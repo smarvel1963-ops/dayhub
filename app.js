@@ -816,6 +816,7 @@ function showBrief() {
     <button class="btn brief-go" data-brief="go">Start my day →</button>
     <label class="brief-auto"><input type="checkbox" data-briefauto ${S.briefAuto === false ? "" : "checked"}> Show this when I open Day Hub in the morning</label>
   </div>`;
+  if (typeof dtBriefDress === "function") dtBriefDress(el);                // Day Hub new look (daytiles.js, switch OFF): Top 3 in the brief
   el.classList.remove("hidden");
 }
 function closeBrief() {
