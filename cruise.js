@@ -202,7 +202,7 @@ function showHelp(view) {
       (D.length ? D.map(i => `<div class="today-line">${i.done ? "✅" : "⬜"} ${esc(i.text)}</div>`).join("") : `<p class="fine">No documents list yet.</p>`) +
       `<p class="fine">Keep a photo of your passport / ID in your phone's photos and a paper copy apart from it.</p>`
       + (typeof docsVaultHtml === "function" ? docsVaultHtml(tr) : ""); }                 // v1.20 when they run out (trip.js)
-  else body = tr ? `<form class="help-form" data-helpform="${tr.id}">${HELP_FIELDS.map(([k, l]) => `<label class="field">${k === "line" && !cr ? "Airline / hotel phone" : l}<input name="${k}" value="${esc(helpVal(tr, k))}" autocomplete="off"></label>`).join("")}
+  else body = tr ? `${typeof ctOn === "function" && ctOn() ? HELP_FIELDS.filter(([k]) => k !== "policy" && helpVal(tr, k)).map(([k, l]) => line(k, k === "line" && !cr ? "Airline / hotel phone" : l)).join("") || `<p class="fine">No numbers saved yet. Add them here and they show up to tap.</p>` : ""}<form class="help-form" data-helpform="${tr.id}">${HELP_FIELDS.map(([k, l]) => `<label class="field">${k === "line" && !cr ? "Airline / hotel phone" : l}<input name="${k}" value="${esc(helpVal(tr, k))}" autocomplete="off"></label>`).join("")}
       <button class="btn" style="width:100%;margin-top:8px">Save contacts</button></form><p class="fine">Saved on this phone only (and in your backup if it's on).</p>` : `<p class="fine">Plan a ${MODE === "trip" ? "trip" : "cruise"} first.</p>`;
   const titles = { back: "🚢 Back to ship", get: "🚗 Get to the ship", medical: "🩺 Medical / safety", travel: "✈️ Travel problem", docs: "📄 My documents", contacts: "📇 My trip contacts" };
   el.innerHTML = `<div class="sheet-body"><div class="grab"></div>

@@ -1,6 +1,9 @@
 {
- "version": "1.58.2",
+ "version": "1.58.3",
  "notes": {
+  "1.58.3": [
+   "🛳️ Cruise Hub: behind-the-scenes work on a fresh new look. Nothing changes for you yet."
+  ],
   "1.58.2": [
    "🔑 Unlocked on this phone? Remove in Day Hub now clears every Hub using that email, and Erase everything now forgets it in all of them."
   ],
