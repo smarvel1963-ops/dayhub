@@ -426,7 +426,7 @@ def t_reminders_backup_update(b, base):
     check("Undo after restore", a.js("S.name") == "Scott")
     a.ctx._version = {"version": "9.9", "notes": {"9.9": ["Test"]}}
     a.js("checkUpdate()"); a.page.wait_for_timeout(300)
-    check("'New version ready' chip when a newer version is published", "New version ready" in a.page.inner_text("#hero"))
+    check("'Update ready' chip when a newer version is published", "Update ready" in a.page.inner_text("#hero"))
     a.close()
 
 
@@ -4707,7 +4707,7 @@ def t_v158_erase_gap(b, base):
     dbs = lambda x: x.js("indexedDB.databases().then(l => l.map(d => d.name))")
     # Money Hub: a vault photo + a shared file waiting; Auto Hub's and Health Hub's stores sit on the same phone
     m = App(b, base, path=MONEYP)
-    check("version 1.58 everywhere: app, version.json (with notes), offline cache", m.js("VERSION") == ver["version"] == "1.58" and "1.58" in ver["notes"] and '"dayhub-v1.58"' in sw)
+    check("version bumped everywhere (1.58 notes kept): app, version.json, offline cache", m.js("VERSION") == ver["version"] and "1.58" in ver["notes"] and f'"dayhub-v{ver["version"]}"' in sw)
     m.page.fill('form[data-mhsetup] [name=name]', "Sam"); m.page.fill('form[data-mhsetup] [name=bal]', "1500")
     m.page.click('form[data-mhsetup] button'); m.page.wait_for_function("S.mh && S.mh.setup")
     if m.js("briefOpen()"): m.page.click('[data-brief="go"]')

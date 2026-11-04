@@ -1,6 +1,14 @@
 {
- "version": "1.58",
+ "version": "1.58.1",
  "notes": {
+  "1.58.1": [
+   "☁️ Safer backup: when your phone and your backup hold different things, it now asks which to keep, and the front screen tells you when it's waiting on you.",
+   "🗓️ Google Calendar: each Hub now looks after only its own events, so Hubs on the same calendar no longer remove each other's.",
+   "💵 Money Hub: change your pay any time on the Payday page, and Twice a month now uses your own days.",
+   "🏠 Home Hub: anything turned on in Day Hub on this phone now counts here too, with no email to type.",
+   "🧳 Trip Hub: trips read like trips now, with no ship talk.",
+   "🧹 Every Hub now uses its own name throughout, and the + button offers only what that Hub can show."
+  ],
   "1.58": [
    "🗑️ Erase everything now also deletes Money Hub's Document Vault photos and Auto Hub's car photos from this phone - nothing is left behind, and other Hub apps keep theirs."
   ],

@@ -617,7 +617,7 @@ def main():
         a.close()
         b.close()
     srv.shutdown()
-    errs = [e for e in T.ERRORS if "favicon" not in e]
+    errs = [e for e in T.ERRORS if "favicon" not in e and "ERR_INTERNET_DISCONNECTED" not in e]   # the offline check above: the browser logs the update check it can't reach
     check("no page / console errors anywhere", not errs, errs[:5])
     print(f"\n{OK} passed, {FAIL} failed")
     sys.exit(1 if FAIL else 0)

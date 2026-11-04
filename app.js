@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.58";
+const VERSION = "1.58.1";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -1580,16 +1580,17 @@ function drawMailBox() {
     ? `<div class="leg"><span>📬 Gmail connected${S.mail.last ? ` · checked ${fmtTime(S.mail.last)}` : ""}</span></div>
        <div class="foot-actions"><button class="btn sm" data-mail="scan">${MAIL_BUSY ? "Checking…" : "Check email now"}</button><button class="btn sm ghost" data-mail="off">Disconnect</button></div>`
     : `<button class="btn sm" data-mail="scan">Connect Gmail (read-only)</button>`) +
-    `<p class="fine" style="margin-top:8px"><b>Tip: connect the email you booked with — your cruise fills itself in.</b> Day Hub reads your email on this phone (read-only) to find cruise bookings, appointments, flights, hotel and dinner reservations and package tracking. Nothing is sent anywhere, and nothing is added until you tap Add.</p>`;
+    `<p class="fine" style="margin-top:8px"><b>Tip: connect the email you booked with — your ${MODE === "day" || MODE === "cruise" ? "cruise" : "booking"} fills itself in.</b> ${APP_NAME} reads your email on this phone (read-only) to find ${MODE === "day" || MODE === "cruise" ? "cruise bookings, " : ""}appointments, flights, hotel and dinner reservations and package tracking. Nothing is sent anywhere, and nothing is added until you tap Add.</p>`;
 }
 
 // ---------------------------------------------------------------- updates
 // v0.11 (Scott 10/1: "a reminder the app has updates notification"). The
 // network-first service worker already fetches new files when the app is
 // OPENED, but a page left open keeps running the old code. version.json (cache
-// busted) says what is published; a mismatch shows "New version ready", and
+// busted) says what is published; a mismatch shows "Update ready", and
 // after updating the WHAT'S NEW card lists the changes once.
-// RELEASE RULE: every push bumps VERSION here AND version.json, with notes.
+// RELEASE RULE: every push bumps VERSION here, version.json AND the cache name in sw.js, with notes. The 12 commits from 10/22 to 11/03
+// skipped it, so no phone was told about any of them (Scott 11/03: "show on front screen update ready").
 let UPDATE = null, NOTES = null;
 // v1.41: one version.json serves every hub. A note that starts with another hub's name ("🚗 Auto Hub: ...") shows only in that hub.
 const noteForMe = x => { const m = String(x).match(/^[^A-Za-z]*((?:Day|Cruise|Trip|Home|Auto|Money|Health) Hub|Hub Universe):/); return !m || m[1] === APP_NAME; };   // v1.53 + Health Hub   // v1.52 + Hub Universe   // v1.45 + Money Hub (its notes were showing in every hub)
@@ -1598,29 +1599,37 @@ async function checkUpdate() {
     const r = await fetch(new URL(`version.json?x=${Date.now()}`, BASE_URL), { cache: "no-store" });
     if (!r.ok) return;
     const j = await r.json(); NOTES = j.notes || {};
-    if (j.version && j.version !== VERSION) {
+    if (j.version && String(j.version).localeCompare(VERSION, undefined, { numeric: true }) > 0) {   // newer only: offline, a Hub's worker can hand back an older copy
       const first = !UPDATE; UPDATE = j; render();
       if (first && S.remind.on && S.lastNotifiedVersion !== j.version) {
         S.lastNotifiedVersion = j.version; saveLocal();
-        notify(`✨ ${APP_NAME} update ready`, ((j.notes && j.notes[j.version] || []).filter(noteForMe)[0] || "Tap to get the newest version."), "dh-update");
+        notify(`✨ ${APP_NAME} update ready`, ((j.notes && j.notes[j.version] || []).filter(noteForMe).filter(playOk)[0] || "Tap to get the newest version."), "dh-update");
       }
     } else if (S.seenVersion !== VERSION) render();          // notes arrived: show WHAT'S NEW
   } catch (e) { /* offline - try again later */ }
 }
+let UPDATING = false;
 async function applyUpdate() {
-  toast("Updating…");
-  try { const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration(); if (reg) await reg.update(); } catch (e) { /* reload anyway */ }
+  if (UPDATING) return;
+  UPDATING = true; toast("Updating…");
+  // A reload alone can reuse scripts from the browser's 10-minute cache, and then the button just comes back. Fetch this app's own files fresh first.
+  const fresh = [...document.querySelectorAll("script[src], link[rel=stylesheet]")].map(el => el.src || el.href).filter(u => new URL(u).origin === location.origin)
+    .map(u => fetch(u, { cache: "reload" }).then(r => r.ok).catch(() => false));
+  const got = await Promise.race([Promise.all(fresh).then(l => l.every(Boolean)), new Promise(r => setTimeout(() => r(false), 8000))]);
+  if (!got) { UPDATING = false; toast("Weak signal: tap again when it's better"); return; }   // half new, half old files could break the app: stay as it is
   location.reload();
 }
+// What's New reaches back over old releases, and the Play app shows no Pro or price words outside the unlock box.
+const playOk = x => !STORE_MODE || !/\bPro\b|whop|trial|\bsubscribe\b|\bupgrade to\b|\$\d/i.test(x);
 function whatsNewHtml() {
   // Brand-new user: nothing is "new". Someone who used Day Hub before this
   // feature existed (has data, no mark yet) sees this release's notes once.
   if (!S.seenVersion) { S.seenVersion = hasData(S) ? "0.10.2" : VERSION; saveLocal(); }
-  if (S.seenVersion === VERSION || !NOTES) return "";
+  if (S.seenVersion === VERSION || !NOTES || !NOTES[VERSION]) return "";   // a stale copy without this release doesn't use it up
   const vers = Object.keys(NOTES).filter(v => v.localeCompare(S.seenVersion, undefined, { numeric: true }) > 0 &&
                                               v.localeCompare(VERSION, undefined, { numeric: true }) <= 0)
     .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
-  const items = vers.flatMap(v => NOTES[v]).filter(noteForMe).slice(0, 8);
+  const items = vers.flatMap(v => NOTES[v]).filter(noteForMe).filter(playOk).slice(0, 8);
   if (!items.length) { S.seenVersion = VERSION; saveLocal(); return ""; }
   return `<section class="card whatsnew"><h3><span class="ci">✨</span>What's new in ${APP_NAME} ${VERSION}</h3>
     <div class="body">${items.map(x => `<div class="today-line">• ${esc(x)}</div>`).join("")}
@@ -3033,7 +3042,7 @@ function heroHtml() {
     if (d >= 0 && (uses || !STORE_MODE)) chips.unshift(`<button class="chip" data-open="sheet" data-prolapse="1">⏳ ${STORE_MODE ? `Calendar sync and backup end ${proEndsWhen(d)} on this phone` : `${esc(lapsedName(proEndsRec()))} ends ${proEndsWhen(d)}${uses ? " · renew to keep automatic syncing" : ""}`} · ⚙</button>`); }
   if (!TRAVEL && h >= 4 && h < 12 && (S.name || hasData(S))) chips.push(`<button class="chip" data-brief="open">☀️ Morning brief</button>`);
   // v1.50 (Scott 10/17: "when needed it should flash and draw attention to it"): the update chip pulses until tapped.
-  if (UPDATE) chips.unshift(`<button class="chip good upd-flash" data-update="1">✨ New version ready — tap to update</button>`);
+  if (UPDATE) chips.unshift(`<button class="chip good upd-flash" data-update="1">✨ Update ready — tap to update</button>`);
   if (INSTALL_EVT && !standalone()) chips.push(`<button class="chip" data-install="1">📲 Install ${APP_NAME}</button>`);
 
 
@@ -3042,7 +3051,7 @@ function heroHtml() {
               <div class="hl">H ${Math.round(w.day.hi)}° · L ${Math.round(w.day.lo)}°</div></div>`; })()
     : S.city && !WXDATA ? `<div class="hero-wx"><div class="skel" style="width:84px;height:74px"></div></div>` : "";
   // Cruise Hub's top line is about the cruise only (Day Hub's chips stay in Day Hub).
-  const keep = !TRAVEL ? chips : chips.filter(c => /forgetting|Final payment|🚢|✈️|[Rr]ain|New version|Install|⚓|data-cwx|data-gohome|data-prolapse|data-cloudask/.test(c));   // v1.58b: + the Pro-lapse notices
+  const keep = !TRAVEL ? chips : chips.filter(c => /forgetting|Final payment|🚢|✈️|[Rr]ain|data-update|Install|⚓|data-cwx|data-gohome|data-prolapse|data-cloudask/.test(c));   // v1.58b: + the Pro-lapse notices
   // v0.54 (Scott 10/4: "across the top of the apps to signify app you're on - DAY HUB, CRUISE HUB"):
   // every hub shows its own name + icon at the top.
   return `<div class="hero-top"><div class="brand"><img src="icon-192.png" alt="" width="24" height="24"><span>${esc(APP_NAME.toUpperCase())}</span>${navigator.onLine === false ? `<span class="offline-pill" title="No connection - your plans still work; weather may be old">🟠 Offline</span>` : ""}</div>

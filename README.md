@@ -38,5 +38,5 @@ Every push that changes the app MUST bump the version in **three** places, or us
 3. `const CACHE` in `sw.js`
 
 Open copies of Day Hub check `version.json` on open, every 30 minutes and when brought back to the front:
-a mismatch shows "New version ready - tap to update" (and a notification if reminders are on).
+a mismatch shows "Update ready - tap to update" (and a notification if reminders are on).
 After updating, the "What's new" card lists the notes once.
