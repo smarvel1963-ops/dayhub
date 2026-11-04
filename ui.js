@@ -826,7 +826,7 @@ function aiNotesHtml() {                                         // v1.30 (S10)
 function drawAiBox(msg) {
   const g = document.getElementById("aiBox"); if (!g) return;
   g.innerHTML = `<h3>🤖 AI helper</h3>` + creditsHtml() + (aiByKey() && !proAi() ? "" : aiByKey()
-    ? `<div class="leg"><span>✅ Included with ${PLAN.NAME} — Brain dump, 💡 Ask and 🎯 Top 3 use AI${msg ? ` · ${esc(msg)}` : ""}</span></div>
+    ? `<div class="leg"><span>✅ ${STORE_MODE ? "On for this phone" : `Included with ${PLAN.NAME}`} — Brain dump, 💡 Ask and 🎯 Top 3 use AI${msg ? ` · ${esc(msg)}` : ""}</span></div>
        <div class="foot-actions"><button class="btn sm" data-ai="test">Test it</button></div>`
     : aiOn()
     ? `<div class="leg"><span>✅ On — Brain dump, 💡 Ask and 🎯 Top 3 use AI${msg ? ` · ${esc(msg)}` : ""}</span></div>
@@ -847,7 +847,7 @@ function creditsHtml() {
   const buy = STORE_MODE ? "" : PLAN.AI_PACKS.filter(p => p.url).map(p => `<a class="btn sm" href="${esc(p.url)}" target="_blank" rel="noopener">${p.n} for ${p.price}</a>`).join("");
   const msg = CRED_MSG ? `<p class="fine" style="margin-top:6px">${esc(CRED_MSG)}</p>` : "";
   if (c.buyer) return `<div class="leg"><span>🎟️ ${PLAN.AI_CREDITS_NAME} · <b>${typeof c.left === "number" ? c.left : "?"}</b> questions left · ${esc(c.buyer)}</span></div>
-      ${proAi() ? `<p class="fine" style="margin-top:4px">Your ${PLAN.NAME} questions each day come first; credits only after.</p>` : ""}
+      ${proAi() ? `<p class="fine" style="margin-top:4px">${STORE_MODE ? "Your daily questions" : `Your ${PLAN.NAME} questions each day`} come first; credits only after.</p>` : ""}
       <div class="foot-actions">${buy}<button class="btn sm ghost" data-aicred="check">Check now</button><button class="btn sm ghost" data-aicred="remove">Remove</button></div>${msg}${codeHtml("credits")}`;
   return `<p class="fine" style="margin-top:0"><b>${PLAN.AI_CREDITS_NAME}</b> — ask ${APP_NAME} anything about your own ${TRAVEL ? TW : "day"}, sort a brain dump, pick today's top 3. Pay as you go: ${packs}. Works in every Hub app; credits never expire.</p>
       ${buy ? `<div class="foot-actions">${buy}</div>` : `<p class="fine">Coming soon.</p>`}

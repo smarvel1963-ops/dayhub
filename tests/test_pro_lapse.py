@@ -6,7 +6,7 @@ backup PAUSE. Before, only turning them ON checked Pro - sync on open, "Tap to s
 auto-backup never checked again, so a lapsed phone kept both. Nothing is deleted, restoring your own backup stays open,
 AI credits still work, and renewing picks up where it left off with no doubled events. The 14-day grace is unchanged.
 Covers: active Pro, grace, expired, renewed, offline, failed checks, the week-before heads-up, the Play app wording,
-phones that never had Pro, backup files, the Settings boxes, Cruise Hub, and Auto Hub riding on Day Hub Pro.
+phones that never had Pro, backup files, the Settings boxes, Cruise Hub, and Auto Hub and Home Hub riding on Day Hub Pro.
 Drives the real app with the main suite's helpers (run_tests.py: fake network, frozen clock 2026-10-01 08:00 CT).
 
 RUN:   python tests/test_pro_lapse.py      (from C:/MarvelApps/dayhub)   Exit 0 = all passed.
@@ -47,6 +47,7 @@ PRO_OK, PRO_ENDED = pro(), pro(ok=False, status="not found")
 LINKS_ON = ("GTOKEN = 'tok'; GTOKEN_EXP = Date.now() + 3e6; DTOKEN = 'dtok'; DTOKEN_EXP = Date.now() + 3e6;"
             "S.gcal.connected = true; S.gcal.scope = GCAL_SCOPE; S.sync.on = true; saveLocal()")
 CALLS0 = "window.__calls = { cal: 0, drive: 0, verify: 0 }"
+CREDITS = "localStorage.setItem('hub.aicredits', JSON.stringify({ buyer: 'buyer@example.com', left: 5 }))"
 DENTISTS = "Object.values(window.__g).filter(e => e.summary === 'Dentist').length"
 
 
@@ -283,6 +284,90 @@ def main():
         check("Auto Hub's OWN unlock (another email) is the one re-checked, never swapped for the Day Hub email",
               (a.js("window.__lastVerify") or {}).get("buyer") == "mine@example.com" and a.js("JSON.parse(localStorage.getItem('autohub.pro')).buyer") == "mine@example.com",
               a.js("window.__lastVerify"))
+        a.close()
+
+        print("\n[14. Home Hub on a Day Hub Pro unlock (Scott 11/03 'Yes, fix it': the app says one Pro unlocks the family)]")
+        a = T.App(b, base, path=T.HOMEP)
+        a.js(FAKE_GOOGLE)
+        a.js("localStorage.removeItem('homehub.pro'); localStorage.removeItem('dayhub.pro'); render()")
+        check("no unlock on this phone: Home Hub stays free", not a.js("isPro() || proViaDayHub()"))
+        a.js("openSettings()"); a.page.wait_for_timeout(200)
+        check("...and still offers Day Hub Pro", "Get Day Hub Pro" in a.page.inner_text("#proBox"), a.page.inner_text("#proBox")[:200])
+        a.js("localStorage.setItem('cruisehub.pro', JSON.stringify({ buyer: 'pass@example.com', ok: true, checked: Date.now(), status: 'active', product: 'cruisehub' }))")
+        check("a Cruise Hub Pass never opens Home Hub", not a.js("isPro()"))
+        a.js("localStorage.removeItem('cruisehub.pro'); " + PRO_OK)
+        check("Day Hub Pro on this phone: Home Hub is Pro with nothing typed", a.js("isPro() && proViaDayHub()"))
+        check("...Calendar, backup and AI all open", a.js("can('gcal') && can('sync') && can('ai') && proAi()"))
+        a.js("aiCall('ask', 'hi').catch(() => 0).then(() => 1)")
+        last = getattr(a.ctx, "_relay", [{}])[-1]
+        check("...and a question really goes out on that buyer, with this phone's id", last.get("task") == "ask" and last.get("buyer") == "buyer@example.com" and last.get("device") == a.js("localStorage.getItem('dayhub.device')"), last)
+        a.js("openSettings()"); a.page.wait_for_timeout(200)
+        pb = a.page.inner_text("#proBox")
+        check("Settings says it's included, with nothing to buy", "Included with your Day Hub Pro on this phone" in pb and "Get Day Hub Pro" not in pb, pb[:200])
+        a.js("localStorage.removeItem('dayhub.pro'); " + LINKS_ON); c = synced(a)
+        check("Calendar and backup connected, no Pro on this phone: both paused", c["cal"] == 0 and c["drive"] == 0, c)
+        a.js(PRO_OK); c = synced(a)
+        check("...Day Hub Pro on the phone: that paused Home Hub picks both up again", c["cal"] > 0 and c["drive"] > 0, c)
+        a.js("localStorage.removeItem('homehub.pro'); " + pro(days_ago=10))
+        a.page.clock.fast_forward(16 * 60000)
+        n0 = len(getattr(a.ctx, "_relay", []))
+        a.js("recheckPro()"); a.page.wait_for_timeout(600)
+        sent = [x for x in getattr(a.ctx, "_relay", [])[n0:] if x.get("task") == "verify"]
+        check("Day Hub record 10 days old: Home Hub checks that buyer for itself", len(sent) == 1 and sent[0].get("buyer") == "buyer@example.com" and sent[0].get("app") == "homehub", sent)
+        day = a.ctx.new_page(); day.goto(base + "/", wait_until="load"); day.wait_for_function("typeof verifyPro === 'function'")
+        day.evaluate("verifyPro('buyer@example.com')"); day.close()
+        check("...Day Hub checks on the same phone too: the relay's list holds one phone, not two", len(getattr(a.ctx, "_devices", [])) == 1, getattr(a.ctx, "_devices", None))
+        check("...and keeps its own fresh unlock", a.js("JSON.parse(localStorage.getItem('homehub.pro') || '{}').ok === true && isPro()"))
+        a.js("localStorage.removeItem('homehub.pro'); " + pro(ok=False, status="not found"))
+        h = top(a)
+        check("Day Hub's record says it ended: Home Hub isn't Pro and names the plan", not a.js("isPro()") and "(Day Hub Pro ended)" in h, h[-300:])
+        c = synced(a)
+        check("...and sync pauses, as on every other Hub", c["cal"] == 0 and c["drive"] == 0, c)
+        a.js("localStorage.setItem('homehub.pro', JSON.stringify({ buyer: 'mine@example.com', ok: true, checked: Date.now() - 22 * 86400000, status: 'active', product: 'dayhub' })); "
+             + pro(ok=False, status="not found") + "; window.__verify = { valid: false, status: 'not found' }")
+        a.page.clock.fast_forward(16 * 60000); a.js(CALLS0 + "; recheckPro()"); a.page.wait_for_timeout(400)
+        check("Home Hub's OWN unlock (another email) is the one re-checked, never swapped for the Day Hub email",
+              (a.js("window.__lastVerify") or {}).get("buyer") == "mine@example.com" and a.js("JSON.parse(localStorage.getItem('homehub.pro')).buyer") == "mine@example.com",
+              a.js("window.__lastVerify"))
+        a.close()
+
+        for suffix, label in (("", "web"), ("?src=play", "Play")):
+            a = T.App(b, base, path=T.HOMEP + suffix)
+            a.js(PRO_OK)
+            a.page.fill('form[data-homesetup] [name=name]', "Pat"); a.page.fill('form[data-homesetup] [name=city]', "83702")
+            a.page.click('form[data-homesetup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
+            if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+            n0 = len(getattr(a.ctx, "_relay", []))
+            a.page.reload(wait_until="load"); a.page.wait_for_function("typeof render === 'function'")
+            if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+            a.js("syncOnOpen(true)"); a.page.wait_for_timeout(400)
+            spent = [x.get("task") for x in getattr(a.ctx, "_relay", [])[n0:] if x.get("task") not in ("verify", None)]
+            check(f"{label} Home Hub on Day Hub Pro: reopening it sends nothing to the AI", spent == [], spent)
+            if label == "Play":
+                a.js("render(); openSettings()"); a.page.wait_for_timeout(200)
+                bad = a.js(T.PLAY_SCAN)
+                check("Play Home Hub on Day Hub Pro: no Pro wording outside the unlock box", bad == [], bad[:6])
+                check("...and no price or Whop inside it", not any(w in a.page.inner_text("#proBox") for w in ("$", "Whop", "Get Day Hub")), a.page.inner_text("#proBox")[:200])
+            a.close()
+
+        for path, nm, key in ((T.CRUISE, "Cruise Hub", "cruisehub"), (T.TRIP, "Trip Hub", "triphub"), (T.HOMEP, "Home Hub", "homehub"), (T.AUTOP, "Auto Hub", "autohub"), (T.MONEYP, "Money Hub", "moneyhub"), (T.HEALTHP, "Health Hub", "healthhub")):
+            a = T.App(b, base, path=path)
+            a.js(f"localStorage.removeItem('{key}.pro'); " + PRO_OK)
+            check(f"{nm}: a Day Hub Pro on this phone counts", a.js("isPro() && proViaDayHub()"))
+            a.close()
+
+        # v1.57's scan only ever looked at free phones. An unlocked phone on Play follows the same rule, on every Hub.
+        for path, nm in (("/", "Day Hub"), (T.CRUISE, "Cruise Hub"), (T.TRIP, "Trip Hub"), (T.HOMEP, "Home Hub"), (T.AUTOP, "Auto Hub"), (T.MONEYP, "Money Hub"), (T.HEALTHP, "Health Hub")):
+            a = T.App(b, base, path=path + "?src=play")
+            a.js(PRO_OK + "; " + CREDITS); a.js("render(); openSettings()"); a.page.wait_for_timeout(200)
+            bad = a.js(T.PLAY_SCAN)
+            check(f"Play {nm}, unlocked phone with credits: no Pro wording outside the unlock box", bad == [], bad[:6])
+            ai = a.page.inner_text("#aiBox")
+            check(f"...its AI box still says it's on, and what comes first", "On for this phone" in ai and "Your daily questions come first" in ai, ai[:220])
+            a.close()
+        a = T.App(b, base); a.js(PRO_OK + "; " + CREDITS); a.js("render(); openSettings()"); a.page.wait_for_timeout(200)
+        ai = a.page.inner_text("#aiBox")
+        check("the web app still names the plan", "Included with Day Hub Pro" in ai and "Your Day Hub Pro questions each day come first" in ai, ai[:220])
         a.close()
         b.close()
     srv.shutdown()

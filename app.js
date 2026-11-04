@@ -95,7 +95,7 @@ function deviceId() {
 // passphrase (or with the OWNER owner-switch) counts as Pro.
 const ownerPhone = () => !!aiPass() || !!ownerSwitches().OWNER;
 const proGood = p => !!(p.buyer && p.ok && Date.now() < (p.checked || 0) + (PLAN.RECHECK_DAYS + PLAN.GRACE_DAYS) * DAY_MS);
-const dayRides = () => TRAVEL || MODE === "auto" || MODE === "money" || MODE === "health";   // hubs a Day Hub Pro unlock on this phone also covers
+const dayRides = () => TRAVEL || MODE === "home" || MODE === "auto" || MODE === "money" || MODE === "health";   // hubs a Day Hub Pro unlock on this phone also covers (Home Hub added 11/03, Scott: it sells Day Hub Pro itself and was asking for the email again)
 const proViaDayHub = () => dayRides() && !proGood(proState()) && proGood(readPro(DAY_PRO_KEY));   // v1.38: Day Hub Pro unlocks Auto Hub too
 function isPro() {
   return ownerPhone() || proGood(proState()) || proViaDayHub();
