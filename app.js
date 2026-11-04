@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.58.1";
+const VERSION = "1.58.2";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -97,6 +97,9 @@ const ownerPhone = () => !!aiPass() || !!ownerSwitches().OWNER;
 const proGood = p => !!(p.buyer && p.ok && Date.now() < (p.checked || 0) + (PLAN.RECHECK_DAYS + PLAN.GRACE_DAYS) * DAY_MS);
 const dayRides = () => TRAVEL || MODE === "home" || MODE === "auto" || MODE === "money" || MODE === "health";   // hubs a Day Hub Pro unlock on this phone also covers (Home Hub added 11/03, Scott: it sells Day Hub Pro itself and was asking for the email again)
 const proViaDayHub = () => dayRides() && !proGood(proState()) && proGood(readPro(DAY_PRO_KEY));   // v1.38: Day Hub Pro unlocks Auto Hub too
+// The weekly re-check keeps a copy of a Day Hub Pro unlock in each Hub that rides on it. It stays Day Hub's to manage: the relay's spot
+// belongs to the whole phone, so Remove here would take Day Hub off too while the person is still paying (Scott 11/03: "Yes, fix them").
+const proCopyOfDay = () => { const own = proState(), day = readPro(DAY_PRO_KEY); return dayRides() && !!own.buyer && String(own.buyer).toLowerCase() === String(day.buyer || "").toLowerCase() && proGood(day); };
 function isPro() {
   return ownerPhone() || proGood(proState()) || proViaDayHub();
 }
@@ -1013,6 +1016,7 @@ function drawSyncBox(delArmed) {
 // one rings even when Day Hub is closed. Reliable background alerts need the
 // app-store version (or a push server) - noted for Pro.
 const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent);
+const iosAlone = () => navigator.standalone === true;   // an iPhone or iPad home-screen app keeps its own storage, apart from the other Hubs (only those phones have this)
 const atMs = (day, t) => { const d = parseDay(day); const [h, m] = t.split(":").map(Number); d.setHours(h, m, 0, 0); return d.getTime(); };
 function reminderList() {
   const R = S.remind, lead = R.lead * 60000, out = [];
@@ -2111,11 +2115,19 @@ function eraseVault() {
 // the other hub's trip copy. These sign-ins are SHARED by every Hub app on this phone (one Google sign-in, one AI
 // credits email), so they go for all of them - the Erase button says so. The phone's random id stays, so the
 // phone doesn't take a second spot on a purchase. Undo brings the planner back; sign-ins are typed again.
+// Every Hub's saved purchase email on this phone (they share one address, so one storage). Nothing else on this address may end in .pro.
+const hubProKeys = () => { try { return Object.keys(localStorage).filter(k => /^[a-z]+\.pro$/.test(k)); } catch (e) { return []; } };
+// Remove frees the phone for that buyer at the relay, not just for this Hub, so no Hub here keeps a copy of that email.
+function forgetBuyerHere(buyer) {
+  const b = String(buyer || "").toLowerCase(); if (!b) return [];
+  return hubProKeys().map(key => ({ key, product: readPro(key).product || "", buyer: String(readPro(key).buyer || "").toLowerCase() })).filter(x => x.buyer === b)
+    .map(x => { try { localStorage.removeItem(x.key); } catch (e) { /* private mode */ } return x; });
+}
 function forgetPhone() {
   try { if (window.google && google.accounts && google.accounts.oauth2) [GTOKEN, DTOKEN, MTOKEN].filter(Boolean)
     .filter((t, i, l) => l.indexOf(t) === i).forEach(t => google.accounts.oauth2.revoke(t, () => {})); } catch (e) { /* offline */ }
   GTOKEN = DTOKEN = MTOKEN = null; GTOKEN_EXP = DTOKEN_EXP = MTOKEN_EXP = 0;
-  [TOK_KEY, AUTO_KEY, AUTH_NONCE_KEY, PRO_KEY, FAM_KEY, "dayhub.aipass", "dayhub.ownerok", "hub.aicredits", "hub.geo"]
+  [TOK_KEY, AUTO_KEY, AUTH_NONCE_KEY, PRO_KEY, ...hubProKeys(), FAM_KEY, "dayhub.aipass", "dayhub.ownerok", "hub.aicredits", "hub.geo"]   // every Hub's purchase email, as the button and the privacy pages say
     .forEach(k => { try { localStorage.removeItem(k); sessionStorage.removeItem(k); } catch (e) { /* private mode */ } });
 }
 // v1.29: delete the backup copy in the person's own Google Drive (before, the app said "stays until you delete it"
@@ -2139,7 +2151,7 @@ function drawDataBox(armed) {
       <button class="btn sm ghost" data-data="import">⬆️ Load a backup file</button>
       <button class="btn sm ${armed ? "" : "ghost"}" data-data="erase" style="${armed ? "background:var(--red);color:#fff" : ""}">🗑️ ${armed ? "Tap again to erase" : "Erase everything"}</button></div>
     <input type="file" id="importFile" accept="application/json,.json" style="display:none">
-    <p class="fine" style="margin-top:6px">The download is a file you keep anywhere (email it to yourself, save it to Drive). Erase also signs this phone out of Google and forgets saved purchase emails for every Hub app on this phone. Your plans can be undone right after; sign-ins are just typed again. A Drive backup is deleted in Backup & sync.</p>`;
+    <p class="fine" style="margin-top:6px">The download is a file you keep anywhere (email it to yourself, save it to Drive). Erase also signs this phone out of Google and forgets saved purchase emails ${iosAlone() ? "for this app" : "for every Hub app on this phone, so Calendar sync and backup pause in those apps until you type the email again"}. Your plans can be undone right after; sign-ins are just typed again. A Drive backup is deleted in Backup & sync.</p>`;
 }
 
 // ------------------------------------------------------------- the day

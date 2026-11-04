@@ -1,6 +1,9 @@
 {
- "version": "1.58.1",
+ "version": "1.58.2",
  "notes": {
+  "1.58.2": [
+   "🔑 Unlocked on this phone? Remove in Day Hub now clears every Hub using that email, and Erase everything now forgets it in all of them."
+  ],
   "1.58.1": [
    "☁️ Safer backup: when your phone and your backup hold different things, it now asks which to keep, and the front screen tells you when it's waiting on you.",
    "🗓️ Google Calendar: each Hub now looks after only its own events, so Hubs on the same calendar no longer remove each other's.",

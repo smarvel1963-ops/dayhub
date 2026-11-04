@@ -1428,10 +1428,13 @@ document.addEventListener("click", e => {
   if (ds.code === "cancel") { CODE = null; redrawCode(); return; }
   if (ds.aicred === "check") { const c = readCredits(); if (c.buyer) checkCredits(c.buyer); return; }
   if (ds.aicred === "remove") { setCredits({}); CRED_MSG = ""; drawAiBox(); render(); toast(`${PLAN.AI_CREDITS_NAME} removed from this phone`); return; }
-  if (ds.pro === "check") { const p = proState(); if (p.buyer) unlockPro(p.buyer); return; }
+  if (ds.pro === "check") { const own = proState(), hubPlan = own.buyer && own.product && own.product !== "dayhub";   // a Hub-only plan keeps its own email
+    const b = !hubPlan && (proViaDayHub() || proCopyOfDay()) ? readPro(DAY_PRO_KEY).buyer : own.buyer; if (b) unlockPro(b); return; }   // on a Day Hub Pro unlock, it's that buyer that renewed
   if (ds.pro === "remove") { const p = proState();
     if (p.buyer) fetch(AI_URL, { method: "POST", body: JSON.stringify({ task: "release", buyer: p.buyer, device: deviceId(), app: APP_ID }) }).catch(() => {});
-    setProState({}); PRO_MSG = ""; drawProBox(); drawAiBox(); render(); toast(`${proName()} removed from this phone`); return; }
+    const others = forgetBuyerHere(p.buyer).filter(x => x.key !== PRO_KEY), paid = others.some(x => x.product && x.product !== p.product);
+    setProState({}); PRO_MSG = paid ? "Another plan on that email? Type it again in that Hub." : ""; drawProBox(); drawAiBox(); render();   // kept on screen: a toast is gone in 2 seconds
+    toast((STORE_MODE ? "Removed from " : `${lapsedName(p)} removed from `) + (others.length ? "every Hub on this phone that used it" : "this phone")); return; }
   if (ds.chipsmore) { CHIPS_ALL = ds.chipsmore === "1"; paintHero(); return; }
   if (ds.collapse) { const k = ds.collapse;
     MINI_OPEN.delete(k);
@@ -1845,12 +1848,14 @@ function drawProBox() {
     : `<p class="fine" style="margin-top:0">⏳ <b>Ends ${proEndsWhen(ends)}</b> — it's set not to renew. Renew on Whop to keep ${uses ? "automatic Calendar sync and backup" : "it"}.</p>`;
   g.innerHTML = `<h3>⭐ ${proName()}</h3>` + syncLine + (ownerPhone()
     ? `<div class="leg"><span>✅ Pro — this is the owner's phone</span></div>`
-    : proViaDayHub()
-    ? `<div class="leg"><span>✅ Included with your ${PLAN.NAME} on this phone</span></div>`
+    : proViaDayHub() || proCopyOfDay()
+    ? `<div class="leg"><span>✅ Included with your ${PLAN.NAME} on this phone</span></div>
+       <div class="foot-actions"><button class="btn sm ghost" data-pro="check">Check now</button></div>
+       <p class="fine" style="margin-top:6px">To take it off this phone, use Remove in Day Hub: ⚙ → ${PLAN.NAME}.</p>`
     : isPro()
     ? `<div class="leg"><span>✅ ${p.product === "dayhub" && hubPass() ? `Included with ${PLAN.NAME}` : `${proName()} is on`} · ${who} · checked ${prettyDate(ymd(new Date(p.checked)))}</span></div>
        <div class="foot-actions"><button class="btn sm ghost" data-pro="check">Check now</button><button class="btn sm ghost" data-pro="remove">Remove from this phone</button></div>
-       <p class="fine" style="margin-top:6px">One purchase works on up to ${PLAN.MAX_PHONES} phones. Removing it here frees this phone's spot.</p>`
+       <p class="fine" style="margin-top:6px">One purchase works on up to ${PLAN.MAX_PHONES} phones. Removing it here frees this phone's spot${iosAlone() ? "" : " and takes it off every Hub on this phone"}.</p>`
     : STORE_MODE                                                    // v1.50 Play Store app: no price, no buy, no Whop
     ? what + `<p class="fine">Already have ${proName()}? Enter your email to unlock it on this phone.</p>
        <form class="inline-add" data-proform="1"><input name="key" type="text" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="Your email" value="${who}" autocomplete="email" required><button class="btn sm">Unlock</button></form>`
@@ -1867,9 +1872,10 @@ function unlockPro(buyer) {
   verifyPro(buyer).then(ok => { const st = proState().status || "";
       if (!ok && st === "needs code") { PRO_MSG = ""; askCode(buyer, "pro"); return; }   // v1.27
       PRO_MSG = ok ? "" : /phones/.test(st) ? `It's already on ${PLAN.MAX_PHONES} phones — tap Remove from this phone on one of them, then try again.`
+        : proViaDayHub() || proCopyOfDay() ? "That didn't check out here. Open Day Hub and tap Check now there."          // this box has no email to change
         : `No active ${hubPass() ? `${proName()} or ${PLAN.NAME}` : PLAN.NAME} found for that — use the email you bought with${STORE_MODE ? "" : " on Whop"} (or your mem_ membership id).`;
       drawProBox(); drawAiBox(); render();
-      if (ok && !proWelcomeBack()) toast(`⭐ ${proName()} unlocked`); })
+      if (ok && !proWelcomeBack()) toast(STORE_MODE ? "⭐ Unlocked on this phone" : `⭐ ${lapsedName(proState())} unlocked`); })
     .catch(e => { PRO_MSG = "Couldn't reach the check — try again in a minute. (" + e.message + ")"; drawProBox(); });
 }
 
