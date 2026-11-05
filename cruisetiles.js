@@ -37,9 +37,21 @@ const CT_KEY = "cruisehub.look";
   } catch (e) { /* private mode: the link just doesn't stick */ }
 })();
 const ctPick = () => { try { return localStorage.getItem(CT_KEY); } catch (e) { return null; } };
+// 11/04 (Scott: "can get it applied"): a link or a tile from outside the app can miss the copy he actually opens. The owner's phone holds Scott Hub or the
+// owner's OK, so it turns the new look on by itself, once. After that Classic Look and Simple Mode still stick. Customers have neither, so nothing changes for them.
+let CT_OWNER_CHECKED = false;
+function ctOwnerOnce() {
+  if (CT_OWNER_CHECKED) return; CT_OWNER_CHECKED = true;
+  try {
+    if (localStorage.getItem("cruisehub.ownerlook") || !(localStorage.getItem("scotthub.k") || localStorage.getItem("dayhub.ownerok") === "1")) return;
+    localStorage.setItem("cruisehub.ownerlook", "1"); localStorage.setItem(CT_KEY, "tiles");
+    if (S.simple) { S.simple = false; saveLocal(); }
+  } catch (e) { /* private mode */ }
+}
 function ctOn() {
-  return typeof MODE !== "undefined" && MODE === "cruise" && typeof shellOn === "function" && shellOn() && !S.simple
-    && (CT_ON ? ctPick() !== "classic" : ctPick() === "tiles");
+  if (typeof MODE === "undefined" || MODE !== "cruise") return false;
+  ctOwnerOnce();
+  return typeof shellOn === "function" && shellOn() && !S.simple && (CT_ON ? ctPick() !== "classic" : ctPick() === "tiles");
 }
 
 // The five tabs (keys stay the shell's own: plan / explore / wallet / ai) - Scott: Home | My Cruise | Port Days | Money | More.
@@ -461,6 +473,18 @@ document.addEventListener("click", e => {
   if (go === "settings") { if (typeof openSettings === "function") openSettings(); return; }
   if (go === "classic") { try { localStorage.setItem(CT_KEY, "classic"); } catch (e2) { /* private mode */ } CT_SCREEN = null; render(); window.scrollTo({ top: 0 }); toast("Classic look on this phone"); return; }
   if (go === "ship") { CT_TAB_FROM = { tab: TAB, screen: CT_SCREEN }; CT_SCREEN = null; CT_FROM = null; shellGo("explore"); setTimeout(() => { const el = document.querySelector("#cards .my-ship"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); }
+});
+// Any other copy on his phone: five quick taps on the app's name at the bottom of Settings flip the look, whatever browser it lives in.
+let CT_NAME_TAPS = [];
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest("#sheet p.fine > b");
+  if (!b || !/Marvel Corp app/.test(b.textContent) || typeof MODE === "undefined" || MODE !== "cruise") return;
+  const now = Date.now(); CT_NAME_TAPS = CT_NAME_TAPS.filter(x => now - x < 3000).concat(now);
+  if (CT_NAME_TAPS.length < 5) return;
+  CT_NAME_TAPS = []; const on = !ctOn();
+  try { localStorage.setItem(CT_KEY, on ? "tiles" : "classic"); localStorage.setItem("cruisehub.ownerlook", "1"); } catch (e2) { /* private mode */ }
+  if (on && S.simple) S.simple = false;
+  CT_SCREEN = null; closeSettings(); render(); window.scrollTo({ top: 0 }); toast(on ? "New look on for this phone" : "Classic look on this phone");
 });
 // A folded packing group stays as you left it when a tick redraws the screen.
 document.addEventListener("toggle", e => { const d = e.target; if (!d || !d.dataset || !d.dataset.ctcat || (S.bagView && S.bagView !== "all" && d.dataset.ctcat !== "extras")) return; if (d.open) CT_OPEN.add(d.dataset.ctcat); else CT_OPEN.delete(d.dataset.ctcat); }, true);
