@@ -749,23 +749,26 @@ document.addEventListener("change", e => { const t = e.target; if (t && t.datase
 // The phone's own back button walks the same path as the arrow on screen: each screen opened is one step of history, and only the top of a tab leaves the app.
 let AT_DEPTH = 0, AT_SKIP = 0;
 function atSyncHistory() {
-  const want = AT.stack.length;
+  if (AT_SKIP) return;                    // steps being taken away: their popstate runs this again
+  const want = AT.stack.length + (TAB !== "home" ? 1 : 0) + (document.querySelector(".sheet:not(.hidden)") ? 1 : 0);   // a plain tab's back goes to Home; only Home leaves the app
   try {
     while (AT_DEPTH < want) history.pushState({ at: ++AT_DEPTH }, "");
-    if (AT_DEPTH > want) { AT_SKIP++; history.go(want - AT_DEPTH); AT_DEPTH = want; }
+    if (AT_DEPTH > want) { AT_SKIP++; setTimeout(() => { AT_SKIP = 0; }, 1500); history.go(want - AT_DEPTH); AT_DEPTH = want; }
   } catch (e) { AT_DEPTH = want; /* some browsers limit this; the arrow still works */ }
 }
+document.addEventListener("click", () => { if (typeof MODE !== "undefined" && MODE === "auto" && atOn()) setTimeout(atSyncHistory, 0); });   // a sheet opened or closed by this tap
 window.addEventListener("popstate", () => {
-  if (AT_SKIP) { AT_SKIP--; return; }
+  if (AT_SKIP) { AT_SKIP--; if (typeof MODE !== "undefined" && MODE === "auto" && atOn()) atSyncHistory(); return; }
   if (typeof MODE === "undefined" || MODE !== "auto" || !atOn()) return;
+  AT_DEPTH = Math.max(0, AT_DEPTH - 1);
   const open = [...document.querySelectorAll(".sheet:not(.hidden)")];
   if (open.length) {                      // a sheet over the screen closes first, and the screen's own step stays
     open.forEach(el => { if (el.id === "sheet") closeSettings(); else el.classList.add("hidden"); });
-    try { history.pushState({ at: AT_DEPTH }, ""); } catch (e) { /* the arrow still works */ }
+    atSyncHistory();
     return;
   }
-  AT_DEPTH = Math.max(0, AT_DEPTH - 1);
   if (AT.stack.length) { atBack(); render(); window.scrollTo({ top: 0 }); }
+  else if (TAB !== "home") { atReset(); shellGo("home"); }
   else if (history.state && history.state.at) history.back();                 // steps left over from before a reload: keep walking out
 });
 // Road trip's From and To are only labels for this trip, typed on this phone.

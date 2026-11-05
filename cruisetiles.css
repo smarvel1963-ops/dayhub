@@ -375,7 +375,7 @@ body.ct #helpSheet .help-btn[data-help="docs"]::before { background-image: url("
 body.ct #helpSheet .help-btn[data-help="contacts"]::before { width: 34px; height: 34px; background-size: 22px 22px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' fill='%23fff'%3E%3Cpath d='M13.500 4l7 10.500-4.500 4.500c2.500 5.500 7.500 10.500 13 13l4.500-4.500L44 34.500 38.500 44C21 44 4 27 4 9.500z'/%3E%3C/svg%3E"); }
 
 /* round 2, beside his board */
-body.ct:not([data-ctscreen=""]):not([data-ctscreen="money"]):not([data-ctscreen="ports"]) .fab { display: none; }   /* the full screens have their own +; Money and Port Days keep this one */
+body.ct:not([data-ctscreen=""]) .fab { display: none; }   /* the full screens have their own + in the title bar */
 body.ct .ct-grid.ct-main { margin-top: 9px; }
 body.ct #helpSheet .sheet-body:has(.help-grid) .sheet-head h2::before { content: ""; width: 38px; height: 38px; flex: none; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Ccircle cx='24' cy='24' r='16' fill='none' stroke='%23fff' stroke-width='11'/%3E%3Ccircle cx='24' cy='24' r='16' fill='none' stroke='%23dc2626' stroke-width='11' stroke-dasharray='12.570 12.570' transform='rotate(-22.500 24 24)'/%3E%3C/svg%3E") center / contain no-repeat; }
 body.ct #helpSheet .help-btn { min-height: 76px; }
@@ -530,7 +530,25 @@ body.ct .ct-stats.mid b { font-size: clamp(14px, 4.700vw, 20px); } body.ct .ct-s
 body.ct .ct-brand small .offline-pill { display: block; width: fit-content; margin: 2px auto 0; }   /* on its own line, or it pushes the gear off a phone at sea */
 body.ct .ct-back { width: 44px; margin-left: -8px; } body.ct .ct-plus { width: 44px; } body.ct .ct-life.small { width: 44px; height: 44px; margin-right: -4px; }   /* back is the only way out now: full-size targets */
 body.ct #helpSheet .sheet-body:has(.help-grid) .icon-btn { width: 44px; margin-left: -6px; }
-body.ct[data-ctscreen="money"] .fab, body.ct[data-ctscreen="ports"] .fab { background: rgba(255, 255, 255, .94); color: #0b2f63; box-shadow: 0 6px 16px rgba(0, 25, 70, .35); }
 body.ct.ct-noart[data-ctscreen] .ct-artgap { height: 14px; }             /* Real photo off: no picture to leave room for */
 body.ct .ct-artgap { column-span: all; -webkit-column-span: all; }       /* tablets: the gap goes across both columns */
 body.ct .ct-hero .ct-life, body.ct .ct-hero .ct-gear { position: relative; } body.ct .ct-hero .ct-life::after, body.ct .ct-hero .ct-gear::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; }   /* Home's two stay small to fit the logo; their tap area is full size */
+
+/* Title bars with a + and a lifesaver: the long title still fits one line on a narrow phone */
+body.ct .ct-title .grow { min-width: 0; }
+body.ct[data-ctscreen="money"] .ct-title .grow { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 480px) { body.ct[data-ctscreen="money"] .ct-title { font-size: clamp(19px, 5.3vw, 24px); } body.ct[data-ctscreen="money"] .ct-title .ct-titleic { display: none; } }
+
+/* My Ship is one row until it's opened */
+body.ct .my-ship.ct-cat { margin: 10px 0; }
+body.ct .my-ship .ct-catbody { padding: 10px 12px 12px; }
+
+/* HOME on shorter phones: his twelve tiles still reach the first screen. Tiles and the sky above the card give up room together, as the phone gets shorter. */
+@media (min-width: 341px) and (max-width: 599px) and (max-height: 840px) {
+  body.ct .ct-brand b { font-size: 31px; } body.ct .ct-logo { width: 44px; } body.ct .ct-brand small { font-size: 13px; }
+  body.ct .ct-hero > .ct-stage { margin-top: max(84px, min(calc(66.4vh - 342px), calc(29vh - 76px)) - env(safe-area-inset-top)); padding: 7px 12px 8px; }
+  body.ct .ct-card .ct-name { font-size: 20px; } body.ct .ct-card .ct-sub { font-size: 12.5px; } body.ct .ct-card .ct-k { font-size: 12px; }
+  body.ct .ct-days b { font-size: 31px; } body.ct .ct-days small { font-size: 12.5px; } body.ct .ct-ready b { font-size: 23px; } body.ct .ct-ready small { font-size: 12px; }
+  body.ct .ct-grid.ct-main { gap: 6px; margin-top: 7px; }
+  body.ct .ct-main .ct-tile { min-height: clamp(58px, 8.4vh, 72px); padding: 3px 3px; gap: 1px; } body.ct .ct-main .ct-tile .ct-ic { width: clamp(27px, 3.9vh, 36px); height: clamp(27px, 3.9vh, 36px); } body.ct .ct-main .ct-tile b { font-size: clamp(13.5px, 1.9vh, 15.5px); line-height: 1.08; }
+}

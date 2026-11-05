@@ -376,8 +376,8 @@ function ctPortsHtml(tr, cardHtml) {
   const guardBody = `<span class="ct-mic big" aria-hidden="true">${CT_ICONS.ship}</span><span class="grow"><b>Return Guard</b><small>${guardSay}</small></span><span class="ct-pill ${guardOk ? "on" : ""}${guardPill === "On" ? " ct-switch" : ""}">${guardPill}</span>`;
   return `${ports.length ? `<section class="ct-ports">${ports.map(card).join("")}</section>` : `<section class="card"><h3>Port Days</h3><div class="body"><div class="empty">Add your port days (My Cruise → your cruise → Ports) and they show up here with weather and all-aboard times.</div></div></section>`}
     ${ports.length ? `<button class="ct-guardrow" ${guardAttr} aria-label="Return Guard: ${esc(guardPill)}. ${esc(guardSay)}">${guardBody}</button><div class="ct-artgap" aria-hidden="true"></div>` : ""}
-    <section class="card my-ship"><h3><span class="ci">🚢</span>My ship</h3><div class="body">${typeof shipGuideHtml === "function" ? shipGuideHtml(tr) : ""}
-      <button class="btn sm ghost" data-shellgo="plan" data-triptabgo="tips">💡 Good to know</button></div></section>
+    <details class="ct-cat my-ship" data-ctcat="ship" ${CT_OPEN.has("ship") ? "open" : ""}><summary><span class="ct-mic" aria-hidden="true">${CT_ICONS.ship}</span><b>My Ship</b>${CT_CHEV}</summary><div class="ct-catbody">${typeof shipGuideHtml === "function" ? shipGuideHtml(tr) : ""}
+      <button class="btn sm ghost" data-shellgo="plan" data-triptabgo="tips">💡 Good to know</button></div></details>
     ${SHELL_CARDS.explore.map(k => cardHtml(k)).join("")}`;
 }
 // FIRST 10 MINUTES: the same ticks Home shows the moment you board (cruise.js), here to read ahead or come back to.
@@ -414,6 +414,7 @@ function ctShellHtml(cardHtml) {
   // Port Days and Payments & Budget are full screens on his board too: their own title and picture, back to Home, no tab bar.
   const portsScreen = !sc && !packing && TAB === "explore" && !!tr && trCruise(tr), moneyScreen = !sc && !packing && TAB === "wallet" && !!tr;
   document.body.dataset.ctscreen = sc || (packing ? (list === "packing" ? "packing" : "lists") : portsScreen ? "ports" : moneyScreen ? "money" : "");
+  CT_LEVELS = ctLevels(sc, packing, portsScreen, moneyScreen); ctSyncSoon();
   document.body.classList.toggle("ct-noart", S.photo === false);           // ⚙ Real photo off: no pictures behind the screens
   if (sc === "countdown") return ctCountdownHtml(tr);
   if (sc === "onboard") return ctOnBoardHtml(tr);
@@ -422,7 +423,8 @@ function ctShellHtml(cardHtml) {
   if (packing) return ctListsHtml(tr);
   if (TAB === "home") return homeHtml();                                   // homeHtml() hands over to ctHomeHtml()
   const top = `<section class="ct-band">${ctTopHtml(false)}</section>`;
-  const homeBack = (t, ic) => `<div class="ct-screen">${ctBackHtml(t, "", 'data-ctgo="tabback"', ic)}</div>`;
+  const addBtn = `<button class="ct-plus" data-ctgo="fab" aria-label="Add something">＋</button>`;   // the same add sheet as the floating +, which would sit on a tile or a dollar figure here
+  const homeBack = (t, ic) => `<div class="ct-screen">${ctBackHtml(t, addBtn, 'data-ctgo="tabback"', ic)}</div>`;
   const cards = () => SHELL_CARDS[TAB].filter(k => k !== "inbox" || S.mail.on || S.mail.found.length).map(k => cardHtml(k)).join("");
   if (TAB === "ai") return top + ctMoreHtml();
   if (portsScreen) return homeBack("Port Days", CT_ICONS.pin) + ctPortsHtml(tr, cardHtml);
@@ -466,13 +468,14 @@ document.addEventListener("click", e => {
   if (go === "listback") { if (CT_DOCS_BACK) { CT_DOCS_BACK = false; S.tripList = "packing"; render(); window.scrollTo({ top: 0 }); return; }
     const to = CT_LIST_FROM || "home"; CT_LIST_FROM = null; PLAN_VIEW = "trip"; shellGo(to); return; }
   if (go === "pass" || go === "first10" || go === "countdown" || go === "onboard") { CT_FROM = CT_SCREEN; CT_SCREEN = go; render(); window.scrollTo({ top: 0 }); return; }
+  if (go === "fab") { const f = document.getElementById("fab"); if (f) f.click(); return; }
   if (go === "addfocus") { const f = document.querySelector(".ct-add input"); if (f) { f.scrollIntoView({ behavior: "smooth", block: "center" }); f.focus(); } return; }
   if (go === "reminders") { ctSettingsAt("remindBox"); return; }
   if (go === "passsettings") { ctSettingsAt("proBox"); return; }
   if (go.startsWith("day:")) { const [, d, what] = go.split(":"); ctDayAt(d, what); return; }
   if (go === "settings") { if (typeof openSettings === "function") openSettings(); return; }
   if (go === "classic") { try { localStorage.setItem(CT_KEY, "classic"); } catch (e2) { /* private mode */ } CT_SCREEN = null; render(); window.scrollTo({ top: 0 }); toast("Classic look on this phone"); return; }
-  if (go === "ship") { CT_TAB_FROM = { tab: TAB, screen: CT_SCREEN }; CT_SCREEN = null; CT_FROM = null; shellGo("explore"); setTimeout(() => { const el = document.querySelector("#cards .my-ship"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); }
+  if (go === "ship") { CT_OPEN.add("ship"); CT_TAB_FROM = { tab: TAB, screen: CT_SCREEN }; CT_SCREEN = null; CT_FROM = null; shellGo("explore"); setTimeout(() => { const el = document.querySelector("#cards .my-ship"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); }
 });
 // Any other copy on his phone: five quick taps on the app's name at the bottom of Settings flip the look, whatever browser it lives in.
 let CT_NAME_TAPS = [];
@@ -487,4 +490,38 @@ document.addEventListener("click", e => {
   CT_SCREEN = null; closeSettings(); render(); window.scrollTo({ top: 0 }); toast(on ? "New look on for this phone" : "Classic look on this phone");
 });
 // A folded packing group stays as you left it when a tick redraws the screen.
-document.addEventListener("toggle", e => { const d = e.target; if (!d || !d.dataset || !d.dataset.ctcat || (S.bagView && S.bagView !== "all" && d.dataset.ctcat !== "extras")) return; if (d.open) CT_OPEN.add(d.dataset.ctcat); else CT_OPEN.delete(d.dataset.ctcat); }, true);
+document.addEventListener("toggle", e => { const d = e.target; if (!d || !d.dataset || !d.dataset.ctcat || (S.bagView && S.bagView !== "all" && d.dataset.ctcat !== "extras" && d.dataset.ctcat !== "ship")) return; if (d.open) CT_OPEN.add(d.dataset.ctcat); else CT_OPEN.delete(d.dataset.ctcat); }, true);
+// The phone's own back button walks the same path as the arrow on screen. An open sheet closes first, a plain tab goes to Home, and only Home leaves the app.
+// One step of history per press it takes to reach Home, added at the tap that opened the screen: Chrome skips a step a page adds with no tap, so a back press never adds one.
+// Never on the old look, so customers are untouched.
+let CT_LEVELS = 0, CT_DEPTH = 0, CT_SKIP = 0, CT_SYNC_T = 0;
+function ctLevels(sc, packing, ports, money) {
+  const up = t => t && t !== "home" ? 1 : 0;
+  if (sc) return 1 + (CT_FROM ? 1 : 0) + up(TAB);
+  if (packing) return 1 + (CT_DOCS_BACK ? 1 : 0) + up(CT_LIST_FROM);
+  if (ports || money) { const f = CT_TAB_FROM; return 1 + (f ? (f.screen ? 1 : 0) + up(f.tab) : 0); }
+  return up(TAB);
+}
+function ctSyncHistory() {
+  CT_SYNC_T = 0;
+  if (CT_SKIP || typeof MODE === "undefined" || MODE !== "cruise") return;   // steps being taken away: their popstate runs this again
+  const want = ctOn() ? CT_LEVELS + (document.querySelector(".sheet:not(.hidden)") ? 1 : 0) : 0;
+  try {
+    if (want && "scrollRestoration" in history) history.scrollRestoration = "manual";   // closing a sheet leaves the screen where it was
+    while (CT_DEPTH < want) history.pushState({ ct: ++CT_DEPTH }, "");
+    if (CT_DEPTH > want) { CT_SKIP++; setTimeout(() => { CT_SKIP = 0; }, 1500); history.go(want - CT_DEPTH); CT_DEPTH = want; }
+  } catch (e) { CT_DEPTH = want; /* some browsers limit this; the arrow still works */ }
+}
+function ctSyncSoon() { if (!CT_SYNC_T) CT_SYNC_T = setTimeout(ctSyncHistory, 0); }   // after every handler and redraw of this tap has run
+document.addEventListener("click", ctSyncSoon);
+window.addEventListener("popstate", () => {
+  if (CT_SKIP) { CT_SKIP--; ctSyncSoon(); return; }
+  if (typeof MODE === "undefined" || MODE !== "cruise" || !ctOn()) return;
+  CT_DEPTH = Math.max(0, CT_DEPTH - 1);
+  const open = [...document.querySelectorAll(".sheet:not(.hidden)")];
+  if (open.length) { open.forEach(el => { const x = el.querySelector("[data-close]"); if (x) x.click(); else el.classList.add("hidden"); }); ctSyncSoon(); return; }
+  const arrow = document.querySelector("#cards .ct-back");
+  if (arrow) { arrow.click(); ctSyncSoon(); return; }
+  if (TAB !== "home") { shellGo("home"); ctSyncSoon(); return; }
+  if (history.state && history.state.ct) history.back();                   // a step left over from before a reload: keep walking out
+});
