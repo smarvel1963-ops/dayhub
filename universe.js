@@ -137,7 +137,7 @@ function uniNeedsHtml(N) {
   const hub = id => UNI_HUBS.find(x => x[0] === id);
   return `<div class="uni-orbit uni-needs">${hosOrbit(core, top.map(x => ({ attr: `data-uniplanet="${x.hub}"`, icon: x.icon, label: x.text.length > 14 ? x.text.slice(0, 13) + "…" : x.text,
       val: x.sub, tone: x.late ? "#ff6b6b" : hub(x.hub)[4], badge: x.late ? "!" : "" })))}</div>
-    <div class="uni-list">${N.slice(0, 10).map(x => `<button class="uni-row${x.late ? " late" : ""}" data-uniplanet="${x.hub}" style="--tone:${x.tone}"><span class="uni-ic">${x.icon}</span>
+    <div class="uni-list">${N.slice(0, 10).map(x => `<button class="uni-row${x.late ? " late" : ""}" data-uniplanet="${x.hub}" style="--tone:${x.tone}"><span class="uni-ic">${esc(x.icon)}</span>
       <span class="grow"><b>${esc(x.text)}</b><small>${esc(hub(x.hub)[2])} · ${esc(x.sub)}</small></span><em>${x.late ? "Late" : esc(uniWhen(x.day))}</em></button>`).join("")}</div>`;
 }
 function uniHomeHtml() {
@@ -150,7 +150,7 @@ function uniHomeHtml() {
     <div class="mv-sec"><h3>Needs you</h3><small class="uni-sm">across every hub</small></div>
     ${uniNeedsHtml(N)}
     <div class="mv-sec"><h3>Today across everything</h3></div>
-    ${todayL.length ? `<div class="uni-list">${todayL.map(x => `<div class="uni-row" style="--tone:${x.tone}"><span class="uni-ic">${x.icon}</span><span class="grow"><b>${esc(x.text)}</b><small>${esc(UNI_HUBS.find(h => h[0] === x.hub)[2])}</small></span><em>${esc(x.sub)}</em></div>`).join("")}</div>`
+    ${todayL.length ? `<div class="uni-list">${todayL.map(x => `<div class="uni-row" style="--tone:${x.tone}"><span class="uni-ic">${esc(x.icon)}</span><span class="grow"><b>${esc(x.text)}</b><small>${esc(UNI_HUBS.find(h => h[0] === x.hub)[2])}</small></span><em>${esc(x.sub)}</em></div>`).join("")}</div>`
       : `<p class="hos-hint">Nothing dated today in any hub.</p>`}
     ${uniProHtml()}
     <p class="fine">Hub Universe reads your other Hub apps on this phone and never changes them. ${used ? "" : "Open any Hub app on this phone and it lights up here. "}On iPhone, open the hubs in Safari for Universe to see them.</p>
@@ -175,7 +175,7 @@ function showPlanet(id) {
   el.innerHTML = `<div class="sheet-body mv-sheet"><div class="grab"></div>
     <div class="sheet-head"><h2>${h.icon} ${esc(h.name)}</h2><button class="icon-btn" data-uniclose="1" aria-label="Close">✕</button></div>
     ${h.set ? `${h.branches.length ? `<div class="uni-orbit">${hosOrbit(core, h.branches.map(([ic, l, v]) => ({ attr: `data-unigo="${h.id}"`, icon: ic, label: l, val: v, tone: h.tone })))}</div>` : ""}
-      ${h.items.length ? `<h3 class="mv-h">Needs you</h3><div class="uni-list">${h.items.map(x => `<div class="uni-row${x.late ? " late" : ""}" style="--tone:${x.tone}"><span class="uni-ic">${x.icon}</span><span class="grow"><b>${esc(x.text)}</b><small>${esc(x.sub)}</small></span></div>`).join("")}</div>` : `<p class="hos-hint">✅ Nothing needs you in ${esc(h.name)}.</p>`}`
+      ${h.items.length ? `<h3 class="mv-h">Needs you</h3><div class="uni-list">${h.items.map(x => `<div class="uni-row${x.late ? " late" : ""}" style="--tone:${x.tone}"><span class="uni-ic">${esc(x.icon)}</span><span class="grow"><b>${esc(x.text)}</b><small>${esc(x.sub)}</small></span></div>`).join("")}</div>` : `<p class="hos-hint">✅ Nothing needs you in ${esc(h.name)}.</p>`}`
       : `<p class="hos-hint">You haven't started ${esc(h.name)} on this phone yet.</p>`}
     <a class="btn uni-open" href="${esc(hubHref(h.url))}" style="--tone:${h.tone}">${h.set ? "Open" : "Start"} ${esc(h.name)} ›</a></div>`;
   el.classList.remove("hidden");

@@ -1,6 +1,9 @@
 {
- "version": "1.58.8",
+ "version": "1.58.9",
  "notes": {
+  "1.58.9": [
+   "🛡️ Backup files are safer in every Hub. Nothing changes for you."
+  ],
   "1.58.8": [
    "🚢 Cruise Hub and 🚗 Auto Hub: small behind-the-scenes touch-ups on a new look. Nothing changes for you yet."
   ],

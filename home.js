@@ -111,7 +111,7 @@ function homeHeroHtml() {
   return `<section class="card hos hos-home"><div class="hos-head"><span>HOME HUB</span><small>${sp.length} spaces</small></div>
     ${hosOrbit(center, items)}
     <div class="hos-cash"><small>${esc(typeName.replace(/^\S+\s/, "Your "))}</small><b class="hos-name">${late ? `${late} late` : open ? `${open} to do` : "All set"}</b><span>${items_} item${items_ === 1 ? "" : "s"} tracked across ${sp.length} spaces</span></div>
-    <button class="hos-next" ${n.a}><span class="hos-next-ic" aria-hidden="true">${n.i}</span><span class="grow"><small>Your next smart action</small><b>${esc(n.t)}</b><em>Why: ${esc(n.w)}</em></span><span class="hos-go" aria-hidden="true">›</span></button>
+    <button class="hos-next" ${n.a}><span class="hos-next-ic" aria-hidden="true">${esc(n.i)}</span><span class="grow"><small>Your next smart action</small><b>${esc(n.t)}</b><em>Why: ${esc(n.w)}</em></span><span class="hos-go" aria-hidden="true">›</span></button>
     <div class="hos-rings">${hosRing(all.length ? done / all.length * 100 : 0, all.length ? `${done}/${all.length}` : "–", "tasks done", "#70e9b6")}
       ${hosRing(open ? (open - late) / open * 100 : 100, late ? `${late} late` : "on time", "schedule", late ? "#ff978f" : "#27d7ff")}
       ${hosRing(Math.min(100, items_ * 4), String(items_), "items tracked", "#facc15")}</div></section>`;
@@ -121,7 +121,7 @@ function homeDashHtml() {
   const soon = sp.reduce((n, s) => n + openTasks(s).filter(dueSoon).length, 0);
   const tile = (v, l, sub) => `<div class="home-stat"><b>${v}</b><span>${l}</span>${sub ? `<small>${sub}</small>` : ""}</div>`;
   const up = homeUpcoming(3);
-  const upHtml = up.length ? up.map(({ sp: s, t }) => `<button class="row home-up" data-hspace="${s.id}" data-htabgo="tasks"><span class="ci">${s.icon}</span><div class="grow"><b>${esc(t.title)}</b><span class="sub">${esc(s.name)}</span></div>
+  const upHtml = up.length ? up.map(({ sp: s, t }) => `<button class="row home-up" data-hspace="${s.id}" data-htabgo="tasks"><span class="ci">${esc(s.icon)}</span><div class="grow"><b>${esc(t.title)}</b><span class="sub">${esc(s.name)}</span></div>
       <span class="pill ${t.due < today() ? "late" : dueSoon(t) ? "soon" : ""}">${dueText(t.due)}</span></button>`).join("")
     : `<p class="fine" style="margin:0">No tasks with a date yet. Open any room and add one — like “Change HVAC air filter”.</p>`;
   const typeName = (HOME_TYPES.find(t => t[0] === h.type) || [, "🏡 My home"])[1];
@@ -136,7 +136,7 @@ function homeAreaHtml(area, label) {
   return `<section class="card home-area" data-harea="${area}"><h3><span class="ci">${label.split(" ")[0]}</span>${label.replace(/^\S+\s/, "")}<span class="meta">${list.length}</span></h3>
     <div class="body"><div class="home-grid">${list.map(s => {
       const o = openTasks(s), late = o.some(t => t.due && t.due < today());
-      return `<button class="home-space" data-hspace="${s.id}"><span class="hs-ic">${s.icon}</span><b>${esc(s.name)}</b>
+      return `<button class="home-space" data-hspace="${s.id}"><span class="hs-ic">${esc(s.icon)}</span><b>${esc(s.name)}</b>
         <small>${s.items.length} item${s.items.length === 1 ? "" : "s"} · ${o.length} task${o.length === 1 ? "" : "s"}${late ? " · ⚠️" : ""}</small>${s.floor ? `<small>${esc(s.floor)}</small>` : ""}</button>`;
     }).join("")}<button class="home-space add" data-haddspace="${area}"><span class="hs-ic">＋</span><b>Add</b><small>${area === "systems" ? "a system" : area === "outdoor" ? "an outdoor space" : "a room"}</small></button></div></div></section>`;
 }
@@ -154,7 +154,7 @@ function showSpace(id, tab) {
   const el = homeSheet(); el.setAttribute("aria-label", sp.name);
   const tabs = `<nav class="seg home-tabs">${HOME_TABS.map(([k, i, l]) => `<button class="${HOME_TAB === k ? "on" : ""}" data-htab="${k}">${i} ${l}</button>`).join("")}</nav>`;
   el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
-    <div class="sheet-head"><h2>${sp.icon} ${esc(sp.name)}</h2><button class="icon-btn" data-hclose="1" aria-label="Close">✕</button></div>
+    <div class="sheet-head"><h2>${esc(sp.icon)} ${esc(sp.name)}</h2><button class="icon-btn" data-hclose="1" aria-label="Close">✕</button></div>
     <p class="sub" style="margin-top:-6px">${(HOME_AREAS.find(a => a[0] === sp.area) || [, ""])[1]}${sp.floor ? ` · ${esc(sp.floor)}` : ""}</p>
     ${tabs}<div class="home-pane">${spacePane(sp)}</div></div>`;
   el.classList.remove("hidden");
@@ -168,7 +168,7 @@ function spacePane(sp) {
   if (HOME_TAB === "tasks") {
     const o = openTasks(sp).slice().sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999")), done = sp.tasks.filter(t => t.done).slice(-5).reverse();
     return `${o.length ? o.map(t => `<div class="row"><button class="check" data-hdone="${t.id}" aria-label="Done">○</button><div class="grow"><b>${esc(t.title)}</b>
-        <span class="sub">${t.due ? `Due ${dueText(t.due)}` : "No date"}${t.every ? ` · every ${t.every === 1 ? "month" : `${t.every} months`}` : ""}</span></div>
+        <span class="sub">${t.due ? `Due ${dueText(t.due)}` : "No date"}${t.every ? ` · every ${t.every === 1 ? "month" : `${esc(t.every)} months`}` : ""}</span></div>
         <button class="icon-btn" data-hdel="task:${t.id}" aria-label="Remove">✕</button></div>`).join("")
       : `<p class="fine">No open tasks. Add maintenance, cleaning or a repair to remember.</p>`}
       <form class="qa-form" data-htask="${sp.id}"><input name="title" placeholder="Task, e.g. Clean dishwasher filter" required>

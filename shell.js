@@ -160,7 +160,7 @@ function exploreHtml(cardHtml) {
   if (!trCruise(curTrip())) return tripExploreHtml() + SHELL_CARDS.explore.map(k => cardHtml(k)).join("");   // v0.97 Trip Hub
   const tr = curTrip(), ports = tr ? (tr.ports || []).slice().sort((a, b) => a.day.localeCompare(b.day)) : [];
   if (tr) ensurePortWx(tr);
-  const portCards = ports.map(pt => `<button class="port-card" data-tlday="${pt.day}"><b>${typeof portGuide === "function" && portGuide(pt.name) ? portGuide(pt.name).flag : "⚓"} ${esc(pt.name)}</b>
+  const portCards = ports.map(pt => `<button class="port-card" data-tlday="${esc(pt.day)}"><b>${typeof portGuide === "function" && portGuide(pt.name) ? portGuide(pt.name).flag : "⚓"} ${esc(pt.name)}</b>
       <span class="sub">${dayName(pt.day)} ${prettyDate(pt.day)}${pt.allAboard ? ` · all aboard ${hm(aaLocal(pt))}` : ""}</span>
       ${portWxText(pt) ? `<span class="sub">${portWxText(pt)}</span>` : ""}${pt.excursion && pt.excursion.toLowerCase() !== "none" ? `<span class="sub">🤿 ${esc(pt.excursion)}</span>` : ""}</button>`).join("");
   return `<section class="card"><h3>🏝️ My ports</h3><div class="body">${portCards || `<div class="empty">Add your port days (Plan → your cruise → 🗺️ Ports) and they show up here with weather and all-aboard times.</div>`}</div></section>
@@ -243,14 +243,14 @@ function timelineHtml() {
   const sd = daysUntil(tr.start), R = readiness(tr), end = tr.end || tr.start, rows = [];
   if (sd > 0) rows.push(`<button class="tl-row before" data-cd="open"><span class="tl-ic">🧳</span><span class="grow"><b>Before you ${trCruise(tr) ? "sail" : "go"}</b>
       <span class="sub">${sd} day${sd === 1 ? "" : "s"} to go · ${R.pct}% ready${R.next ? ` · next: ${esc(R.next.action.replace(/\s*\([^)]*\)/g, ""))}` : ""}</span></span><span class="chev">›</span></button>`);
-  for (let d = tr.start, n = 1; d <= end; d = addDays(d, 1), n++) {
+  for (let d = tr.start, n = 1; d <= end && n <= 400; d = addDays(d, 1), n++) {
     const k = dayKind(tr, d), pt = k.pt, past = d < today(), now = d === today();
     const bits = pt ? [pt.arrive && `in ${hm(pt.arrive)}`, pt.allAboard && `all aboard ${hm(aaLocal(pt))}`, pt.excursion && pt.excursion.toLowerCase() !== "none" && `🤿 ${esc(pt.excursion)}`, typeof portRealityBit === "function" && portRealityBit(pt), portWxText(pt)].filter(Boolean)
       : d === tr.start ? [trCruise(tr) && tr.ship && `board ${esc(tr.ship)}`].filter(Boolean) : d === end ? ["getting home"] : [];
     if (typeof bookingBits === "function") bits.push(...bookingBits(tr, d).map(esc));   // v0.98 ✈️ 7:05 AM · 🏨 check-in
     if (typeof funBits === "function") bits.push(...funBits(tr, d));   // v1.04
     if (typeof tripDiary === "function" && diaryHas(tripDiary(tr)[d])) bits.push(`📔 ${esc(tripDiary(tr)[d].mood || "written")}`);   // v1.01
-    rows.push(`<button class="tl-row ${past ? "past" : ""} ${now ? "now" : ""}" data-tlday="${d}"><span class="tl-ic">${k.icon}</span><span class="grow">
+    rows.push(`<button class="tl-row ${past ? "past" : ""} ${now ? "now" : ""}" data-tlday="${esc(d)}"><span class="tl-ic">${k.icon}</span><span class="grow">
         <b>${esc(k.title)}</b>${now ? ` <span class="pill">TODAY</span>` : ""}<span class="sub">Day ${n} · ${dayName(d)} ${prettyDate(d)}${bits.length ? " · " + bits.join(" · ") : ""}</span></span><span class="chev">›</span></button>`);
   }
   return `<section class="card timeline"><h3>🗺️ Your ${trCruise(tr) ? "cruise" : "trip"}, day by day</h3><div class="body">${rows.join("")}</div></section>`;
@@ -258,7 +258,7 @@ function timelineHtml() {
 function reservationsHtml() {
   const tr = curTrip(); if (!tr) return `<div class="empty">Plan a ${TW} first.</div>`;
   const ex = (tr.ports || []).filter(p => p.excursion && p.excursion.toLowerCase() !== "none").sort((a, b) => a.day.localeCompare(b.day));
-  const plans = []; if (tr.start) for (let d = addDays(tr.start, -3); d <= addDays(tr.end || tr.start, 1); d = addDays(d, 1))
+  const plans = []; if (tr.start) for (let d = addDays(tr.start, -3), i = 0; d <= addDays(tr.end || tr.start, 1) && i < 400; d = addDays(d, 1), i++)
     dayItems(d).filter(x => ["event", "g"].includes(x.kind)).forEach(x => plans.push({ d, x }));
   const books = (tr.costs || []).filter(c => !c.bk && ["hotel", "parking", "travel", "excursion", "package"].includes(c.cat));   // v0.98 a booking's own cost is listed with it above
   const row = (ic, title, sub) => `<div class="row"><span class="grow">${ic} <b>${esc(title)}</b><span class="sub">${sub}</span></span></div>`;
@@ -305,8 +305,8 @@ function showDay(d) {
     ${typeof funDayHtml === "function" ? funDayHtml(tr, d) : ""}
     ${typeof diaryDayHtml === "function" ? diaryDayHtml(tr, d) : ""}
     <div class="foot-actions" style="flex-wrap:wrap;margin-top:10px">
-      ${!trCruise(tr) ? "" : pt ? `<button class="btn sm ghost" data-portedit="${pt.id}">✏️ Edit this port</button>` : d !== tr.start && d !== (tr.end || tr.start) ? `<button class="btn sm ghost" data-portadd="${d}">⚓ It's a port day</button>` : ""}
-      <button class="btn sm ghost" data-dayplan="${d}">＋ Add a plan this day</button>
+      ${!trCruise(tr) ? "" : pt ? `<button class="btn sm ghost" data-portedit="${pt.id}">✏️ Edit this port</button>` : d !== tr.start && d !== (tr.end || tr.start) ? `<button class="btn sm ghost" data-portadd="${esc(d)}">⚓ It's a port day</button>` : ""}
+      <button class="btn sm ghost" data-dayplan="${esc(d)}">＋ Add a plan this day</button>
       ${d === today() && guardFor(tr) ? `<button class="btn sm" data-rg="open">🚢 Return Guard</button>` : ""}</div></div>`;
   el.classList.remove("hidden");
 }
@@ -356,5 +356,5 @@ function hosOrbit(center, items) {
   const n = items.length;
   return `<div class="hos-orbit">${center}${items.map((it, i) => { const a = (-90 + i * 360 / n) * Math.PI / 180;
     return `<button class="hos-bub" ${it.attr} style="left:${(50 + 38 * Math.cos(a)).toFixed(1)}%;top:${(50 + 38 * Math.sin(a)).toFixed(1)}%;--tone:${it.tone};--d:${(i * 0.37).toFixed(2)}s" aria-label="${esc(it.label)}${it.val ? ": " + esc(it.val) : ""}">
-      <span class="hos-ic" aria-hidden="true">${it.icon}</span><b>${esc(it.label)}</b>${it.val ? `<small>${esc(it.val)}</small>` : ""}${it.badge ? `<i class="hos-badge">${esc(it.badge)}</i>` : ""}</button>`; }).join("")}</div>`;
+      <span class="hos-ic" aria-hidden="true">${esc(it.icon)}</span><b>${esc(it.label)}</b>${it.val ? `<small>${esc(it.val)}</small>` : ""}${it.badge ? `<i class="hos-badge">${esc(it.badge)}</i>` : ""}</button>`; }).join("")}</div>`;
 }

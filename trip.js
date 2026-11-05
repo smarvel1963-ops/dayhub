@@ -467,8 +467,8 @@ function diaryDayHtml(tr, d) {
   if (d > today()) return `<div class="day-label" style="margin-top:10px">📔 Our day</div><div class="today-line sub">Write about this day once it's happened.</div>`;
   const e = tripDiary(tr)[d] || {};
   return `<div class="day-label" style="margin-top:10px">📔 Our day</div>
-    <div class="diary-moods" role="group" aria-label="How was the day?">${DIARY_MOODS.map(([m, l]) => `<button class="mood ${e.mood === m ? "on" : ""}" data-diarymood="${tr.id}|${d}|${m}" aria-label="${l}" title="${l}">${m}</button>`).join("")}</div>
-    <form class="qa-form" data-diary="${tr.id}|${d}">
+    <div class="diary-moods" role="group" aria-label="How was the day?">${DIARY_MOODS.map(([m, l]) => `<button class="mood ${e.mood === m ? "on" : ""}" data-diarymood="${tr.id}|${esc(d)}|${m}" aria-label="${l}" title="${l}">${m}</button>`).join("")}</div>
+    <form class="qa-form" data-diary="${tr.id}|${esc(d)}">
       <textarea name="text" rows="3" placeholder="What did we do? Who did we meet? What did we eat?">${esc(e.text || "")}</textarea>
       <input name="best" placeholder="Best moment of the day" value="${esc(e.best || "")}" autocomplete="off">
       <button class="btn sm">${diaryHas(e) ? "Save" : "Save to the diary"}</button></form>`;
@@ -497,7 +497,7 @@ function tripDiaryHtml() {
   if (!tr.start) return `<section class="card">${head}<div class="body"><div class="today-line sub">Add your dates first — then each day gets a page.</div></div></section>`;
   const D = tripDiary(tr), days = diaryDays(tr), len = tripLen(tr), started = tr.start <= today(), fav = days.filter(d => D[d].mood === "😍").length;
   const rows = days.map(d => { const e = D[d], k = dayKind(tr, d);
-    return `<button class="rn-row diary-row" data-tlday="${d}"><span class="tl-ic">${e.mood || k.icon}</span><span class="grow"><b>Day ${diaryDayNo(tr, d)} · ${esc(k.title)}</b>
+    return `<button class="rn-row diary-row" data-tlday="${esc(d)}"><span class="tl-ic">${esc(e.mood || k.icon)}</span><span class="grow"><b>Day ${diaryDayNo(tr, d)} · ${esc(k.title)}</b>
       <span class="sub">${dayName(d)} ${prettyDate(d)}</span>${e.text ? `<span class="diary-text">${esc(e.text)}</span>` : ""}${e.best ? `<span class="sub">⭐ ${esc(e.best)}</span>` : ""}</span><span class="chev">›</span></button>`; });
   const todayOpen = started && today() <= (tr.end || tr.start) && !diaryHas(D[today()]);
   return `<section class="card">${head}<div class="body">
@@ -575,7 +575,7 @@ function funDayHtml(tr, d) {
   const F = funPlan(tr, d), inPlan = new Set(F.plan.map(f => f.id)), back = new Map(F.backups.map(([f, hit]) => [f.id, hit]));
   const chip = (f, k, ic, l) => `<button class="funpick ${f.pick === k ? "on" : ""}" data-funpick="${tr.id}|${f.id}|${k}" aria-label="${l}" title="${l}">${ic}</button>`;
   const rows = F.all.concat(tripFun(tr).filter(f => f.day === d && !f.t)).map(f => {
-    const note = f.pick === "skip" ? "skipped" : inPlan.has(f.id) ? "in your day" : back.has(f.id) ? `backup — clashes with ${back.get(f.id).title}` : "";
+    const note = f.pick === "skip" ? "skipped" : inPlan.has(f.id) ? "in your day" : back.has(f.id) ? `backup — clashes with ${esc(back.get(f.id).title)}` : "";
     return `<div class="row fun-row ${f.pick === "skip" ? "done" : ""}"><span class="time">${f.t ? hm(f.t) : ""}</span><span class="grow">${esc(f.title)}
       <span class="sub">${[f.end && `till ${hm(f.end)}`, f.where && esc(f.where), note].filter(Boolean).join(" · ")}</span></span>
       ${FUN_PICKS.map(([k, ic, l]) => chip(f, k, ic, l)).join("")}<button class="x" data-fundel="${tr.id}|${f.id}" aria-label="Remove">✕</button></div>`; });
@@ -584,7 +584,7 @@ function funDayHtml(tr, d) {
   return `<div class="day-label" style="margin-top:10px">🎉 Fun Finder</div>
     ${warn.join("")}
     ${rows.length ? rows.join("") : `<div class="today-line sub">Add what's on ${trCruise(tr) ? "the ship's daily planner" : "the day"} — shows, trivia, dinner, the pool party — then tap ❤️ must see, 👍 interested or — skip. Your day builds itself around the ❤️.</div>`}
-    <form class="qa-form fun-add" data-fun="${tr.id}|${d}">
+    <form class="qa-form fun-add" data-fun="${tr.id}|${esc(d)}">
       <input name="title" placeholder="${trCruise(tr) ? "Show, trivia, dinner…" : "Activity, tour, dinner…"}" required autocomplete="off">
       <div class="two"><label class="field" style="margin:0">Starts<input name="t" type="time" required></label><label class="field" style="margin:0">Ends (optional)<input name="end" type="time"></label></div>
       <div class="two"><input name="where" placeholder="Where (deck, venue)" autocomplete="off">
@@ -650,7 +650,7 @@ function showWrap() {
   if (tr.start) for (let d = tr.start, n = 1; d <= (tr.end || tr.start) && n < 400; d = addDays(d, 1), n++) {
     const e = D[d] || {}, k = dayKind(tr, d), musts = wrapMusts(tr, d);
     if (!diaryHas(e) && !musts.length) continue;
-    dayRows.push(`<div class="wrap-day"><div class="wrap-dh">${e.mood || k.icon} <b>Day ${n} · ${esc(k.title)}</b> <span class="sub" style="display:inline">${dayName(d)} ${prettyDate(d)}</span></div>
+    dayRows.push(`<div class="wrap-day"><div class="wrap-dh">${esc(e.mood || k.icon)} <b>Day ${n} · ${esc(k.title)}</b> <span class="sub" style="display:inline">${dayName(d)} ${prettyDate(d)}</span></div>
       ${e.text ? `<div class="diary-text">${esc(e.text)}</div>` : ""}${e.best ? `<div class="sub">⭐ ${esc(e.best)}</div>` : ""}
       ${musts.length ? `<div class="sub">❤️ ${musts.map(f => esc(f.title)).join(" · ")}</div>` : ""}</div>`); }
   const best = W.days.map(d => D[d].best).filter(Boolean);
@@ -660,7 +660,7 @@ function showWrap() {
   const BK = { flight: "✈️", hotel: "🏨", car: "🚗", train: "🚆", ticket: "🎟️", dinner: "🍽️" };
   el.innerHTML = `<div class="sheet-body wrap-body"><div class="grab no-print"></div>
     <div class="sheet-head"><h2>🎞️ ${esc(tr.name)}</h2><button class="icon-btn no-print" data-wrapclose="1" aria-label="Close">✕</button></div>
-    <p class="fine" style="margin-top:0">${[tr.ship && esc(tr.ship), !W.cruise && tr.port && esc(placeName(tr.port)), tr.start && `${prettyDate(tr.start)}${tr.end && tr.end !== tr.start ? ` – ${prettyDate(tr.end)}` : ""}`, Number(tr.travelers) > 1 && `${tr.travelers} of you`].filter(Boolean).join(" · ")}</p>
+    <p class="fine" style="margin-top:0">${[tr.ship && esc(tr.ship), !W.cruise && tr.port && esc(placeName(tr.port)), tr.start && `${prettyDate(tr.start)}${tr.end && tr.end !== tr.start ? ` – ${prettyDate(tr.end)}` : ""}`, Number(tr.travelers) > 1 && `${esc(tr.travelers)} of you`].filter(Boolean).join(" · ")}</p>
     <div class="wrap-stats">${stats.join("")}</div>
     ${W.cruise && W.ports.length ? `<div class="today-line">⚓ ${W.ports.slice().sort((a, b) => a.day.localeCompare(b.day)).map(p => esc(p.name)).join(" → ")}</div>` : ""}
     ${Object.keys(W.kinds).length ? `<div class="today-line">${Object.entries(W.kinds).map(([k, c]) => `${BK[k] || "🎟️"} ${c}`).join(" · ")}</div>` : ""}
@@ -905,7 +905,7 @@ function splitMath(tr) {
   const cr = rows.filter(r => r.net > 0.004).map(r => ({ ...r })), db = rows.filter(r => r.net < -0.004).map(r => ({ ...r, net: -r.net })), pay = [];
   const big = (a, b) => b.net - a.net;
   cr.sort(big); db.sort(big);
-  while (cr.length && db.length) {
+  for (let g = 0; cr.length && db.length && g < 1000; g++) {
     const c = cr[0], d = db[0], amt = cents(Math.min(c.net, d.net));
     if (amt > 0) pay.push({ from: d.name, to: c.name, amt });
     c.net = cents(c.net - amt); d.net = cents(d.net - amt);
@@ -1132,7 +1132,7 @@ function drivePlan(tr, dv) {
   const V = vehicleOf(tr), mins = Number(dv.mins) || 0, miles = Number(dv.miles) || 0, mph = mins ? miles / (mins / 60) : 0;
   const stops = []; let clock = 0, driven = 0, sinceBreak = 0, sinceFuel = 0, ate = new Set();
   const fuelEvery = V.range ? V.range * (1 - DRIVE_RESERVE) : 0;
-  while (driven < mins - 1) {
+  while (driven < mins - 1 && stops.length < 400) {
     // drive until the next thing that needs a stop: 2 h since a break, the tank, or the end
     let leg = Math.min(DRIVE_BREAK_EVERY - sinceBreak, mins - driven);
     if (fuelEvery && mph) leg = Math.min(leg, Math.max(1, Math.round((fuelEvery - sinceFuel) / mph * 60)));
@@ -1180,7 +1180,7 @@ function driveDayHtml(tr, d) {
       return `<button class="rn-row" data-driveopen="${tr.id}|${dv.id}"><span>🚗</span><span class="grow">${esc(dv.from || "?")} → ${esc(dv.to || "?")}
         <span class="sub">${dv.t ? `leave ${hm(dv.t)} · arrive about ${hm(P.arrive)}${P.plusDays ? " next day" : ""} · ` : ""}${P.stops.length} stop${P.stops.length === 1 ? "" : "s"}${P.cost ? ` · ⛽ about ${money(P.cost)}` : ""}</span></span><span class="chev">›</span></button>`; }).join("")}
     ${D.length ? "" : `<details class="drive-box"><summary>Driving today? Plan the breaks, food + fuel</summary>`}
-    <form class="qa-form drive-add" data-drive="${tr.id}|${d}">
+    <form class="qa-form drive-add" data-drive="${tr.id}|${esc(d)}">
       <div class="two"><input name="from" placeholder="From" required autocomplete="off"><input name="to" placeholder="To" required autocomplete="off"></div>
       <div class="two"><label class="field" style="margin:0">Leave at<input name="t" type="time" value="08:00" required></label><input name="miles" type="number" min="1" max="3000" inputmode="numeric" placeholder="Miles" required></div>
       <div class="two"><input name="h" type="number" min="0" max="48" inputmode="numeric" placeholder="Drive hours" required><input name="m" type="number" min="0" max="59" inputmode="numeric" placeholder="+ minutes"></div>
@@ -1195,7 +1195,7 @@ function showDrive(key) {
   const row = (t, ic, l, sub) => `<div class="row"><span class="time">${t ? hm(t) : ""}</span><span class="grow">${ic} ${l}${sub ? `<span class="sub">${sub}</span>` : ""}</span></div>`;
   el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
     <div class="sheet-head"><h2>🚗 ${esc(dv.from)} → ${esc(dv.to)}</h2><button class="icon-btn" data-driveclose="1" aria-label="Close">✕</button></div>
-    <p class="fine" style="margin-top:0">${dayName(dv.day)} ${prettyDate(dv.day)} · ${dv.miles} mi · ${Math.floor(dv.mins / 60)} h ${dv.mins % 60} min of driving · ${Math.floor(P.total / 60)} h ${P.total % 60} min door to door</p>
+    <p class="fine" style="margin-top:0">${dayName(dv.day)} ${prettyDate(dv.day)} · ${esc(dv.miles)} mi · ${Math.floor(dv.mins / 60)} h ${dv.mins % 60} min of driving · ${Math.floor(P.total / 60)} h ${P.total % 60} min door to door</p>
     ${row(dv.t, "🚗", "Leave", esc(dv.from))}
     ${P.stops.map(s => row(s.t, "", stopWords(s), `about mile ${s.mile} · ${s.len} min`)).join("")}
     ${row(P.arrive, "🏁", `Arrive${P.plusDays ? " (next day)" : ""}`, esc(dv.to))}
@@ -1277,11 +1277,11 @@ function freeDayHtml(tr, d) {
   return `<div class="day-label" style="margin-top:10px">⏳ Free time</div>
     ${G.length ? G.map(g => { const I = gapIdeas(tr, g);
       return `<div class="free-gap"><div class="today-line"><b>${hm(g.t)}–${hm(g.end)}</b> · ${durWords(g.mins)} free${g.before ? ` — before ${esc(g.before)}` : ""}</div>
-        ${I.map(w => `<button class="rn-row" data-freeadd="${tr.id}|${d}|${g.t}|${w.id}"><span>👉</span><span class="grow">${esc(w.title)}<span class="sub">${durWords(Number(w.mins))}${w.where ? " · " + esc(w.where) : ""} · tap to add at ${hm(g.t)}</span></span><span class="chev">＋</span></button>`).join("")}</div>`; }).join("")
+        ${I.map(w => `<button class="rn-row" data-freeadd="${tr.id}|${esc(d)}|${g.t}|${w.id}"><span>👉</span><span class="grow">${esc(w.title)}<span class="sub">${durWords(Number(w.mins))}${w.where ? " · " + esc(w.where) : ""} · tap to add at ${hm(g.t)}</span></span><span class="chev">＋</span></button>`).join("")}</div>`; }).join("")
       : `<div class="today-line sub">No open time left — a full day.</div>`}
     <details class="wish-box" ${W.length && !WISH_OPEN ? "" : "open"}><summary>💭 We'd like to do… (${W.length})</summary>
-      ${W.slice().sort(voteRank).map(w => `<div class="row"><span class="grow">${esc(w.title)}<span class="sub">${voteScore(w) ? `🗳️ ${voteScore(w) > 0 ? "+" : ""}${voteScore(w)} · ` : ""}${durWords(Number(w.mins))}${w.where ? " · " + esc(w.where) : ""}</span></span><button class="x" data-wishdel="${tr.id}|${w.id}|${d}" aria-label="Remove">✕</button></div>`).join("")}
-      <form class="qa-form wish-add" data-wish="${tr.id}|${d}"><input name="title" placeholder="Mini golf, the outlet mall, the pool…" required autocomplete="off">
+      ${W.slice().sort(voteRank).map(w => `<div class="row"><span class="grow">${esc(w.title)}<span class="sub">${voteScore(w) ? `🗳️ ${voteScore(w) > 0 ? "+" : ""}${voteScore(w)} · ` : ""}${durWords(Number(w.mins))}${w.where ? " · " + esc(w.where) : ""}</span></span><button class="x" data-wishdel="${tr.id}|${w.id}|${esc(d)}" aria-label="Remove">✕</button></div>`).join("")}
+      <form class="qa-form wish-add" data-wish="${tr.id}|${esc(d)}"><input name="title" placeholder="Mini golf, the outlet mall, the pool…" required autocomplete="off">
         <div class="two"><select name="mins" aria-label="About how long">${[[30, "30 min"], [60, "1 hour"], [90, "1½ hours"], [120, "2 hours"], [180, "3 hours"], [240, "half a day"]].map(([m, l]) => `<option value="${m}" ${m === 60 ? "selected" : ""}>${l}</option>`).join("")}</select>
         <input name="where" placeholder="Where (optional)" autocomplete="off"></div><button class="btn sm">＋ Add idea</button></form>
       ${W.length >= 2 ? `<button class="btn sm ghost" data-voteopen="${tr.id}">🗳️ Vote — what should we do?</button>` : ""}
@@ -1535,7 +1535,7 @@ function tripBriefParts(t = today()) {
 function tomorrowReminders(add, inWin) {
   myTrips().forEach(tr => {
     if (!tr.start) return;
-    for (let d = tr.start; d <= (tr.end || tr.start); d = addDays(d, 1)) {
+    for (let d = tr.start, n = 0; d <= (tr.end || tr.start) && n < 400; d = addDays(d, 1), n++) {
       const eve = addDays(d, -1); if (!inWin(eve)) continue;
       const T = tripDayTimed(tr, d).slice(0, 3); if (!T.length) continue;
       add(`tb:${tr.id}:${d}`, atMs(eve, "23:59"), atMs(eve, "20:00"), `🌙 Tomorrow: ${hm(T[0].t)} ${T[0].title}`,

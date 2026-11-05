@@ -23,13 +23,13 @@ const CARDS = {
       for (const i of items) {
         if (!nowDone && i.t && i.t > t) { rows.push(`<div class="now-line"><span>${hm(t)}</span></div>`); nowDone = true; }
         const past = isToday && i.t && i.t < t;
-        const ctrl = i.tick ? `<input type="checkbox" class="tick" data-tickl="${i.tick}" ${i.done ? "checked" : ""} aria-label="Done">`
-                   : i.del ? `<button class="x" data-del="${i.del}" aria-label="Remove">✕</button>` : "";
+        const ctrl = i.tick ? `<input type="checkbox" class="tick" data-tickl="${esc(i.tick)}" ${i.done ? "checked" : ""} aria-label="Done">`
+                   : i.del ? `<button class="x" data-del="${esc(i.del)}" aria-label="Remove">✕</button>` : "";
         rows.push(`<div class="ti k-${i.kind} ${past ? "past" : ""} ${i.done ? "done" : ""}">
           <div class="tt">${i.t ? hm(i.t) : "All day"}${i.end ? `<small>${hm(i.end)}</small>` : ""}</div>
           <div class="dot"></div>
           <div class="tc"><div class="tn">${i.icon} ${esc(i.title)}${i.kind === "g" ? ` <span class="gbadge">Google</span>` : ""}</div>
-            ${i.sub ? `<div class="ts">${esc(i.sub)}</div>` : ""}</div><span class="ctl">${i.cal ? `<button class="x" data-ics="${i.cal}" aria-label="Add to phone calendar">📲</button>` : ""}${ctrl}</span></div>`);
+            ${i.sub ? `<div class="ts">${esc(i.sub)}</div>` : ""}</div><span class="ctl">${i.cal ? `<button class="x" data-ics="${esc(i.cal)}" aria-label="Add to phone calendar">📲</button>` : ""}${ctrl}</span></div>`);
       }
       if (!nowDone) rows.push(`<div class="now-line"><span>${hm(t)}</span></div>`);
       return html + `<div class="tl">${rows.join("")}</div>`;
@@ -83,11 +83,11 @@ const CARDS = {
         ? `<div class="paygrid"><div class="fact">Hours<b>${fmtH(p.hrs)}</b>${p.ot ? `<small>${fmtH(p.ot)} overtime</small>` : ""}</div>
              <div class="fact">Gross<b>${money(p.gross)}</b></div>
              <div class="fact take">Take-home*<b>${money(p.net)}</b></div></div>
-           <div class="fine" style="margin-top:6px">*Rough: ${money(W.rate)}/hr, overtime after ${W.otAfter}h at 1.5x, minus ${W.taxPct}% for taxes.
+           <div class="fine" style="margin-top:6px">*Rough: ${money(W.rate)}/hr, overtime after ${esc(W.otAfter)}h at 1.5x, minus ${esc(W.taxPct)}% for taxes.
              Last ${two ? "period" : "week"}: ${fmtH(last.hrs)} · ~${money(last.net)}. <button class="add-link" style="padding:0" data-qa="pay">Change pay</button></div>`
         : `<button class="btn sm ghost" data-qa="pay" style="margin-top:10px">Set your hourly pay to see take-home</button>`;
       const rows = p.shifts.map(x => `<div class="row"><span class="time">${parseDay(x.day).toLocaleDateString([], two ? { weekday: "short", month: "numeric", day: "numeric" } : { weekday: "short" })}</span>
-          <span class="grow">${hm(x.start)} – ${hm(x.end)}${Number(x.brk) ? `<span class="sub">${x.brk} min break</span>` : ""}</span>
+          <span class="grow">${hm(x.start)} – ${hm(x.end)}${Number(x.brk) ? `<span class="sub">${esc(x.brk)} min break</span>` : ""}</span>
           <b>${fmtH(shiftHours(x))}</b><button class="x" data-del="work.shifts:${x.id}" aria-label="Remove">✕</button></div>`).join("");
       return clock + pay + (rows ? `<div class="day-label" style="margin-top:14px">${two ? `Pay period · ${prettyDate(p.start)} – ${prettyDate(p.end)}` : "This week"}</div>${rows}` : "");
     } },
@@ -107,7 +107,7 @@ const CARDS = {
         <span class="grow">${esc(x.what || "Spending")}</span><b>${money(x.amt)}</b><button class="x" data-del="money.spends:${x.id}" aria-label="Remove">✕</button></div>`).join("");
       return line + `<div class="paygrid"><div class="fact take">Take-home<b>${money(b.income)}</b></div><div class="fact">Bills<b>${money(b.bills)}</b></div>
           <div class="fact">Spent<b>${money(b.spent)}</b>${b.projSpend > b.spent + 0.5 ? `<small>~${money(b.projSpend)} by month end</small>` : ""}</div></div>
-        <div class="fine" style="margin-top:6px">${new Date().toLocaleDateString([], { month: "long" })} estimate: ${esc(b.how)}, minus ${S.work.taxPct}% for taxes.
+        <div class="fine" style="margin-top:6px">${new Date().toLocaleDateString([], { month: "long" })} estimate: ${esc(b.how)}, minus ${esc(S.work.taxPct)}% for taxes.
           <button class="add-link" style="padding:0" data-qa="pay">Change income</button></div>` +
         (rows ? `<div class="day-label" style="margin-top:12px">Recent spending</div>${rows}` : "");
     } },
@@ -180,7 +180,7 @@ const CARDS = {
       if (!f.length) return top + `<div class="empty">${S.mail.on ? "Nothing waiting. New cruise bookings, appointments, flights and deliveries show up here." : `Connect Gmail in ⚙ — use the email you book trips with — and ${APP_NAME} finds cruises, appointments, flights, reservations and packages in it.`}</div>`;
       return top + f.map(x => x.type === "cruise" ? (() => { const ad = cruiseAdds(x.cruise), c = x.cruise;
           return `<div class="row"><div class="grow">${esc(x.title)}${c.line ? ` <span class="tag">${esc(c.line)}</span>` : ""}
-            <span class="sub">${[c.start && `${prettyDate(c.start)}${c.end ? " – " + prettyDate(c.end) : ""}`, c.booking && `booking ${esc(c.booking)}`, esc(c.cabin || c.category || ""), c.ports && `${c.ports.length} ports`, c.finalDue && `final payment ${prettyDate(c.finalDue)}`].filter(Boolean).map(String).join(" · ")}
+            <span class="sub">${[c.start && `${prettyDate(c.start)}${c.end ? " – " + prettyDate(c.end) : ""}`, c.booking && `booking ${esc(c.booking)}`, esc(c.cabin || c.category || ""), c.ports && `${esc(c.ports.length)} ports`, c.finalDue && `final payment ${prettyDate(c.finalDue)}`].filter(Boolean).map(String).join(" · ")}
             ${ad ? ` · adds ${[...ad.add, ad.newPorts ? `${ad.newPorts} ports` : ""].filter(Boolean).join(", ")} to your trip` : ""}</span></div>
             <button class="btn sm" data-addfound="${esc(x.key)}">${ad ? "Update trip" : "Add trip"}</button><button class="x" data-dropfound="${esc(x.key)}" aria-label="Dismiss">✕</button></div>`; })()
         : `<div class="row"><div class="grow">${x.type === "package" ? "📦" : "📅"} ${esc(x.title)}
@@ -220,7 +220,7 @@ const CARDS = {
           R.items.map(i => `<div class="today-line">${i.score >= 1 ? "✅" : i.now ? "⚠️" : "⏳"} ${esc(i.label)}${i.score > 0 && i.score < 1 ? ` <span class="sub" style="display:inline">${Math.round(i.score * 100)}%</span>` : ""}</div>`).join("") +
           `<div class="fine" style="margin-top:6px">⚠️ = matters now · ⏳ = later — ${APP_NAME} brings it up when it's time.</div>`;
       } else if (tab === "ports") {
-        const days = []; if (tr.start) for (let d = tr.start; d <= (tr.end || tr.start); d = addDays(d, 1)) days.push(d);
+        const days = []; if (tr.start) for (let d = tr.start; d <= (tr.end || tr.start) && days.length < 400; d = addDays(d, 1)) days.push(d);
         ensurePortWx(tr);
         body = days.length ? days.map(d => { const pt = portOn(tr, d);
           const label = pt ? `⚓ <b>${esc(pt.name)}</b>` : d === tr.start ? `🚢 <b>Sail day</b> — ${esc(tr.port || "")}` : d === tr.end ? `🏠 <b>Back in port</b> — getting home` : "🌊 At sea";
@@ -231,7 +231,7 @@ const CARDS = {
           return `<div class="row"><span class="time">${parseDay(d).toLocaleDateString([], { weekday: "short", month: "numeric", day: "numeric" })}</span>
             <span class="grow">${label}${sub ? `<span class="sub">${sub}</span>` : ""}</span>
             ${pt ? `<button class="x" data-portedit="${pt.id}" aria-label="Edit">✏️</button><button class="x" data-tripdel="${tr.id}:ports:${pt.id}" aria-label="Remove">✕</button>`
-                 : d !== tr.start && d !== tr.end ? `<button class="btn sm ghost" data-portadd="${d}">＋ Port</button>` : ""}</div>`; }).join("")
+                 : d !== tr.start && d !== tr.end ? `<button class="btn sm ghost" data-portadd="${esc(d)}">＋ Port</button>` : ""}</div>`; }).join("")
           : `<div class="empty">Add the sailing dates (Edit) and every day shows up here.</div>`;
         body += `<div class="fine" style="margin-top:6px">⚓ ${APP_NAME} alarms you 60 and 30 minutes before all-aboard — the ship will not wait.</div>`;
       } else if (tab === "money") {
@@ -297,7 +297,7 @@ const CARDS = {
         if (isCruise(tr)) body += `<button class="add-link" data-upopen="1">🛏️ Offered an upgrade? Worth it?</button>`;   // v1.07
         body += `<div class="day-label" style="margin-top:12px">Use it before you lose it</div>` + ((tr.perks || []).length ? tr.perks.map(x => {
             const left = x.total ? x.total - x.used : null;
-            return `<div class="row"><span class="grow">${esc(x.name)}<span class="sub">${x.unit === "$" ? `${money(x.used)} used${x.total ? ` of ${money(x.total)}` : " — set the amount ✏️"}` : `${x.used} of ${x.total} used`}</span></span>
+            return `<div class="row"><span class="grow">${esc(x.name)}<span class="sub">${x.unit === "$" ? `${money(x.used)} used${x.total ? ` of ${money(x.total)}` : " — set the amount ✏️"}` : `${esc(x.used)} of ${esc(x.total)} used`}</span></span>
               ${left !== null && left > 0 ? `<span class="pill soon">${x.unit === "$" ? money(left) : left} left</span>` : x.total ? `<span class="pill">all used ✓</span>` : ""}
               <button class="btn sm ghost" data-perk="${tr.id}:${x.id}:1">${x.unit === "$" ? "Use $" : "＋1"}</button>
               <button class="x" data-perkedit="${tr.id}:${x.id}" aria-label="Set amount">✏️</button>
@@ -378,7 +378,7 @@ const CARDS = {
   future: { icon: "🔮", title: "Future me", add: ["future", "Note to future me"],
     meta: () => S.future.length ? `${S.future.length} saved` : "",
     body: () => S.future.length ? [...S.future].reverse().map(f => `<div class="row"><span class="grow">“${esc(f.text)}”
-        <span class="sub">${prettyDate(f.created.slice(0, 10))} · comes back ${f.day ? `on ${prettyDate(f.day)}` : ""}${f.day && f.words.length ? " or " : ""}${f.words.length ? `with: ${esc(f.words.join(", "))}` : ""}${f.seen ? ` · came back ${f.seen}×` : ""}</span></span>
+        <span class="sub">${prettyDate(f.created.slice(0, 10))} · comes back ${f.day ? `on ${prettyDate(f.day)}` : ""}${f.day && f.words.length ? " or " : ""}${f.words.length ? `with: ${esc(f.words.join(", "))}` : ""}${f.seen ? ` · came back ${esc(f.seen)}×` : ""}</span></span>
         <button class="x" data-futedit="${f.id}" aria-label="Edit">✏️</button></div>`).join("")
       : `<div class="empty">Save the WHY behind a decision — "Next time we travel, don't book a 6 AM flight" — and Day Hub brings it back the next time it matters.</div>` },
   errands: { icon: "🛍️", title: "Errand run",
@@ -1003,8 +1003,8 @@ function drawDump() {
       <div class="dump-line"><select data-dkind="${i}">${Object.keys(DUMP_KINDS).filter(k => dumpKindHere(k) === k).map(k => opt(k, dumpKindHere(x.kind))).join("")}</select>
         <button type="button" class="x" data-ddel="${i}" aria-label="Remove">✕</button></div>
       <input data-dtext="${i}" value="${esc(x.title)}" autocomplete="off">
-      ${x.kind === "event" ? `<div class="two"><input type="date" data-dday="${i}" value="${x.day || today()}"><input type="time" data-dtime="${i}" value="${x.time || "09:00"}"></div>
-        ${x.rep && x.rep !== "none" ? `<div class="sub">🔁 ${REPEATS[x.rep] || x.rep}</div>` : ""}` : ""}</div>`).join("");
+      ${x.kind === "event" ? `<div class="two"><input type="date" data-dday="${i}" value="${esc(x.day || today())}"><input type="time" data-dtime="${i}" value="${esc(x.time || "09:00")}"></div>
+        ${x.rep && x.rep !== "none" ? `<div class="sub">🔁 ${esc(REPEATS[x.rep] || x.rep)}</div>` : ""}` : ""}</div>`).join("");
   const b = document.querySelector("#qaForm > .btn:last-child"); if (b) b.textContent = `Add all (${DUMP.length})`;
 }
 async function dumpSort() {
@@ -1080,14 +1080,14 @@ function qaFields(type) {
       <div class="hint">Separate things with a comma or a pause. Nothing is added until you tap Add all.</div>
       <div id="dumpOut"></div>`,
     event: `<input name="title" placeholder="What's happening?" required autocomplete="off">
-      <div class="two"><input name="date" type="date" value="${d}" required><input name="time" type="time" required></div>
+      <div class="two"><input name="date" type="date" value="${esc(d)}" required><input name="time" type="time" required></div>
       <input name="where" placeholder="Where (optional)" autocomplete="off">${repSelect(true)}`,
     todo: `<input name="title" placeholder="What needs doing?" required autocomplete="off">${repSelect(false)}
       <div class="hint">Repeating to-dos come back unchecked on their days — meds, trash night, workouts.</div>`,
     loads: `<input name="title" placeholder="Pickup / delivery (e.g. PU Little Rock)" required autocomplete="off">
-      <div class="two"><input name="date" type="date" value="${d}" required><input name="time" type="time" required></div>`,
+      <div class="two"><input name="date" type="date" value="${esc(d)}" required><input name="time" type="time" required></div>`,
     jobs: `<input name="title" placeholder="Job + address" required autocomplete="off">
-      <div class="two"><input name="date" type="date" value="${d}" required><input name="time" type="time" required></div>`,
+      <div class="two"><input name="date" type="date" value="${esc(d)}" required><input name="time" type="time" required></div>`,
     item: `<select name="list">${S.lists.map(l => `<option value="${l.id}" ${l.id === S.listSel ? "selected" : ""}>${esc(l.name)}</option>`).join("")}</select>
       <input name="text" placeholder="Add an item" required autocomplete="off"><div class="hint">Stays open so you can add a few in a row.</div>`,
     bill: `<input name="title" placeholder="Bill name (e.g. Electric)" required autocomplete="off">
@@ -1120,7 +1120,7 @@ function qaFields(type) {
     tport: (() => { const tr = curTrip() || {}; const pt = (tr.ports || []).find(x => x.id === PORT_EDIT) || { day: PORT_DAY || tr.start };
       const v = k => esc(pt[k] ?? "");
       return `<input name="pname" placeholder="Port (e.g. Cozumel)" value="${v("name")}" required autocomplete="off">
-      <input name="pday" type="date" value="${v("day")}" min="${tr.start || ""}" max="${tr.end || ""}" required>
+      <input name="pday" type="date" value="${v("day")}" min="${esc(tr.start || "")}" max="${esc(tr.end || "")}" required>
       <div class="two"><label class="field" style="margin:0">Arrive<input name="arrive" type="time" value="${v("arrive")}"></label>
         <label class="field" style="margin:0"><b style="color:var(--orange)">All aboard</b><input name="allAboard" type="time" value="${v("allAboard")}"></label></div>
       <input name="excursion" placeholder="Excursion (or type none)" value="${v("excursion")}" autocomplete="off">
@@ -1139,8 +1139,8 @@ function qaFields(type) {
       <select name="punit"><option value="times">times</option><option value="$">dollars</option></select></div>`,
     tperkset: (() => { const tr = curTrip() || {}; const x = (tr.perks || []).find(y => y.id === PERK_EDIT) || {};
       return `<div class="today-line"><b>${esc(x.name || "")}</b></div>
-      <div class="two"><label class="field" style="margin:0">${x.unit === "$" ? "Credit $" : "Total"}<input name="ptotal" type="number" step="0.01" min="0" value="${x.total || ""}" required></label>
-      <label class="field" style="margin:0">${x.unit === "$" ? "Used $" : "Used"}<input name="pused" type="number" step="0.01" min="0" value="${x.used || 0}" required></label></div>`; })(),
+      <div class="two"><label class="field" style="margin:0">${x.unit === "$" ? "Credit $" : "Total"}<input name="ptotal" type="number" step="0.01" min="0" value="${esc(x.total || "")}" required></label>
+      <label class="field" style="margin:0">${x.unit === "$" ? "Used $" : "Used"}<input name="pused" type="number" step="0.01" min="0" value="${esc(x.used || 0)}" required></label></div>`; })(),
     tspend: `<div class="two"><input name="amt" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount $" required>
       <select name="cat">${ONBOARD_CATS.map(c => `<option>${c}</option>`).join("")}</select></div>
       <div class="two"><input name="date" type="date" value="${today()}" required><input name="note" placeholder="What (optional)" autocomplete="off"></div>`,
@@ -1154,7 +1154,7 @@ function qaFields(type) {
       const dv = p.md ? `${p.year || today().slice(0, 4)}-${p.md}` : "";
       return `<input name="name" placeholder="Whose? (e.g. Roxanne) or what date" value="${esc(p.name || "")}" required autocomplete="off">
       <div class="two"><select name="kind">${o("birthday", "🎂 Birthday", p.kind)}${o("anniversary", "💍 Anniversary", p.kind)}${o("other", "⭐ Other date", p.kind)}</select>
-        <input name="date" type="date" value="${dv}" required></div>
+        <input name="date" type="date" value="${esc(dv)}" required></div>
       <label class="check"><input type="checkbox" name="noyear" ${p.md && !p.year ? "checked" : ""}> I don't know the year</label>
       <label class="field">Gift reminder<select name="lead">${o(0, "Off", p.lead)}${o(7, "1 week before", p.lead)}${o(14, "2 weeks before", p.lead)}${o(21, "3 weeks before", p.lead)}${o(28, "4 weeks before", p.lead)}</select></label>
       <input name="ideas" placeholder="Gift ideas, sizes, favorites (optional)" value="${esc(p.ideas || "")}" autocomplete="off">
@@ -1162,7 +1162,7 @@ function qaFields(type) {
     future: (() => { const f = S.future.find(x => x.id === FUTURE_EDIT) || { text: "", words: [], day: "" };
       return `<textarea name="text" rows="3" required placeholder="What should future you remember — and why? e.g. Next time we travel, don't book a 6 AM flight. We were wrecked all day.">${esc(f.text)}</textarea>
         <label class="field">Bring it back when I add something about… (words, comma between)<input name="words" value="${esc(f.words.join(", "))}" placeholder="leave blank — ${APP_NAME} picks the words" autocomplete="off"></label>
-        <label class="field">…or on this day (optional)<input name="day" type="date" value="${f.day || ""}"></label>
+        <label class="field">…or on this day (optional)<input name="day" type="date" value="${esc(f.day || "")}"></label>
         ${FUTURE_EDIT ? `<button type="button" class="btn sm ghost" data-futdel="${FUTURE_EDIT}">Delete this note</button>` : ""}`; })(),
     return: `<input name="what" placeholder="What are you returning? (e.g. Boots — too small)" required autocomplete="off">
       <input name="store" placeholder="Store / site (Amazon, Target…)" autocomplete="off">
@@ -1171,7 +1171,7 @@ function qaFields(type) {
       <label class="field">How<select name="how">${Object.entries(RETURN_HOW).map(([k, v]) => `<option value="${k}">${v[0]} ${v[1]}</option>`).join("")}</select></label>
       <div class="hint">Most stores give 30 days from delivery — check the receipt or order page. ${APP_NAME} reminds you 3 days and 1 day before.</div>`,
     alarm: (() => { const a = S.alarms.find(x => x.id === ALARM_EDIT) || { time: "06:00", days: [1, 2, 3, 4, 5], label: "" };
-      return `<label class="field">Alarm time<input name="time" type="time" value="${a.time}" required></label>
+      return `<label class="field">Alarm time<input name="time" type="time" value="${esc(a.time)}" required></label>
         <div class="field">Which days?<div class="dow">${DOW.map((n, i) => `<label><input type="checkbox" name="d${i}" ${a.days.includes(i) ? "checked" : ""}>${n}</label>`).join("")}</div></div>
         <input name="label" placeholder="Label (optional — Work, Gym…)" value="${esc(a.label || "")}" autocomplete="off">
         <div class="hint">Set the same alarm in your phone's Clock app — ${APP_NAME} ${MODE === "day" ? "shows it on your schedule and in the Nightly reset" : "keeps it in ⚙ Settings"}. No days ticked = just tomorrow.</div>
@@ -1180,17 +1180,17 @@ function qaFields(type) {
       return `<input name="name" placeholder="Name (e.g. 🏋️ Gym day)" value="${esc(r.name)}" required autocomplete="off">
         <label class="field">Steps — one per line<textarea name="steps" rows="6" required placeholder="Fill water bottle&#10;Pack gym bag&#10;Protein shake">${esc(r.steps.map(x => x.text).join("\n"))}</textarea></label>
         <div class="field">Which days? (for a reminder)<div class="dow">${DOW.map((n, i) => `<label><input type="checkbox" name="d${i}" ${r.days.includes(i) ? "checked" : ""}>${n}</label>`).join("")}</div></div>
-        <label class="field">At<input name="time" type="time" value="${r.time || ""}"></label>
+        <label class="field">At<input name="time" type="time" value="${esc(r.time || "")}"></label>
         ${ROUTINE_EDIT ? `<button type="button" class="btn sm ghost" data-rdel="${ROUTINE_EDIT}">Delete this routine</button>` : ""}`; })(),
     upkeep: (() => { const x = S.upkeep.find(y => y.id === UPKEEP_EDIT) || (UPKEEP_PRESET ? { area: UPKEEP_PRESET[0], name: UPKEEP_PRESET[1][0], every: UPKEEP_PRESET[1][1], unit: UPKEEP_PRESET[1][2], auto: !!UPKEEP_PRESET[1][3] } : { area: "home", every: 3, unit: "months" });
       const o = (v, l, cur) => `<option value="${v}" ${String(v) === String(cur) ? "selected" : ""}>${l}</option>`;
       return `<div class="two"><select name="area">${o("home", "🏠 Home", x.area)}${o("auto", "🚗 Car", x.area)}</select>
           <input name="name" list="upList" placeholder="What? (e.g. HVAC filter)" value="${esc(x.name || "")}" required autocomplete="off"></div>
         <datalist id="upList">${[...UPKEEP_PRESETS.home, ...UPKEEP_PRESETS.auto].map(([n]) => `<option value="${esc(n)}">`).join("")}</datalist>
-        <div class="two"><label class="field">Every<input name="every" type="number" min="1" max="99" value="${x.every || 1}" required></label>
+        <div class="two"><label class="field">Every<input name="every" type="number" min="1" max="99" value="${esc(x.every || 1)}" required></label>
           <label class="field">&nbsp;<select name="unit">${["days", "weeks", "months", "years"].map(u => o(u, u, x.unit)).join("")}</select></label></div>
-        <label class="field">${x.auto ? "Next pickup day" : "Next due (or leave blank and set Last done)"}<input name="next" type="date" value="${x.next || (x.auto || !x.last ? (x.id ? upkeepNext(x) : "") : "")}"></label>
-        ${x.auto ? "" : `<label class="field">Last done<input name="last" type="date" value="${x.last || ""}"></label>`}
+        <label class="field">${x.auto ? "Next pickup day" : "Next due (or leave blank and set Last done)"}<input name="next" type="date" value="${esc(x.next || (x.auto || !x.last ? (x.id ? upkeepNext(x) : "") : ""))}"></label>
+        ${x.auto ? "" : `<label class="field">Last done<input name="last" type="date" value="${esc(x.last || "")}"></label>`}
         <label class="check"><input type="checkbox" name="auto" ${x.auto ? "checked" : ""}> Repeats on its own (like trash day) — no ✓ Done needed</label>
         ${UPKEEP_EDIT ? `<button type="button" class="btn sm ghost" data-updel="${UPKEEP_EDIT}">Delete</button>` : ""}`; })(),
     countdown: `<input name="title" placeholder="What are you counting down to?" required autocomplete="off">
@@ -1202,21 +1202,21 @@ function qaFields(type) {
       <input name="what" placeholder="What for (gas, groceries, eating out…)" autocomplete="off">
       <input name="date" type="date" value="${today()}" required>
       <div class="hint">Bills are already counted — log the day-to-day spending.</div>`,
-    shift: `<input name="date" type="date" value="${d}" required>
+    shift: `<input name="date" type="date" value="${esc(d)}" required>
       <div class="two"><label class="field" style="margin:0">Start<input name="start" type="time" required></label>
       <label class="field" style="margin:0">End<input name="end" type="time" required></label></div>
       <input name="brk" type="number" min="0" inputmode="numeric" placeholder="Unpaid break (minutes, optional)">`,
     pay: `<label class="field" style="margin:0">Paid by
         <select name="itype"><option value="hourly" ${S.money.type !== "salary" ? "selected" : ""}>The hour</option>
         <option value="salary" ${S.money.type === "salary" ? "selected" : ""}>Salary</option></select></label>
-      <label class="field" style="margin:0">Hourly pay ($) — hourly only<input name="rate" type="number" step="0.01" min="0" inputmode="decimal" value="${S.work.rate || ""}"></label>
-      <label class="field" style="margin:0">Yearly salary ($) — salary only<input name="salary" type="number" step="1" min="0" inputmode="decimal" value="${S.money.salary || ""}"></label>
-      <label class="field" style="margin:0">Taken out for taxes (%)<input name="tax" type="number" step="0.5" min="0" max="60" inputmode="decimal" value="${S.work.taxPct}" required></label>
-      <label class="field" style="margin:0">Overtime after (hours/week)<input name="ot" type="number" min="1" max="80" inputmode="numeric" value="${S.work.otAfter}" required></label>
+      <label class="field" style="margin:0">Hourly pay ($) — hourly only<input name="rate" type="number" step="0.01" min="0" inputmode="decimal" value="${esc(S.work.rate || "")}"></label>
+      <label class="field" style="margin:0">Yearly salary ($) — salary only<input name="salary" type="number" step="1" min="0" inputmode="decimal" value="${esc(S.money.salary || "")}"></label>
+      <label class="field" style="margin:0">Taken out for taxes (%)<input name="tax" type="number" step="0.5" min="0" max="60" inputmode="decimal" value="${esc(S.work.taxPct)}" required></label>
+      <label class="field" style="margin:0">Overtime after (hours/week)<input name="ot" type="number" min="1" max="80" inputmode="numeric" value="${esc(S.work.otAfter)}" required></label>
       <label class="field" style="margin:0">Paid
         <select name="period"><option value="weekly" ${S.work.period !== "biweekly" ? "selected" : ""}>Every week</option>
         <option value="biweekly" ${S.work.period === "biweekly" ? "selected" : ""}>Every 2 weeks</option></select></label>
-      <label class="field" style="margin:0">A pay period started on (for every 2 weeks)<input name="pstart" type="date" value="${S.work.periodStart || weekStart(today())}"></label>
+      <label class="field" style="margin:0">A pay period started on (for every 2 weeks)<input name="pstart" type="date" value="${esc(S.work.periodStart || weekStart(today()))}"></label>
       <div class="hint">Not sure of your tax %? 15–25% covers most people. Check one real paycheck: take-home ÷ gross.</div>`,
   };
   return (F[type] || F.todo) + `<button class="btn">${type === "forget" ? "Got it" : type === "pay" || (type === "trip" && TRIP_EDIT) ? "Save" : type === "dump" ? (DUMP.length ? `Add all (${DUMP.length})` : "Sort it") : "Add"}</button>`;

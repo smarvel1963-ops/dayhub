@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.58.8";
+const VERSION = "1.58.9";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -1886,7 +1886,7 @@ function ensurePortWx(tr) {
 function cruiseWxDays(tr) {
   if (!tr || !tr.start) return [];
   const out = [], end = tr.end || tr.start;
-  for (let d = tr.start > today() ? tr.start : today(); d <= end && out.length < 3; d = addDays(d, 1)) {
+  for (let d = tr.start > today() ? tr.start : today(), n = 0; d <= end && out.length < 3 && n < 400; d = addDays(d, 1), n++) {
     const pt = portOn(tr, d);
     if (pt) out.push({ day: d, name: pt.name, kind: "port", pt });
     else if (d === tr.start && tr.port) out.push({ day: d, name: tr.port, kind: "sail" });
@@ -3050,7 +3050,7 @@ function futureBanner() {
   const list = S.futureShow.map(id => S.future.find(f => f.id === id)).filter(Boolean);
   if (!list.length) return "";
   return `<section class="card future-banner"><h3><span class="ci">🔮</span>Future you said…</h3><div class="body">
-    ${list.map(f => `<div class="today-line">“${esc(f.text)}”<span class="sub">— you, ${prettyDate(f.created.slice(0, 10))}${f.created.slice(0, 4) !== today().slice(0, 4) ? " " + f.created.slice(0, 4) : ""}</span></div>`).join("")}
+    ${list.map(f => `<div class="today-line">“${esc(f.text)}”<span class="sub">— you, ${prettyDate(f.created.slice(0, 10))}${f.created.slice(0, 4) !== today().slice(0, 4) ? " " + esc(f.created.slice(0, 4)) : ""}</span></div>`).join("")}
     <div class="foot-actions"><button class="btn sm" data-futok="1">Got it</button></div></div></section>`;
 }
 let FUTURE_EDIT = null;

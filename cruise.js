@@ -666,7 +666,7 @@ function secretClick(ds) {
 // location"). No invented score: the math is shown plainly - the extra cost per person per night and per sea
 // day (when a balcony or a bigger cabin is used most), less what the upgrade's own perks are worth to the
 // traveler. Prices come from their offer; nothing is looked up. tr.upgrade keeps the answers.
-const seaDays = tr => { let n = 0; if (tr && tr.start && tr.end) for (let d = addDays(tr.start, 1); d < tr.end; d = addDays(d, 1)) if (!portOn(tr, d)) n++; return n; };
+const seaDays = tr => { let n = 0; if (tr && tr.start && tr.end) for (let d = addDays(tr.start, 1), i = 0; d < tr.end && i < 400; d = addDays(d, 1), i++) if (!portOn(tr, d)) n++; return n; };
 function upgradeMath(u, tr) {
   const extra = Number(u.extra) || 0, perks = Number(u.perks) || 0, n = Number(tr.travelers) || 1, nights = tripNights(tr), sea = seaDays(tr);
   if (!extra) return null;

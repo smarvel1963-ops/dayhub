@@ -10,13 +10,20 @@ opened what restore did next, and the review held it for that. What this proves:
   is on this phone (Start fresh, older file then newer file). The message shows only for photos really elsewhere, and keeps Undo.
 - Reminders and the AI's access to notes stay this phone's own choice, on file and Drive restores. Only the background sync's own restore is quiet.
 - In those three Hubs, one field or keyed-record name at a time, as text, wrapped in an array, or a list swapped for a look-alike: nothing runs on the Hub's home, its listed tabs or the
-  edit forms named in FUZZ. That is a set of records and screens, not every path, and it says nothing about Day, Cruise, Trip or Home Hub's own fields.
+  edit forms named in FUZZ. That is a set of records and screens, not every path.
+- Day Hub, Cruise Hub (classic and new look), Trip Hub, Home Hub (section 10): the same one-field-at-a-time run over the screens and clocks listed in OTHERS, plus the other Hub's trips and a real file.
+  A date or a time also gets a bad value that still reads as one, because a value that doesn't sort like a date never reaches the branches that compare dates. An independent review found two sinks only that form reaches.
+  Each Hub first proves the detector goes off on a raw value and that the records draw with nothing thrown. A field is redrawn on the screens that read it in a clean draw; each Hub prints the fields no listed
+  screen reads, which were NOT tried. Hub Universe gets one all-at-once check only, across the 7 stores it reads.
+  NOT covered here: screens reached only by a tap that isn't listed (those were crawled by hand with every field bad at once, not by this test), Family Hub, values that come straight off the network (weather,
+  an AI reply, an email, a Drive copy) except as saved fields, and a value that only draws alongside some other kind of record than the ones in these sets. A bad value that makes a draw throw stops that draw there (each Hub
+  prints how many), and a field read only on a clock that drew the same page as an earlier one, numbers aside, shows up as not tried. Passing means these records on these screens, not every path.
 - Honest values with quotes and brackets are untouched, and form values round-trip.
 Drives the real app with the main suite's helpers (fake network, frozen clock).
 
-RUN:   python tests/test_restore_file.py      (from C:/MarvelApps/dayhub)   Exit 0 = all passed.   Add "payload" for only the payload run.
+RUN:   python tests/test_restore_file.py      (from C:/MarvelApps/dayhub)   Exit 0 = all passed.   Add "payload" for only the payload runs, "others" for only section 10.
 """
-import copy, json, os, sys, tempfile
+import copy, json, os, re, subprocess, sys, tempfile, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import run_tests as T
 from playwright.sync_api import sync_playwright
@@ -24,8 +31,8 @@ from playwright.sync_api import sync_playwright
 OK = FAIL = 0
 def check(name, cond, extra=""):
     global OK, FAIL
-    if cond: OK += 1; print(f"  PASS  {name}")
-    else: FAIL += 1; print(f"  FAIL  {name}  {extra}")
+    if cond: OK += 1; print(f"  PASS  {name}", flush=True)
+    else: FAIL += 1; print(f"  FAIL  {name}  {extra}", flush=True)
 
 PNG1 = bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000" "1f15c4890000000d49444154789c6360000002000001e221bc330000000049454e44ae426082")
 PIC = {"name": "pic.png", "mimeType": "image/png", "buffer": PNG1}
@@ -152,7 +159,7 @@ def payload_run(b, base):
     for name, path, fixture, fn, arg, extras in FUZZ:
         a = T.App(b, base, path=path)
         a.page.wait_for_timeout(200)
-        a.js("window.__pwn = []; window.__p = i => window.__pwn.push(i); window.showHh = typeof showHh === 'function' ? showHh : null; window.showMh = typeof showMh === 'function' ? showMh : null; setOwnerSwitch('OWNER', true); 0")
+        a.js("window.__pwn = []; window.__p = i => window.__pwn.push(Number(i)); window.showHh = typeof showHh === 'function' ? showHh : null; window.showMh = typeof showMh === 'function' ? showMh : null; setOwnerSwitch('OWNER', true); 0")
         clean = a.page.evaluate(STEP, [json.dumps(fixture), fn, arg, extras])
         check(f"{name}: the records draw every listed screen with nothing thrown, so the run below really reaches them", not clean, clean[:6])
         paths, seen = list(leaves(fixture)), {}
@@ -165,6 +172,17 @@ def payload_run(b, base):
                 o[lp[-1]] = wrap(PAY % n)
                 a.page.evaluate(STEP, [json.dumps(d), fn, arg, extras])
                 if i % 8 == 7: a.page.wait_for_timeout(30)
+        for i, lp in enumerate(paths):                       # a date or a time also as a bad value that still reads as one (shaped, below)
+            o = fixture
+            for k in lp: o = o[k]
+            like = shaped(o)
+            if not like: continue
+            n = len(seen); seen[n] = f"{'.'.join(map(str, lp))} (reads as a date or time)"
+            d = copy.deepcopy(fixture); o = d
+            for k in lp[:-1]: o = o[k]
+            o[lp[-1]] = like % n
+            a.page.evaluate(STEP, [json.dumps(d), fn, arg, extras])
+            if i % 8 == 7: a.page.wait_for_timeout(30)
         like_lists = list(lists(fixture))
         for j, lp in enumerate(like_lists):
             n = len(seen); seen[n] = f"{'.'.join(map(str, lp))} (not a real list)"
@@ -185,14 +203,469 @@ def payload_run(b, base):
         check(f"{name}: nothing ran, {len(paths)} fields twice + {len(like_lists)} lists + {len(keys)} keys", not ran, [seen.get(i, i) for i in ran][:30])
         a.close()
 
+# ------------------------------------------------------------ Day, Cruise, Trip and Home Hub: a full set of records and every screen they draw on
+DAY_F = {"name": "Sam", "city": "80202", "pack": "general", "order": ["schedule"], "hidden": ["x"], "collapsed": ["x"], "listSel": "l1",
+  "events": [{"id": "e1", "title": "Dentist", "day": "2026-10-01", "time": "14:30", "end": "15:00", "where": "Main St", "rep": "weekly", "skip": ["2026-10-08"]}, {"id": "e2", "title": "Gym", "day": "2026-10-02", "time": "09:00", "where": "w", "rep": ""}, {"id": "e3", "title": "All day", "day": "2026-10-01", "where": "w3"}, {"id": "e4", "title": "Soon", "day": "2026-10-01", "time": "09:30", "where": "w4"}, {"id": "e5", "title": "Every day", "day": "2026-09-01", "time": "08:15", "rep": "daily"}],
+  "todos": [{"id": "t1", "title": "Call", "rep": "daily", "day": "2026-10-01", "done": False}, {"id": "t2", "title": "Mail", "day": "2026-10-02", "done": True, "doneDay": "2026-10-01", "rep": ""}, {"id": "t3", "title": "Done", "day": "2026-10-01", "done": True, "doneDay": "2026-10-01"}],
+  "loads": [{"id": "lo1", "title": "Load", "day": "2026-10-01", "time": "10:00", "done": False}], "jobs": [{"id": "j1", "title": "Job", "day": "2026-10-01", "time": "11:00", "done": False}],
+  "route": {"from": "Denver", "to": "Boise"}, "bills": [{"id": "b1", "name": "Rent", "amount": 900, "day": 3, "paid": "2026-09", "auto": False}], "countdowns": [{"id": "c1", "title": "Trip", "date": "2026-10-20"}],
+  "lists": [{"id": "l1", "name": "Grocery", "items": [{"id": "i1", "text": "Milk", "done": False}, {"id": "i2", "text": "Eggs", "done": True}]}, {"id": "l2", "name": "Hardware", "items": []}],
+  "people": [{"id": "p1", "name": "Mom", "md": "10-05", "kind": "birthday", "lead": 14, "year": 1950, "ideas": "scarf", "got": {"2025": True}}, {"id": "p2", "name": "Pat", "md": "12-25", "kind": "anniversary", "lead": 7, "year": "", "ideas": "tie", "got": {}}],
+  "upkeep": [{"id": "u1", "name": "Oil", "area": "auto", "every": 3, "unit": "months", "next": "2026-10-03", "last": "2026-07-03", "auto": True}, {"id": "u2", "name": "Filter", "area": "home", "every": 1, "unit": "months", "next": "2026-10-02", "last": "2026-09-02", "auto": False}],
+  "routines": [{"id": "r1", "name": "☀️ Morning", "time": "09:30", "days": [0, 1, 2, 3, 4, 5, 6], "steps": [{"id": "st1", "text": "Stretch"}, {"id": "st2", "text": "Water"}]}], "rdone": {"r1": {"day": "2026-10-01", "ids": ["st1"]}},
+  "top3": {"day": "2026-10-01", "items": [{"id": "tp1", "title": "Big thing", "done": False, "why": "y"}], "ai": False},
+  "alarms": [{"id": "al1", "time": "06:30", "label": "Wake", "days": [1, 2, 3, 4, 5], "on": True}], "returns": [{"id": "rt1", "what": "Shoes", "store": "Shop", "by": "2026-10-03", "how": "ship", "amount": 50, "done": False}],
+  "future": [{"id": "f1", "text": "No 6 AM flights", "words": ["flight"], "day": "2026-10-01", "created": "2025-01-01T10:00:00", "seen": 1}], "futureShow": ["f1"],
+  "payday": {"freq": "biweekly", "next": "2026-10-09", "amount": 1500, "d1": 1, "d2": 15}, "goals": [{"id": "g1", "name": "Trip", "target": 1000, "saved": 100}],
+  "leave": {"items": [{"id": "lv1", "text": "Keys", "extra": False}, {"id": "lv2", "text": "Bag", "extra": True, "why": "y"}], "day": "2026-10-01", "done": ["lv1"]},
+  "packages": [{"id": "pk1", "name": "Book", "num": "1Z999AA10123456784", "carrier": "ups", "eta": "2026-10-02", "delivered": False}, {"id": "pk2", "name": "Lamp", "num": "12345", "carrier": "other", "delivered": True, "deliveredDay": "2026-10-01", "eta": "2026-10-01"}],
+  "remember": [{"id": "rm1", "text": "Umbrella", "day": "2026-10-01"}, {"id": "rm2", "text": "Coat", "day": "2026-10-02"}], "notes": [{"id": "n1", "text": "Gate code", "pinned": True, "updated": "2026-09-30T08:00:00"}],
+  "gcal": {"connected": True, "fetched": "2026-10-01T08:00:00", "pushed": "2026-10-01T08:00:00", "dirty": True, "events": [{"id": "ge1", "title": "Meeting", "day": "2026-10-01", "time": "13:00", "end": "14:00", "where": "Room"}], "dates": [{"key": "k1", "name": "Bob", "kind": "birthday", "md": "10-10"}]},
+  "mail": {"on": True, "last": "2026-10-01T08:00:00", "seen": {}, "found": [{"key": "m1", "type": "event", "title": "Dinner", "day": "2026-10-03", "time": "18:00", "src": "s@x.com"},
+     {"key": "m2", "type": "package", "title": "Order", "num": "1Z999AA10123456784", "carrier": "ups", "day": "2026-10-03", "src": "s@x.com"},
+     {"key": "m3", "type": "cruise", "title": "Cruise", "src": "s@x.com", "day": "2027-03-14", "cruise": {"line": "Princess", "ship": "Sun", "start": "2027-03-14", "end": "2027-03-21", "booking": "ABC123", "cabin": "A1", "category": "Bal", "port": "Miami", "ports": [{"name": "Nassau", "day": "2027-03-16"}], "finalDue": "2027-01-01"}}]},
+  "money": {"type": "hourly", "salary": 50000, "spends": [{"id": "sp1", "day": "2026-10-01", "amt": 20, "what": "Food"}]},
+  "work": {"rate": 25, "taxPct": 20, "otAfter": 40, "period": "biweekly", "periodStart": "2026-09-28", "clockIn": "2026-10-01T07:00:00", "shifts": [{"id": "sh1", "day": "2026-09-30", "start": "09:00", "end": "17:00", "brk": 30}]},
+  "sync": {"on": True, "last": "2026-10-01T08:00:00", "dirty": True}, "remind": {"on": True, "lead": 15, "billDays": 1, "billHour": "09:00", "morning": 420, "night": 1260, "fired": {"x": 1}},
+  "resetDay": "2026-09-30", "resetAt": "2026-09-30T21:00:00", "seenVersion": "1.0", "scene": "auto", "guardMargin": 60, "bagView": "all", "tripTab": "money", "tripList": "packing", "family": True, "adopted": ["x"], "photo": True}
+def trip_f(kind):
+    return {"id": "tr1", "type": kind, "name": "Caribbean", "start": "2026-10-20", "end": "2026-10-27", "line": "Princess", "ship": "Sun", "port": "Miami", "booking": "ABC123", "cabin": "A1", "travelers": 2, "total": 4000, "finalDue": "2026-10-10", "onboardBudget": 500, "credit": 50, "pkg": "princess-plus", "insurance": "bought", "sugNo": ["x"], "accountVerified": False, "safeEmpty": False, "aboard": False,
+      "travel": "flying", "firstThings": {"cabin": True, "muster": False}, "payments": [{"id": "pay1", "day": "2026-09-01", "amt": 1000, "note": "Deposit"}],
+      "spends": [{"id": "ts1", "day": "2026-09-20", "amt": 20, "cat": "Bar", "note": "n"}, {"id": "ts2", "day": "2026-09-20", "amt": 20, "cat": "Bar", "note": "n"}, {"id": "ts3", "day": "2026-09-21", "amt": 5, "cat": "Spa", "note": "m", "dupeOk": "x"}],
+      "costs": [{"id": "co1", "cat": "hotel", "what": "Inn", "amt": 100, "paid": False}, {"id": "co2", "cat": "travel", "what": "Flight", "amt": 300, "paid": True, "bk": "bk1"}],
+      "ports": [{"id": "pt1", "name": "Nassau, Bahamas", "day": "2026-10-22", "arrive": "08:00", "depart": "17:00", "allAboard": "16:30", "shipOffset": 60, "excursion": "Snorkel", "meet": "09:00", "where": "Pier", "indie": True, "walk": 15, "agent": "Agent 555-111-3333", "emergency": "911-555-1212", "currency": "BSD", "cash": "Yes", "cards": "Most", "tipping": "15%", "backMin": 20}, {"id": "pt2", "name": "Cozumel", "day": "2026-10-24", "arrive": "07:00", "depart": "16:00", "allAboard": "15:30", "excursion": "none"}],
+      "perks": [{"id": "pe1", "name": "Credit", "unit": "$", "total": 100, "used": 10}, {"id": "pe2", "name": "Meals", "unit": "x", "total": 3, "used": 1}],
+      "lists": {"packing": [{"id": "li1", "text": "Passport", "done": False, "bag": "carry"}], "docs": [{"id": "li2", "text": "ID", "done": True}], "before": [{"id": "li3", "text": "Pay", "done": False}], "embark": [{"id": "li4", "text": "Board", "done": False}], "requests": [{"id": "li5", "text": "Ask", "done": False}], "home": [{"id": "li6", "text": "Lock", "done": False}], "final": [{"id": "li7", "text": "Tip", "done": False}], "after": [{"id": "li8", "text": "Photo", "done": False}]},
+      "bookings": [{"id": "bk1", "kind": "flight", "a": "DEN", "b": "MIA", "num": "UA123", "day": "2026-10-20", "t": "08:00", "endDay": "2026-10-20", "endT": "12:00", "cost": 300, "paid": True, "phone": "555-121-2345", "note": "n", "cancelBy": "2026-10-10", "leave": {"drive": 30, "park": 15, "check": 90, "buf": 15}},
+                   {"id": "bk2", "kind": "hotel", "a": "Inn", "b": "1 Main", "num": "H1", "day": "2026-10-20", "t": "16:00", "endDay": "2026-10-22", "endT": "11:00", "cost": 120, "paid": False, "phone": "555-121-2346", "cancelBy": "2026-10-03", "note": "n", "stay": {"room": "101", "wifi": "w", "pass": "p", "breakfast": "b", "parking": "pk", "desk": "d"}, "outDone": ["x"]},
+                   {"id": "bk3", "kind": "car", "a": "Hertz", "b": "Airport", "num": "C1", "day": "2026-10-20", "t": "12:30", "endDay": "2026-10-27", "endT": "10:00", "cost": 80, "paid": False, "phone": "555-121-2347", "cancelBy": "2026-09-01"},
+                   {"id": "bk4", "kind": "train", "a": "A", "b": "B", "num": "T1", "day": "2026-10-22", "t": "10:00", "endDay": "2026-10-22", "endT": "12:00", "cost": 50, "paid": False},
+                   {"id": "bk5", "kind": "ticket", "a": "Park", "b": "Where", "num": "A1", "day": "2026-10-20", "t": "13:00", "endT": "15:00", "cost": 50, "paid": False},
+                   {"id": "bk6", "kind": "dinner", "a": "Cafe", "b": "Addr", "num": "D1", "day": "2026-10-20", "t": "18:00", "cost": 40, "paid": True}],
+      "fun": [{"id": "fu1", "title": "Beach", "day": "2026-10-21", "t": "10:00", "end": "11:00", "pick": "must", "where": "w"}, {"id": "fu2", "title": "Museum", "day": "2026-10-21", "t": "10:30", "end": "12:00", "pick": "must", "where": "w2"}, {"id": "fu3", "title": "Lunch", "day": "2026-10-21", "pick": "skip"}, {"id": "fu4", "title": "Show", "day": "2026-10-21", "t": "10:15", "end": "10:45", "pick": "maybe"}],
+      "wish": [{"id": "wi1", "title": "Museum", "mins": 60, "votes": {"Sam": 1, "Pat": -1}, "where": "w"}, {"id": "wi2", "title": "Park", "mins": 30, "votes": {"Sam": -1, "Pat": -1}}],
+      "split": {"people": ["Sam", "Pat"], "by": {"c:co2": "Sam", "s:ts1": "Pat", "p:pay1": "Sam"}, "for": {"c:co2": "Sam", "s:ts1": "Pat"}}, "diary": {"2026-10-20": {"text": "Great", "best": "Sun", "mood": "😀"}},
+      "refunds": [{"id": "rf1", "what": "Tour", "amt": 50, "from": "Co", "expect": "2026-09-20", "asked": "2026-09-01", "got": ""}, {"id": "rf2", "what": "Hotel", "amt": 20, "from": "Inn", "expect": "2026-10-20", "asked": "2026-09-05", "got": "2026-09-25"}],
+      "drives": [{"id": "dv1", "day": "2026-10-20", "from": "Home", "to": "Port", "t": "06:00", "miles": 500, "mins": 480}], "vehicle": {"range": 300, "mpg": 25, "gas": 3.5},
+      "car": {"level": "3", "spot": "B4", "where": "Lot B"}, "help": {"line": "555-111-2222", "agent": "Pat 555-111-2223", "ins": "Co 555-111-2224", "policy": "P9", "contact": "Mom 555-111-2225"},
+      "upgrade": {"from": "Inside", "to": "Balcony", "extra": 100, "perks": 20},
+      "pkgCalc": {"wifi": 1, "drinks": 4, "drinkPr": 12, "cap": 15, "coffee": 2, "coffeePr": 5, "water": 1, "waterPr": 3, "wifiPr": 20, "dinners": 1, "dinnerPr": 40, "photos": 30, "days": 7, "price": 60, "incDrinks": True, "incCoffee": True, "incWater": True, "incWifi": True, "incDining": True, "incPhotos": True, "incGrats": True}}
+TRIP2 = {"id": "tr2", "type": "trip", "name": "Weekend", "start": "2026-12-01", "end": "2026-12-03"}
+DOCS = [{"id": "doc1", "who": "Sam", "kind": "passport", "exp": "2026-11-01"}, {"id": "doc2", "who": "Pat", "kind": "license", "exp": "2028-01-01"}]
+PREFS = {"with": "couple", "loves": ["beach"]}
+DAY_FX = dict(DAY_F, trips=[trip_f("cruise")], tripSel="tr1")
+CRUISE_FX = dict(DAY_F, trips=[trip_f("cruise"), TRIP2], tripSel="tr1", idDocs=DOCS, prefs=PREFS)
+TRIP_FX = dict(DAY_F, trips=[trip_f("trip"), TRIP2], tripSel="tr1", idDocs=DOCS)
+HOME_FX = dict(DAY_F, house={"type": "house", "value": {"end": "2026-08-31", "area": False, "est": 400000, "low": 350000, "high": 450000, "at": "2026-09-01", "ppsf": 200, "sold": 100, "yoy": 0.03, "sqft": 2000, "size": 1.1, "trend": 1.01, "shape": 1.02, "beds": 3, "baths": 2, "year": 1990, "cond": "avg", "zip": "80202"},
+  "spaces": [{"id": "sp1", "key": "kitchen", "icon": "🍳", "name": "Kitchen", "area": "indoor", "floor": "1", "notes": "n", "items": [{"id": "it1", "name": "Stove", "model": "M", "note": "n"}], "tasks": [{"id": "tk1", "title": "Clean", "due": "2026-10-03", "every": 3, "done": False}, {"id": "tk2", "title": "Fix", "due": "2026-09-03", "every": 0, "done": True, "doneOn": "2026-09-03"}, {"id": "tk3", "title": "Paint", "due": "2026-09-20", "done": False}]},
+             {"id": "sp2", "key": "yard", "icon": "🌳", "name": "Yard", "area": "outdoor", "floor": "", "notes": "", "items": [], "tasks": []}, {"id": "sp3", "key": "hvac", "icon": "❄️", "name": "HVAC", "area": "systems", "items": [], "tasks": []}]})
+SCRATCH = "const d = document.createElement('div'); d.innerHTML = "
+COMMON = [("home", "render()"),
+  *[(f"{k} card", f"{SCRATCH}CARDS.{k}.body(); d.innerHTML = String(CARDS.{k}.meta ? CARDS.{k}.meta() : '')") for k in ("schedule", "reset", "tomorrow", "work", "budget", "weather", "todos", "notes", "bills", "inbox", "trips", "packages", "people", "payday", "future", "errands", "top3", "routines", "home", "auto", "leave", "countdowns", "lists", "route", "loads", "jobs", "nextup")],
+  ("the day before", f"VIEW = addDays(today(), 1); {SCRATCH}CARDS.schedule.body(); VIEW = today()"),
+  ("settings", "openSettings(); drawSettings()"), ("settings boxes", "drawAlarmBox(); drawSyncBox(); drawRemindBox(); drawMailBox(); drawDataBox(); drawAiBox(); drawFamBox(); drawCardList(); drawProBox(); drawInstallBox(); drawSceneBox(); drawSimpleBox()"),
+  ("morning brief", "showBrief()"), ("life pulse", "showPulse()"), ("ask", "showAsk()"), ("simple mode", "S.simple = true; render(); S.simple = false; render()"),
+  *[(f"{t} form", f"openQA('{t}'); closeQA()") for t in ("dump", "event", "todo", "loads", "jobs", "item", "bill", "person", "upkeep", "routine", "alarm", "return", "future", "trip", "tpay", "tport", "tperk", "tperkset", "tspend", "package", "countdown", "list", "spend", "shift", "pay")],
+  ("edit a date", "PERSON_EDIT = 'p1'; openQA('person', true); PERSON_EDIT = 'p2'; openQA('person', true); PERSON_EDIT = null; closeQA()"), ("edit a note to future me", "FUTURE_EDIT = 'f1'; openQA('future', true); FUTURE_EDIT = null; closeQA()"),
+  ("edit an alarm", "ALARM_EDIT = 'al1'; openQA('alarm', true); ALARM_EDIT = null; closeQA()"), ("edit a routine", "ROUTINE_EDIT = 'r1'; openQA('routine', true); ROUTINE_EDIT = null; closeQA()"),
+  ("edit upkeep", "UPKEEP_EDIT = 'u1'; openQA('upkeep', true); UPKEEP_EDIT = 'u2'; openQA('upkeep', true); UPKEEP_EDIT = null; closeQA()")]
+TAPPED = "TAB = 'plan'; PLAN_VIEW = 'trip'; render(); const seen = [...document.querySelectorAll('[data-tlday]')].map(e => e.dataset.tlday); TAB = 'explore'; render(); seen.push(...[...document.querySelectorAll('[data-tlday]')].map(e => e.dataset.tlday)); TAB = 'home'; "
+TRAVEL_SCREENS = [*[(f"{t} tab", f"S.tripTab = '{t}'; {SCRATCH}CARDS.trips.body(); S.tripTab = 'money'") for t in ("ready", "money", "ports", "onboard", "perks", "lists", "tips")],
+  *[(f"{l} list", f"S.tripList = '{l}'; S.tripTab = 'lists'; {SCRATCH}CARDS.trips.body(); S.tripList = 'packing'; S.tripTab = 'money'") for l in ("packing", "docs", "before", "embark", "requests", "home", "final", "after")],
+  ("a bag", "S.bagView = 'carry'; S.tripTab = 'lists'; const d = document.createElement('div'); d.innerHTML = CARDS.trips.body(); S.bagView = 'all'; S.tripTab = 'money'"),
+  ("trip form", "TRIP_EDIT = 'tr1'; openQA('trip', true); TRIP_EDIT = null; closeQA()"), ("port form", "PORT_EDIT = 'pt1'; openQA('tport', true); PORT_EDIT = 'pt2'; openQA('tport', true); PORT_EDIT = null; closeQA()"), ("perk form", "PERK_EDIT = 'pe1'; openQA('tperkset', true); PERK_EDIT = 'pe2'; openQA('tperkset', true); PERK_EDIT = null; closeQA()"),
+  *[(f"{t} tab of the app", f"TAB = '{t}'; render(); TAB = 'home'") for t in ("explore", "wallet", "ai")],
+  *[(f"plan: {v}", f"TAB = 'plan'; PLAN_VIEW = '{v}'; render(); PLAN_VIEW = 'trip'; TAB = 'home'") for v in ("today", "trip", "packing", "reservations", "diary")],
+  ("map", f"{SCRATCH}tripMapHtml()"), ("ready", "showReady()"), ("return guard", "showGuard()"), ("forgetting", "showForget()"), ("go home", "showGoHome()"), ("crisis", "showHelp(); __each(['back', 'get', 'medical', 'travel', 'docs', 'contacts'], v => showHelp(v))"),
+  ("paste", "showPaste()"), ("all set", "showMagic(S.trips[0])"), ("bill", "showBill()"), ("package", "showPkgCalc()"), ("upgrade", "showUpgrade()"),
+  ("booking", "__each(['bk1', 'bk2', 'bk3', 'bk4', 'bk5', 'bk6'], b => showBooking(b))"), ("booking form", "BK_TRIP = 'tr1'; __each([['flight', 'bk1'], ['hotel', 'bk2'], ['car', 'bk3'], ['train', 'bk4'], ['ticket', 'bk5'], ['dinner', 'bk6']], ([k, b]) => showBookingForm(k, b))"),
+  ("paste found", "PASTE_FOUND = S.trips[0].bookings.slice(); showPasteFound(); PASTE_FOUND = []"), ("the wrap", "showWrap()"), ("what changed", "FIX = { trip: 'tr1', bk: 'bk1' }; showFix('pick'); showFix('what'); FIX.impact = fixImpact(S.trips[0], 'bk1', { how: 'late', mins: 120 }); showFix('review'); FIX.calls = FIX.impact ? FIX.impact.calls : []; showFix('done'); FIX.impact = fixImpact(S.trips[0], 'bk1', { how: 'cancel' }); showFix('review'); FIX = null"),
+  ("split", "showSplit('tr1')"), ("hotel", "showHotel('bk2')"), ("drive", "showDrive('tr1|dv1')"), ("vote", "showVote('tr1'); VOTER = 'Pat'; showVote('tr1'); VOTER = null"),
+  ("the days without a button", "['2026-10-21', '2026-10-23'].forEach(d => showDay(d))"), ("each day button, as tapped", TAPPED + "__each([...new Set(seen)], v => showDay(v))"),
+  ("a plan on each tapped day", TAPPED + "__each([...new Set(seen)], v => { showDay(v); const p = document.querySelector('#daySheet [data-dayplan]'); if (!p) return; VIEW = p.dataset.dayplan; const d = document.createElement('div'); d.innerHTML = CARDS.schedule.body(); d.innerHTML = String(CARDS.schedule.meta()); openQA('event'); closeQA(); }); VIEW = today()")]
+HOME_SCREENS = [*[(f"space: {t}", f"showSpace('sp1', '{t}'); showSpace('sp2', '{t}')") for t in ("overview", "items", "tasks", "notes")], ("add a space", "['indoor', 'outdoor', 'systems'].forEach(a => showAddSpace(a))"), ("home value", "hpvEditing = false; hpvDraw(); document.getElementById('hpvCard'); const d = document.createElement('div'); d.innerHTML = hpvInner(); hpvEditing = true; d.innerHTML = hpvInner(); hpvEditing = false")]
+DT_SCREENS_T = [*[(f"new look: {t}", f"TAB = '{t}'; render(); TAB = 'home'") for t in ("home", "today", "tasks", "money", "more")],
+  *[(f"new look money: {s}", f"TAB = 'money'; DT_MONEY = '{s}'; render(); DT_MONEY = 'overview'; TAB = 'home'") for s in ("overview", "bills", "budget", "pay", "goals")],
+  *[(f"new look tasks: {s}", f"TAB = 'tasks'; DT_TASKS = '{s}'; render(); DT_TASKS = 'todo'; TAB = 'home'") for s in ("todo", "lists", "routines", "leave")],
+  *[(f"new look screen: {s}", f"DT_SCREEN = '{s}'; render(); DT_SCREEN = null") for s in ("weather", "pro", "trips", "upkeep", "reset", "family")],
+  ("new look: car upkeep", "DT_SCREEN = 'upkeep'; DT_UPKEEP = 'auto'; render(); DT_UPKEEP = 'home'; DT_SCREEN = null"), ("new look: change a plan", "TAB = 'today'; render(); dtEditEvent('e1'); closeQA(); TAB = 'home'"), ("new look: brief", "showBrief()"), ("new look: brain dump", "openQA('dump'); closeQA()")]
+CT_SCREENS_T = [*[(f"new look: {t}", f"TAB = '{t}'; render(); TAB = 'home'") for t in ("home", "plan", "explore", "wallet", "ai")],
+  *[(f"new look screen: {s}", f"CT_SCREEN = '{s}'; render(); CT_SCREEN = null") for s in ("pass", "first10", "countdown", "onboard")],
+  *[(f"new look list: {l}", f"TAB = 'plan'; PLAN_VIEW = 'packing'; S.tripList = '{l}'; render(); CT_OPEN.add('cruise'); render(); PLAN_VIEW = 'trip'; TAB = 'home'") for l in ("packing", "docs", "before", "final")],
+  ("new look: a bag", "TAB = 'plan'; PLAN_VIEW = 'packing'; S.tripList = 'packing'; S.bagView = 'carry'; render(); S.bagView = 'all'; PLAN_VIEW = 'trip'; TAB = 'home'"),
+  ("new look: each day button, as tapped", TAPPED + "__each([...new Set(seen)], v => showDay(v))")]
+# the screens change with the clock: before the trip, the week before, sail day, a port day (running out of time), the last night, home again; morning, evening, the small hours
+TRIP_CLOCKS = ["2026-10-01T09:00:00", "2026-10-15T09:00:00", "2026-10-19T21:00:00", "2026-10-20T07:00:00", "2026-10-21T09:00:00", "2026-10-22T09:00:00", "2026-10-22T15:20:00", "2026-10-26T21:00:00", "2026-10-29T10:00:00"]
+DAY_CLOCKS = ["2026-10-01T09:00:00", "2026-10-01T20:00:00", "2026-10-02T01:00:00"]
+# label, address, records, look key, clocks, screens, what must really be read (the sinks this run is here for: if a change stops drawing one, say so instead of passing quietly)
+OTHERS = [("Day Hub", "", DAY_FX, None, DAY_CLOCKS, COMMON, ["work.taxPct", "work.otAfter", "work.rate", "work.periodStart", "money.salary", "people.0.year", "upkeep.1.next", "upkeep.1.last", "future.0.day", "future.0.seen"]),
+          ("Day Hub, new look", "", DAY_FX, "dayhub.look", DAY_CLOCKS, DT_SCREENS_T, ["work.taxPct", "future.0.seen", "trips.0.name"]),
+          ("Cruise Hub", T.CRUISE, CRUISE_FX, None, TRIP_CLOCKS, COMMON + TRAVEL_SCREENS, ["trips.0.ports.0.day", "trips.0.perks.1.used", "trips.0.perks.1.total", "trips.0.diary.2026-10-20.mood", "trips.0.travelers", "trips.0.drives.0.miles", "trips.0.fun.1.title", "trips.0.start", "trips.0.end"]),
+          ("Cruise Hub, new look", T.CRUISE, CRUISE_FX, "cruisehub.look", TRIP_CLOCKS, CT_SCREENS_T, ["trips.0.ports.0.day", "trips.0.ports.1.day", "trips.0.lists.packing.0.text"]),
+          ("Trip Hub", T.TRIP, TRIP_FX, None, TRIP_CLOCKS, COMMON + TRAVEL_SCREENS, ["trips.0.diary.2026-10-20.mood", "trips.0.travelers", "trips.0.drives.0.miles", "trips.0.fun.1.title"]),
+          ("Home Hub", T.HOMEP, HOME_FX, None, DAY_CLOCKS[:2], COMMON + HOME_SCREENS, ["house.spaces.0.icon", "house.spaces.0.tasks.0.every", "house.value.sold", "house.value.sqft", "house.value.beds", "house.value.baths", "house.value.year"])]
+# one clean draw per clock and screen, noting which fields each one reads: a field is then redrawn only where it shows. JSON.stringify (saving) and normalize don't count as showing.
+TRACK2 = r"""(() => { const seen = new WeakMap(); window.__quiet = 0; const js = JSON.stringify; JSON.stringify = (...a) => { window.__quiet++; try { return js(...a); } finally { window.__quiet--; } };
+  window.__track = function track(o, path) { if (!o || typeof o !== 'object') return o; if (seen.has(o)) return seen.get(o);
+    const p = new Proxy(o, {
+      get(t, k, r) { const v = Reflect.get(t, k, r); if (typeof k !== 'string' || window.__quiet) return v;
+        if (Array.isArray(t) && !/^\d+$/.test(k)) { if (k === 'length') window.__reads.add(path); return v; }
+        const q = path ? path + '.' + k : k; window.__reads.add(q);
+        return (v && typeof v === 'object') ? track(v, q) : v; },
+      ownKeys(t) { if (!window.__quiet) window.__reads.add(path + '.*'); return Reflect.ownKeys(t); } });
+    seen.set(o, p); seen.set(p, p); return p; };
+  window.__each = (list, fn) => list.forEach(v => { try { fn(v); } catch (e) { window.__eachN = (window.__eachN || 0) + 1; if (window.__eachErrs) window.__eachErrs.push(String(e)); } });
+  const box = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+  Object.defineProperty(Element.prototype, 'innerHTML', { get() { return box.get.call(this); }, set(v) { if (window.__drawn) window.__drawn.push(String(v)); box.set.call(this, v); }, configurable: true });
+  return 0; })()"""
+READS2 = r"""([data, screens]) => { const out = [], errs = [];
+  screens.forEach(([name, js]) => { window.__reads = new Set(); window.__drawn = []; window.__eachErrs = [];
+    try { S = __track(normalize(JSON.parse(data)), ''); } catch (e) { errs.push('normalize: ' + e); out.push([[], '']); return; }
+    try { (0, eval)(js); } catch (e) { errs.push(name + ': ' + e); }
+    window.__eachErrs.forEach(e => errs.push(name + ': ' + e)); window.__eachErrs = null;
+    let h = 0; for (const c of window.__drawn.join('|').replace(/\d+/g, '#')) h = (h * 31 + c.codePointAt(0)) | 0;
+    window.__drawn = null; out.push([[...window.__reads], h]); });
+  return [out, errs]; }"""
+DRAW2 = r"""([data, screens]) => { let threw = 0;
+  for (const [name, js] of screens) {
+    try { S = normalize(JSON.parse(data)); (0, eval)(js); } catch (e) { threw++; } }
+  threw += window.__eachN || 0; window.__eachN = 0;
+  return threw; }"""
+# weather comes from the (fake) network once, so the screens that mix it with saved words draw too
+WARM2 = """async (data) => { S = normalize(JSON.parse(data)); saveLocal(); await loadWeather(); if (WXDATA) { WXDATA.from = WXDATA.here; WXDATA.to = WXDATA.here; } try { (S.trips || []).forEach(tr => ensurePortWx(tr)); } catch (e) {} return Object.keys(WXDATA || {}); }"""
+PAY2 = "'\"></textarea></title></style></select><img/src=\"data:,x\"/onerror=__p`%d`>"   # no space and no (): a word-stripper or placeName can't disarm it
+def shaped(v):
+    """The same bad value, but it starts like a date or a time, so it still parses and sorts as one. A value starting with ' sorts below every date, and the branches that compare dates throw it away before it draws."""
+    if isinstance(v, str) and re.match(r"^\d{4}-\d{2}(-\d{2}|$)", v): return f"{v}-{PAY2}"
+    if isinstance(v, str) and re.match(r"^\d{2}-\d{2}$", v): return f"{v}-{PAY2}"
+    if isinstance(v, str) and re.match(r"^\d{1,2}:\d{2}$", v): return f"{v}:{PAY2}"
+    return None
+key_of = lambda lp: ".".join(map(str, lp))
+
+def dicts(o, path=()):
+    if isinstance(o, dict):
+        if path: yield path
+        for k, v in o.items(): yield from dicts(v, path + (k,))
+    elif isinstance(o, list):
+        for i, v in enumerate(o): yield from dicts(v, path + (i,))
+
+def others_side_by_side():
+    """Each Hub's run takes minutes, so they run side by side, a process each; what they print comes back in order, with their counts."""
+    global OK, FAIL
+    print("\n[10. the same run on Day, Cruise, Trip and Home Hub: every field, one at a time, as text, in an array, a list swapped for a look-alike, and a new record name, redrawn on every listed screen and clock that reads it]", flush=True)
+    kids = []
+    width = int(os.environ.get("RESTORE_WIDTH", "3"))          # 3 at a time: 14 browsers at once on this PC made pages time out
+    stop = time.time() + 3 * 3600
+    for arg in [str(i) for i in range(len(OTHERS))] + ["rest"]:
+        while sum(1 for _, _, k in kids if k.poll() is None) >= width:
+            if time.time() > stop:
+                for _, _, k in kids: k.kill()
+            time.sleep(1)
+        out = open(os.path.join(tmp, f"others_{arg}.txt"), "w", encoding="utf-8", errors="replace")
+        kids.append((arg, out, subprocess.Popen([sys.executable, os.path.abspath(__file__), "others-one", arg], stdout=out, stderr=subprocess.STDOUT, env=dict(os.environ, PYTHONIOENCODING="utf-8"))))
+    for arg, out, k in kids:
+        try: k.wait(timeout=5400)
+        except subprocess.TimeoutExpired: k.kill(); k.wait()
+        out.close()
+        text = open(out.name, encoding="utf-8", errors="replace").read()
+        print(text, flush=True)
+        m = re.findall(r"(\d+) passed, (\d+) failed", text)
+        if m and k.returncode == (1 if int(m[-1][1]) else 0): OK += int(m[-1][0]); FAIL += int(m[-1][1])
+        else: check(f"section 10, part {arg}, ran to the end", False, f"exit {k.returncode}: {text[-400:]}")
+
+def others_one(b, base, i):
+    for name, path, fixture, look, clocks, screens, must in OTHERS[i:i + 1]:
+        a = T.App(b, base, path=path)
+        a.page.wait_for_timeout(150)
+        if look:
+            a.js(f"localStorage.setItem('{look}', 'tiles'); 0"); a.page.reload(); a.page.wait_for_function("typeof render === 'function' && document.querySelector('#hero .greet')"); a.page.wait_for_timeout(150)
+        a.js("window.__pwn = []; window.__p = i => window.__pwn.push(Number(i)); setOwnerSwitch('OWNER', true); 0")
+        # the detector itself: a raw value in a page has to set it off here, or a clean result below means nothing
+        a.page.evaluate("(v) => { document.createElement('div').innerHTML = v; }", PAY2 % -1); a.page.wait_for_timeout(200)
+        check(f"{name}: the detector goes off on a raw value", -1 in a.js("window.__pwn"))
+        a.js(TRACK2)
+        a.page.evaluate(WARM2, json.dumps(fixture)); a.page.wait_for_timeout(300)
+        who, errs, drew = {}, [], {}
+        for ci, at in enumerate(clocks):
+            a.page.clock.set_fixed_time(at + "-05:00")
+            reads, e = a.page.evaluate(READS2, [json.dumps(fixture), screens])
+            errs += [at[5:16] + " " + x for x in e]
+            for si, (rs, h) in enumerate(reads):
+                if h in drew.setdefault(si, set()): continue         # this clock draws the same page as an earlier one, numbers aside: once is enough
+                drew[si].add(h)
+                for r in rs: who.setdefault(r, set()).add((ci, si))
+        check(f"{name}: the records draw every listed screen on every clock with nothing thrown", not errs, errs[:8])
+        missing = [m for m in must if m not in who]
+        check(f"{name}: the screens really read the fields this run is here for", not missing, missing)
+        tries, threw, seen, unread = 0, 0, {}, []
+        def one(d, pairs):
+            nonlocal tries, threw
+            by_clock = {}
+            for ci, si in pairs: by_clock.setdefault(ci, []).append(screens[si])
+            for ci, ss in by_clock.items():
+                a.page.clock.set_fixed_time(clocks[ci] + "-05:00")
+                threw += a.page.evaluate(DRAW2, [json.dumps(d), ss])
+            tries += 1
+            if tries % 10 == 0: a.page.wait_for_timeout(25)
+        paths = list(leaves(fixture))
+        only = os.environ.get("RESTORE_ONLY", "")              # RESTORE_ONLY=trips.0.ports tries just those fields: for checking one sink by hand, never a full pass
+        for lp in paths:
+            pairs = who.get(key_of(lp))
+            if not pairs: unread.append(key_of(lp)); continue
+            if only not in key_of(lp): continue
+            for form, wrap in (("text", lambda v: v), ("array", lambda v: [v])):
+                n = len(seen); seen[n] = f"{key_of(lp)} ({form})"
+                d = copy.deepcopy(fixture); o = d
+                for k in lp[:-1]: o = o[k]
+                o[lp[-1]] = wrap(PAY2 % n)
+                one(d, pairs)
+            o = fixture
+            for k in lp: o = o[k]
+            like = shaped(o)
+            if like:
+                n = len(seen); seen[n] = f"{key_of(lp)} (reads as a date or time)"
+                d = copy.deepcopy(fixture); o = d
+                for k in lp[:-1]: o = o[k]
+                o[lp[-1]] = like % n
+                one(d, pairs)
+        for lp in lists(fixture):
+            pairs = who.get(key_of(lp))
+            if not pairs or only not in key_of(lp): continue
+            n = len(seen); seen[n] = f"{key_of(lp)} (not a real list)"
+            d = copy.deepcopy(fixture); o = d
+            for k in lp[:-1]: o = o[k]
+            o[lp[-1]] = {"length": PAY2 % n}
+            one(d, pairs)
+        for lp in dicts(fixture):                  # a record name comes from the file too, wherever something walks the names
+            pairs = who.get(key_of(lp) + ".*")
+            o = fixture
+            for k in lp: o = o[k]
+            if not pairs or not o or only not in key_of(lp): continue
+            n = len(seen); seen[n] = f"new record name in {key_of(lp)}"
+            d = copy.deepcopy(fixture); o = d
+            for k in lp: o = o[k]
+            first = next(iter(o))
+            o[(shaped(first) or PAY2) % n] = copy.deepcopy(o[first])          # a day's record name has to read as a day to get drawn
+            one(d, pairs)
+        a.page.wait_for_timeout(900)
+        check(f"{name}: fields were really tried", tries > 0, f"RESTORE_ONLY={only!r}")
+        if only: print(f"        RESTORE_ONLY={only}: this checked {tries} tries on those fields only. It is not a full pass.")
+        ran = sorted(i for i in set(a.js("window.__pwn")) if i >= 0)
+        check(f"{name}: nothing ran, {len(paths)} fields ({len(unread)} no listed screen reads), {tries} tries", not ran, [seen.get(i, i) for i in ran][:40])
+        print(f"        {threw} draws threw on a bad value and stopped there. Fields no listed screen reads, so not tried: {' '.join(unread) or 'none'}")
+        a.close()
+
+def others_rest(b, base):
+    print("\n[10a. another Hub's trips, read straight from its own store, not through this Hub's cleanup]")
+    FAM = [("home", "render()"), ("trips card", f"{SCRATCH}CARDS.trips.body(); d.innerHTML = String(CARDS.trips.meta())"), ("schedule", f"{SCRATCH}CARDS.schedule.body()"), ("settings", "openSettings(); drawSettings(); drawFamBox()"), ("brief", "showBrief()")]
+    for name, path, store, kind in (("Day Hub, showing Cruise Hub's trip", "", "cruisehub.v1", "cruise"), ("Cruise Hub, showing Day Hub's trip", T.CRUISE, "dayhub.v1", "trip"), ("Trip Hub, showing Day Hub's trip", T.TRIP, "dayhub.v1", "cruise")):
+        a = T.App(b, base, path=path)
+        a.page.wait_for_timeout(150)
+        a.js("window.__pwn = []; window.__p = i => window.__pwn.push(Number(i)); 0")
+        tr = trip_f(kind); own = {"name": "Sam", "city": "80202"}
+        STEP3 = r"""([own, store, sib, screens]) => { localStorage.setItem(store, sib); FAM_RAW = null; let threw = 0;
+          for (const [n, js] of screens) { try { S = normalize(JSON.parse(own)); (0, eval)(js); } catch (e) { threw++; } } return threw; }"""
+        clean = a.page.evaluate(STEP3, [json.dumps(own), store, json.dumps({"trips": [tr], "adopted": []}), FAM])
+        shown = a.js("famTrips().length")
+        check(f"{name}: the other Hub's trip really reaches this one and draws", clean == 0 and shown == 1, (clean, shown))
+        seen = {}
+        for form, wrap in (("text", lambda v: v), ("array", lambda v: [v])):
+            for lp in leaves(tr):
+                if lp == ("id",): continue
+                n = len(seen); seen[n] = f"{key_of(lp)} ({form})"
+                d = copy.deepcopy(tr); o = d
+                for k in lp[:-1]: o = o[k]
+                o[lp[-1]] = wrap(PAY2 % n)
+                a.page.evaluate(STEP3, [json.dumps(own), store, json.dumps({"trips": [d], "adopted": []}), FAM])
+                if n % 10 == 9: a.page.wait_for_timeout(25)
+        for lp in leaves(tr):
+            o = tr
+            for k in lp: o = o[k]
+            like = shaped(o)
+            if not like: continue
+            n = len(seen); seen[n] = f"{key_of(lp)} (reads as a date or time)"
+            d = copy.deepcopy(tr); o = d
+            for k in lp[:-1]: o = o[k]
+            o[lp[-1]] = like % n
+            a.page.evaluate(STEP3, [json.dumps(own), store, json.dumps({"trips": [d], "adopted": []}), FAM])
+        a.page.wait_for_timeout(900)
+        ran = sorted(set(a.js("window.__pwn")))
+        check(f"{name}: nothing ran, {len(seen)} tries", not ran, [seen.get(i, i) for i in ran][:30])
+        a.close()
+    print("\n[10b. Hub Universe reads every Hub's store: every text and number in all of them bad at once, not one at a time, on its home and each planet]")
+    keep = {"id", "day", "date", "time", "t", "end", "start", "by", "due", "next", "last", "md", "kind", "type", "unit", "area", "every", "endDay", "endT", "arrive", "depart", "allAboard", "meet", "pick", "bk", "key", "exp", "expect", "asked", "got", "cat", "listSel", "tripSel", "pack", "freq", "scene", "tripTab", "tripList", "bagView", "seenVersion", "paid", "created", "clockIn", "fetched", "pushed", "resetDay", "resetAt", "cancelBy", "doneOn", "doneDay", "deliveredDay", "eta", "finalDue", "periodStart", "at", "code", "period", "how", "carrier", "bag", "num", "setup"}
+    marks = {}
+    def all_bad(o, pre):
+        if isinstance(o, dict):
+            for k in list(o):
+                if k in keep or isinstance(o[k], bool) or o[k] is None: continue
+                if isinstance(o[k], (dict, list)): all_bad(o[k], f"{pre}.{k}")
+                else:
+                    n = len(marks); marks[n] = f"{pre}.{k}"; o[k] = PAY2 % n
+        elif isinstance(o, list):
+            for i, v in enumerate(o):
+                if isinstance(v, (dict, list)): all_bad(v, f"{pre}.{i}")
+                elif not isinstance(v, bool) and v is not None:
+                    n = len(marks); marks[n] = f"{pre}.{i}"; o[i] = PAY2 % n
+    a = T.App(b, base, path=T.UNIP)
+    a.page.wait_for_timeout(200)
+    a.js("window.__pwn = []; window.__p = i => window.__pwn.push(Number(i)); S.name = 'Sam'; S.city = '80202'; 0")
+    for store, fx in (("dayhub.v1", DAY_FX), ("cruisehub.v1", CRUISE_FX), ("triphub.v1", TRIP_FX), ("homehub.v1", HOME_FX), ("healthhub.v1", HEALTH), ("moneyhub.v1", MONEY), ("autohub.v1", AUTO)):
+        d = copy.deepcopy(fx); all_bad(d, store)
+        a.page.evaluate("([k, v]) => localStorage.setItem(k, v)", [store, json.dumps(d)])
+    a.js("render(); document.querySelectorAll('[data-uniplanet]').forEach(e => e.click()); 0")
+    a.page.wait_for_timeout(900)
+    drew = a.js("uniScan().filter(h => h.set).length")
+    check("Hub Universe: all 7 Hubs really draw with their bad values", drew == 7, drew)
+    ran = sorted(set(a.js("window.__pwn")))
+    check(f"Hub Universe: nothing ran, {len(marks)} bad values in 7 stores", not ran, [marks.get(i, i) for i in ran][:20])
+    a.close()
+    print("\n[10c. the same thing through a real file, on each Hub]")
+    for name, path, fixture, app in (("Day Hub", "", DAY_FX, "dayhub"), ("Cruise Hub", T.CRUISE, CRUISE_FX, "cruisehub"), ("Trip Hub", T.TRIP, TRIP_FX, "triphub"), ("Home Hub", T.HOMEP, HOME_FX, "homehub")):
+        evil = copy.deepcopy(fixture); evil["name"] = "Evil"
+        for i, lp in enumerate((("work", "taxPct"), ("work", "otAfter"), ("work", "rate"), ("money", "salary"), ("work", "periodStart"), ("future", 0, "seen"), ("future", 0, "day"), ("people", 0, "year"), ("upkeep", 1, "last"))):
+            o = evil
+            for k in lp[:-1]: o = o[k]
+            o[lp[-1]] = PAY2 % i
+        for i, lp in enumerate((("perks", 1, "used"), ("perks", 1, "total"), ("travelers",), ("diary", "2026-10-20", "mood"), ("drives", 0, "miles"), ("fun", 1, "title"))):
+            if evil.get("trips"):
+                o = evil["trips"][0]
+                for k in lp[:-1]: o = o[k]
+                o[lp[-1]] = PAY2 % (100 + i)
+        if evil.get("trips"): evil["trips"][0]["ports"][0]["day"] = shaped("2026-10-22") % 150
+        if evil.get("house"):
+            evil["house"]["spaces"][0]["icon"] = PAY2 % 200; evil["house"]["spaces"][0]["tasks"][0]["every"] = PAY2 % 201; evil["house"]["value"]["sold"] = PAY2 % 202; evil["house"]["value"]["sqft"] = PAY2 % 203
+        a = open_hub(b, base, path)
+        a.js("window.__pwn = []; window.__p = i => window.__pwn.push(Number(i)); 0")
+        p = os.path.join(tmp, f"evil_{app}.json")
+        with open(p, "w", encoding="utf-8") as f: json.dump({"app": a.js("APP_ID"), "savedAt": "2026-09-01T12:00:00Z", "data": evil}, f)
+        load(a, p)
+        check(f"{name}: the file really loads", a.js("S.name") == "Evil", toast_text(a))
+        a.page.click('[data-close="sheet"]'); a.page.wait_for_timeout(150)
+        a.js("openQA('pay'); closeQA(); FUTURE_EDIT = 'f1'; openQA('future', true); FUTURE_EDIT = null; closeQA(); PERSON_EDIT = 'p1'; openQA('person', true); PERSON_EDIT = null; UPKEEP_EDIT = 'u2'; openQA('upkeep', true); UPKEEP_EDIT = null; closeQA(); 0")
+        if evil.get("trips"): a.js("showWrap(); showDrive('tr1|dv1'); TAB = 'plan'; PLAN_VIEW = 'trip'; render(); document.querySelectorAll('[data-tlday]').forEach(e => showDay(e.dataset.tlday)); TAB = 'explore'; render(); const p = document.querySelector('.port-card[data-tlday]'); if (p) { p.click(); const q = document.querySelector('#daySheet [data-dayplan]'); if (q) { q.click(); closeQA(); TAB = 'plan'; PLAN_VIEW = 'today'; render(); } } TAB = 'home'; VIEW = today(); render(); 0")
+        if evil.get("house"): a.js("showSpace('sp1', 'tasks'); 0")
+        a.page.wait_for_timeout(500)
+        check(f"{name}: a real file with bad values in the fields fixed here ran nothing", not a.js("window.__pwn"), a.js("window.__pwn"))
+        a.close()
+    print("\n[10d. values that could lock the app up: a trip whose end date never comes, a drive or a cost of Infinity. They used to spin a loop forever, which also hid every field after them in section 10]")
+    DRAW_ALL = """([data, screens]) => { window.__allDrawn = false; window.__allThrew = []; setTimeout(() => { for (const [n, js] of screens) { try { S = normalize(JSON.parse(data)); (0, eval)(js); } catch (e) { window.__allThrew.push(n + ': ' + e); } } window.__allDrawn = true; }, 0); return 0; }"""
+    NEVER = [("an end date of words", {"end": "zzz"}), ("a bad end date", {"end": PAY2 % 0}), ("a far-off end date", {"end": "9999-12-31"}), ("an end date that sorts after every date", {"end": "~"}), ("a very early start", {"start": "0001-01-01"}),
+             ("a drive that never ends", {"drives": [{"id": "dv1", "day": "2026-10-20", "from": "A", "to": "B", "t": "08:00", "miles": 500, "mins": "Infinity"}]}),
+             ("a cost of Infinity split between two", {"costs": [{"id": "c", "cat": "hotel", "what": "Inn", "amt": "Infinity", "paid": True}], "split": {"people": ["Sam", "Pat"], "by": {"c:c": "Sam"}, "for": {"c:c": "Pat"}}})]
+    for name, path, fixture in (("Day Hub", "", DAY_FX), ("Cruise Hub", T.CRUISE, CRUISE_FX), ("Trip Hub", T.TRIP, TRIP_FX)):
+        for label, change in NEVER:
+            a = T.App(b, base, path=path)
+            a.page.wait_for_timeout(100)
+            a.js("window.__pwn = []; window.__p = i => window.__pwn.push(Number(i)); window.__each = (list, fn) => list.forEach(v => { try { fn(v); } catch (e) { window.__allThrew.push(String(e)); } }); 0")
+            d = copy.deepcopy(fixture); d["trips"][0].update(change)
+            a.page.evaluate(DRAW_ALL, [json.dumps(d), COMMON + TRAVEL_SCREENS + [("reminders", "reminderList()")]])
+            try:
+                a.page.wait_for_function("window.__allDrawn === true", timeout=90000); done = True
+            except Exception:
+                done = False
+            threw = a.js("window.__allThrew") if done else []
+            check(f"{name}: {label}: it doesn't hang", done)
+            check(f"{name}: {label}: and every screen draws", done and not threw, threw[:4])
+            a.ctx.close() if not done else a.close()
+    for name, path, change in (("Cruise Hub", T.CRUISE, NEVER[0][1]), ("Trip Hub", T.TRIP, NEVER[5][1]), ("Cruise Hub", T.CRUISE, NEVER[6][1])):
+        a = open_hub(b, base, path)
+        tr = {"id": "t", "type": "cruise" if path == T.CRUISE else "trip", "name": "X", "start": "2026-10-20", "end": "2026-10-27"}; tr.update(change)
+        p = os.path.join(tmp, "never_ends.json")
+        with open(p, "w", encoding="utf-8") as f: json.dump({"app": a.js("APP_ID"), "savedAt": "2026-09-01T12:00:00Z", "data": {"name": "Evil", "city": "80202", "tripSel": "t", "trips": [tr]}}, f)
+        what = next(k for k in change)
+        a.js("openSettings(); 0")
+        with a.page.expect_file_chooser() as fc:
+            a.page.click('[data-data="import"]')
+        fc.value.set_files(p)
+        try:
+            a.page.wait_for_function("S.name === 'Evil'", timeout=60000); done = True
+        except Exception:
+            done = False
+        check(f"{name}: a real file with a bad {what} loads instead of hanging", done)
+        if done:
+            try:
+                a.page.reload(); a.page.wait_for_function("typeof render === 'function' && document.querySelector('#hero .greet')", timeout=60000); opens = True
+            except Exception:
+                opens = False
+            check(f"{name}: and the app still opens with it on the phone", opens)
+        a.ctx.close() if not done else a.close()
+
+    print("\n[10e. honest values on the fields fixed here read as they did]")
+    a = open_hub(b, base, T.CRUISE)
+    days = a.page.evaluate("(d) => { S = normalize(JSON.parse(d)); S.tripTab = 'ports'; const x = document.createElement('div'); x.innerHTML = CARDS.trips.body(); return x.querySelectorAll('.row .time').length; }", json.dumps(CRUISE_FX))
+    check("a real trip still lists every day", days == 8, days)
+    a.close()
+    a = open_hub(b, base, T.TRIP)
+    a.page.evaluate("(d) => { S = normalize(JSON.parse(d)); }", json.dumps(TRIP_FX))
+    plan = a.js("(() => { const tr = S.trips[0], p = drivePlan(tr, { id: 'x', day: '2026-10-20', from: 'A', to: 'B', t: '06:00', miles: 2800, mins: 2880 }); return p.stops.length; })()")
+    check("a two-day drive still gets all its stops", 20 <= plan < 400, plan)
+    settle = a.js("(() => { const tr = { costs: [{ id: 'c', cat: 'hotel', what: 'Inn', amt: 100, paid: true }], split: { people: ['Sam', 'Pat'], by: { 'c:c': 'Sam' }, for: {} } }; return splitMath(tr).pay; })()")
+    check("a split still settles up", len(settle) == 1 and settle[0]["from"] == "Pat" and settle[0]["to"] == "Sam" and settle[0]["amt"] == 50, settle)
+    a.close()
+    a = open_hub(b, base, "")
+    a.js("""S.work.rate = 25; S.work.taxPct = 18.5; S.work.otAfter = 38; S.work.periodStart = '2026-09-28'; S.money.salary = 52000; S.future = [{ id: 'f', text: 'x', words: [], day: '2026-11-01', created: '2026-01-01T00:00:00', seen: 2 }];
+           S.people = [{ id: 'p', name: 'Mom', md: '10-05', kind: 'birthday', lead: 14, year: 1950, got: {} }]; S.upkeep = [{ id: 'u', name: 'Filter', area: 'home', every: 3, unit: 'months', next: '2026-11-02', last: '2026-08-02' }];
+           S.work.shifts = [{ id: 's', day: today(), start: '09:00', end: '17:00', brk: 30 }]; save(); openQA('pay'); 0""")
+    fv = lambda n: a.js(f"document.querySelector('#qaForm [name={n}]').value")
+    check("the pay form reads back as stored", (fv("rate"), fv("tax"), fv("ot"), fv("salary"), fv("pstart")) == ("25", "18.5", "38", "52000", "2026-09-28"), (fv("rate"), fv("tax"), fv("ot"), fv("salary"), fv("pstart")))
+    a.js("closeQA(); FUTURE_EDIT = 'f'; openQA('future', true); FUTURE_EDIT = null; 0")
+    check("a note to future me keeps its day", fv("day") == "2026-11-01", fv("day"))
+    a.js("closeQA(); PERSON_EDIT = 'p'; openQA('person', true); PERSON_EDIT = null; 0")
+    check("a date keeps its year", fv("date") == "1950-10-05", fv("date"))
+    a.js("closeQA(); UPKEEP_EDIT = 'u'; openQA('upkeep', true); UPKEEP_EDIT = null; 0")
+    check("upkeep keeps its dates and how often", (fv("next"), fv("last"), fv("every")) == ("2026-11-02", "2026-08-02", "3"), (fv("next"), fv("last"), fv("every")))
+    a.js("closeQA(); 0")
+    a.js("S.events = [{ id: 'r', title: 'Walk', day: '2026-09-01', time: '18:00', rep: 'daily' }]; VIEW = today(); render(); 0")
+    check("a repeating plan's remove button carries its day", a.js("(() => { const d = document.createElement('div'); d.innerHTML = CARDS.schedule.body(); return d.querySelector('[data-del^=occ]').dataset.del; })()") == "occ:r:2026-10-01")
+    box = a.js("(() => { const d = document.createElement('div'); d.innerHTML = CARDS.work.body() + CARDS.future.body() + CARDS.budget.body(); return d.textContent; })()")
+    check("the work card and a saved note read as before", "minus 18.5% for taxes" in box and "overtime after 38h" in box and "30 min break" in box and "came back 2×" in box, box[:300])
+    a.close()
+    a = open_hub(b, base, T.TRIP, at="2026-10-21T09:00:00")
+    honest = dict(TRIP_FX, trips=[dict(trip_f("trip"), travelers=3)])
+    honest["trips"][0]["diary"] = {"2026-10-20": {"text": "t", "mood": "😍"}}; honest["trips"][0]["fun"] = [{"id": "a", "title": "Tom & Jerry's \"big\" show", "day": "2026-10-21", "t": "10:00", "end": "11:00", "pick": "must"}, {"id": "b", "title": "Museum", "day": "2026-10-21", "t": "10:30", "end": "12:00", "pick": "maybe"}]
+    a.page.evaluate("(d) => { S = normalize(JSON.parse(d)); showWrap(); }", json.dumps(honest)); a.page.wait_for_timeout(150)
+    wrap = a.js("document.getElementById('wrapSheet') ? document.getElementById('wrapSheet').textContent : document.body.textContent")
+    check("the wrap reads 3 of you, and a day's mood is still its picture", "3 of you" in wrap and "😍" in wrap, wrap[:200])
+    a.js("showDrive('tr1|dv1'); 0"); a.page.wait_for_timeout(100)
+    check("a drive still says its miles", "500 mi" in a.js("document.getElementById('driveSheet').textContent"))
+    a.js("showDay('2026-10-21'); 0"); a.page.wait_for_timeout(100)
+    day = a.js("document.getElementById('daySheet').textContent")
+    check("a backup's clash reads once, not as codes", "clashes with Tom & Jerry's \"big\" show" in day and "&amp;" not in day and "&quot;" not in day, day[:300])
+    check("a wish's remove button and Add a plan carry their day", a.js("document.querySelector('#daySheet [data-wishdel]').dataset.wishdel") == "tr1|wi1|2026-10-21" and a.js("document.querySelector('#daySheet [data-dayplan]').dataset.dayplan") == "2026-10-21", a.js("(document.querySelector('#daySheet [data-wishdel]') || {dataset: {}}).dataset.wishdel"))
+    a.js("TAB = 'plan'; PLAN_VIEW = 'trip'; render(); 0"); a.page.wait_for_timeout(100)
+    check("a day button still carries its day", a.js("document.querySelector('[data-tlday]').dataset.tlday") == "2026-10-20", a.js("document.querySelector('[data-tlday]').dataset.tlday"))
+    a.close()
+    a = open_hub(b, base, T.HOMEP)
+    a.page.evaluate("(d) => { S = normalize(JSON.parse(d)); render(); showSpace('sp1', 'tasks'); }", json.dumps(HOME_FX)); a.page.wait_for_timeout(120)
+    sheet = a.js("document.getElementById('homeSheet').textContent")
+    check("Home Hub: a space keeps its picture and a task says how often", "🍳" in sheet and "every 3 months" in sheet, sheet[:200])
+    a.js("const d = document.createElement('div'); d.innerHTML = hpvInner(); window.__hv = d.textContent; 0")
+    hv = a.js("window.__hv")
+    check("Home Hub: the value card says its sales and square feet", "100homes sold" in hv and "2,000 sq ft" in hv, hv[:240])
+    a.close()
+    a = open_hub(b, base, T.CRUISE)
+    a.page.evaluate("(d) => { S = normalize(JSON.parse(d)); TAB = 'plan'; S.tripTab = 'perks'; render(); }", json.dumps(CRUISE_FX)); a.page.wait_for_timeout(120)
+    check("Cruise Hub: a perk reads 1 of 3 used", "1 of 3 used" in a.js("(() => { const d = document.createElement('div'); d.innerHTML = CARDS.trips.body(); return d.textContent; })()"))
+    a.js("PERK_EDIT = 'pe2'; openQA('tperkset', true); PERK_EDIT = null; 0")
+    check("Cruise Hub: the perk form reads back", (a.js("document.querySelector('#qaForm [name=ptotal]').value"), a.js("document.querySelector('#qaForm [name=pused]').value")) == ("3", "1"))
+    a.close()
+
 
 def main():
     srv, base = T.serve()
     files = {}
     with sync_playwright() as p:
         b = p.chromium.launch()
-        if "payload" in sys.argv[1:]:
-            payload_run(b, base); b.close(); srv.shutdown()
+        if "others-one" in sys.argv[1:]:                      # one part of section 10, in its own process (others_side_by_side)
+            which = sys.argv[sys.argv.index("others-one") + 1]
+            others_rest(b, base) if which == "rest" else others_one(b, base, int(which))
+            b.close(); srv.shutdown()
+            print(f"\n{OK} passed, {FAIL} failed")
+            return 1 if FAIL else 0
+        if "payload" in sys.argv[1:] or "others" in sys.argv[1:]:
+            if "others" not in sys.argv[1:]: payload_run(b, base)
+            others_side_by_side(); b.close(); srv.shutdown()
             print(f"\n{OK} passed, {FAIL} failed")
             return 1 if FAIL else 0
 
@@ -444,6 +917,7 @@ def main():
             a.close()
 
         payload_run(b, base)
+        others_side_by_side()
         # the same thing through a real file
         a = open_hub(b, base, T.AUTOP)
         a.js("window.__pwn = []; window.__p = i => window.__pwn.push(i); 0")   # the 0: Playwright calls a function the expression ends on

@@ -366,11 +366,11 @@ function ctPortsHtml(tr, cardHtml) {
   const ports = (tr.ports || []).slice().sort((a, b) => a.day.localeCompare(b.day)); ensurePortWx(tr);
   const card = pt => { const g = typeof portGuide === "function" && portGuide(pt.name), n = tr.start ? Math.round((parseDay(pt.day) - parseDay(tr.start)) / 86400000) + 1 : 0;
     const times = pt.arrive && pt.allAboard ? `${hm(pt.arrive)} – ${hm(aaLocal(pt))}` : pt.allAboard ? `all aboard ${hm(aaLocal(pt))}` : "";
-    return `<button class="ct-port" data-tlday="${pt.day}">${S.photo === false ? "" : `<img src="art/${ctPortArt(pt)}.webp" alt="" loading="lazy" width="88" height="66">`}<span class="grow"><b>${esc(pt.name)}${g && g.country && !String(pt.name).includes(g.country) ? `, ${esc(g.country)}` : ""}</b>
+    return `<button class="ct-port" data-tlday="${esc(pt.day)}">${S.photo === false ? "" : `<img src="art/${ctPortArt(pt)}.webp" alt="" loading="lazy" width="88" height="66">`}<span class="grow"><b>${esc(pt.name)}${g && g.country && !String(pt.name).includes(g.country) ? `, ${esc(g.country)}` : ""}</b>
       <small class="ct-portwhen">${n > 0 ? `Day ${n} • ${esc(times || prettyDate(pt.day))}` : `${esc(prettyDate(pt.day))}${times ? ` • ${esc(times)}` : ""}`}</small>${portWxText(pt) ? `<small>${portWxText(pt)}</small>` : ""}${pt.excursion && pt.excursion.toLowerCase() !== "none" ? `<small>${esc(pt.excursion)}</small>` : ""}</span>${CT_CHEV}</button>`; };
   const g = guardFor(tr), noTime = ports.find(p => !p.allAboard), remOn = !!S.remind.on && can("reminders");   // no reminders = no alert (app.js checkReminders), so never a green On
   const [guardAttr, guardSay, guardPill, guardOk] = g ? ['data-rg="open"', "Running now. Tap for your time back", "Now", true]
-    : noTime ? [`data-tlday="${noTime.day}"`, "Add your all-aboard times and it can warn you", "Add times", false]
+    : noTime ? [`data-tlday="${esc(noTime.day)}"`, "Add your all-aboard times and it can warn you", "Add times", false]
     : !remOn ? ['data-ctgo="reminders"', "Turn reminders on and it can warn you on the day", "Turn on", false]
     : ['data-ctgo="reminders"', "Heads up when it's time to head back to the ship", "On", true];
   const guardBody = `<span class="ct-mic big" aria-hidden="true">${CT_ICONS.ship}</span><span class="grow"><b>Return Guard</b><small>${guardSay}</small></span><span class="ct-pill ${guardOk ? "on" : ""}${guardPill === "On" ? " ct-switch" : ""}">${guardPill}</span>`;

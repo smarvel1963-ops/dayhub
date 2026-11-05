@@ -96,10 +96,10 @@ function hpvInner() {
     <p class="sub" style="margin:2px 0 10px">Likely range ${hpvMoney(v.low)} – ${hpvMoney(v.high)}</p>
     <div class="home-stats">
       <div class="home-stat"><b>$${Math.round(v.ppsf)}</b><span>per sq ft in ${esc(v.area ? v.zip.slice(0, 3) + "xx" : v.zip)}</span></div>
-      <div class="home-stat"><b>${v.sold}</b><span>homes sold</span><small>90 days to ${esc(dataEnd)}</small></div>
+      <div class="home-stat"><b>${esc(v.sold)}</b><span>homes sold</span><small>90 days to ${esc(dataEnd)}</small></div>
       <div class="home-stat"><b>${v.yoy >= 0 ? "▲" : "▼"} ${Math.abs(v.yoy * 100).toFixed(1)}%</b><span>vs a year ago</span></div>
     </div>
-    <p class="fine" style="margin-top:10px">${v.sqft.toLocaleString("en-US")} sq ft × local price, then size ${pct(v.size)}, market since ${esc(dataEnd)} ${pct(v.trend)}, condition ${pct(v.shape)}.${v.area ? " Few sales in your ZIP, so this uses the wider area and the range is wider." : ""}</p>
+    <p class="fine" style="margin-top:10px">${esc(v.sqft.toLocaleString("en-US"))} sq ft × local price, then size ${pct(v.size)}, market since ${esc(dataEnd)} ${pct(v.trend)}, condition ${pct(v.shape)}.${v.area ? " Few sales in your ZIP, so this uses the wider area and the range is wider." : ""}</p>
     ${HPV_AI ? `<div class="hpv-ai">${esc(HPV_AI).replace(/\n/g, "<br>")}</div>` : ""}
     <div class="foot-actions"><button class="btn sm" data-hpv="explain" ${HPV_BUSY ? "disabled" : ""}>🤖 Explain my value</button>
       <button class="btn sm ghost" data-hpv="edit">Edit home details</button><button class="btn sm ghost" data-hpv="refresh">Refresh</button></div>
@@ -112,10 +112,10 @@ function hpvFormHtml(v) {
   return `<p class="fine" style="margin-top:0">What's your home worth? Tell us about it and we'll price it from recent sales near you.</p>
     <form class="qa-form" data-hpvform="1">
       <input name="zip" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" placeholder="ZIP code" value="${esc(zipGuess)}" aria-label="ZIP code" required>
-      <input name="sqft" inputmode="numeric" placeholder="Living area, sq ft (e.g. 1850)" value="${v.sqft || ""}" aria-label="Square feet" required>
-      <div class="hpv-row"><input name="beds" inputmode="numeric" placeholder="Beds" value="${v.beds || ""}" aria-label="Bedrooms">
-        <input name="baths" inputmode="decimal" placeholder="Baths" value="${v.baths || ""}" aria-label="Bathrooms">
-        <input name="year" inputmode="numeric" placeholder="Year built" value="${v.year || ""}" aria-label="Year built"></div>
+      <input name="sqft" inputmode="numeric" placeholder="Living area, sq ft (e.g. 1850)" value="${esc(v.sqft || "")}" aria-label="Square feet" required>
+      <div class="hpv-row"><input name="beds" inputmode="numeric" placeholder="Beds" value="${esc(v.beds || "")}" aria-label="Bedrooms">
+        <input name="baths" inputmode="decimal" placeholder="Baths" value="${esc(v.baths || "")}" aria-label="Bathrooms">
+        <input name="year" inputmode="numeric" placeholder="Year built" value="${esc(v.year || "")}" aria-label="Year built"></div>
       <label class="field">Condition <select name="cond">${HPV_COND.map(([k, l]) => `<option value="${k}" ${(v.cond || "avg") === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
       <button class="btn">Get my ${HPV_NAME}</button>${v.zip ? `<button type="button" class="btn ghost" data-hpv="cancel">Cancel</button>` : ""}</form>`;
 }
