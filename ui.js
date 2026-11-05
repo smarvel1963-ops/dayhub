@@ -1423,7 +1423,7 @@ document.addEventListener("click", e => {
   if (ds.close === "sheet") { closeSettings(); return; }
   if (ds.qa) { openQA(ds.qa); return; }
   if (ds.qtype) { openQA(ds.qtype); return; }
-  if (ds.undo) { if (UNDO) { S = JSON.parse(UNDO); UNDO = null; save(); render(); toast("Restored ✓"); } return; }
+  if (ds.undo) { if (UNDO) { S = JSON.parse(UNDO); UNDO = null; save(); render(); if (!document.getElementById("sheet").classList.contains("hidden")) drawSettings(); toast("Restored ✓"); } return; }
   if (ds.code === "resend") { if (CODE) askCode(CODE.buyer, CODE.for); return; }
   if (ds.code === "cancel") { CODE = null; redrawCode(); return; }
   if (ds.aicred === "check") { const c = readCredits(); if (c.buyer) checkCredits(c.buyer); return; }

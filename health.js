@@ -62,7 +62,7 @@ const hhIsD = v => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
 const hhMin = t => { const [h, m] = String(t || "0:0").split(":").map(Number); return h * 60 + m; };
 const hhNum = v => { const n = Number(String(v == null ? "" : v).replace(/[^\d.\-]/g, "")); return isFinite(n) ? n : 0; };
 const hhTxt = (v, n = 80) => String(v == null ? "" : v).trim().slice(0, n);
-const hhDate = d => d ? prettyDate(d) + (String(d).slice(0, 4) !== today().slice(0, 4) ? ", " + String(d).slice(0, 4) : "") : "";
+const hhDate = d => d ? prettyDate(d) + (String(d).slice(0, 4) !== today().slice(0, 4) ? ", " + esc(String(d).slice(0, 4)) : "") : "";
 const hhRel = d => { const n = daysUntil(d); return n === 0 ? "today" : n === 1 ? "tomorrow" : n === -1 ? "yesterday" : n > 1 && n < 7 ? `in ${n} days` : n < 0 && n > -7 ? `${-n} days ago` : hhDate(d); };
 const hhWk = d => parseDay(d).toLocaleDateString("en-US", { weekday: "short" });
 // 7.5 -> "7h 30m"
@@ -312,9 +312,9 @@ function hhScoreHtml() {
 function hhGoalsHtml() {
   const g = hhGoals();
   return `<form class="qa-form" data-hhgoals="1"><label class="field">Your first name<input name="name" value="${esc(S.name || "")}" autocomplete="given-name"></label>
-      <div class="hh-goalin"><label>💧 Water<input name="water" type="number" min="1" max="30" value="${g.water}" inputmode="numeric"><small>glasses a day</small></label>
-        <label>👟 Steps<input name="steps" type="number" min="500" max="50000" step="500" value="${g.steps}" inputmode="numeric"><small>a day</small></label>
-        <label>🌙 Sleep<input name="sleep" type="number" min="4" max="12" step="0.5" value="${g.sleep}" inputmode="decimal"><small>hours a night</small></label></div>
+      <div class="hh-goalin"><label>💧 Water<input name="water" type="number" min="1" max="30" value="${esc(g.water)}" inputmode="numeric"><small>glasses a day</small></label>
+        <label>👟 Steps<input name="steps" type="number" min="500" max="50000" step="500" value="${esc(g.steps)}" inputmode="numeric"><small>a day</small></label>
+        <label>🌙 Sleep<input name="sleep" type="number" min="4" max="12" step="0.5" value="${esc(g.sleep)}" inputmode="decimal"><small>hours a night</small></label></div>
       <button class="btn hh-go">Save goals</button></form>
     <p class="fine">Pick goals that fit you - your doctor can tell you what's right for you.</p>`;
 }
@@ -342,10 +342,10 @@ function hhMedsHtml() {
   if (HH_EDIT) return hhMedForm();
   const t = today(), D = hhDoses(t), tk = D.filter(d => d.st === "taken").length, M = hhMeds(), prn = M.filter(m => !m.times.length);
   const stTxt = { taken: "✓ taken", skipped: "skipped", due: "due now", missed: "missed", later: "later" };
-  const row = d => `<div class="hh-dose ${d.st}" style="--pill:${HH_PILLS.includes(d.m.color) ? d.m.color : HH_PILLS[4]}">${hhCap(d.m.color)}<div class="grow"><b>${esc(d.m.name)}</b>
+  const row = d => `<div class="hh-dose ${esc(d.st)}" style="--pill:${HH_PILLS.includes(d.m.color) ? d.m.color : HH_PILLS[4]}">${hhCap(d.m.color)}<div class="grow"><b>${esc(d.m.name)}</b>
       <small>${d.m.strength ? esc(d.m.strength) + " · " : ""}${hm(d.time)} · ${stTxt[d.st]}${d.x && d.x.at ? ` at ${hm(d.x.at)}` : ""}</small></div>
-      <button class="hh-take${d.st === "taken" ? " on" : ""}" data-hhdose="${d.k}|taken" aria-pressed="${d.st === "taken"}" aria-label="Taken: ${esc(d.m.name)} ${hm(d.time)}">✓ Taken</button>
-      <button class="hh-skip${d.st === "skipped" ? " on" : ""}" data-hhdose="${d.k}|skipped" aria-pressed="${d.st === "skipped"}" aria-label="Skipped: ${esc(d.m.name)} ${hm(d.time)}">Skip</button></div>`;
+      <button class="hh-take${d.st === "taken" ? " on" : ""}" data-hhdose="${esc(d.k)}|taken" aria-pressed="${d.st === "taken"}" aria-label="Taken: ${esc(d.m.name)} ${hm(d.time)}">✓ Taken</button>
+      <button class="hh-skip${d.st === "skipped" ? " on" : ""}" data-hhdose="${esc(d.k)}|skipped" aria-pressed="${d.st === "skipped"}" aria-label="Skipped: ${esc(d.m.name)} ${hm(d.time)}">Skip</button></div>`;
   const slots = HH_SLOTS.map(s => [s, D.filter(d => hhSlot(d.time) === s)]).filter(([, L]) => L.length);
   return `<section class="hh-hero">${hosRing(D.length ? tk / D.length * 100 : 0, D.length ? `${tk}/${D.length}` : "–", "taken today", "#2dd4bf")}
       <div><h3>${!M.length ? "Your pill organizer" : D.length ? (tk === D.length ? "All of today's doses taken 🎉" : `${D.length - tk} dose${D.length - tk === 1 ? "" : "s"} left today`) : "No set times today"}</h3>
@@ -364,7 +364,7 @@ function hhMedCard(m) {
   const pct = R.track && R.daily ? Math.min(100, R.days / 30 * 100) : 0;
   return `<article class="hh-med${R.soon ? " low" : ""}" style="--pill:${tone}"><div class="hh-med-top">${hhCap(m.color, "big")}<div class="grow"><b>${esc(m.name)}</b><small>${esc(m.strength || "")}</small></div>
       ${R.soon ? `<i class="hh-badge">${R.days <= 0 ? "REFILL NOW" : "REFILL SOON"}</i>` : ""}</div>
-    <div class="hh-times">${m.times.length ? m.times.slice().sort().map(tm => { const d = D.find(x => x.time === tm); return `<span class="${d ? d.st : ""}">${hm(tm)}</span>`; }).join("") : `<span>as needed</span>`}</div>
+    <div class="hh-times">${m.times.length ? m.times.slice().sort().map(tm => { const d = D.find(x => x.time === tm); return `<span class="${d ? esc(d.st) : ""}">${hm(tm)}</span>`; }).join("") : `<span>as needed</span>`}</div>
     ${m.instr ? `<p class="hh-instr">“${esc(m.instr)}”</p>` : ""}
     ${R.track ? `<div class="hh-left"><div class="hh-left-top"><b>${R.left} pill${R.left === 1 ? "" : "s"} left</b>${R.days != null ? `<small>${R.days} day${R.days === 1 ? "" : "s"} · refill by ${hhDate(R.by)}</small>` : ""}</div>
         ${R.days != null ? `<i class="hh-track ${R.soon ? "low" : ""}"><span style="width:${pct.toFixed(0)}%"></span></i>` : ""}
@@ -535,7 +535,7 @@ function hhMoveHtml() {
   return `<section class="hh-hero">${hosRing(st / Math.max(1, g.steps) * 100, st ? hhK(st) : "0", `of ${hhK(g.steps)} steps`, "#6ee7b7")}
       <div><h3>${st >= g.steps ? "Step goal reached 🎉" : st ? `${(g.steps - st).toLocaleString("en-US")} steps to go` : "Log today's steps"}</h3>
       <p>🔥 <b>${sk}</b> day${sk === 1 ? "" : "s"} in a row${wm ? ` · 🏋️ ${wm} min of workouts today` : ""}</p></div></section>
-    <form class="hh-inline" data-hhsteps="1"><input name="steps" inputmode="numeric" placeholder="Steps today, e.g. 4200" aria-label="Steps today" value="${st || ""}"><input type="date" name="date" value="${t}" max="${t}" aria-label="Day"><button class="btn sm hh-go">Save</button></form>
+    <form class="hh-inline" data-hhsteps="1"><input name="steps" inputmode="numeric" placeholder="Steps today, e.g. 4200" aria-label="Steps today" value="${esc(st || "")}"><input type="date" name="date" value="${t}" max="${t}" aria-label="Day"><button class="btn sm hh-go">Save</button></form>
     <p class="fine">📱 Type them from your phone's health app or watch for now - automatic steps come with the store app.</p>
     <h3 class="mv-h">This week</h3>${hhWeekBars(hhSteps, g.steps, hhK, "#2dd4bf")}
     <p class="fine hh-center">Green = goal met. Dashed line = your goal (${(+g.steps).toLocaleString("en-US")}). Streak = days in a row with the goal met or a workout.</p>
@@ -545,7 +545,7 @@ function hhMoveHtml() {
       <div class="hpv-row"><input name="sets" inputmode="numeric" placeholder="Sets" aria-label="Sets (optional)"><input name="reps" inputmode="numeric" placeholder="Reps" aria-label="Reps (optional)"><input name="wt" inputmode="decimal" placeholder="Weight lb" aria-label="Weight (optional)"></div>
       <div class="two"><input name="note" placeholder="Note (optional)" maxlength="80" aria-label="Note"><input type="date" name="date" value="${t}" max="${t}" aria-label="Day"></div><button class="btn hh-go">Add workout</button></form>
     <div class="hh-works">${W.slice(0, 12).map(w => { const k = HH_WORK.find(x => x[0] === w.type) || HH_WORK[7];
-      return `<div class="hh-work">${hhIc(k[1], "#6ee7b7", "sm")}<div class="grow"><b>${esc(k[2])} · ${w.min} min</b><small>${esc(hhRel(w.date))}${w.sets ? ` · ${w.sets}×${w.reps || "?"}` : ""}${w.wt ? ` @ ${w.wt} lb` : ""}${w.note ? " · " + esc(w.note) : ""}</small></div>
+      return `<div class="hh-work">${hhIc(k[1], "#6ee7b7", "sm")}<div class="grow"><b>${esc(k[2])} · ${esc(w.min)} min</b><small>${esc(hhRel(w.date))}${w.sets ? ` · ${esc(w.sets)}×${esc(w.reps || "?")}` : ""}${w.wt ? ` @ ${esc(w.wt)} lb` : ""}${w.note ? " · " + esc(w.note) : ""}</small></div>
         <button class="mv-x" data-hhwdel="${w.id}" aria-label="Remove workout">✕</button></div>`; }).join("") || `<p class="hos-hint">Walks, the gym, a bike ride - every one counts toward your streak.</p>`}</div>`;
 }
 
@@ -572,10 +572,10 @@ function hhSleepHtml() {
       <div class="field">How well did you sleep?<div class="hh-moons" role="radiogroup" aria-label="Sleep quality">${[1, 2, 3, 4, 5].map(n => `<label><input type="radio" name="q" value="${n}" ${n === 3 ? "checked" : ""}><span aria-label="${n} of 5">${n <= 2 ? "🌘" : n === 3 ? "🌗" : n === 4 ? "🌖" : "🌕"}<small>${["Bad", "Poor", "Okay", "Good", "Great"][n - 1]}</small></span></label>`).join("")}</div></div>
       <input name="note" placeholder="Note: naps, snoring, woke up a lot… (optional)" maxlength="100" aria-label="Note"><button class="btn hh-go">Save night</button></form>
     <h3 class="mv-h">This week</h3>${hhWeekBars(d => (hhSleepOn(d) || { hrs: 0 }).hrs, g.sleep, h => `${Math.round(h * 10) / 10}h`, "#a78bfa")}
-    <div class="mv-tiles3 hh-tiles3"><div><small>Average · 7 nights</small><b>${Z.wk.length ? hhFmtH(Z.avg) : "–"}</b><em>goal ${g.sleep}h</em></div>
+    <div class="mv-tiles3 hh-tiles3"><div><small>Average · 7 nights</small><b>${Z.wk.length ? hhFmtH(Z.avg) : "–"}</b><em>goal ${esc(g.sleep)}h</em></div>
       <div><small>Consistency</small><b>${steady}</b><em>${Z.sd == null ? "2+ nights" : `bedtime ±${Z.sd} min`}</em></div>
-      <div><small>Best night · 30 days</small><b>${Z.best ? hhFmtH(Z.best.hrs) : "–"}</b><em>${Z.best ? `${esc(hhRel(Z.best.date))} · ${Z.best.q}/5` : ""}</em></div></div>
-    <div class="hh-works">${Z.L.slice(-10).reverse().map(x => `<div class="hh-work">${hhIc("🌙", "#a78bfa", "sm")}<div class="grow"><b>${hhFmtH(x.hrs)} · ${x.q}/5</b><small>${esc(hhRel(x.date))} · ${hm(x.bed)} → ${hm(x.wake)}${x.note ? " · " + esc(x.note) : ""}</small></div>
+      <div><small>Best night · 30 days</small><b>${Z.best ? hhFmtH(Z.best.hrs) : "–"}</b><em>${Z.best ? `${esc(hhRel(Z.best.date))} · ${esc(Z.best.q)}/5` : ""}</em></div></div>
+    <div class="hh-works">${Z.L.slice(-10).reverse().map(x => `<div class="hh-work">${hhIc("🌙", "#a78bfa", "sm")}<div class="grow"><b>${hhFmtH(x.hrs)} · ${esc(x.q)}/5</b><small>${esc(hhRel(x.date))} · ${hm(x.bed)} → ${hm(x.wake)}${x.note ? " · " + esc(x.note) : ""}</small></div>
         <button class="mv-x" data-hhsdel="${x.id}" aria-label="Remove night">✕</button></div>`).join("")}</div>
     <p class="fine">Hours = wake time − bedtime, across midnight (11:30 PM → 7:00 AM = 7h 30m). Consistency = how much your bedtime moves around this week (the standard deviation). Best night = your highest-rated, then closest to your goal.</p>`;
 }
@@ -584,7 +584,7 @@ function hhSleepHtml() {
 function hhBottle(n, goal) {
   const f = Math.min(1, n / Math.max(1, goal)), y = (238 - 198 * f).toFixed(1), shape = "M50 10H90V30C90 40 112 46 112 68V218C112 230 104 238 92 238H48C36 238 28 230 28 218V68C28 46 50 40 50 30Z";
   const g = Math.min(12, goal);
-  return `<svg class="hh-bottle" viewBox="0 0 140 250" role="img" aria-label="${n} of ${goal} glasses"><defs><clipPath id="hhBclip"><path d="${shape}"/></clipPath>
+  return `<svg class="hh-bottle" viewBox="0 0 140 250" role="img" aria-label="${esc(n)} of ${esc(goal)} glasses"><defs><clipPath id="hhBclip"><path d="${shape}"/></clipPath>
       <linearGradient id="hhWat" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#67e8f9"/><stop offset="1" stop-color="#0e7490"/></linearGradient></defs>
     <g clip-path="url(#hhBclip)"><rect width="140" height="250" fill="rgba(103,232,249,.07)"/>
       ${f > 0 ? `<path class="hh-wave" d="M-60 ${y} q15 -7 30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 V260 H-60Z" fill="url(#hhWat)"/>` : ""}
@@ -594,7 +594,7 @@ function hhBottle(n, goal) {
 }
 function hhWaterHtml() {
   const t = today(), g = hhGoals(), n = hhWater(t);
-  return `<section class="hh-water">${hhBottle(n, g.water)}<div class="hh-water-in"><b>${n}<small> of ${g.water}</small></b><span>glasses today</span>
+  return `<section class="hh-water">${hhBottle(n, g.water)}<div class="hh-water-in"><b>${n}<small> of ${esc(g.water)}</small></b><span>glasses today</span>
       <em>${n >= g.water ? "Goal reached 🎉" : `${g.water - n} to go`}</em>
       <div class="hh-wbtns"><button class="hh-wminus" data-hhwater="-1" aria-label="One glass less">−</button><button class="hh-wplus" data-hhwater="1" aria-label="Add a glass">＋ 1 glass</button></div></div></section>
     <h3 class="mv-h">This week</h3>${hhWeekBars(hhWater, g.water, v => String(v), "#22d3ee")}
@@ -614,7 +614,7 @@ function hhCheckinHtml() {
     <form class="hh-inline" data-hhcheck="1"><input name="note" value="${esc(C.note || "")}" placeholder="A note for today (optional)" maxlength="200" aria-label="Note"><button class="btn sm ghost">Save</button></form>
     <h3 class="mv-h">Last 2 weeks</h3>
     <div class="hh-strip">${days.map(d => { const c = hh().checkins[d] || {}, m = HH_MOODS.find(x => x[0] === c.mood);
-      return `<div class="${d === t ? "now" : ""}"><span>${m ? m[1] : "·"}</span><small>${hhWk(d).slice(0, 1)}</small>${(c.sym || []).length ? `<i>${c.sym.length}</i>` : ""}</div>`; }).join("")}</div>
+      return `<div class="${d === t ? "now" : ""}"><span>${m ? m[1] : "·"}</span><small>${hhWk(d).slice(0, 1)}</small>${Array.isArray(c.sym) && c.sym.length ? `<i>${c.sym.length}</i>` : ""}</div>`; }).join("")}</div>
     <p class="fine">Saved for today as you tap. The little number = symptoms that day. Patterns over time are handy at your next visit (📋 Visit summary).</p>`;
 }
 
@@ -887,7 +887,7 @@ if (typeof document !== "undefined") document.addEventListener("change", async e
   const el = e.target; if (typeof MODE === "undefined" || MODE !== "health" || !el || !el.dataset) return;
   if (el.dataset.hhvt) { HH_VT = el.value; return; }
   if (el.dataset.hhvisitsel) { HH_VISIT = el.value; showHh("visit"); return; }
-  if (!el.files || !el.files[0]) return;
+  if (!el.files || !el.files[0] || el.id === "importFile") return;   // the backup file is ui.js's; emptying its box here made Load a backup file do nothing (11/04)
   const file = el.files[0]; el.value = "";
   if (file.size > 25e6) { HH_MSG = "That photo is too big."; hhMsgShow(); return; }
   if (el.dataset.hhscan) { await hhRead(file); return; }

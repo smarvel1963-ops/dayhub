@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.58.5";
+const VERSION = "1.58.6";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -279,6 +279,7 @@ function safeIds(o, depth = 0) {
   for (const k of Object.keys(o)) {
     const v = o[k];
     if (k === "id" && (typeof v === "string" || typeof v === "number")) { if (!SAFE_ID.test(String(v))) o[k] = "r" + Math.random().toString(36).slice(2, 10); }
+    else if (k === "id" && v && typeof v === "object") o[k] = "r" + Math.random().toString(36).slice(2, 10);   // 11/04: an id wrapped in an array joins back into text in the page
     else if (k === "bk" && typeof v === "string") { if (v && !SAFE_ID.test(v)) o[k] = ""; }
     else if (v && typeof v === "object") safeIds(v, depth + 1);
   }
@@ -652,7 +653,7 @@ async function syncDrive() {
     // A copy that counts only for this Hub's own things, over a phone holding anything: until now such phones overwrote each other rather than merging, so they
     // can hold different cars, accounts or bills. Ask (the choice below); never replace them by itself.
     if (newer && !S.sync.dirty && !hasData(cloud.data) && backupHasData(S)) { CLOUD_PENDING = cloud; toast(`${APP_NAME} has a different copy in your backup — ⚙ Backup to choose`); return; }
-    if (newer && !S.sync.dirty) { restoreFrom(cloud); return; }           // changed on another device
+    if (newer && !S.sync.dirty) { restoreFrom(cloud, false, true); return; }           // changed on another device
     if (newer) { CLOUD_PENDING = cloud; toast(`${APP_NAME} changed on another device too — ⚙ Backup to choose`); return; }
     if (cloud && CLOUD_PENDING) { CLOUD_PENDING = null; drawSyncBox(); }   // the copy it asked about is no longer newer
     if (S.sync.dirty && !CLOUD_PENDING) await driveUpload();              // a question open = answer it first
@@ -966,9 +967,63 @@ async function restoreNow() {
   try { const cloud = await driveDownload(); cloud ? restoreFrom(cloud) : toast("No backup found yet"); }
   catch (e) { toast("Couldn't read the backup — try again"); }
 }
-function restoreFrom(cloud, file) {
+// 11/04: photos live in each phone's own store, never in S or a backup. A restore keeps this phone's rows (a file's list would hide photos added since it was made,
+// and no screen lists the store), then adds back the file's rows whose photo really is here (after Start fresh, or an older file and then a newer one).
+// A row with nothing behind it would be an empty tile, so it stays out. Same reason Erase's Undo drops them.
+function phonePhotos() {
+  if (MODE === "health") return S.hh && Array.isArray(S.hh.vault) ? S.hh.vault : [];
+  if (MODE === "money") return S.mh && Array.isArray(S.mh.vault) ? S.mh.vault : [];
+  if (MODE !== "auto") return null;
+  const by = Object.create(null);
+  (S.garage && Array.isArray(S.garage.cars) ? S.garage.cars : []).forEach(c => { if (c && c.id) by[c.id] = { photos: Array.isArray(c.photos) ? c.photos : [], cover: c.cover || "", thumb: c.thumb || "" }; });
+  return by;
+}
+// Puts them back over what a backup brought in, and hands back what the backup listed. A car this phone already has keeps its own small picture too.
+function putPhonePhotos(p) {
+  const o = v => v && typeof v === "object" && !Array.isArray(v);
+  if (MODE === "health" || MODE === "money") { const k = MODE === "health" ? "hh" : "mh";
+    const listed = o(S[k]) && Array.isArray(S[k].vault) ? S[k].vault : [];
+    if (o(S[k])) S[k].vault = p; else if (p.length) S[k] = { vault: p };
+    return listed; }
+  if (MODE !== "auto" || !o(S.garage) || !Array.isArray(S.garage.cars)) return null;
+  const listed = Object.create(null);
+  S.garage.cars.forEach(c => { if (!o(c)) return; const k = p[c.id];
+    if (c.id) listed[c.id] = { photos: Array.isArray(c.photos) ? c.photos : [], cover: c.cover || "", thumb: c.thumb || "" };
+    c.photos = k ? k.photos : []; c.cover = k ? k.cover : ""; if (k) c.thumb = k.thumb; });
+  return listed;
+}
+// What this phone's photo store really holds. A store that can't be read counts as empty.
+async function storedPhotoIds() {
+  const tx = MODE === "health" ? hhIdb : MODE === "money" ? mvTx : MODE === "auto" ? photoTx : null;
+  if (!tx || typeof indexedDB === "undefined") return new Set();
+  try { return new Set(await tx("readonly", s => s.getAllKeys())); } catch (e) { return new Set(); }
+}
+// The file's rows whose photo is here come back. `say` is the toast to extend if some really are on another phone ("" = say nothing).
+async function addBackPhotos(listed, mine, say) {
+  if (!listed) return;
+  const auto = MODE === "auto", cars = auto ? Object.values(listed) : [];
+  if (!(auto ? cars.some(f => f.photos.length || f.cover) : listed.length)) return;
+  const have = await storedPhotoIds();
+  if (S !== mine) return;                                           // Undo or another restore got here first
+  let changed = false, missing = false;
+  const merge = (now, rows) => rows.forEach(x => { if (!x || typeof x !== "object") return;
+    if (!have.has(x.id)) { missing = true; return; }
+    if (!now.some(y => y && y.id === x.id)) { now.push(x); changed = true; } });
+  if (auto) { if (S.garage && Array.isArray(S.garage.cars)) S.garage.cars.forEach(c => { const f = c && typeof c === "object" ? listed[c.id] : null; if (!f) return;
+      merge(c.photos, f.photos);
+      if (!c.cover && f.cover && have.has(f.cover)) { c.cover = f.cover; if (f.thumb) c.thumb = f.thumb; changed = true; } }); }
+  else { const k = MODE === "health" ? "hh" : "mh"; if (S[k] && typeof S[k] === "object") { if (!Array.isArray(S[k].vault)) S[k].vault = []; merge(S[k].vault, listed); } }
+  if (changed) { saveLocal(); try { render(); } catch (e) { console.warn("Could not redraw after adding photos back", e); } }
+  if (missing && say) toast(`${say}. Full-size photos stay on the phone they were taken on`, !!UNDO);
+}
+// quiet = the automatic restore in the background sync, which says nothing extra and leaves an open Settings form alone.
+function restoreFrom(cloud, file, quiet) {
   snap();
   const keepCal = S.gcal, keepSync = S.sync, keepFired = S.remind.fired, keepUI = { collapsed: S.collapsed, briefDay: S.briefDay, briefAuto: S.briefAuto };
+  // 11/04: these belong to THIS phone too. Reminders can only ring with this phone's permission, and the AI reading notes is this phone's privacy choice.
+  const was = S, wasPending = CLOUD_PENDING, keepRemind = S.remind.on, keepAi = S.aiNotes, keepPics = phonePhotos();
+  let remindOffHere = false, listed = null;
+  try {
   S = normalize(cloud.data);
   // Which cards are open or closed belongs to THIS phone (Scott 10/2: closing
   // the app keeps what you opened or closed) - a backup never changes it.
@@ -979,8 +1034,23 @@ function restoreFrom(cloud, file) {
   // v1.58b: a backup FILE keeps this phone's own backup setting (it used to switch Drive backup on, even on a free phone);
   // with backup on, the loaded data goes up next time
   S.gcal = keepCal; S.sync = file ? { ...keepSync, dirty: !!keepSync.on } : { on: true, last: cloud.savedAt, dirty: false };
-  CLOUD_PENDING = null; saveLocal(); drawSyncBox(); render(); loadWeather();
-  toast(`Restored from ${new Date(cloud.savedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`, true);
+  remindOffHere = S.remind.on && !keepRemind; listed = putPhonePhotos(keepPics);
+  S.remind.on = keepRemind;
+  if (keepAi === undefined) delete S.aiNotes; else S.aiNotes = keepAi;
+  // 11/04: draw BEFORE saving. A file that can't be drawn must not replace what's saved here.
+  CLOUD_PENDING = null; render();
+  } catch (e) {
+    console.warn("Could not use that backup", e);
+    S = was; saveLocal(); UNDO = null; CLOUD_PENDING = wasPending; render();   // saved too: drawing can save along the way
+    toast(`Nothing changed. That backup has something ${APP_NAME} can't open.`);
+    return;
+  }
+  saveLocal(); drawSyncBox(); loadWeather();
+  // Or closing Settings writes the old name and city back over this. It's already saved, so a problem here must not read as a failed restore.
+  if (!quiet) try { if (!document.getElementById("sheet").classList.contains("hidden")) drawSettings(); } catch (e) { console.warn("Could not redraw Settings", e); }
+  const said = `Restored from ${new Date(cloud.savedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}${remindOffHere && !quiet ? ". Reminders are off on this phone: turn them on in \u2699" : ""}`;
+  toast(said, true);
+  addBackPhotos(listed, S, quiet ? "" : said).catch(e => console.warn("Could not add photos back", e));
 }
 function syncOff() {
   try { if (DTOKEN && window.google) google.accounts.oauth2.revoke(DTOKEN, () => {}); } catch (e) { /* gone */ }

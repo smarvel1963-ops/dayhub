@@ -183,10 +183,10 @@ input[type=date], input[type=time] { color-scheme: dark; }
 .fab:active { transform: scale(.92); }
 .toast { position: fixed; left: 50%; bottom: 96px; transform: translate(-50%, 30px); opacity: 0; z-index: 40;
   background: #f2f4fb; color: #0a0e1c; border-radius: 14px; padding: 11px 14px; font-size: 14px; font-weight: 600;
-  display: flex; gap: 14px; align-items: center; transition: all .25s ease; pointer-events: none; white-space: nowrap;
+  display: flex; gap: 14px; align-items: center; transition: all .25s ease; pointer-events: none; width: max-content; max-width: calc(100vw - 24px); box-sizing: border-box;
   box-shadow: 0 10px 30px rgba(0,0,0,.4); }
 .toast.show { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
-.toast button { background: none; border: none; color: #4f46e5; font-weight: 800; font-size: 14px; cursor: pointer; }
+.toast button { background: none; border: none; color: #4f46e5; font-weight: 800; font-size: 14px; cursor: pointer; flex: none; white-space: nowrap; }
 
 /* ---------------------------------------------------------------- sheets */
 .sheet { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: flex-end; z-index: 30;

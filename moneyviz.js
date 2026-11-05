@@ -156,7 +156,7 @@ function mvAddHtml() {
 }
 const mvManualForm = (v = {}) => `<form class="qa-form mv-form" data-mhtx="1" data-mvfrom="add"><div class="mv-seg sm" role="group" aria-label="Money in or out">
       <label><input type="radio" name="dir" value="out" ${v.dir !== "in" ? "checked" : ""}><span>− Spent</span></label><label><input type="radio" name="dir" value="in" ${v.dir === "in" ? "checked" : ""}><span>+ Money in</span></label></div>
-    <input name="amt" class="mv-amt" inputmode="decimal" placeholder="$0.00" required aria-label="Amount" value="${v.amt || ""}">
+    <input name="amt" class="mv-amt" inputmode="decimal" placeholder="$0.00" required aria-label="Amount" value="${esc(v.amt || "")}">
     <div class="two"><input name="what" placeholder="What for, e.g. Kroger" aria-label="What for" value="${esc(v.what || "")}"><input type="date" name="date" value="${today()}" aria-label="Date"></div>
     <select name="cat" aria-label="Category"><option value="">Category: guess it</option>${catOpts(v.cat || "", true)}</select>
     <button class="btn">Add to Transactions</button></form>
@@ -221,7 +221,7 @@ function mvReviewHtml() {
       ${k === "document" ? row("📄", "Title", `<input name="title" value="${esc(f.title)}" placeholder="e.g. 2025 W-2" required>`)
         + row("🗂️", "Type", `<select name="doc">${MV_DOCS.map(([x, i, l]) => `<option value="${x}" ${f.doc === x ? "selected" : ""}>${i} ${l}</option>`).join("")}</select>`)
         : row(k === "paystub" ? "🏢" : "🏪", k === "paystub" ? "Employer" : k === "bill" ? "Company" : "Merchant", `<input name="who" value="${esc(f.who)}" placeholder="${k === "bill" ? "e.g. Entergy" : "e.g. Whole Foods"}">`)
-        + row("💲", k === "paystub" ? "Take-home" : "Amount", `<input name="amt" inputmode="decimal" value="${f.amt}" placeholder="0.00" required>`)}
+        + row("💲", k === "paystub" ? "Take-home" : "Amount", `<input name="amt" inputmode="decimal" value="${esc(f.amt)}" placeholder="0.00" required>`)}
       ${row("📅", k === "bill" ? "Due" : "Date", `<input type="date" name="date" value="${esc(k === "bill" ? f.due || f.date : f.date)}">`)}
       ${k === "receipt" || k === "bill" ? row("🏷️", "Category", `<select name="cat">${catOpts(f.cat)}</select>`) : ""}
       ${k === "bill" ? `<label class="fine mv-check"><input type="checkbox" name="auto" ${f.auto ? "checked" : ""}><span>On autopay · repeats every month on this day</span></label>` : ""}
@@ -311,7 +311,7 @@ function mvCalendar(F) {
   const cells = [...Array(lead).fill(""), ...Array.from({ length: dim }, (_, i) => `${m}-${pad(i + 1)}`)];
   return `<div class="mv-cal" role="grid" aria-label="${monthName(m)}">${["M", "T", "W", "T", "F", "S", "S"].map(w => `<span class="mv-cal-h">${w}</span>`).join("")}${cells.map(d => { if (!d) return `<span></span>`;
       const R = F.rows.filter(r => r.due === d), un = R.filter(r => !r.paid), cls = [d === t ? "today" : "", MV_PDAY === d ? "on" : "", un.some(r => r.late) ? "late" : un.length ? "due" : R.length ? "paid" : ""].join(" ");
-      return `<button class="${cls}" data-mvpday="${d}" aria-label="${mDate(d)}${R.length ? `: ${R.map(r => r.b.name).join(", ")}` : ""}"><b>${+d.slice(8)}</b>${R.length ? `<i>${R.slice(0, 3).map(r => PAY_ICONS[r.b.cat] || "🧾").join("")}</i><small>${usd(R.reduce((n, r) => n + (+r.b.amount || 0), 0))}</small>` : ""}</button>`; }).join("")}</div>
+      return `<button class="${cls}" data-mvpday="${d}" aria-label="${mDate(d)}${R.length ? `: ${esc(R.map(r => r.b.name).join(", "))}` : ""}"><b>${+d.slice(8)}</b>${R.length ? `<i>${R.slice(0, 3).map(r => PAY_ICONS[r.b.cat] || "🧾").join("")}</i><small>${usd(R.reduce((n, r) => n + (+r.b.amount || 0), 0))}</small>` : ""}</button>`; }).join("")}</div>
     <p class="fine">🟦 due · 🟥 late · 🟩 paid. Tap a day to see its bills.</p>`;
 }
 
@@ -479,8 +479,8 @@ function mvAccountsHtml() {
       <div class="mv-split-k"><span>🟩 Have ${usd(own)}</span><span>🟥 Owe ${usd(owe)}</span></div>` : ""}
     <div class="mv-acard-list">${L.map(a => { const tone = MV_ACCT_TONE[a.kind] || "#3b82f6", debt = ["credit", "loan"].includes(a.kind);
       return `<article class="mv-acard" style="--tone:${tone}">${mvIc(macct(a.kind)[1], tone)}<div class="grow"><b>${esc(a.name)}</b>
-          <small>${esc(a.src ? mvSrcName(a.src) : macct(a.kind)[2])}${debt ? " · owed" : ""}${a.apr ? ` · ${a.apr}% APR` : ""}${a.min ? ` · min ${usd(a.min)}` : ""}${a.imp ? ` · 📥 file ${mDate(a.imp)}` : a.at ? ` · updated ${mDate(a.at)}` : ""}</small>
-          <form class="mv-balf" data-mhbal="${a.id}"><span>$</span><input name="bal" inputmode="decimal" value="${a.bal}" aria-label="Balance for ${esc(a.name)}"><button class="btn sm ghost">Save</button>${mhGate() ? "" : mvFileBtn("📥", a.id, "btn sm ghost")}</form></div>
+          <small>${esc(a.src ? mvSrcName(a.src) : macct(a.kind)[2])}${debt ? " · owed" : ""}${a.apr ? ` · ${esc(a.apr)}% APR` : ""}${a.min ? ` · min ${usd(a.min)}` : ""}${a.imp ? ` · 📥 file ${mDate(a.imp)}` : a.at ? ` · updated ${mDate(a.at)}` : ""}</small>
+          <form class="mv-balf" data-mhbal="${a.id}"><span>$</span><input name="bal" inputmode="decimal" value="${esc(a.bal)}" aria-label="Balance for ${esc(a.name)}"><button class="btn sm ghost">Save</button>${mhGate() ? "" : mvFileBtn("📥", a.id, "btn sm ghost")}</form></div>
         <strong class="${debt ? "neg" : ""}">${debt ? "−" : ""}${usd(+a.bal || 0)}</strong><button class="mv-x" data-mhdel="acct:${a.id}" aria-label="Remove ${esc(a.name)}">✕</button></article>`; }).join("")}</div>
     ${mhCanAddAcct() ? `<h3 class="mv-h">＋ Add an account</h3><form class="qa-form" data-mhacct="1"><div class="two"><select name="kind" aria-label="Kind">${MH_ACCTS.map(([k, i, l]) => `<option value="${k}">${i} ${l}</option>`).join("")}</select>
           <input name="name" placeholder="Name, e.g. Chase" required aria-label="Account name"></div>
@@ -498,7 +498,7 @@ function mvBudgetHtml() {
         <div><b>${usd(sp)} <small>of ${usd(lim)}</small></b><span>${usd(Math.max(0, lim - sp))} left · day ${day} of ${dim} (${Math.round(day / dim * 100)}% of the month gone)</span></div></div>
       <div class="mv-rings">${R.map(r => `<div class="mv-bring ${r.status}">${hosRing(r.spent / r.lim * 100, mcat(r.cat)[1], mcat(r.cat)[2], col(r.status))}
           <b>${usd(r.spent)} <small>/ ${usd(r.lim)}</small></b><em>${r.status === "over" ? `${usd(r.spent - r.lim)} over` : `${usd(r.lim - r.spent)} left`}</em>
-          <button class="mv-x" data-mhbudgetoff="${r.cat}" aria-label="Remove the ${esc(mcat(r.cat)[2])} limit">✕</button></div>`).join("")}</div>`
+          <button class="mv-x" data-mhbudgetoff="${esc(r.cat)}" aria-label="Remove the ${esc(mcat(r.cat)[2])} limit">✕</button></div>`).join("")}</div>`
       : `<p class="hos-hint">Set a monthly limit for the categories that get away from you - we warn you at 80% and when you go over.</p>`}
     <h3 class="mv-h">🎯 Set a limit</h3>
     <form class="qa-form" data-mhbudget="1"><div class="two"><select name="cat" aria-label="Category">${MH_CATS.map(([k, i, l]) => `<option value="${k}">${i} ${l}${set.has(k) ? " (change)" : ""}</option>`).join("")}</select>
@@ -511,7 +511,7 @@ function mvSubsHtml() {
   return `<div class="mv-tiles3"><div><small>A month</small><b>${usd(mo)}</b></div><div><small>A year</small><b>${usd(mo * 12)}</b></div><div><small>Saved a year by cancelling</small><b class="in">${usd(saved)}</b></div></div>
     ${L.map(s => { const tone = mvTone(s.name, "subs"), d = s.next ? daysUntil(s.next) : null;
       return `<article class="mv-sub ${s.off ? "off" : ""}" style="--tone:${tone}">${mvIc(esc(s.name.trim().charAt(0).toUpperCase() || "🔁"), tone, "mv-mono")}
-        <div class="grow"><b>${esc(s.name)}</b><small>${usd(s.amt)} a ${s.every || "month"}${s.off ? ` · cancelled ${mDate(s.off)}` : s.next ? ` · renews ${mDate(s.next)}` : ""}</small>
+        <div class="grow"><b>${esc(s.name)}</b><small>${usd(s.amt)} a ${esc(s.every || "month")}${s.off ? ` · cancelled ${mDate(s.off)}` : s.next ? ` · renews ${mDate(s.next)}` : ""}</small>
           ${s.off ? "" : `<i class="mv-subbar" style="width:${Math.round(subMonthly(s) / top * 100)}%"></i>`}
           <div class="mv-ins-acts">${s.off ? "" : `<button data-mhsubren="${s.id}">Renewed</button><button data-mhsuboff="${s.id}">Cancelled</button>`}<button data-mhdel="sub:${s.id}" aria-label="Remove">✕</button></div></div>
         ${!s.off && d != null ? `<em class="mv-when ${d <= 3 ? "soon" : ""}">${d < 0 ? "due" : d === 0 ? "today" : `${d}d`}</em>` : ""}</article>`; }).join("")}
@@ -549,7 +549,7 @@ function mvDebtViz(D, P) {
   if (!P.order.length || P.stuck) return "";
   const yrs = n => n >= 12 ? `${Math.floor(n / 12)}y ${n % 12}m` : `${n} mo`, tot = D.reduce((n, d) => n + d.bal, 0);
   return `<h3 class="mv-h">🛣️ Your road to debt-free</h3><div class="mv-road">${P.order.map((o, i) => { const d = D.find(x => x.name === o.name) || { bal: 0, apr: 0 };
-      return `<div class="mv-rrow"><span class="mv-rn">${i + 1}</span><div class="grow"><b>${esc(o.name)}</b><small>${usd(d.bal)}${d.apr ? ` · ${d.apr}%` : ""}</small>
+      return `<div class="mv-rrow"><span class="mv-rn">${i + 1}</span><div class="grow"><b>${esc(o.name)}</b><small>${usd(d.bal)}${d.apr ? ` · ${esc(d.apr)}%` : ""}</small>
         <div class="mv-rtrack"><i style="width:${Math.max(4, o.month / P.months * 100).toFixed(1)}%"></i></div></div><em>🎉 ${yrs(o.month)}</em></div>`; }).join("")}
     <div class="mv-rend">🏁 Debt-free in ${yrs(P.months)} · ${usd(tot)} today</div></div>`;
 }
@@ -767,7 +767,7 @@ function mvFamilyHtml(kind) {
   const tot = L.reduce((n, x) => n + (kind === "bills" ? x.amount : x.amt), 0);
   return `<section class="mv-fam"><div class="mv-grp"><h4>🔗 From your other hubs</h4><span>${usd(tot)}${kind === "bills" ? " a month" : " this month"}</span></div>
     ${L.slice(0, 12).map(x => `<div class="mv-tx">${mvIc(x.ic, x.hub === "Auto Hub" ? "#f97316" : "#22c55e", "sm")}<div class="grow"><b>${esc(kind === "bills" ? x.name : x.what)}</b>
-        <small>${x.hub} · ${kind === "bills" ? `due the ${x.day}${["th", "st", "nd", "rd"][x.day % 10 > 3 || [11, 12, 13].includes(x.day) ? 0 : x.day % 10]}` : mvRel(x.date)}</small></div>
+        <small>${x.hub} · ${kind === "bills" ? `due the ${esc(x.day)}${["th", "st", "nd", "rd"][x.day % 10 > 3 || [11, 12, 13].includes(x.day) ? 0 : x.day % 10]}` : mvRel(x.date)}</small></div>
         <strong>${usd(kind === "bills" ? x.amount : x.amt)}</strong></div>`).join("")}
     <p class="fine">Read from ${[...new Set(L.map(x => x.hub))].join(" and ")} on this phone - not copied, so nothing counts twice. ${kind === "bills" ? "They're in your Cash Forecast." : "Change them in their own hub."}</p></section>`;
 }
@@ -838,7 +838,7 @@ if (typeof document !== "undefined") document.addEventListener("change", async e
   if (t.dataset.mvvt) { MV_VT = t.value; return; }
   if (t.dataset.mvkindsel && MV_SCAN) { Object.assign(MV_SCAN.f, Object.fromEntries(new FormData(t.form))); MV_SCAN.f.kind = MV_KIND = t.value;
     if (MV_SCAN.f.who && !MV_SCAN.f.title) MV_SCAN.f.title = MV_SCAN.f.who; showMh("add"); return; }
-  if (!t.files || !t.files[0]) return;
+  if (!t.files || !t.files[0] || t.id === "importFile") return;   // the backup file is ui.js's; emptying its box here made Load a backup file do nothing (11/04)
   const file = t.files[0]; t.value = "";
   if (file.size > 25e6) { MH_MSG = "That photo is too big."; mhMsgShow(); return; }
   if (t.dataset.mvphoto) { await mvRead(file); return; }
@@ -909,8 +909,8 @@ function mvAdvisorHtml() {
       : "Answers come from <b>your own numbers</b>, and every answer shows its math."}</p></div></section>
     <h3 class="mv-h">Can I afford it?</h3>
     <form class="qa-form mv-aff" data-mvaff="1"><input name="what" placeholder="What is it? e.g. Vacation" maxlength="40" value="${esc(MV_AFF ? MV_AFF.what : "")}" aria-label="What it is">
-      <div class="two"><input name="amt" inputmode="decimal" placeholder="Cost $" required value="${MV_AFF ? MV_AFF.amt : ""}" aria-label="What it costs">
-        <input name="day" type="date" value="${MV_AFF ? MV_AFF.day : today()}" min="${today()}" aria-label="When"></div><button class="btn">Check</button></form>
+      <div class="two"><input name="amt" inputmode="decimal" placeholder="Cost $" required value="${MV_AFF ? esc(MV_AFF.amt) : ""}" aria-label="What it costs">
+        <input name="day" type="date" value="${MV_AFF ? esc(MV_AFF.day) : today()}" min="${today()}" aria-label="When"></div><button class="btn">Check</button></form>
     ${!ready ? `<p class="hos-hint">Add your accounts and your payday first - the answer starts from your cash and adds every payday and bill ahead.</p>
       <div class="mv-links"><button class="btn sm" data-mhtab="accounts">🏦 Accounts</button><button class="btn sm ghost" data-mhtab="payday">💵 Payday</button></div>` : R ? mvAffResult(R) : ""}
     <h3 class="mv-h">Ask about your money</h3>

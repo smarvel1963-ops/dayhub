@@ -57,7 +57,7 @@ const usd = n => money(n).replace(/\.00$/, "");
 const amt = v => { const n = Number(String(v == null ? "" : v).replace(/[$,\s]/g, "")); return isFinite(n) ? Math.round(n * 100) / 100 : 0; };
 const ym = d => String(d || "").slice(0, 7);
 // A date with its year when it is not this year (auto.js has the same helper; Money Hub doesn't load auto.js).
-const mDate = d => d ? prettyDate(d) + (String(d).slice(0, 4) !== today().slice(0, 4) ? ", " + String(d).slice(0, 4) : "") : "";
+const mDate = d => d ? prettyDate(d) + (String(d).slice(0, 4) !== today().slice(0, 4) ? ", " + esc(String(d).slice(0, 4)) : "") : "";
 const monthName = m => parseDay(m + "-01").toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
 // ------------------------------------------------------------ the math (pure, the tests call these)
@@ -275,8 +275,8 @@ function mhPane() {
     return `<div class="home-stats"><div class="home-stat"><b>${usd(cashNow())}</b><span>cash available</span></div><div class="home-stat"><b>${usd(netWorth())}</b><span>net worth</span></div>
         <div class="home-stat"><b>${L.length}</b><span>account${L.length === 1 ? "" : "s"}</span></div></div>
       ${L.map(a => `<div class="row"><span class="ci">${macct(a.kind)[1]}</span><div class="grow"><b>${esc(a.name)}</b>
-          <span class="sub">${esc(macct(a.kind)[2])}${["credit", "loan"].includes(a.kind) ? " · owed" : ""}${a.apr ? ` · ${a.apr}% APR` : ""}${a.min ? ` · min ${usd(a.min)}` : ""}${a.at ? ` · updated ${mDate(a.at)}` : ""}</span></div>
-          <form class="mh-bal" data-mhbal="${a.id}"><input name="bal" inputmode="decimal" value="${a.bal}" aria-label="Balance for ${esc(a.name)}"><button class="btn sm ghost">Save</button></form>
+          <span class="sub">${esc(macct(a.kind)[2])}${["credit", "loan"].includes(a.kind) ? " · owed" : ""}${a.apr ? ` · ${esc(a.apr)}% APR` : ""}${a.min ? ` · min ${usd(a.min)}` : ""}${a.at ? ` · updated ${mDate(a.at)}` : ""}</span></div>
+          <form class="mh-bal" data-mhbal="${a.id}"><input name="bal" inputmode="decimal" value="${esc(a.bal)}" aria-label="Balance for ${esc(a.name)}"><button class="btn sm ghost">Save</button></form>
           <button class="icon-btn" data-mhdel="acct:${a.id}" aria-label="Remove">✕</button></div>`).join("")}
       ${mhCanAddAcct() ? `<form class="qa-form" data-mhacct="1"><div class="two"><select name="kind" aria-label="Kind">${MH_ACCTS.map(([k, i, l]) => `<option value="${k}">${i} ${l}</option>`).join("")}</select>
           <input name="name" placeholder="Name, e.g. Chase checking" required aria-label="Account name"></div>
@@ -290,7 +290,7 @@ function mhPane() {
   if (MH_TAB === "budget") {
     const R = budgetRows(m), set = new Set(R.map(r => r.cat));
     return `${R.length ? R.map(r => `<div class="mh-bar ${r.status}"><span>${mcat(r.cat)[1]} ${esc(mcat(r.cat)[2])}</span><b>${usd(r.spent)} / ${usd(r.lim)}</b><i style="width:${Math.min(100, Math.round(r.spent / r.lim * 100))}%"></i>
-        <button class="x" data-mhbudgetoff="${r.cat}" aria-label="Remove limit">✕</button></div>`).join("")
+        <button class="x" data-mhbudgetoff="${esc(r.cat)}" aria-label="Remove limit">✕</button></div>`).join("")
       : `<p class="fine" style="margin-top:0">Set a monthly limit for the categories that get away from you - we warn you at 80% and when you go over.</p>`}
       <form class="qa-form" data-mhbudget="1"><div class="two"><select name="cat" aria-label="Category">${MH_CATS.map(([k, i, l]) => `<option value="${k}">${i} ${l}${set.has(k) ? " (change)" : ""}</option>`).join("")}</select>
         <input name="lim" inputmode="decimal" placeholder="Limit a month $" required aria-label="Monthly limit"></div><button class="btn sm">Set limit</button></form>`;
@@ -304,7 +304,7 @@ function mhPane() {
     return `<div class="home-stats"><div class="home-stat"><b>${usd(D.reduce((n, d) => n + d.bal, 0))}</b><span>owed</span></div><div class="home-stat"><b>${P.stuck ? "never" : P.months >= 12 ? `${Math.floor(P.months / 12)}y${P.months % 12 ? ` ${P.months % 12}m` : ""}` : `${P.months} mo`}</b><span>to debt-free</span></div>
         <div class="home-stat"><b>${usd(P.interest)}</b><span>interest on the way</span></div></div>
       ${P.stuck ? `<p class="fine">⚠️ At these payments the interest outruns you. Add an extra amount below${noMin.length ? ` (and minimums for ${noMin.map(d => esc(d.name)).join(", ")})` : ""}.</p>` : ""}
-      <form class="qa-form" data-mhdebt="1"><div class="two"><input name="extra" inputmode="decimal" placeholder="Extra a month $" value="${ex || ""}" aria-label="Extra payment a month">
+      <form class="qa-form" data-mhdebt="1"><div class="two"><input name="extra" inputmode="decimal" placeholder="Extra a month $" value="${esc(ex || "")}" aria-label="Extra payment a month">
         <select name="method" aria-label="Method"><option value="avalanche" ${meth === "avalanche" ? "selected" : ""}>Highest rate first</option><option value="snowball" ${meth === "snowball" ? "selected" : ""}>Smallest first (quick wins)</option></select></div>
         <button class="btn sm">Work it out</button></form>
       ${ex && !P.stuck && !base.stuck ? `<p class="fine">${usd(ex)} extra a month: debt-free ${yrs(base.months - P.months)} sooner and ${usd(base.interest - P.interest)} less interest.</p>` : ""}
@@ -318,7 +318,7 @@ function mhPane() {
     const mo = on.reduce((n, s) => n + subMonthly(s), 0), saved = L.filter(s => s.off).reduce((n, s) => n + subMonthly(s) * 12, 0);
     return `<div class="home-stats"><div class="home-stat"><b>${usd(mo)}</b><span>a month</span></div><div class="home-stat"><b>${usd(mo * 12)}</b><span>a year</span></div>
         <div class="home-stat"><b>${usd(saved)}</b><span>saved a year by cancelling</span></div></div>
-      ${L.map(s => `<div class="row" style="${s.off ? "opacity:.55" : ""}"><span class="ci">🔁</span><div class="grow"><b>${esc(s.name)}</b><span class="sub">${usd(s.amt)} a ${s.every || "month"}${s.off ? ` · cancelled ${mDate(s.off)}` : s.next ? ` · renews ${mDate(s.next)}` : ""}</span></div>
+      ${L.map(s => `<div class="row" style="${s.off ? "opacity:.55" : ""}"><span class="ci">🔁</span><div class="grow"><b>${esc(s.name)}</b><span class="sub">${usd(s.amt)} a ${esc(s.every || "month")}${s.off ? ` · cancelled ${mDate(s.off)}` : s.next ? ` · renews ${mDate(s.next)}` : ""}</span></div>
           ${s.off ? "" : `<button class="btn sm ghost" data-mhsubren="${s.id}">Renewed</button><button class="btn sm ghost" data-mhsuboff="${s.id}">Cancelled</button>`}<button class="icon-btn" data-mhdel="sub:${s.id}" aria-label="Remove">✕</button></div>`).join("")}
       ${!L.length ? `<p class="fine" style="margin-top:0">Streaming, apps, memberships, the gym. See what they add up to, and what you save by cancelling.</p>` : ""}
       <form class="qa-form" data-mhsub="1"><input name="name" placeholder="e.g. Netflix" required aria-label="Subscription">
@@ -336,11 +336,11 @@ function mhPane() {
       <div class="hpv-ai"><p class="sub" style="margin:0">Left after all that</p><p class="hpv-big" style="${left < 0 ? "color:var(--red)" : ""}">${usd(left)}</p>
         <p class="fine" style="margin:4px 0 0">${usd(v.start)} + ${usd(v.check)} − ${usd(v.bills)} bills − ${usd(v.other)} other − ${usd(v.save)} savings${left < 0 ? " · ⚠️ short - move a bill or trim spending" : ""}</p></div>
       <form class="qa-form mv-plan" data-mhplan="1">
-        <label class="field">Starting cash $ <input name="start" inputmode="decimal" value="${v.start}"></label>
-        <label class="field">Next paycheck $ <input name="check" inputmode="decimal" value="${v.check}"></label>
-        <label class="field">Bills $ <input name="bills" inputmode="decimal" value="${v.bills}"></label>
-        <label class="field">Other spending $ <input name="other" inputmode="decimal" value="${v.other}"></label>
-        <label class="field">Put in savings $ <input name="save" inputmode="decimal" value="${v.save}"></label>
+        <label class="field">Starting cash $ <input name="start" inputmode="decimal" value="${esc(v.start)}"></label>
+        <label class="field">Next paycheck $ <input name="check" inputmode="decimal" value="${esc(v.check)}"></label>
+        <label class="field">Bills $ <input name="bills" inputmode="decimal" value="${esc(v.bills)}"></label>
+        <label class="field">Other spending $ <input name="other" inputmode="decimal" value="${esc(v.other)}"></label>
+        <label class="field">Put in savings $ <input name="save" inputmode="decimal" value="${esc(v.save)}"></label>
         <div class="foot-actions"><button class="btn sm">Work it out</button><button class="btn sm ghost" type="button" data-mhplanreset="1">Reset</button></div></form>`;
   }
   if (MH_TAB === "reports") {
@@ -418,8 +418,8 @@ function mhPayments() {
     .map(([h, f]) => { const L = shown.filter(f); return L.length ? `<div class="mv-grp"><h4>${h}</h4><span>${L.length} · ${money(L.reduce((n, r) => n + (+r.b.amount || 0), 0))}</span></div>` + L.map(r => card(r)).join("") : ""; }).join("");
   const card = r => { const b = r.b, ic = PAY_ICONS[b.cat] || mcat(b.cat || "bills")[1];
     if (MH_PEDIT === b.id) return `<form class="mhp-bill mhp-edit" data-mhbillsave="${b.id}"><div class="mhp-sym" aria-hidden="true">${ic}</div><div class="mhp-fields">
-        <input name="name" value="${esc(b.name)}" required aria-label="Bill name"><div class="hpv-row"><input name="amount" inputmode="decimal" value="${b.amount}" required aria-label="Amount">
-        <input name="day" inputmode="numeric" value="${b.day}" required aria-label="Due day of the month"><select name="cat" aria-label="Category">${catOpts(b.cat || "bills")}</select></div>
+        <input name="name" value="${esc(b.name)}" required aria-label="Bill name"><div class="hpv-row"><input name="amount" inputmode="decimal" value="${esc(b.amount)}" required aria-label="Amount">
+        <input name="day" inputmode="numeric" value="${esc(b.day)}" required aria-label="Due day of the month"><select name="cat" aria-label="Category">${catOpts(b.cat || "bills")}</select></div>
         <input name="url" inputmode="url" value="${esc(b.url || "")}" placeholder="Pay page link (https://…), optional" aria-label="Pay page link">
         <label class="fine" style="display:flex;gap:8px;align-items:center;margin:2px 0"><input type="checkbox" name="auto" style="width:auto;flex:none;margin:0" ${b.auto ? "checked" : ""}><span>On autopay</span></label>
         <div class="foot-actions"><button class="btn sm">Save</button><button class="btn sm ghost" type="button" data-mhbilledit="">Cancel</button><button class="btn sm ghost" type="button" data-mhdel="bill:${b.id}">Delete</button></div></div></form>`;
@@ -450,7 +450,7 @@ function mhPayments() {
           <div class="mhp-row"><span>Next paycheck</span><strong data-mhpv="check">${money(check)}</strong></div>
           <div class="mhp-row"><span>Bills before payday</span><strong>${money(F.before)}</strong></div><hr>
           <div class="mhp-label">PROJECTED REMAINING CASH</div><div class="mhp-remain ${F.remaining < 0 ? "neg" : ""}" data-mhpv="remain">${money(F.remaining)}</div>
-          <form class="mhp-in" data-mhpaycash="1"><label>Current balance ($)<input name="cash" inputmode="decimal" value="${cash}" data-mhpin="cash"></label><label>Next paycheck ($)<input name="check" inputmode="decimal" value="${check}" data-mhpin="check"></label></form>
+          <form class="mhp-in" data-mhpaycash="1"><label>Current balance ($)<input name="cash" inputmode="decimal" value="${esc(cash)}" data-mhpin="cash"></label><label>Next paycheck ($)<input name="check" inputmode="decimal" value="${esc(check)}" data-mhpin="check"></label></form>
           <p class="mhp-mini">Cash + paycheck − every unpaid bill this month. Paid bills are assumed already out of your cash. Starts from your Accounts and Payday; type over them to try numbers.</p></section>
         <section class="mhp-panel"><h3>✨ Money Hub Insight</h3><div class="mhp-insight" data-mhpv="insight">${esc(payInsight(F))}</div></section>
         <section class="mhp-panel"><h3>📸 Snap a bill</h3><p class="mhp-mini" style="font-size:.85rem">Photograph a bill, check what we read, and it lands on this timeline.</p>

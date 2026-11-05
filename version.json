@@ -1,6 +1,9 @@
 {
- "version": "1.58.5",
+ "version": "1.58.6",
  "notes": {
+  "1.58.6": [
+   "💾 Load a backup file now works in Health Hub, Money Hub and Auto Hub. Before this, it did nothing. Full-size photos stay on the phone they were taken on."
+  ],
   "1.58.5": [
    "🛳️ Cruise Hub: a small behind-the-scenes fix. Nothing changes for you."
   ],

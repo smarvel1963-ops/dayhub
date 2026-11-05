@@ -38,7 +38,7 @@ const AUTO_EXTRA_CATS = [["performance", "🏁", "Performance"], ["interior", "�
 const paper = k => AUTO_PAPERS.find(x => x[0] === k) || AUTO_PAPERS[AUTO_PAPERS.length - 1];
 const xcat = k => AUTO_EXTRA_CATS.find(x => x[0] === k) || AUTO_EXTRA_CATS[AUTO_EXTRA_CATS.length - 1];
 // A date with its year when it is not this year ("Jan 1, 2025").
-const aDate = d => d ? prettyDate(d) + (String(d).slice(0, 4) !== today().slice(0, 4) ? ", " + String(d).slice(0, 4) : "") : "";
+const aDate = d => d ? prettyDate(d) + (String(d).slice(0, 4) !== today().slice(0, 4) ? ", " + esc(String(d).slice(0, 4)) : "") : "";
 let AUTO_OPEN = null, AUTO_TAB = "overview", AUTO_BUSY = false, AUTO_MSG = "", AUTO_TRIP = null;
 let AUTO_TRIPOPEN = false, AUTO_VIEW = null, AUTO_SCAN = null, AUTO_ASKING = false, AUTO_MECHPIC = "";   // v1.40
 
@@ -58,6 +58,7 @@ const titleCase = s => String(s || "").toLowerCase().replace(/\b[a-z]/g, m => m.
 const autoPro = () => typeof isPro === "function" && isPro();
 const autoCanAdd = () => !switchOn("AUTO_PASS") || autoPro() || garage().cars.length < 1;
 const miles = n => Math.round(Number(n) || 0).toLocaleString("en-US");
+const carPic = c => /^data:image\/[a-z]+;base64,[A-Za-z0-9+/=]+$/.test(c.thumb || "") ? String(c.thumb) : "";   // 11/04: like a goal's picture, only a real picture goes in the page
 const toMiles = v => { const t = String(v == null ? "" : v).replace(/[^\d.]/g, ""); if (!t) return null; const n = Number(t); return n >= 0 && n < 2000000 ? Math.round(n) : null; };   // blank = not set, never 0
 
 // ------------------------------------------------------------ the math (pure, the tests call these)
@@ -224,7 +225,7 @@ function carFormFields(c) {
     <div class="hpv-row"><input name="year" inputmode="numeric" maxlength="4" placeholder="Year" value="${esc(c.year || "")}" aria-label="Year">
       <input name="make" placeholder="Make" value="${esc(c.make || "")}" aria-label="Make"><input name="model" placeholder="Model" value="${esc(c.model || "")}" aria-label="Model"></div>
     <input name="nick" placeholder="Nickname (optional), e.g. Dad's truck" value="${esc(c.nick || "")}" aria-label="Nickname">
-    <input name="miles" inputmode="numeric" placeholder="Miles on it now" value="${c.miles != null ? c.miles : ""}" aria-label="Current miles">`;
+    <input name="miles" inputmode="numeric" placeholder="Miles on it now" value="${c.miles != null ? esc(c.miles) : ""}" aria-label="Current miles">`;
 }
 function autoSetupHtml() {
   return `<section class="card welcome"><h2>Welcome to Auto Hub 🚗</h2>
@@ -244,7 +245,7 @@ function autoHeroHtml() {
   const cars = garage().cars, c = carById(AUTO_HERO) || cars[0]; if (!c) return "";
   const t = today(), due = carDue(c, t), late = due.filter(d => d.late), f = fuelStats(c), rc = openRecalls(c), ps = papersSoon(c, t);
   const tracked = AUTO_SERVICES.filter(x => intervalOf(c, x[0])[0] || intervalOf(c, x[0])[1]).length, logged = due.length;
-  const center = `<button class="hos-core hos-core-btn" data-acar="${c.id}" aria-label="Open ${esc(carName(c))}">${c.thumb ? `<img src="${c.thumb}" alt="" class="hos-photo">` : `<span>🚗</span>`}</button>`;
+  const center = `<button class="hos-core hos-core-btn" data-acar="${c.id}" aria-label="Open ${esc(carName(c))}">${carPic(c) ? `<img src="${esc(carPic(c))}" alt="" class="hos-photo">` : `<span>🚗</span>`}</button>`;
   const go = k => `data-acar="${c.id}" data-atabgo="${k}"`;
   const items = [
     { attr: go("service"), icon: "🧰", label: "Service", val: late.length ? `${late.length} due` : due[0] ? dueWords(due[0]).split(" or ")[0] : "log one", tone: "#27d7ff", badge: late.length ? "due" : "" },
@@ -285,7 +286,7 @@ function autoDashHtml() {
       <span class="pill ${n < 0 ? "late" : "soon"}">${n < 0 ? "expired" : n === 0 ? "expires today" : `expires ${aDate(x.expires)}`}</span></button>`; }).join("");
   return autoHeroHtml() + `<section class="card home-dash"><h3><span class="ci">🚗</span>My Garage<span class="meta">${cars.length} car${cars.length === 1 ? "" : "s"}</span></h3>
     <div class="body"><div class="home-grid">${cars.map(c => { const late = carDue(c, t).filter(d => d.late).length, rc = openRecalls(c).length;
-      return `<button class="home-space" data-acar="${c.id}">${c.thumb ? `<img class="auto-thumb" src="${c.thumb}" alt="">` : `<span class="hs-ic">🚗</span>`}<b>${esc(carName(c))}</b><small>${c.miles != null ? miles(c.miles) + " mi" : "miles not set"}</small>
+      return `<button class="home-space" data-acar="${c.id}">${carPic(c) ? `<img class="auto-thumb" src="${esc(carPic(c))}" alt="">` : `<span class="hs-ic">🚗</span>`}<b>${esc(carName(c))}</b><small>${c.miles != null ? miles(c.miles) + " mi" : "miles not set"}</small>
         ${late ? `<small>⏰ ${late} due</small>` : ""}${rc ? `<small>⚠️ ${rc} recall${rc === 1 ? "" : "s"}</small>` : ""}${papersSoon(c, t).length ? `<small>📄 renew soon</small>` : ""}</button>`; }).join("")}
       <button class="home-space add" data-aaddcar="1"><span class="hs-ic">＋</span><b>Add</b><small>a car</small></button></div>
     ${recalls ? `<p class="fine" style="margin-top:8px">⚠️ ${recalls} open safety recall${recalls === 1 ? "" : "s"} across your cars. Recall repairs are free at the dealer.</p>` : ""}
@@ -330,13 +331,13 @@ function carPane(c) {
         <span class="sub">Last ${aDate(d.last.date)}${d.last.miles != null ? ` at ${miles(d.last.miles)} mi` : ""}</span></div><span class="pill ${d.late ? "late" : d.soon ? "soon" : ""}">${dueWords(d)}</span></div>`; }).join("")}
       ${never.length ? `<p class="fine">Not logged yet: ${never.map(d => svc(d.key)[2]).join(", ")}. Log the last one and we'll work out the next.</p>` : ""}
       <form class="qa-form" data-aservice="${c.id}"><label class="field">What was done <select name="kind">${AUTO_SERVICES.map(([k, i, l]) => `<option value="${k}">${i} ${l}</option>`).join("")}</select></label>
-        <div class="hpv-row"><input type="date" name="date" value="${t}" aria-label="Date"><input name="miles" inputmode="numeric" placeholder="Miles" value="${c.miles != null ? c.miles : ""}" aria-label="Miles">
+        <div class="hpv-row"><input type="date" name="date" value="${t}" aria-label="Date"><input name="miles" inputmode="numeric" placeholder="Miles" value="${c.miles != null ? esc(c.miles) : ""}" aria-label="Miles">
         <input name="cost" inputmode="decimal" placeholder="Cost $" aria-label="Cost"></div>
         <input name="note" placeholder="Note or shop (optional)"><button class="btn sm">Log it</button></form>
       <p class="fine">Typical intervals: miles or months, whichever comes first. Your owner's manual wins - set your own below.</p>
       <details class="auto-every"><summary class="fine"><b>⚙ Your own intervals</b>${c.every && Object.keys(c.every).length ? ` · ${Object.keys(c.every).length} set` : ""}</summary>
-        ${c.every ? Object.entries(c.every).map(([k, v]) => `<div class="row"><span class="ci">${svc(k)[1]}</span><div class="grow">${esc(svc(k)[2])}<span class="sub">every ${v[0] ? `${miles(v[0])} mi` : ""}${v[0] && v[1] ? " or " : ""}${v[1] ? `${v[1]} months` : ""}${!v[0] && !v[1] ? "- not tracked" : ""}</span></div>
-          <button class="btn sm ghost" data-aeveryreset="${k}">Typical</button></div>`).join("") : ""}
+        ${c.every ? Object.entries(c.every).map(([k, v]) => `<div class="row"><span class="ci">${svc(k)[1]}</span><div class="grow">${esc(svc(k)[2])}<span class="sub">every ${v[0] ? `${miles(v[0])} mi` : ""}${v[0] && v[1] ? " or " : ""}${v[1] ? `${esc(v[1])} months` : ""}${!v[0] && !v[1] ? "- not tracked" : ""}</span></div>
+          <button class="btn sm ghost" data-aeveryreset="${esc(k)}">Typical</button></div>`).join("") : ""}
         <form class="qa-form" data-aevery="${c.id}"><select name="kind" aria-label="Service">${AUTO_SERVICES.filter(s => s[0] !== "other").map(([k, i, l, mi, mo]) => `<option value="${k}">${i} ${l} (typical ${mi ? miles(mi) + " mi" : ""}${mi && mo ? " / " : ""}${mo ? mo + " mo" : ""})</option>`).join("")}</select>
           <div class="two"><input name="mi" inputmode="numeric" placeholder="Every … miles" aria-label="Every how many miles"><input name="mo" inputmode="numeric" placeholder="or … months" aria-label="Or every how many months"></div>
           <button class="btn sm ghost">Save interval</button></form></details>
@@ -348,9 +349,9 @@ function carPane(c) {
     const f = fuelStats(c), hist = c.fuel.slice().sort((a, b) => b.miles - a.miles).slice(0, 10), mpgOf = id => (f.rows.find(r => r.id === id) || {}).mpg;
     const tr = AUTO_TRIP && AUTO_TRIP.car === c.id ? AUTO_TRIP : null;
     const tripBox = `<details class="auto-every" ${tr || AUTO_TRIPOPEN ? "open" : ""}><summary class="fine"><b>🛣️ Road trip: gas cost + before you go</b></summary>
-      <form class="qa-form" data-atrip="${c.id}"><div class="hpv-row"><input name="miles" inputmode="numeric" placeholder="Miles one way" value="${tr ? tr.oneWay : ""}" aria-label="Trip miles one way" required>
-        <input name="price" inputmode="decimal" placeholder="$ a gallon" value="${garage().gas || ""}" aria-label="Gas price a gallon" required>
-        ${f.mpg ? `<span class="fine" style="align-self:center">${f.mpg.toFixed(1)} MPG</span>` : `<input name="mpg" inputmode="decimal" placeholder="MPG" value="${tr && tr.mpg ? tr.mpg : ""}" aria-label="Miles per gallon" required>`}</div>
+      <form class="qa-form" data-atrip="${c.id}"><div class="hpv-row"><input name="miles" inputmode="numeric" placeholder="Miles one way" value="${tr ? esc(tr.oneWay) : ""}" aria-label="Trip miles one way" required>
+        <input name="price" inputmode="decimal" placeholder="$ a gallon" value="${esc(garage().gas || "")}" aria-label="Gas price a gallon" required>
+        ${f.mpg ? `<span class="fine" style="align-self:center">${f.mpg.toFixed(1)} MPG</span>` : `<input name="mpg" inputmode="decimal" placeholder="MPG" value="${tr && tr.mpg ? esc(tr.mpg) : ""}" aria-label="Miles per gallon" required>`}</div>
         <label class="fine" style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" name="round" style="width:auto;flex:none;margin:0" ${!tr || tr.round ? "checked" : ""}><span>Round trip</span></label>
         <button class="btn sm">Work it out</button></form>
       ${tr && tr.res ? `<div class="row"><div class="grow"><b>${money(tr.res.cost)}</b><span class="sub">${miles(tr.res.miles)} miles · ${tr.res.gallons.toFixed(1)} gallons at ${money(tr.price)} · ${tr.mpg.toFixed(1)} MPG${f.mpg ? " (your log)" : ""}</span></div>
@@ -362,7 +363,7 @@ function carPane(c) {
         <input name="gal" inputmode="decimal" placeholder="Gallons" aria-label="Gallons" required><input name="cost" inputmode="decimal" placeholder="Total $" aria-label="Total cost"></div>
         <input type="date" name="date" value="${t}" aria-label="Date"><button class="btn sm">Add fill-up</button></form>
       ${hist.map(x => `<div class="row"><span class="ci">⛽</span><div class="grow">${aDate(x.date)} · ${miles(x.miles)} mi
-        <span class="sub">${x.gal} gal${x.cost ? ` · ${money(x.cost)}` : ""}${mpgOf(x.id) ? ` · ${mpgOf(x.id).toFixed(1)} MPG` : ""}</span></div><button class="icon-btn" data-adel="fuel:${x.id}" aria-label="Remove">✕</button></div>`).join("")}`;
+        <span class="sub">${esc(x.gal)} gal${x.cost ? ` · ${money(x.cost)}` : ""}${mpgOf(x.id) ? ` · ${mpgOf(x.id).toFixed(1)} MPG` : ""}</span></div><button class="icon-btn" data-adel="fuel:${x.id}" aria-label="Remove">✕</button></div>`).join("")}`;
   }
   if (AUTO_TAB === "papers") {
     const list = c.papers.slice().sort((a, b) => (a.expires || "9999").localeCompare(b.expires || "9999"));
@@ -424,11 +425,11 @@ function carPane(c) {
     <p class="sub" style="margin:12px 0 4px"><b>💲 What it's worth</b></p>
     ${(v => v ? `<div class="row"><div class="grow"><b>${money(v.est).replace(/\.00$/, "")}</b><span class="sub">likely ${money(v.low).replace(/\.00$/, "")} – ${money(v.high).replace(/\.00$/, "")}</span></div></div>
       <p class="fine">A rough estimate from what you paid, usual yearly drop and your miles - not a dealer quote. Condition, options and your area move the real price.</p>` : "")(carValue(c, today()))}
-    <form class="qa-form" data-avalue="${c.id}"><div class="hpv-row"><label class="field">Paid $ <input name="paid" inputmode="decimal" placeholder="e.g. 30000" value="${c.paid || ""}"></label>
+    <form class="qa-form" data-avalue="${c.id}"><div class="hpv-row"><label class="field">Paid $ <input name="paid" inputmode="decimal" placeholder="e.g. 30000" value="${esc(c.paid || "")}"></label>
       <label class="field">Bought <input type="date" name="boughtOn" value="${esc(c.boughtOn || "")}"></label><button class="btn sm ghost">${c.paid ? "Update" : "Estimate"}</button></div></form>
     <p class="sub" style="margin:12px 0 4px"><b>📣 Share &amp; sell</b></p>
     <p class="fine" style="margin-top:0">This car in one go - a picture card, the build sheet, a PDF, or a ready-made listing when you sell. You post it; nothing goes online by itself.</p>
-    <form class="qa-form" data-aprice="${c.id}"><div class="two"><input name="price" inputmode="decimal" placeholder="Asking price $ (only if selling)" value="${c.price || ""}" aria-label="Asking price"><button class="btn sm ghost">${c.price ? "Update" : "Save price"}</button></div></form>
+    <form class="qa-form" data-aprice="${c.id}"><div class="two"><input name="price" inputmode="decimal" placeholder="Asking price $ (only if selling)" value="${esc(c.price || "")}" aria-label="Asking price"><button class="btn sm ghost">${c.price ? "Update" : "Save price"}</button></div></form>
     <label class="fine" style="display:flex;gap:8px;align-items:center;justify-content:flex-start;margin:4px 0 8px"><input type="checkbox" id="aVinShare" style="width:auto;flex:none;margin:0"><span>Include the VIN</span></label>
     <div class="foot-actions"><button class="btn sm" data-acard="${c.id}">Picture card</button><button class="btn sm ghost" data-asheet="${c.id}">Share build sheet</button><button class="btn sm ghost" data-apdf="${c.id}">Save as PDF</button>${c.price ? `<button class="btn sm ghost" data-alist="${c.id}">For-sale listing</button>` : ""}</div>
     <p class="sub" style="margin:12px 0 4px"><b>Details</b></p>
@@ -524,8 +525,8 @@ function showScan() {
         <select name="car" aria-label="Which car">${garage().cars.map(c => `<option value="${c.id}" ${f.car === c.id ? "selected" : ""}>${esc(carName(c))}</option>`).join("")}</select></div>
       ${show("service", `<label class="field">What was done <select name="service">${AUTO_SERVICES.map(([k, i, l]) => `<option value="${k}" ${f.service === k ? "selected" : ""}>${i} ${l}</option>`).join("")}</select></label>`)}
       ${show("paperKind", `<label class="field">Which paper <select name="paperKind">${AUTO_PAPERS.map(([k, i, l]) => `<option value="${k}" ${f.paperKind === k ? "selected" : ""}>${i} ${l}</option>`).join("")}</select></label>`)}
-      <div class="hpv-row">${show("date", `<label class="field">Date <input type="date" name="date" value="${esc(f.date)}"></label>`)}${show("miles", `<label class="field">Miles <input name="miles" inputmode="numeric" value="${f.miles}"></label>`)}
-        ${show("cost", `<label class="field">Total $ <input name="cost" inputmode="decimal" value="${f.cost}"></label>`)}${show("gal", `<label class="field">Gallons <input name="gal" inputmode="decimal" value="${f.gal}"></label>`)}
+      <div class="hpv-row">${show("date", `<label class="field">Date <input type="date" name="date" value="${esc(f.date)}"></label>`)}${show("miles", `<label class="field">Miles <input name="miles" inputmode="numeric" value="${esc(f.miles)}"></label>`)}
+        ${show("cost", `<label class="field">Total $ <input name="cost" inputmode="decimal" value="${esc(f.cost)}"></label>`)}${show("gal", `<label class="field">Gallons <input name="gal" inputmode="decimal" value="${esc(f.gal)}"></label>`)}
         ${show("expires", `<label class="field">Expires <input type="date" name="expires" value="${esc(f.expires)}"></label>`)}</div>
       ${show("company", `<input name="company" placeholder="Shop or company" value="${esc(f.company)}" aria-label="Shop or company">`)}
       ${show("vin", `<input name="vin" maxlength="17" autocapitalize="characters" placeholder="VIN" value="${esc(f.vin)}" aria-label="VIN">`)}
@@ -821,7 +822,7 @@ document.addEventListener("change", async e => {
 document.addEventListener("change", async e => {
   const t = e.target; if (MODE !== "auto" || !t || !t.dataset) return;
   if (t.dataset.ascankind && AUTO_SCAN) { Object.assign(AUTO_SCAN.f, Object.fromEntries(new FormData(t.form))); AUTO_SCAN.f.kind = t.value; showScan(); return; }
-  const file = t.files && t.files[0]; if (!file) return;
+  const file = t.files && t.files[0]; if (!file || t.id === "importFile") return;   // the backup file is ui.js's; emptying its box here made Load a backup file do nothing (11/04)
   try {
     if (t.dataset.aphotoadd) { const c = carById(t.dataset.aphotoadd), form = t.closest("form"); if (!c) return;
       await addPhoto(c, file, form && form.tag.value, form && form.cap.value); render(); showCar(c.id, "photos"); toast("📷 Photo added"); }
