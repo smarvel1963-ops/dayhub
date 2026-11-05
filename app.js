@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.58.6";
+const VERSION = "1.58.7";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -877,7 +877,7 @@ const hasData = d => !!d && ((d.events || []).length + (d.todos || []).length + 
 const backupHasData = d => hasData(d) || (!!d && hubDataCount(d) > 0);
 function hubDataCount(d) {
   const M = d.mh || {}, H = d.hh || {}, n = v => (Array.isArray(v) ? v.length : 0), o = v => (v && typeof v === "object" ? Object.keys(v).length : 0);
-  return n((d.garage || {}).cars) + n(M.accounts) + n(M.tx) + n(M.subs) + o(M.budgets) + ((d.payday || {}).freq ? 1 : 0)
+  return n((d.garage || {}).cars) + n((d.garage || {}).sold) + n(M.accounts) + n(M.tx) + n(M.subs) + o(M.budgets) + ((d.payday || {}).freq ? 1 : 0)
     + n(d.upkeep) + n(d.people) + n(d.goals) + n(d.routines) + n(d.alarms) + n(d.future)
     + ((d.house || {}).spaces || []).filter(sp => n(sp.items) + n(sp.tasks) > 0 || sp.notes).length                // a room only counts once something is in it
     + ["meds", "workouts", "sleep", "vitals", "appts", "vault", "medlog"].reduce((c, k) => c + n(H[k]), 0)
@@ -1164,6 +1164,7 @@ function reminderList() {
   }
   if (typeof cruiseReminders === "function") cruiseReminders(add, inWin);       // v0.56 final-night safe check (cruise.js)
   if (MODE === "health" && typeof hhReminders === "function") hhReminders(add, inWin);   // v1.53 Health Hub: doses, appointments, refills
+  if (MODE === "auto" && typeof atReminders === "function") atReminders(add);   // Auto Hub new look: service, papers, recalls (autotiles2.js)
   if (R.billDays >= 0) upcomingBills().forEach(b => { const d = addDays(b.due, -R.billDays);
     if (inWin(d)) { const at = atMs(d, R.billHour); add(`bill:${b.id}:${b.due}`, atMs(d, "23:59"), at, `💳 ${b.name} ${money(b.amount)}`, `Due ${prettyDate(b.due)}`); } });
   return out;
@@ -1188,7 +1189,7 @@ async function checkReminders() {
   for (const r of reminderList()) {
     if (F[r.key] || r.at > now || r.at < now - 6 * 3600000 || r.start < now - 15 * 60000) continue;   // long started = too late to help
     F[r.key] = now; changed = true;
-    await notify(r.title, r.start > now ? `${r.body} · in ${Math.max(1, Math.round((r.start - now) / 60000))} min` : r.body, r.key);
+    await notify(r.title, r.start > now && !r.key.startsWith("car:") ? `${r.body} · in ${Math.max(1, Math.round((r.start - now) / 60000))} min` : r.body, r.key);
   }
   for (const [k, v] of Object.entries(F)) if (now - v > 4 * 86400000) { delete F[k]; changed = true; }
   if (changed) saveLocal();

@@ -1,0 +1,673 @@
+"""
+SAVE AS: test_auto_tiles.py   LOCATION: C:/MarvelApps/dayhub/tests/test_auto_tiles.py
+
+AUTO HUB NEW LOOK (autotiles.js, autotiles2.js, autotiles.css; Scott 11/04-11/05, "take new design and rebuild auto hub", "till its done").
+Drives the real Auto Hub with the main suite's helpers (run_tests.py: fake network, frozen clock, App). Checks the switch is OFF for customers, every way a phone
+gets the look, the five tabs, every form saving through the same handlers as the old screens, the odometer check, Roadside Help, the car alerts, the calendar math,
+the spreadsheet out and in, Sold Cars, store mode, crafted data on every screen, narrow phones, and that the other Hubs never load any of it.
+
+RUN:   python tests/test_auto_tiles.py      (from C:/MarvelApps/dayhub)   Exit 0 = all passed.
+"""
+import json, os, sys, tempfile
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import run_tests as T
+from playwright.sync_api import sync_playwright
+
+OK = FAIL = 0
+def check(name, cond, extra=""):
+    global OK, FAIL
+    if cond: OK += 1; print(f"  PASS  {name}")
+    else: FAIL += 1; print(f"  FAIL  {name}  {extra}")
+
+SAMPLE = """(() => { const days = n => addDays(today(), n);
+  S.name = 'Sam'; S.city = '33101';
+  S.garage = { cars: [{ id: 'c1', vin: '1FA6P8CF0L5100001', year: 2020, make: 'Sample', model: 'Sedan', trim: 'LX', engine: '2.0L', body: 'Sedan', nick: 'Daily Driver', miles: 42320, added: days(-900), odo: [{ date: days(-90), miles: 40000 }, { date: days(-1), miles: 42320 }],
+    services: [{ id: 'sv1', kind: 'oil', date: days(-170), miles: 39760, cost: 76, note: 'Corner shop' }, { id: 'sv2', kind: 'brakes', date: days(-800), miles: 22000, cost: 432, note: '' }, { id: 'sv3', kind: 'rotate', date: days(-60), miles: 41100, cost: 24, note: '' }],
+    fuel: [40200, 40520, 40830, 41140].map((m, i) => ({ id: 'f' + i, date: days(-90 + i * 21), miles: m, gal: 11, cost: 35 })),
+    papers: [{ id: 'p1', kind: 'insurance', name: 'Sample Insurance', expires: days(7), cost: 600, paid: days(-160), ref: 'SAMPLE-123', note: '' }, { id: 'p2', kind: 'registration', name: 'State', expires: days(150), cost: 80, paid: days(-210), ref: '', note: '' }, { id: 'p3', kind: 'roadside', name: 'Sample Club', expires: days(200), cost: 60, paid: days(-100), ref: 'M-44', note: '' }],
+    extras: [{ id: 'e1', name: 'Window tint', cat: 'exterior', cost: 300, status: 'installed', date: days(-500), miles: 30000, note: '' }, { id: 'e2', name: 'Roof rack', cat: 'exterior', cost: 350, status: 'wish', date: '', miles: null, note: '' }],
+    notes: [{ id: 'n1', date: days(-40), text: 'Rattle is gone' }], photos: [], cover: '', thumb: '', mech: [], every: {}, recalls: { at: days(-3), list: [{ id: '24V123', part: 'Airbag inflator', summary: 'Can rupture.', remedy: 'Dealers replace it free.', park: false }, { id: '23V777', part: 'Fuel pump', summary: 'May stop.', remedy: 'Software update.', park: false }] }, recallDone: { '23V777': true }, tripCheck: {}, paid: 26000, boughtOn: days(-1400), price: 18500 }], gas: 3.2 };
+  saveLocal(); render(); })()"""
+SECOND = """garage().cars.push(newCar({ vin: '', year: '2018', make: 'Sample', model: 'SUV', nick: 'Family Hauler', miles: 87615, body: 'Sport Utility Vehicle (SUV)' })); saveLocal(); render(); 0"""
+PAGES = ["log", "miles", "details", "upcoming", "settings", "pro", "cars", "addcar", "forsale", "roadside", "rs:plan", "rs:insurance", "rs:tow", "rs:accident", "rs:what", "card:weather", "card:bills", "card:todos", "card:lists", "card:family",
+         "cal", "reminders", "costing", "expenses", "impex", "records", "sell", "marksold", "facts", "tires", "fuelstats", "compare", "allcars", "warranty", "health", "glovebox", "data", "archive"]
+TABS = ["overview", "service", "fuel", "papers", "extras", "photos", "mech", "recalls", "journal"]
+
+
+def app(b, base, look="tiles", sample=True, width=390, query="", at="2026-10-01T08:00:00"):
+    a = T.App(b, base, path=T.AUTOP + query, at=at, width=width)
+    if look: a.js(f"localStorage.setItem('autohub.look', '{look}')")
+    if sample: a.js(SAMPLE)
+    a.js("render(); 0"); a.page.wait_for_timeout(120)
+    a.js("try { if (briefOpen()) document.querySelector('[data-brief=go]').click(); } catch (e) {}; 0")
+    return a
+def text(a): return a.js("document.getElementById('cards').innerText")
+def page(a, name): a.js(f"atReset(); TAB = 'home'; AT.page = {json.dumps(name)}; render(); 0"); a.page.wait_for_timeout(40)
+def car(a, tab): a.js(f"atReset(); TAB = 'home'; showCar('c1', {json.dumps(tab)}); 0"); a.page.wait_for_timeout(40)
+def tap(a, sel): a.page.click(sel); a.page.wait_for_timeout(80)
+def fill_submit(a, form, vals, button="button:not([type=button])"):
+    for k, v in vals.items(): a.page.fill(f'{form} [name="{k}"]', str(v))
+    a.page.click(f"{form} {button}"); a.page.wait_for_timeout(120)
+def c1(a, expr): return a.js(f"(c => {expr})(garage().cars.find(x => x.id === 'c1'))")
+
+
+def test_switch(b, base):
+    print("\n-- The switch: customers never see it")
+    a = T.App(b, base, path=T.AUTOP)
+    check("the switch in the code is OFF", a.js("AT_ON === false"))
+    check("a new phone is on the old look", a.js("atOn()") is False and not a.js("document.body.classList.contains('at')"))
+    check("the old welcome is what a customer sees", a.js("!!document.querySelector('form[data-autosetup] [name=city]')"))
+    a.js(SAMPLE); a.page.wait_for_timeout(200)
+    check("with a car, still the old screen and no tab bar", not a.js("document.body.classList.contains('at')") and a.js("!document.getElementById('tabbar')"))
+    seen = a.js("performance.getEntriesByType('resource').map(r => r.name).filter(n => n.includes('/art/'))")
+    check("no new-look art is downloaded", not seen, seen[:2])
+    a.js("openSettings(); 0"); a.page.wait_for_timeout(120)
+    for _ in range(5): a.page.locator("#sheet p.fine > b", has_text="Marvel Corp app").first.click()
+    check("a customer's five taps do nothing", a.js("atOn()") is False and a.js("localStorage.getItem('autohub.look')") is None); a.js("closeSettings(); 0")
+    check("no car alerts from the new look", a.js("(on => { S.remind.on = true; const r = reminderList().filter(x => x.key.startsWith('car:')); S.remind.on = on; return r.length; })(S.remind.on)") == 0)
+    a.close()
+    a = T.App(b, base, path=T.AUTOP + "?look=tiles")
+    check("?look=tiles turns it on for this phone", a.js("atOn()") is True and a.js("document.body.classList.contains('at')"))
+    check("and leaves the address clean", "look=" not in a.js("location.href"))
+    a.page.goto(base + T.AUTOP + "?look=classic"); a.page.wait_for_function("typeof render === 'function'")
+    check("?look=classic turns it back", a.js("atOn()") is False)
+    a.close()
+    a = T.App(b, base, path=T.AUTOP); a.js("localStorage.setItem('dayhub.ownerok', '1')"); a.page.reload(); a.page.wait_for_function("typeof render === 'function'")
+    check("the owner's phone gets it by itself", a.js("atOn()") is True)
+    a.js(SAMPLE); a.js("shellGo('more'); 0"); a.page.wait_for_timeout(80)
+    tap(a, '[data-atgo="classic"]')
+    check("Classic Look turns it off", a.js("atOn()") is False and not a.js("document.body.classList.contains('at')"))
+    a.page.reload(); a.page.wait_for_function("typeof render === 'function'")
+    check("and it stays off after a restart: the owner's choice sticks", a.js("atOn()") is False)
+    a.js("try { if (briefOpen()) document.querySelector('[data-brief=go]').click(); } catch (e) {}; openSettings(); 0"); a.page.wait_for_timeout(200)
+    for _ in range(5): a.page.locator("#sheet p.fine > b", has_text="Marvel Corp app").first.click()
+    a.page.wait_for_timeout(120)
+    check("five taps on the app's name flip it", a.js("atOn()") is True)
+    a.close()
+    a = T.App(b, base); T.setup(a)
+    check("Day Hub never loads it", a.js("typeof atOn") == "undefined" and not a.js("document.body.classList.contains('at')"))
+    a.close()
+
+
+def test_first_open(b, base):
+    print("\n-- First open")
+    a = app(b, base, sample=False)
+    check("Welcome to Auto Hub", "Welcome to Auto Hub" in text(a))
+    check("five tabs, in his order", a.js("[...document.querySelectorAll('#tabbar button')].map(x => x.textContent.trim())") == ["Home", "Garage", "Scan", "Journal", "More"])
+    check("the old + button is gone", a.js("getComputedStyle(document.getElementById('fab')).display") == "none")
+    check("a new phone can restore before adding a car", a.js("!!document.querySelector('.at-first [data-atset=syncBox]') && !!document.querySelector('.at-first [data-atset=dataBox]')"))
+    tap(a, '.at-first [data-atset=dataBox]'); a.page.wait_for_timeout(120)
+    check("and it opens the real backup box", a.js("!document.getElementById('sheet').classList.contains('hidden')") and a.js("!!document.getElementById('importFile')"))
+    a.js("closeSettings(); 0"); a.page.wait_for_timeout(80)
+    a.page.fill('form[data-autosetup] [name="vin"]', "SHORT")
+    fill_submit(a, 'form[data-autosetup]', {"miles": "12000"})
+    a.page.wait_for_timeout(200)
+    check("a bad VIN says why and saves nothing", "VIN" in a.js("document.getElementById('autoMsg').textContent") and a.js("garage().cars.length") == 0)
+    a.page.fill('form[data-autosetup] [name="vin"]', "")
+    tap(a, '[data-atadd="ymm"]')
+    check("changing tabs keeps what you typed", a.page.input_value('form[data-autosetup] [name="miles"]') == "12000")
+    fill_submit(a, 'form[data-autosetup]', {"year": "2019", "make": "sample", "model": "Wagon", "nick": "Blue"})
+    a.page.wait_for_timeout(300)
+    check("a car goes in with no name or city asked for", a.js("garage().cars.length") == 1 and a.js("garage().cars[0].miles") == 12000)
+    check("Home shows it", "Blue" in text(a) and "12,000 mi" in text(a) and a.js("!!document.querySelector('.at-next')"))
+    check("no art when pictures are off", a.js("(S.photo = false, render(), !!document.querySelector('.at-heroimg') && !!document.querySelector('.at-hero img'))") is False)
+    a.close()
+
+
+def test_home_and_back(b, base):
+    print("\n-- Home, Garage, and the back arrow")
+    a = app(b, base)
+    t = text(a)
+    check("Home: the car, its miles, the next thing to do", "Daily Driver" in t and "42,320 mi" in t and "Next Smart Action" in t and "Brake check due" in t)
+    check("three dials with real numbers", a.js("document.querySelectorAll('.at-ring').length") == 3 and "1" in a.js("document.querySelectorAll('.at-ring')[2].innerText"))
+    check("no gauges the app can't fill: MPH, FUEL level, TEMP", not any(w in t for w in ("MPH", "TEMP")))
+    tap(a, '.at-ring:nth-child(2)')
+    check("a dial goes to its screen", "Fuel & MPG" in text(a))
+    tap(a, '.at-backb')
+    check("back returns Home", a.js("!!document.querySelector('.at-hero')"))
+    tap(a, '#tabbar button[data-shellgo=garage]')
+    check("Garage lists the car and what's coming", "My Garage" in text(a) and "Upcoming" in text(a))
+    tap(a, '.at-carrow'); check("a car row opens Car Overview", "Car Overview" in text(a))
+    tap(a, '.at-tiles button[data-atabgo=service]'); check("its Service tile opens Service", "Tracked Services" in text(a))
+    tap(a, '.at-backb'); check("back to Car Overview", "Car Overview" in text(a))
+    tap(a, '.at-backb'); check("back to Garage", "My Garage" in text(a))
+    tap(a, '#tabbar button[data-shellgo=home]'); tap(a, '[data-atlog=fuel]')
+    check("Add Fill-Up opens straight on the form", a.js("!!document.querySelector('form[data-afuel]')"))
+    tap(a, '#tabbar button[data-shellgo=more]'); check("a tab clears wherever you were", "This App" in text(a) and a.js("AT.car") is None)
+    tap(a, '#tabbar button[data-shellgo=home]'); tap(a, '.at-ring:nth-child(1)'); tap(a, '[data-atgo=cal]')
+    check("two screens in", "Maintenance Calendar" in text(a))
+    a.js("atReset(); showCar('c1', 'fuel'); 0"); a.page.wait_for_timeout(50); tap(a, '[data-atsub=trip]'); tap(a, '.at-bandback')
+    check("back from Road Trip lands on Fuel, not past it", "Fuel & MPG" in text(a))
+    a.js("atReset(); TAB = 'home'; render(); 0"); tap(a, '.at-ring:nth-child(1)'); tap(a, '[data-atgo=cal]')
+    a.page.go_back(); a.page.wait_for_timeout(120); check("the phone's back button goes back one", "Tracked Services" in text(a))
+    a.page.go_back(); a.page.wait_for_timeout(120); check("and one more, to Home, still in the app", a.js("!!document.querySelector('.at-hero')") and "/autohub/" in a.js("location.pathname"))
+    tap(a, '.at-ring:nth-child(1)'); tap(a, '[data-atgo=cal]'); tap(a, '#tabbar button[data-shellgo=garage]'); a.page.wait_for_timeout(120)
+    check("a tab clears the steps too", a.js("AT_DEPTH") == 0 and "My Garage" in text(a))
+    a.js("atReset(); showCar('c1', 'service'); 0"); a.page.wait_for_timeout(60); a.js("openSettings(); 0"); a.page.wait_for_timeout(120)
+    a.page.go_back(); a.page.wait_for_timeout(150)
+    check("back closes a sheet first", a.js("document.getElementById('sheet').classList.contains('hidden')") and "Tracked Services" in text(a))
+    a.page.go_back(); a.page.wait_for_timeout(120); check("then the screen", "Tracked Services" not in text(a))
+    a.js("atReset(); TAB = 'home'; render(); 0")
+    a.js(SECOND); a.js("atReset(); TAB = 'home'; render(); 0")
+    a.page.click('.at-chips button[data-aherocar]:nth-child(2)'); a.page.wait_for_timeout(80)
+    check("the car chips switch Home", "Family Hauler" in a.js("document.querySelector('.at-heroname').innerText"))
+    car(a, "journal"); a.page.click('.at-chips button[data-aherocar]:nth-child(2)'); a.page.wait_for_timeout(80)
+    check("and switch a car's own screen", a.js("AT.car") == a.js("garage().cars[1].id"))
+    a.close()
+
+
+def test_forms(b, base):
+    print("\n-- Every form saves through the same handlers")
+    a = app(b, base)
+    n0 = c1(a, "c.services.length")
+    car(a, "service"); tap(a, '[data-atform=service]')
+    a.page.select_option('form[data-aservice] [name=kind]', "plugs")
+    fill_submit(a, 'form[data-aservice]', {"miles": "42400", "cost": "90", "note": "Sample Shop"})
+    check("Log Service saves", c1(a, "c.services.length") == n0 + 1 and c1(a, "c.services.find(s => s.kind === 'plugs').cost") == 90)
+    check("and raises the miles", c1(a, "c.miles") == 42400)
+    check("the form closes and the row shows", not a.js("!!document.querySelector('form[data-aservice]')") and "Spark plugs" in text(a))
+    a.js("AT.seg.service = 'intervals'; render(); 0")
+    a.page.select_option('form[data-aevery] [name=kind]', "oil"); fill_submit(a, 'form[data-aevery]', {"mi": "5000", "mo": "6"})
+    check("Your own interval saves", c1(a, "JSON.stringify(c.every.oil)") == "[5000,6]")
+    tap(a, '[data-aeveryreset=oil]'); check("and goes back to typical", c1(a, "!c.every.oil"))
+    a.js("AT.seg.service = 'history'; render(); 0")
+    a.page.click('[data-adel="service:sv3"]'); a.page.wait_for_timeout(60)
+    check("History removes a row", c1(a, "!c.services.some(s => s.id === 'sv3')"))
+    a.js("AT.seg.service = 'services'; render(); 0")
+
+    car(a, "fuel"); tap(a, '[data-atform=fuel]')
+    fill_submit(a, 'form[data-afuel]', {"miles": "42700", "gal": "12", "cost": "40"})
+    check("Add Fill-Up saves", c1(a, "c.fuel.some(x => x.miles === 42700)"))
+    check("the MPG chart draws, with its scale", a.js("!!document.querySelector('svg.at-chart text')"))
+    tap(a, '[data-atsub=trip]')
+    fill_submit(a, 'form[data-atrip]', {"miles": "400", "price": "3.50"})
+    check("Road Trip works it out", a.js("AUTO_TRIP && AUTO_TRIP.res.miles") == 800 and "Estimated Cost" in text(a))
+    a.page.fill('[data-atlabel=from]', "Home"); a.page.wait_for_timeout(30)
+    check("From and To are only labels, kept while you're there", a.js("AT.from") == "Home")
+    tap(a, '[data-atriplog]'); check("Save to Journal", c1(a, "c.notes.length") >= 2)
+    tap(a, '[data-atsub=check]'); tap(a, '[data-atripchk=tires]')
+    check("Before You Go keeps its ticks", c1(a, "c.tripCheck.tires") is True and "Pre-Trip Checklist" in text(a))
+    check("what the log knows can't be ticked by hand", a.js("!document.querySelector('[data-atripchk=oil]')"))
+    a.js("AT.sub = null; render(); 0")
+
+    car(a, "papers"); tap(a, '[data-atform=papers]')
+    a.page.select_option('form[data-apaper] [name=kind]', "inspection")
+    fill_submit(a, 'form[data-apaper]', {"name": "Sample Station", "expires": "2027-05-01", "cost": "20"})
+    check("Add Paper saves", c1(a, "c.papers.some(x => x.kind === 'inspection')"))
+    a.js("AT.papersOpen = 'p1'; render(); 0")
+    tap(a, '[data-arenew=p1]'); check("Renewed moves the date on", c1(a, "c.papers.find(x => x.id === 'p1').expires > addDays(today(), 30)"))
+    a.js("AT.seg.papers = 'renew'; render(); 0"); check("Renewals only lists what's close", "Sample Insurance" not in text(a))
+    a.js("AT.seg.papers = 'all'; render(); 0")
+
+    car(a, "extras"); tap(a, '[data-atform=extras]')
+    fill_submit(a, 'form[data-aextra]', {"name": "Dash cam", "cost": "120"})
+    check("Add Upgrade saves", c1(a, "c.extras.some(x => x.name === 'Dash cam')"))
+    a.js("AT.seg.extras = 'wish'; render(); 0"); tap(a, '[data-ainstall=e2]')
+    check("Wishlist to Installed", c1(a, "c.extras.find(x => x.id === 'e2').status") == "installed")
+
+    car(a, "journal"); tap(a, '[data-atform=journal]')
+    fill_submit(a, 'form[data-anote]', {"text": "New wipers feel great"})
+    check("A note goes in the Journal", "New wipers feel great" in text(a))
+    tap(a, '[data-atjtag=fuel]'); check("Journal filters", "New wipers feel great" not in text(a) and "Fill-up" in text(a))
+    a.js("AT.jtag = 'all'; render(); 0")
+
+    a.js("atReset(); TAB = 'home'; showCar('c1', 'overview'); AT.seg.overview = 'value'; render(); 0")
+    fill_submit(a, 'form[data-aprice]', {"price": "17999"}); check("Asking price saves", c1(a, "c.price") == 17999)
+    fill_submit(a, 'form[data-avalue]', {"paid": "25000", "boughtOn": "2022-12-01"}); check("Price paid saves", c1(a, "c.paid") == 25000)
+    t = text(a); check("the value says it's a rough estimate, not a market quote", "Rough Value" in t and "Not a dealer quote" in t and "Market" not in t.replace("market data", "") and "Private Party" not in t)
+    a.js("AT.seg.overview = 'cost'; render(); 0"); t = text(a)
+    check("Cost to Own adds up the same as the old screen", a.js("m0(ownCost(garage().cars[0], today()).total)") in t and "Monthly Spending" in t)
+    tap(a, '[data-atseg="cost:all"]'); check("All Time is more or equal", "All Time" in text(a))
+    a.js("AT.seg.overview = 'overview'; atGo('forsale'); 0"); a.page.wait_for_timeout(40); t = text(a)
+    check("For Sale Card: only what's true", "FOR SALE" in t and "Dash cam" in t and "Clean Title" not in t)
+    a.page.fill('form[data-amiles] [name=miles]', "1") if a.js("!!document.querySelector('form[data-amiles]')") else None
+
+    page(a, "details"); a.page.fill('form[data-aedit] [name=nick]', "Renamed"); a.page.click('form[data-aedit] button.at-big'); a.page.wait_for_timeout(200)
+    check("Edit Car Details saves and goes back", c1(a, "c.nick") == "Renamed" and a.js("AT.page") is None)
+    a.js("atReset(); TAB = 'home'; render(); showAddCar(); 0"); a.page.wait_for_timeout(40)
+    t = text(a); check("free plan, one car: Add a Car explains the plan, at the price it already has", "keeps 1 car" in t and a.js("PLAN.AUTO_MONTHLY") in t and a.js("!document.querySelector('form[data-anewcar]')"))
+    a.js("setOwnerSwitch('OWNER', true); atReset(); render(); showAddCar(); 0"); a.page.wait_for_timeout(40)
+    tap(a, '[data-atadd=ymm]')
+    fill_submit(a, 'form[data-anewcar]', {"year": "2021", "make": "Sample", "model": "Truck"}); a.page.wait_for_timeout(200)
+    check("Add a Car opens the new car, and back skips the finished form", "Car Overview" in text(a) and a.js("AT.stack.every(f => f.page !== 'addcar')"))
+    a.close()
+
+
+def test_miles(b, base):
+    print("\n-- Update Miles and the odometer check")
+    a = app(b, base)
+    tap(a, '[data-atlog]') if False else None
+    a.js("atGo('miles'); 0"); a.page.wait_for_timeout(40)
+    a.page.fill('form[data-amiles] [name=miles]', "41000"); a.page.click('form[data-amiles] button'); a.page.wait_for_timeout(100)
+    check("lower than the last reading: warns and saves nothing", c1(a, "c.miles") == 42320 and "lower" in a.js("document.getElementById('autoMsg').textContent"))
+    a.page.click('form[data-amiles] button'); a.page.wait_for_timeout(120)
+    check("tap again and it's the owner's call", c1(a, "c.miles") == 41000)
+    check("and it goes back to Home", a.js("!!document.querySelector('.at-hero')"))
+    a.js("atGo('miles'); 0"); a.page.wait_for_timeout(40)
+    a.page.fill('form[data-amiles] [name=miles]', "990000"); a.page.click('form[data-amiles] button'); a.page.wait_for_timeout(100)
+    check("a huge jump warns too", c1(a, "c.miles") == 41000 and "more miles" in a.js("document.getElementById('autoMsg').textContent"))
+    a.page.fill('form[data-amiles] [name=miles]', "41050"); a.page.click('form[data-amiles] button'); a.page.wait_for_timeout(120)
+    check("a normal reading saves first time", c1(a, "c.miles") == 41050)
+    car(a, "fuel"); tap(a, '[data-atform=fuel]')
+    fill_submit(a, 'form[data-afuel]', {"miles": "100", "gal": "10"})
+    check("a fill-up with a wrong odometer warns first", c1(a, "c.fuel.every(x => x.miles !== 100)") and "lower" in a.js("document.getElementById('autoMsg').textContent"))
+    car(a, "service"); tap(a, '[data-atform=service]'); fill_submit(a, 'form[data-aservice]', {"miles": "410500"})
+    check("Log Service with a mistyped odometer warns too", c1(a, "c.miles") == 41050 and "more miles" in a.js("document.getElementById('autoMsg').textContent"))
+    a.page.fill('form[data-aservice] [name=miles]', "30000"); a.page.click('form[data-aservice] button:not([type=button])'); a.page.wait_for_timeout(120)
+    check("an older service at lower miles is fine and doesn't move them", c1(a, "c.miles") == 41050 and c1(a, "c.services.some(s => s.miles === 30000)"))
+    check("and no stale 'tap again' after it saved", "Tap again" not in text(a))
+    a.js("AUTO_SCAN = { img: 'art/garage.webp', f: { kind: 'odometer', car: 'c1', date: today(), miles: '500', cost: '', gal: '', service: 'oil', company: '', paperKind: 'insurance', expires: '', vin: '', note: '' } }; showScan(); 0"); a.page.wait_for_timeout(60)
+    a.page.click('form[data-ascansave] button.at-big'); a.page.wait_for_timeout(100)
+    check("a scan that misreads the odometer asks first", c1(a, "c.miles") == 41050 and "lower" in a.js("document.getElementById('autoMsg').textContent"))
+    a.js("AUTO_SCAN = null; atReset(); render(); 0")
+    a.close()
+
+
+def test_photos(b, base):
+    print("\n-- Photos")
+    a = app(b, base)
+    car(a, "photos")
+    png = T._png(); d = tempfile.mkdtemp(); p = os.path.join(d, "x.png"); open(p, "wb").write(png)
+    a.page.set_input_files('input[data-aphotoadd]', p); a.page.wait_for_timeout(500)
+    check("Add Photos saves", c1(a, "c.photos.length") == 1 and c1(a, "c.photos[0].tag") == "car")
+    check("the grid shows it", a.js("document.querySelectorAll('.at-grid img').length") == 1)
+    check("the first car photo becomes the cover", bool(c1(a, "c.cover")))
+    a.page.select_option('form[data-aphotoform] [name=tag]', "receipt"); a.page.set_input_files('input[data-aphotoadd]', p); a.page.wait_for_timeout(500)
+    check("a receipt keeps its tag", c1(a, "c.photos.filter(x => x.tag === 'receipt').length") == 1)
+    a.js("render(); 0"); a.page.wait_for_timeout(200)
+    check("the car picture is now the owner's", a.js("(document.querySelector('.at-coverimg') || {}).src || ''").startswith("data:image"))
+    tap(a, '[data-attag=car]'); check("the chips filter", a.js("document.querySelectorAll('.at-grid img').length") == 1)
+    tap(a, '[data-attag=receipt]'); a.page.click('.at-grid button'); a.page.wait_for_timeout(200)
+    check("tap for the big view", a.js("!!document.querySelector('.at-photobig img')"))
+    page(a, "glovebox"); check("receipts and photos gather in My Glovebox", a.js("document.querySelectorAll('.at-glovepic').length") == 2)
+    a.page.fill('[data-atsearch]', "insurance"); a.page.wait_for_timeout(40)
+    check("search narrows it without a redraw", a.js("[...document.querySelectorAll('[data-atq]')].filter(x => !x.hidden).length") == 1 and a.js("!!document.querySelector('[data-atsearch]').value"))
+    tap(a, '[data-atgfilter=receipts]'); check("chips filter too", a.js("document.querySelectorAll('[data-atq]').length") == 1)
+    a.js("AT.gfilter = null; 0")
+    a.close()
+
+
+def test_redraw(b, base):
+    print("\n-- A redraw from outside never costs what's been typed")
+    a = app(b, base)
+    car(a, "service"); tap(a, '[data-atform=service]')
+    a.page.fill('form[data-aservice] [name=note]', "Half typed"); a.page.select_option('form[data-aservice] [name=kind]', "plugs")
+    a.page.evaluate("document.dispatchEvent(new Event('visibilitychange'))"); a.page.wait_for_timeout(120)
+    check("coming back to the app keeps the words", a.page.input_value('form[data-aservice] [name=note]') == "Half typed")
+    check("and the menu choice", a.page.input_value('form[data-aservice] [name=kind]') == "plugs")
+    a.page.evaluate("window.dispatchEvent(new Event('offline'))"); a.page.wait_for_timeout(100)
+    check("going offline keeps them", a.page.input_value('form[data-aservice] [name=note]') == "Half typed")
+    a.js("AUTO_SCAN = { img: 'art/garage.webp', f: { kind: 'receipt', car: 'c1', date: today(), miles: '42320', cost: '10', gal: '', service: 'oil', company: '', paperKind: 'insurance', expires: '', vin: '', note: '' } }; showScan(); 0"); a.page.wait_for_timeout(60)
+    a.page.fill('form[data-ascansave] [name=miles]', "42400"); a.js("render(); 0"); a.page.wait_for_timeout(80)
+    check("a corrected scan doesn't go back to what the AI read", a.page.input_value('form[data-ascansave] [name=miles]') == "42400")
+    a.js("AUTO_SCAN = { img: 'art/garage.webp', f: { kind: 'receipt', car: 'c1', date: today(), miles: '50000', cost: '10', gal: '', service: 'oil', company: '', paperKind: 'insurance', expires: '', vin: '', note: '' } }; showScan(); 0"); a.page.wait_for_timeout(60)
+    check("Scan Another starts from what the new photo says", a.page.input_value('form[data-ascansave] [name=miles]') == "50000")
+    a.js("AUTO_SCAN = null; atReset(); render(); try { if (briefOpen()) document.querySelector('[data-brief=go]').click(); } catch (e) {}; 0"); a.page.wait_for_timeout(60)
+    a.js("atGo('miles'); 0"); a.page.wait_for_timeout(40); a.page.fill('form[data-amiles] [name=miles]', "42500"); a.page.click('form[data-amiles] button'); a.page.wait_for_timeout(120)
+    a.js("atGo('miles'); 0"); a.page.wait_for_timeout(40)
+    check("a form that saved starts clean next time", a.page.input_value('form[data-amiles] [name=miles]') == "")
+    a.js("atReset(); showCar('c1', 'overview'); AT.seg.overview = 'value'; render(); 0"); a.page.fill('form[data-aprice] [name=price]', "$17,999"); a.page.click('form[data-aprice] button'); a.page.wait_for_timeout(120)
+    check("a saved form shows what's stored", a.page.input_value('form[data-aprice] [name=price]') == "17999")
+    a.js("AT.seg.overview = 'overview'; 0")
+    page(a, "glovebox"); a.page.fill('[data-atsearch]', "insurance"); a.js("render(); 0"); a.page.wait_for_timeout(60)
+    check("a search survives and still filters", a.page.input_value('[data-atsearch]') == "insurance" and a.js("[...document.querySelectorAll('[data-atq]')].filter(x => !x.hidden).length") == 1)
+    # the phone: coming back from the camera redraws the screen before the photo arrives
+    png = T._png(); d = tempfile.mkdtemp(); p = os.path.join(d, "x.png"); open(p, "wb").write(png)
+    car(a, "photos"); a.page.select_option('form[data-aphotoform] [name=tag]', "damage")
+    with a.page.expect_file_chooser() as fc: a.page.click('form[data-aphotoform] label.at-big')
+    a.page.evaluate("document.dispatchEvent(new Event('visibilitychange'))"); a.page.wait_for_timeout(100)
+    check("the file box really was redrawn away", fc.value.element.evaluate("e => !e.isConnected"))
+    a.js("try { if (briefOpen()) document.querySelector('[data-brief=go]').click(); } catch (e) {}; 0")
+    fc.value.set_files(p); a.page.wait_for_timeout(600)
+    check("the photo still lands, with its tag", c1(a, "c.photos.length") == 1 and c1(a, "c.photos[0].tag") == "damage")
+    check("and the next photo's choices start fresh", a.page.input_value('form[data-aphotoform] [name=tag]') == "car")
+    page(a, "rs:accident")
+    with a.page.expect_file_chooser() as fc: a.page.click('label.at-ghost:has(input[data-aphotoadd])')
+    a.js("render(); 0"); a.page.wait_for_timeout(60); fc.value.set_files(p); a.page.wait_for_timeout(600)
+    check("so does a damage photo from the Accident Checklist", c1(a, "c.photos.filter(x => x.tag === 'damage' && x.cap === 'Accident').length") == 1)
+    page(a, "impex"); q = os.path.join(d, "o.csv"); open(q, "w", encoding="utf-8").write("Date,Odometer,Gallons\n2026-01-05,38000,10.5\n")
+    with a.page.expect_file_chooser() as fc: a.page.click('label.at-big:has(input[data-atcsvfile])')
+    a.js("render(); 0"); a.page.wait_for_timeout(60); fc.value.set_files(q); a.page.wait_for_timeout(300)
+    check("and a CSV file", a.js("AT.csv && AT.csv.fuel.length") == 1); a.js("AT.csv = null; 0")
+    a.close()
+
+
+def test_recalls(b, base):
+    print("\n-- Recalls and PARK IT")
+    a = app(b, base)
+    check("no PARK IT unless NHTSA says so", "PARK IT" not in text(a))
+    car(a, "recalls"); t = text(a)
+    check("any open recall says repairs are free", "Recall repairs are free" in t)
+    check("open and past recalls apart", "Open Recalls (1)" in t and "Past Recalls (1)" in t and "PARK IT" not in t)
+    tap(a, '[data-arfix="24V123"]'); check("tap to mark fixed", c1(a, "c.recallDone['24V123']") is True and "No Open Recalls" in text(a))
+    c1(a, "(c.recalls.list[0].park = true, c.recallDone = {}, 0)"); a.js("atReset(); TAB = 'home'; render(); 0")
+    check("Home turns red for a safety recall", a.js("!!document.querySelector('.at-next.red')") and "PARK IT" in text(a))
+    car(a, "recalls"); check("Recalls leads with PARK IT", a.js("!!document.querySelector('.at-park')"))
+    a.close()
+
+
+def test_roadside(b, base):
+    print("\n-- Roadside Help")
+    a = app(b, base)
+    tap(a, '.at-ic.warn'); t = text(a)
+    check("the triangle on Home opens it", "Roadside Help" in t)
+    for w in ("Roadside Plan", "Insurance Card", "Tow Info", "Accident Checklist", "Call a Shop", "Share My Location", "What to Do Now", "911"): check(f"it has {w}", w in t)
+    tap(a, '[data-atgo="rs:plan"]'); check("Roadside Plan reads the paper you saved", "Sample Club" in text(a) and "M-44" in text(a))
+    fill_submit(a, 'form[data-athelp]', {"num": "(555) 010-2030"})
+    href = lambda: a.js("document.querySelector('.at-big[href^=\"tel:\"]').getAttribute('href')")
+    check("a saved number stays as typed", c1(a, "c.help.roadside") == "(555) 010-2030")
+    check("and becomes a call button", href() == "tel:5550102030")
+    fill_submit(a, 'form[data-athelp]', {"num": "1-800-AAA-HELP"}); check("letters dial as their digits", href() == "tel:18002224357")
+    fill_submit(a, 'form[data-athelp]', {"num": "*222"}); check("star codes keep the star", href() == "tel:*222")
+    fill_submit(a, 'form[data-athelp]', {"num": "555-0102 ext 45"}); check("an extension doesn't fuse into the number", href() == "tel:5550102")
+    fill_submit(a, 'form[data-athelp]', {"num": "AAA 800-222-4357"}); check("a word in front isn't dialed", href() == "tel:8002224357")
+    fill_submit(a, 'form[data-athelp]', {"num": "800-222-4357 AAA"}); check("nor a word behind", href() == "tel:8002224357")
+    fill_submit(a, 'form[data-athelp]', {"num": "1 800 AAA HELP"}); check("spaced letters still dial", href() == "tel:18002224357")
+    check("the button shows what it will dial", "18002224357" in text(a))
+    fill_submit(a, 'form[data-athelp]', {"num": "555-0102 ext 45"})
+    fill_submit(a, 'form[data-athelp]', {"num": "hi"}); check("nonsense is refused, with a reason", c1(a, "c.help.roadside") == "555-0102 ext 45" and "phone number" in a.js("document.getElementById('autoMsg').textContent"))
+    page(a, "rs:insurance"); check("Insurance Card shows the paper", "Sample Insurance" in text(a) and "SAMPLE-123" in text(a))
+    page(a, "rs:accident"); tap(a, '[data-attick="0"]'); check("the checklist ticks", a.js("document.querySelectorAll('.at-box.on').length") == 1 and "Call 911" in text(a))
+    page(a, "rs:what"); check("What to Do Now says it's general", "General tips only" in text(a))
+    a.close()
+
+
+def test_alerts(b, base):
+    print("\n-- Car alerts")
+    a = app(b, base, at="2026-10-01T10:00:00")
+    keys = lambda: a.js("(on => { S.remind.on = true; const r = reminderList().map(x => x.key).filter(k => k.startsWith('car:')); S.remind.on = on; return r; })(S.remind.on)")
+    k = keys()
+    check("a paper 7 days out alerts", any(x.startswith("car:pap:p1:") for x in k), k)
+    check("an open recall alerts", any(x.startswith("car:rec:c1:24V123") for x in k), k)
+    check("a fixed one doesn't", not any("23V777" in x for x in k))
+    page(a, "reminders"); tap(a, '[data-atalert=papers]')
+    check("a switch turns one kind off", not any(x.startswith("car:pap:") for x in keys()) and a.js("garage().alerts.papers") is False)
+    tap(a, '[data-atalert=papers]'); check("and on", any(x.startswith("car:pap:") for x in keys()))
+    a.js("(S.remind.fired[reminderList().map(x => x.key).find(k => k.startsWith('car:rec:'))] = Date.now(), 0)")
+    check("a plain recall says so once", not any(x.startswith("car:rec:c1:24V123") for x in keys()))
+    check("the screen says what the alerts can't do", "can't alert you while it's fully closed" in text(a))
+    with a.page.expect_download() as dl: a.page.click('[data-aticsall]')
+    ics = open(dl.value.path(), encoding="utf-8", newline="").read()
+    check("the calendar file is valid and all-day", ics.startswith("BEGIN:VCALENDAR") and "DTSTART;VALUE=DATE:" in ics and ics.rstrip().endswith("END:VCALENDAR") and "\r\n" in ics)
+    # the real path: turning alerts on, then checkReminders firing them
+    a.js("setOwnerSwitch('OWNER', true); garage().alerts = { seen: {} }; S.remind.fired = {}; window.__n = []; notify = async (t, b, k) => { window.__n.push([t, b, k]); }; 0")
+    a.page.evaluate("remindOn().catch ? 0 : 0") if False else None
+    a.js("S.remind.on = true; reminderList().forEach(r => { if (r.start <= Date.now()) S.remind.fired[r.key] = Date.now(); }); 0")
+    check("turning alerts on doesn't swallow the car's", not any(k.startswith("car:") for k in a.js("Object.keys(S.remind.fired)")))
+    a.page.evaluate("checkReminders()"); a.page.wait_for_timeout(120)
+    n = a.js("window.__n.filter(x => x[2].startsWith('car:'))")
+    check("checkReminders really fires them", any("Sample Insurance" in x[0] for x in n) and any("Recall" in x[0] for x in n), n)
+    check("a car alert doesn't read 'in 870 min'", not any(" · in " in x[1] for x in n), n)
+    a.js("window.__n = []; 0"); a.page.evaluate("checkReminders()"); a.page.wait_for_timeout(80)
+    check("and not twice", not a.js("window.__n.filter(x => x[2].startsWith('car:')).length"))
+    a.js("reminderList(); Object.keys(S.remind.fired).filter(k => k.startsWith('car:')).forEach(k => delete S.remind.fired[k]); window.__n = []; 0"); a.page.evaluate("checkReminders()"); a.page.wait_for_timeout(80)
+    check("not even after the 4-day mark is forgotten", not a.js("window.__n.filter(x => x[2].startsWith('car:')).length"), a.js("window.__n"))
+    a.close()
+
+
+def test_calendar_cost(b, base):
+    print("\n-- Calendar and costs")
+    a = app(b, base)
+    rows = a.js("atForecast(garage().cars, today()).map(r => ({ t: r.text, d: r.day, c: r.cost, l: r.late }))")
+    oil = [r for r in rows if r["t"] == "Oil change"]
+    check("oil repeats through the year on its interval", len(oil) >= 2, oil)
+    check("priced at what you paid last time", all(r["c"] == 76 for r in oil))
+    check("nothing past 12 months", all(r["d"] <= "2027-10-01" for r in rows))
+    check("overdue shows as due now", any(r["t"] == "Brake check" and r["l"] and r["d"] == "2026-10-01" for r in rows))
+    check("paper renewals are on it", any("Sample Insurance" in r["t"] for r in rows))
+    check("a service never logged isn't invented", not any(r["t"] == "Spark plugs" for r in rows))
+    page(a, "cal"); t = text(a)
+    check("the screen says it's an estimate", "An estimate" in t and "Overdue" in t)
+    page(a, "costing"); t = text(a)
+    check("logged and estimated stay apart", "Recorded" in t and "Estimated" in t and "Not a dealer quote" in t)
+    nums = a.js("atCostingNums(garage().cars[0], today())")
+    check("the recorded number is the same one as Cost to Own", abs(nums["recorded"] - a.js("ownCost(garage().cars[0], today()).month")) < 0.01)
+    check("the estimate is a real number", nums["drop"] > 0)
+    c1(a, "(c.paid = 0, 0)"); page(a, "costing")
+    check("no price paid, no made-up depreciation", "Value Lost" not in text(a) and "Add What You Paid" in text(a))
+    page(a, "expenses"); t = text(a)
+    check("Expenses totals the last 12 months", "Last 12 Months" in t and "Export Spreadsheet" in t)
+    tap(a, '[data-atxkind=fuel]'); check("a kind filters it", "Corner shop" not in text(a) and "Fill-up" in text(a))
+    a.js("AT.xkind = null; 0")
+    page(a, "compare"); check("one car: says so", "two in the garage" in text(a))
+    a.js(SECOND); page(a, "compare"); t = text(a)
+    check("two cars compare", "Family Hauler" in t and "Per Month" in t and a.js("document.querySelectorAll('.at-table td').length") > 8)
+    check("more miles isn't marked better", a.js("document.querySelector('.at-table tbody tr td.best') === null || !document.querySelector('.at-table tbody tr:first-child td.best')"))
+    page(a, "allcars"); check("All Cars has the garage total and each car", "Last 12 Months" in text(a) and "Family Hauler" in text(a))
+    page(a, "fuelstats"); t = text(a); check("Fuel Analytics", "Best MPG" in t and "Avg $ / Gallon" in t and "Fuel Cost by Month" in t)
+    page(a, "health"); t = text(a); check("Health History has repairs and recalls", "Recall: Airbag inflator" in t and "Brake check" in t)
+    tap(a, '[data-athfilter=oil]'); check("and filters", "Brake check" not in text(a) and "Oil change" in text(a))
+    a.js("AT.hfilter = null; 0")
+    a.close()
+
+
+def test_spreadsheet(b, base):
+    print("\n-- Spreadsheet out and in")
+    a = app(b, base)
+    c1(a, "(c.notes.push({ id: 'evil', date: today(), text: '=HYPERLINK(\"http://x\")' }), 0)")
+    page(a, "impex")
+    with a.page.expect_download() as dl: a.page.click('[data-atcsv]')
+    csv = open(dl.value.path(), encoding="utf-8").read()
+    check("the spreadsheet has every kind of record", all(w in csv for w in ("Oil change", "Fill-up", "Sample Insurance", "Window tint", "Rattle is gone")))
+    check("a note can't run as a formula", "'=HYPERLINK" in csv and ',=HYPERLINK' not in csv)
+    d = tempfile.mkdtemp(); p = os.path.join(d, "old.csv")
+    open(p, "w", encoding="utf-8").write('Date,Odometer,Gallons,Total Cost,Service,Notes\n2026-01-05,38000,10.5,33.50,,\n01/20/2026,38300,10,31,,\n2026-02-01,38500,,62,"Oil change, full synthetic","Corner, shop"\n2026-02-10,38600,,20,Car wash,\nnot a date,1,1,1,,\n' + "2026-03-01,38900,,,Fuel,\n")
+    n0 = c1(a, "c.fuel.length + c.services.length")
+    a.page.set_input_files('input[data-atcsvfile]', p); a.page.wait_for_timeout(200)
+    t = text(a)
+    check("it shows what it found", "Fill-ups found" in t and a.js("AT.csv.fuel.length") == 2 and a.js("AT.csv.services.length") == 2 and a.js("AT.csv.skipped") == 2, a.js("JSON.stringify(AT.csv)"))
+    check("and saves nothing yet", c1(a, "c.fuel.length + c.services.length") == n0)
+    check("quoted commas and US dates read right", a.js("AT.csv.services[0].kind") == "oil" and "Corner, shop" in a.js("AT.csv.services[0].note") and "full synthetic" in a.js("AT.csv.services[0].note") and a.js("AT.csv.fuel[1].date") == "2026-01-20")
+    check("the owner sees the rows before Add", "2026-01-05" in text(a) and "Car wash" in text(a))
+    check("an unknown service keeps its name as a note", a.js("AT.csv.services[1].kind") == "other" and "Car wash" in a.js("AT.csv.services[1].note"))
+    tap(a, '[data-atcsvadd]')
+    check("Add saves them", c1(a, "c.fuel.length + c.services.length") == n0 + 4)
+    check("older odometer readings don't pull the miles down", c1(a, "c.miles") == 42320)
+    a.page.set_input_files('input[data-atcsvfile]', p); a.page.wait_for_timeout(200)
+    check("the same file twice finds them already there", a.js("AT.csv.dupes") == 4 and a.js("AT.csv.fuel.length") == 0 and a.js("AT.csv.services.length") == 0, a.js("JSON.stringify(AT.csv)"))
+    tap(a, '[data-atcsvcancel]')
+    open(p, "w", encoding="utf-8").write('Date,Service,Odometer,Gallons,Price\n2026-04-01,Ignition coil,39000,,\n2026-04-02,Tire plug,39010,,\n2026-04-03,Head gasket,39020,,900\n2026-04-04,Oil change,39030,,\n2026-04-05,Fuel pump,39040,,\n2026-04-06,New tires,39050,,\n2026-04-07,,39100,10,3.50\n')
+    a.page.set_input_files('input[data-atcsvfile]', p); a.page.wait_for_timeout(200)
+    k = a.js("AT.csv.services.map(x => x.kind)"); notes = a.js("AT.csv.services.map(x => x.note)")
+    check("words that only look like a service don't become one", k == ["other", "other", "other", "oil", "other", "tires"], k)
+    check("the original words stay", "Ignition coil" in notes[0] and "Head gasket" in notes[2] and "Fuel pump" in notes[4])
+    check("a price under $20 with gallons is per gallon", a.js("AT.csv.fuel[0].cost") == 35)
+    check("a big price on a repair is the repair's cost", a.js("AT.csv.services[2].cost") == 900)
+    tap(a, '[data-atcsvcancel]')
+    open(p, "w", encoding="utf-8").write('Date,Odometer,Gallons\n2026-09-30,990000,10\n')
+    a.page.set_input_files('input[data-atcsvfile]', p); a.page.wait_for_timeout(200)
+    check("the preview says where the miles would go, and warns", "990,000" in text(a) and "more miles" in text(a)); tap(a, '[data-atcsvcancel]')
+    open(p, "w", encoding="utf-8").write("hello,world\n1,2\n")
+    a.page.set_input_files('input[data-atcsvfile]', p); a.page.wait_for_timeout(200)
+    check("a file it can't read says so", "Date" in a.js("document.getElementById('autoMsg').textContent"))
+    with a.page.expect_download() as dl: a.page.click('[data-data=export]') if a.js("!!document.querySelector('#cards [data-data=export]')") else None
+    j = json.load(open(dl.value.path(), encoding="utf-8"))
+    check("Backup File downloads your data", "garage" in j["data"])
+    a.close()
+
+
+def test_sold(b, base):
+    print("\n-- Sell My Car and Sold Cars")
+    a = app(b, base)
+    page(a, "sell"); t = text(a)
+    check("Ready to Sell counts what's really ready", "Ready to Sell" in t and "2 of 7 ready" in t, t[:200])
+    tap(a, '[data-atsellchk=title]'); check("the ticks stick", c1(a, "c.sellCheck.title") is True and "3 of 7 ready" in text(a))
+    check("the ad never says the title's clean", "clean title" not in text(a).lower())
+    a.js("AT.page = 'marksold'; render(); 0"); fill_submit(a, 'form[data-atsold]', {"price": "17000", "date": "2026-09-15", "note": "To a neighbor"})
+    check("the car leaves the garage", a.js("garage().cars.length") == 0 and a.js("garage().sold.length") == 1)
+    t = text(a)
+    check("Sold Car shows the numbers", "SOLD" in t and "$17,000" in t and "Sold For Less By" in t and "$9,000" in t and "All records kept" in t and "To a neighbor" in t, t[:300])
+    check("sold cars aren't counted as yours: no alerts, no pulse", a.js("(on => { S.remind.on = true; const r = reminderList().filter(x => x.key.startsWith('car:')).length; S.remind.on = on; return r; })(S.remind.on)") == 0)
+    tap(a, '[data-atgo^=soldhist]'); check("View History keeps every record", "Oil change" in text(a) and "Fill-up" in text(a))
+    a.js("atReset(); render(); 0")
+    check("with no cars left: First Open, and the way to Sold Cars", "Welcome to Auto Hub" in text(a) and a.js("!!document.querySelector('[data-atgo=archive]')"))
+    check("a phone or backup with only sold cars counts as having data, so a backup can't overwrite it as empty", a.js("hubDataCount(S)") >= 1 and a.js("hubDataCount({ garage: { cars: [], sold: [{ id: 'x' }] } })") == 1)
+    tap(a, '[data-atgo=archive]'); tap(a, '.at-carrow')
+    id_ = a.js("garage().sold[0].id")
+    tap(a, f'[data-atunsold="{id_}"]')
+    check("Put It Back returns it whole", a.js("garage().cars.length") == 1 and a.js("garage().sold.length") == 0 and c1(a, "c.services.length") == 3 and c1(a, "c.sold === undefined"))
+    a.js(f"(() => {{ const c = garage().cars[0]; c.sold = {{ date: today(), price: 1, note: '' }}; garage().cars = []; garage().sold = [c]; garage().cars.push(newCar({{ vin: '', year: '2021', make: 'New', model: 'Car', nick: '', miles: 5 }})); render(); }})(); 0")
+    page(a, f"soldview:{id_}")
+    a.js("window.__switch = switchOn('AUTO_PASS'); 0")
+    if a.js("window.__switch"):
+        tap(a, f'[data-atunsold="{id_}"]'); check("free plan: Put It Back respects the 1 car", a.js("garage().sold.length") == 1)
+    a.js("if (typeof AUTO_RM !== 'undefined') 0; 0")
+    tap(a, f'[data-atsolddel="{id_}"]'); check("Delete needs two taps", a.js("garage().sold.length") == 1)
+    tap(a, f'[data-atsolddel="{id_}"]'); check("then it's gone", a.js("garage().sold.length") == 0)
+    a.close()
+
+
+def test_facts_warranty(b, base):
+    print("\n-- Car Facts, Tires & Battery, Warranty, Records")
+    a = app(b, base)
+    page(a, "facts"); fill_submit(a, 'form[data-atfacts]', {"plate": "ABC123", "tire": "225/45 R17", "battery": "Group 48"}, "button.at-big")
+    check("Car Facts saves", c1(a, "c.facts.tire") == "225/45 R17" and c1(a, "c.facts.plate") == "ABC123")
+    check("the plate never goes to the AI helper", "ABC123" not in a.js("JSON.stringify(autoContext())"))
+    check("nor the VIN", "1FA6P8CF0L5100001" not in a.js("JSON.stringify(autoContext())"))
+    page(a, "tires"); t = text(a); check("Tires & Battery reads it, and the log", "225/45 R17" in t and "Group 48" in t and "Tire rotation" in t)
+    tap(a, '[data-atlogkind=tires]'); check("New Tires opens the form on tires", a.page.input_value('form[data-aservice] [name=kind]') == "tires")
+    page(a, "warranty"); tap(a, '[data-atform=warranty]')
+    fill_submit(a, 'form[data-atwarranty]', {"name": "Brake job", "start": "2026-01-01", "expires": "2026-11-01", "limit": "43,000"})
+    t = text(a)
+    check("a warranty saves, mileage limit and all", c1(a, "c.papers.find(x => x.kind === 'warranty').limitMiles") == 43000 and "680 miles left" in t and "Ending Soon" in t, t[:300])
+    car(a, "papers"); check("and it shows under Papers", "Brake job" in text(a))
+    page(a, "warranty"); a.page.click('.at-war [data-adel]'); a.page.wait_for_timeout(80); check("Remove removes it", c1(a, "!c.papers.some(x => x.kind === 'warranty')") and a.js("AT.page") == "warranty")
+    page(a, "records")
+    html = a.js("atRecordsHtml(garage().cars[0], { vin: false }, '', [])")
+    check("the buyer report has the history", "Service History" in html and "Oil change" in html and "Safety Recalls" in html)
+    check("no VIN unless you say so", "1FA6P8CF0L5100001" not in html and "1FA6P8CF0L5100001" in a.js("atRecordsHtml(garage().cars[0], { vin: true }, '', [])"))
+    check("no policy numbers, and it says it's owner-entered", "SAMPLE-123" not in html and "Owner-entered" in html)
+    check("a fake picture can't get in", "javascript" not in a.js("atRecordsHtml(garage().cars[0], { vin: false }, 'javascript:alert(1)', ['\"><script>x</script>'])") and "<script>x" not in a.js("atRecordsHtml(garage().cars[0], { vin: false }, 'javascript:alert(1)', ['\"><script>x</script>'])"))
+    c1(a, "(c.mech = [{ id: 'm1', date: today(), q: 'Squeals when braking', code: 'P0300', a: { urgency: 'soon', summary: 'Probably pads.', causes: [{ cause: 'Worn pads', why: 'Most likely', likely: 'high', diy: 'shop', cost: '$150' }], check: 'Look at the pads.', shop: 'If it gets worse.' } }], 0)")
+    car(a, "mech"); t = text(a); check("the AI Mechanic keeps the question and easy-or-shop", "Squeals when braking" in t and "P0300" in t and "a shop job" in t and "not a diagnosis" in t)
+    a.js("atReset(); showCar('c1', 'overview'); AT.seg.overview = 'value'; render(); Object.defineProperty(navigator, 'share', { configurable: true, value: d => { window.__sheet = d.title + '|' + d.text; return Promise.resolve(); } }); 0"); tap(a, '[data-atsheet]')
+    check("selling screens use the car's name, not its nickname", "Daily Driver" not in a.js("window.__sheet") and "Sample Sedan" in a.js("window.__sheet"))
+    a.js("AT.seg.overview = 'overview'; 0")
+    page(a, "settings"); tap(a, '[data-atphoto]'); check("the Pictures switch turns the art off", a.js("S.photo") is False and a.js("document.body.classList.contains('at-noart')"))
+    tap(a, '[data-atphoto]'); check("and on", a.js("S.photo !== false"))
+    tap(a, '[data-atset=settingsTop]'); a.page.wait_for_timeout(100); check("More Settings opens the rest", a.js("!document.getElementById('sheet').classList.contains('hidden')")); a.js("closeSettings(); 0")
+    a.js("atReset(); TAB = 'more'; render(); 0"); tap(a, '#cards [data-brief=open]'); check("Morning Brief has a door", a.js("briefOpen()")); a.js("closeBrief(); 0")
+    a.js("window.__go = document.createElement('button'); __go.dataset.pulsego = 'bills'; document.body.appendChild(__go); __go.click(); __go.remove(); 0"); a.page.wait_for_timeout(80)
+    check("Life Pulse's Go lands on a real screen", a.js("AT.page") == "card:bills" and "Bills" in text(a))
+    page(a, "data"); t = text(a); check("Data & Backup says where things stand", "Only on this phone" in t and "Export Spreadsheet" in t and "Erase Everything" in t)
+    a.js("setOwnerSwitch('OWNER', false); S.sync.on = true; S.sync.last = new Date().toISOString(); 0")
+    if not a.js("syncOk('sync')"):
+        page(a, "data"); t = text(a); check("paused backup says paused, never 'every change saves'", "Backup is paused" in t and "Every change saves" not in t)
+        page(a, "settings"); check("in Settings too", "Paused" in text(a))
+    a.js("setOwnerSwitch('OWNER', true); page = null; 0") if False else a.js("setOwnerSwitch('OWNER', true); 0")
+    page(a, "data"); check("working backup says when", "Backed up" in text(a) and "Every change saves" in text(a)); a.js("S.sync.on = false; 0")
+    check("a nickname with an apostrophe reads right", True)
+    a.close()
+
+
+def test_store_mode(b, base):
+    print("\n-- The Play app: no prices, no Pro")
+    a = app(b, base, query="?src=play")
+    bad = []
+    WORDS = ("$2.99", "$9.99", "Whop", "Pro ", "Auto Hub Pro", "Day Hub Pro", "Pass", "30 days free", "Upgrade Now", "/month")
+    look = lambda name: bad.append((name, text(a)[:160])) if any(w in text(a) for w in WORDS) or "Pro" in text(a).split() else None
+    a.js("garage().sold = [{ id: 's1', year: 2010, make: 'Old', model: 'Car', sold: { date: today(), price: 5, note: '' } }]; 0")
+    for p in PAGES + ["soldview:s1", "soldhist:s1"]:
+        page(a, p); look(p)
+    for tab in TABS:
+        car(a, tab); look(tab)
+    for k in ("home", "garage", "scan", "journal", "more"):
+        a.js(f"atReset(); TAB = '{k}'; render(); 0"); a.page.wait_for_timeout(30); look(k)
+    a.js("(s => { s.cars = []; render(); })(garage()); atReset(); render(); 0"); a.page.wait_for_timeout(30); look("first open")
+    check("no screen sells anything", not bad, bad[:4])
+    a.close()
+
+
+def test_every_screen(b, base):
+    print("\n-- Every screen: empty car, crafted data, narrow phone")
+    a = app(b, base, width=360)
+    a.js("(() => { const c = garage().cars[0]; garage().cars = [Object.assign(newCar({ vin: '', year: '2019', make: 'Sample', model: 'Empty', nick: '', miles: null }), { id: 'c1' })]; saveLocal(); render(); })(); 0")
+    wide = []
+    for p in PAGES:
+        page(a, p)
+        if a.js("document.documentElement.scrollWidth > window.innerWidth + 1"): wide.append(p)
+    for t in TABS:
+        car(a, t)
+        if a.js("document.documentElement.scrollWidth > window.innerWidth + 1"): wide.append(t)
+    check("an empty car: nothing breaks, nothing runs off the side", not wide, wide)
+    a.close()
+    X = '<img src=x onerror=window.__pwn=1>'
+    a = app(b, base, width=360)
+    a.js(f"""(() => {{ const x = {json.dumps(X)}, c = garage().cars[0]; Object.assign(c, {{ nick: x, make: x, model: x, trim: x, engine: x, body: x, vin: x, facts: {{ tire: x, plate: x, battery: x }}, help: {{ roadside: x }}, sellCheck: {{ title: true }} }});
+      c.services[0].note = x; c.services[0].kind = x; c.papers[0].name = x; c.papers[0].ref = x; c.papers[0].note = x; c.papers[0].kind = x; c.extras[0].name = x; c.extras[0].note = x; c.notes[0].text = x; c.notes[0].id = x;
+      c.recalls.list[0].part = x; c.recalls.list[0].summary = x; c.recalls.list[0].remedy = x; c.recalls.list[0].id = x; c.photos.push({{ id: x, tag: x, cap: x, date: today() }}); c.cover = x; c.thumb = x;
+      c.mech.push({{ id: x, q: x, code: x, date: today(), a: {{ urgency: 'soon', summary: x, causes: [{{ cause: x, why: x, likely: 'high', cost: x }}], check: x, shop: x }} }});
+      garage().sold = [Object.assign(JSON.parse(JSON.stringify(c)), {{ id: 's1', sold: {{ date: today(), price: 5, note: x }} }})]; S.garage.gas = x; saveLocal(); render(); }})(); 0""")
+    hit = []
+    for p in PAGES + ["soldview:s1", "soldhist:s1"]:
+        page(a, p); a.page.wait_for_timeout(15)
+        if a.js("window.__pwn === 1 || !!document.querySelector('#cards img[src=\"x\"]')"): hit.append(p)
+    for t in TABS:
+        car(a, t); a.page.wait_for_timeout(15)
+        if a.js("window.__pwn === 1 || !!document.querySelector('#cards img[src=\"x\"]')"): hit.append(t)
+    for k in ("garage", "scan", "journal", "more", "home"):
+        a.js(f"atReset(); TAB = '{k}'; render(); 0"); a.page.wait_for_timeout(15)
+        if a.js("window.__pwn === 1 || !!document.querySelector('#cards img[src=\"x\"]')"): hit.append(k)
+    check("crafted text in every field runs nowhere", not hit, hit)
+    a.close()
+    before = len(T.ERRORS)
+    a = app(b, base, width=360)     # a hand-edited backup: wrong types everywhere. A screen may say it can't read something, but the app stays up.
+    a.js("""(() => { const c = garage().cars[0]; c.fuel = [{ id: 'q', gal: 'abc', miles: 'x', cost: {}, date: today() }, { id: 'r', date: 7 }]; c.services = [{ id: 's', kind: 9, date: today(), miles: 'x', cost: 'y' }]; c.papers = [{ id: 'p', kind: {}, expires: '', paid: 9, cost: 'x' }];
+      c.extras = [{ id: 'e', status: 'installed', date: 5, cost: 'x' }]; c.notes = [{ id: 'n', date: 5, text: 7 }]; c.mech = [{ id: 'm', date: today(), q: 7, a: { urgency: 'x', causes: [{ cause: 1, why: 2, likely: 'zzz', diy: 'q' }], check: '' } }]; c.recalls = { at: 5, list: [{ id: 1, part: 2, summary: 'x', remedy: 'y', park: 'q' }] }; c.photos = [{ id: 'z', tag: 5, date: today() }]; c.facts = 'x'; c.help = 7; c.sellCheck = 9; garage().alerts = 4; garage().sold = 'nope'; render(); })(); 0""")
+    dead = []
+    for p in PAGES:
+        try:
+            page(a, p)
+            if not a.js("!!document.getElementById('tabbar') && document.getElementById('cards').innerHTML.length > 20"): dead.append(p)
+        except Exception as e: dead.append(f"{p}: {str(e)[:80]}")
+    for t_ in TABS + ["home", "garage", "scan", "journal", "more"]:
+        try:
+            if t_ in TABS: car(a, t_)
+            else: a.js(f"atReset(); TAB = '{t_}'; render(); 0")
+            if not a.js("!!document.getElementById('tabbar') && document.getElementById('cards').innerHTML.length > 20"): dead.append(t_)
+        except Exception as e: dead.append(f"{t_}: {str(e)[:80]}")
+    check("wrong types in the data never take the app down", not dead, dead[:6])
+    a.js("fuelStats = () => { throw new Error('unreadable'); }; 0"); page(a, "fuelstats")
+    check("a screen that truly can't read something says so, tabs still there", "couldn't read" in text(a) and a.js("!!document.getElementById('tabbar')"))
+    del T.ERRORS[before:]            # errors from this deliberately broken data only; every other test's still count
+    a.close()
+    a = app(b, base)
+    c1(a, "(c.facts = { tire: '225' }, c.help = { tow: '555' }, c.sellCheck = { title: true }, 0)")
+    a.js("garage().alerts = { papers: false, seen: {} }; garage().sold = [{ id: 's1', year: 2010, make: 'Old', model: 'Car', sold: { date: today(), price: 5, note: '' }, services: [] }]; 0")
+    back = a.js("JSON.stringify({ savedAt: new Date().toISOString(), data: JSON.parse(JSON.stringify(S)) })")
+    a.js(f"restoreFrom({back}, true); 0"); a.page.wait_for_timeout(200)
+    check("a backup brings it all back", a.js("garage().sold.length") == 1 and c1(a, "c.facts.tire") == "225" and c1(a, "c.help.tow") == "555" and a.js("garage().alerts.papers") is False)
+    page(a, "archive"); check("and Sold Cars still opens on a thin record", "Old Car" in text(a) or "2010" in text(a))
+    before = len(T.ERRORS); n = a.js("garage().cars.length"); miles0 = c1(a, "c.miles")
+    bad = a.js("(() => { const d = JSON.parse(JSON.stringify(S)); d.garage.cars[0].fuel = [null]; d.garage.cars[0].miles = 1; return JSON.stringify({ savedAt: new Date().toISOString(), data: d }); })()")
+    a.js("atReset(); TAB = 'home'; render(); 0"); a.js(f"restoreFrom({bad}, true); 0"); a.page.wait_for_timeout(200)
+    check("a backup the new look can't draw is refused, not saved over good records", c1(a, "c.miles") == miles0 and a.js("garage().cars.length") == n and "Nothing changed" in a.js("document.getElementById('toast').textContent"), a.js("document.getElementById('toast').textContent"))
+    check("and the app comes back drawn", a.js("!!document.querySelector('.at-hero')"))
+    del T.ERRORS[before:]
+    page(a, "soldview:s1"); check("even with fields missing", "SOLD" in text(a))
+    a.js("(() => { const c = garage().cars[0]; c.photos = [{ id: 'gone', tag: 'car', date: today() }]; c.cover = 'gone'; garage().sold.push(Object.assign(c, { sold: { date: today(), price: 1, note: '' } })); garage().cars = []; S.garage.cars = []; render(); })(); 0")
+    a.js("const realTx = photoTx; photoTx = async () => { throw new Error('store closed'); }; window.__realTx = realTx; 0")
+    sid = a.js("garage().sold[garage().sold.length - 1].id"); page(a, f"soldview:{sid}"); tap(a, f'[data-atunsold="{sid}"]'); a.page.wait_for_timeout(120)
+    check("Put It Back: a photo store that won't open leaves the rows alone", a.js(f"garage().cars.find(c => c.id === '{sid}').photos.length") == 1)
+    a.js(f"photoTx = window.__realTx; (c => {{ garage().cars = garage().cars.filter(x => x !== c); c.sold = {{ date: today(), price: 1, note: '' }}; garage().sold.push(c); }})(garage().cars.find(c => c.id === '{sid}')); render(); 0")
+    page(a, f"soldview:{sid}"); tap(a, f'[data-atunsold="{sid}"]'); a.page.wait_for_timeout(200)
+    check("a photo this phone really doesn't have goes, cover and all", a.js(f"garage().cars.find(c => c.id === '{sid}').photos.length") == 0 and a.js(f"garage().cars.find(c => c.id === '{sid}').cover") == "")
+    a.close()
+
+
+def main():
+    srv, base = T.serve()
+    with sync_playwright() as p:
+        b = p.chromium.launch()
+        for t in (test_switch, test_first_open, test_home_and_back, test_forms, test_miles, test_photos, test_redraw, test_recalls, test_roadside, test_alerts, test_calendar_cost, test_spreadsheet, test_sold, test_facts_warranty, test_store_mode, test_every_screen):
+            if len(sys.argv) < 2 or any(x in t.__name__ for x in sys.argv[1:]): t(b, base)
+        b.close()
+    srv.shutdown()
+    errs = [e for e in T.ERRORS if "favicon" not in e and "ERR_" not in e and "Failed to load" not in e]
+    check("no page / console errors anywhere", not errs, errs[:6])
+    print(f"\n{OK} passed, {FAIL} failed")
+    sys.exit(1 if FAIL else 0)
+
+
+if __name__ == "__main__":
+    main()

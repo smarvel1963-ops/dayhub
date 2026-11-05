@@ -1,6 +1,9 @@
 {
- "version": "1.58.6",
+ "version": "1.58.7",
  "notes": {
+  "1.58.7": [
+   "🚗 Auto Hub: behind-the-scenes work on a fresh new look. Nothing changes for you yet."
+  ],
   "1.58.6": [
    "💾 Load a backup file now works in Health Hub, Money Hub and Auto Hub. Before this, it did nothing. Full-size photos stay on the phone they were taken on."
   ],
