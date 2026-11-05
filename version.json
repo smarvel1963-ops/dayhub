@@ -1,6 +1,9 @@
 {
- "version": "1.58.3",
+ "version": "1.58.4",
  "notes": {
+  "1.58.4": [
+   "🛳️ Cruise Hub: more behind-the-scenes work on a fresh new look. Nothing changes for you yet."
+  ],
   "1.58.3": [
    "🛳️ Cruise Hub: behind-the-scenes work on a fresh new look. Nothing changes for you yet."
   ],

@@ -375,7 +375,7 @@ body.ct #helpSheet .help-btn[data-help="docs"]::before { background-image: url("
 body.ct #helpSheet .help-btn[data-help="contacts"]::before { width: 34px; height: 34px; background-size: 22px 22px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' fill='%23fff'%3E%3Cpath d='M13.500 4l7 10.500-4.500 4.500c2.500 5.500 7.500 10.500 13 13l4.500-4.500L44 34.500 38.500 44C21 44 4 27 4 9.500z'/%3E%3C/svg%3E"); }
 
 /* round 2, beside his board */
-body.ct:not([data-ctscreen=""]) .fab { display: none; }                  /* the full screens have their own + */
+body.ct:not([data-ctscreen=""]):not([data-ctscreen="money"]):not([data-ctscreen="ports"]) .fab { display: none; }   /* the full screens have their own +; Money and Port Days keep this one */
 body.ct .ct-grid.ct-main { margin-top: 9px; }
 body.ct #helpSheet .sheet-body:has(.help-grid) .sheet-head h2::before { content: ""; width: 38px; height: 38px; flex: none; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Ccircle cx='24' cy='24' r='16' fill='none' stroke='%23fff' stroke-width='11'/%3E%3Ccircle cx='24' cy='24' r='16' fill='none' stroke='%23dc2626' stroke-width='11' stroke-dasharray='12.570 12.570' transform='rotate(-22.500 24 24)'/%3E%3C/svg%3E") center / contain no-repeat; }
 body.ct #helpSheet .help-btn { min-height: 76px; }
@@ -397,3 +397,140 @@ body.ct .ct-stats > div { padding: 10px 4px; } body.ct .ct-stats b { font-size: 
 body.ct.ct-noart #helpSheet .sheet-body:has(.help-grid) { background: linear-gradient(180deg, #16204f, #5b2a55); }   /* Real photo off covers Crisis Mode too */
 body.ct:not([data-ctscreen=""]) #cards > .whatsnew, body.ct:not([data-ctscreen=""]) #cards > .future-banner { display: none; }   /* they wait on Home, not above a full screen's title */
 body.ct .refund-add { flex-wrap: wrap; }   /* five fields don't fit a small phone on one line */
+
+/* round 7 (Scott 11/04 night: "still doesnt look like gpt renditions"). What was still off, screen by screen beside his board: the inner screens sat on a
+   pale sky where his are deep navy, had a tab bar his don't, and the type was smaller and lighter. So: navy behind them, no tab bar, the art to the
+   bottom edge, bigger bolder type, and everything his board doesn't show waits below the picture. */
+body.ct::before { background: linear-gradient(180deg, #08286e 0%, #0d3f9a 34%, #1a6cc8 70%, #3f9ae0 100%); }
+body.ct[data-ctscreen="packing"]::before, body.ct[data-ctscreen="lists"]::before, body.ct[data-ctscreen="onboard"]::before, body.ct[data-ctscreen="first10"]::before, body.ct[data-ctscreen="pass"]::before,
+body.ct[data-ctscreen="ports"]::before, body.ct[data-ctscreen="money"]::before { background: linear-gradient(180deg, #08286e 0%, #0d3f9a 34%, #1a6cc8 70%, #3f9ae0 100%); }
+body.ct:not([data-ctscreen=""]) #tabbar { display: none; }
+body.ct[data-ctscreen="packing"]::after, body.ct[data-ctscreen="onboard"]::after, body.ct[data-ctscreen="money"]::after, body.ct[data-ctscreen="ports"]::after { bottom: 0; height: 30vh;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 16%); mask-image: linear-gradient(180deg, transparent 0, #000 16%); }
+body.ct[data-ctscreen="packing"]::after { background: url("../cruisehub/art/packing.webp") center bottom / cover no-repeat; height: 27vh; }
+body.ct[data-ctscreen="onboard"]::after { background: url("../cruisehub/art/onboard.webp") center bottom / cover no-repeat; height: 27vh; }
+body.ct[data-ctscreen="money"]::after { background: url("../cruisehub/art/money.webp") center bottom / cover no-repeat; height: 20vh; }
+body.ct[data-ctscreen="ports"]::after { background: url("../cruisehub/art/sky.webp") center bottom / cover no-repeat; height: 24vh; }
+body.ct.ct-noart[data-ctscreen]::after { display: none; }
+
+/* the title row: a bare chevron and a bare +, the title big and centred */
+body.ct .ct-title { margin: 0 0 14px; padding-top: 6px; font-size: 30px; font-weight: 800; letter-spacing: -.015em; line-height: 1.1; text-shadow: 0 2px 8px rgba(0, 20, 60, .5); }
+body.ct .ct-back { width: 36px; height: 44px; margin-left: -4px; border: 0; background: none; font-size: 46px; font-weight: 400; line-height: 34px; padding: 0 0 8px; text-shadow: 0 2px 6px rgba(0, 20, 60, .5); }
+body.ct .ct-plus { width: 36px; height: 44px; border: 0; background: none; font-size: 32px; font-weight: 500; text-shadow: 0 2px 6px rgba(0, 20, 60, .5); }
+body.ct .ct-titleic { width: 34px; height: 34px; vertical-align: -7px; margin-right: 9px; }
+body.ct .ct-life.small { width: 38px; height: 38px; background: none; border: 0; }
+body.ct .ct-life.small svg { width: 32px; height: 32px; }
+
+/* the gap that shows the picture: everything past it waits one scroll down, its top edge peeking */
+body.ct .ct-artgap { height: 25vh; }
+body.ct[data-ctscreen="money"] .ct-artgap { height: 17vh; }
+body.ct[data-ctscreen="ports"] .ct-artgap { height: 17vh; }
+
+/* HOME: a bigger logo, a stronger card, bolder tiles */
+body.ct .ct-brand b { font-size: 37px; font-weight: 700; } body.ct .ct-logo { width: 54px; }
+body.ct .ct-brand small { font-size: 14.5px; font-weight: 700; }
+body.ct .ct-card .ct-k { font-size: 13.5px; font-weight: 600; } body.ct .ct-card .ct-name { font-size: 24px; font-weight: 800; } body.ct .ct-card .ct-sub { font-size: 13.5px; }
+body.ct .ct-days b { font-size: 40px; } body.ct .ct-days small { font-size: 14.5px; font-weight: 700; } body.ct .ct-ready b { font-size: 29px; font-weight: 800; } body.ct .ct-ready small { font-size: 13px; }
+body.ct .ct-stage { background: linear-gradient(160deg, rgba(14, 74, 150, .92), rgba(6, 40, 98, .94)); border: 2px solid rgba(200, 232, 255, .75); }
+body.ct .ct-tile { background: linear-gradient(160deg, rgba(240, 249, 255, .96), rgba(208, 233, 251, .9)); border: 1.5px solid rgba(255, 255, 255, .95); box-shadow: 0 5px 14px rgba(0, 40, 90, .22), inset 0 1px 0 rgba(255, 255, 255, .85); }
+body.ct .ct-tile b { font-size: 15.5px; font-weight: 800; color: #08265a; }
+body.ct .ct-main .ct-tile { min-height: 72px; } body.ct .ct-tile .ct-ic { width: 36px; height: 36px; }
+body.ct .ct-tile.red b { color: #08265a; }
+
+/* ON BOARD: the tiles fill the screen down to the picture */
+body.ct .ct-two { gap: 12px; }
+body.ct .ct-two .ct-tile { min-height: 124px; gap: 8px; border-radius: 20px; } body.ct .ct-two .ct-tile .ct-ic { width: 56px; height: 56px; } body.ct .ct-two .ct-tile b { font-size: 21px; font-weight: 800; }
+body.ct .ct-two .ct-tile small { font-size: 12.5px; }
+
+/* COUNTDOWN: his big flip digits and big cards */
+body.ct .ct-cdship { width: 104px; } body.ct .ct-cdname { font-size: 33px; font-weight: 800; letter-spacing: -.01em; margin-top: 6px; } body.ct .ct-cdsub { font-size: 16px; font-weight: 700; margin-top: 3px; }
+body.ct .ct-digits { gap: 10px; margin: 16px 0 6px; }
+body.ct .ct-digit { position: relative; width: 84px; height: 112px; border-radius: 12px; font-size: 90px; color: #08265a; background: linear-gradient(180deg, #fff 0 49%, #aebed2 49% 51%, #eef3f9 51% 100%); box-shadow: 0 10px 22px rgba(0, 20, 60, .45), inset 0 0 0 1px rgba(255, 255, 255, .8); }
+body.ct .ct-cdlab { font-size: 38px; font-weight: 800; letter-spacing: -.01em; margin-top: 8px; }
+body.ct .ct-cdcard { padding: 16px 18px; border-radius: 20px; margin-bottom: 12px; background: rgba(255, 255, 255, .95); }
+body.ct .ct-cdrow b { font-weight: 800; } body.ct .ct-cdcard .ct-cdrow { font-size: 24px; } body.ct .ct-cdpct { font-size: 31px; font-weight: 800; }
+body.ct .ct-cdcard .ct-bar { height: 15px; }
+body.ct .ct-cdnext b { font-size: 24px; font-weight: 800; } body.ct .ct-cdnext small { font-size: 17px; font-weight: 500; color: #1d3a66; } body.ct .ct-cdnext .chev { font-size: 32px; color: #0b2f63; }
+body.ct .ct-cdnext .ct-mic.big { width: 50px; height: 50px; }
+
+/* PACKING: big rows, big green ticks */
+body.ct .ct-progress { padding: 15px 18px 16px; border-radius: 20px; margin-bottom: 12px; background: rgba(255, 255, 255, .95); }
+body.ct .ct-progress .ct-cdrow { font-size: 21px; } body.ct .ct-progress .ct-cdrow span { font-size: 18px; font-weight: 700; color: #0b2f63; }
+body.ct .ct-progress .ct-bar { height: 15px; }
+body.ct .ct-cat { margin-bottom: 9px; border-radius: 16px; background: rgba(255, 255, 255, .96); }
+body.ct .ct-catlink, body.ct .ct-cat > summary { min-height: 60px; padding: 8px 14px; font-size: 20px; gap: 14px; }
+body.ct .ct-catlink b, body.ct .ct-cat > summary b { font-weight: 800; }
+body.ct .ct-box { width: 34px; height: 34px; border-radius: 9px; font-size: 24px; border-width: 2.5px; } body.ct .ct-box.on { background: #16b04a; border-color: #16b04a; }
+body.ct .ct-count { font-size: 18px; font-weight: 700; color: #0b2f63; } body.ct .ct-cat .chev { font-size: 28px; color: #0b2f63; }
+body.ct .ct-extras > summary b { font-size: 17px; }
+
+/* PORT DAYS: a real picture on each, one line for the day and the times, Return Guard big with its switch */
+body.ct .ct-ports { gap: 11px; margin-bottom: 14px; }
+body.ct .ct-port { padding: 9px 12px 9px 9px; gap: 14px; border-radius: 18px; background: rgba(255, 255, 255, .96); }
+body.ct .ct-port img { width: 116px; height: 84px; border-radius: 12px; }
+body.ct .ct-port b { font-size: 21px; font-weight: 800; letter-spacing: -.01em; } body.ct .ct-port small { font-size: 14.5px; font-weight: 600; color: #0f2c55; margin-top: 3px; }
+body.ct .ct-port .ct-portwhen { font-size: 16px; }
+body.ct .ct-port .chev { font-size: 32px; color: #0b2f63; }
+body.ct .ct-guardrow { padding: 16px 16px; gap: 14px; border-radius: 20px; margin-bottom: 14px; background: rgba(255, 255, 255, .96); }
+body.ct .ct-guardrow b { font-size: 23px; font-weight: 800; } body.ct .ct-guardrow small { font-size: 15.5px; font-weight: 500; color: #1d3a66; margin-top: 2px; }
+body.ct .ct-guardrow .ct-mic.big { width: 56px; height: 56px; }
+body.ct .ct-pill.ct-switch { position: relative; width: 58px; height: 32px; padding: 0; border-radius: 32px; background: #16b04a; color: transparent; font-size: 0; }
+body.ct .ct-pill.ct-switch::after { content: ""; position: absolute; top: 3px; right: 3px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .35); }
+
+/* PAYMENTS & BUDGET: big numbers, big rows */
+body.ct .ct-stats { gap: 9px; }
+body.ct .ct-stats > div { padding: 12px 4px 13px; border-radius: 18px; background: linear-gradient(160deg, #e6f4fd, #bfe0f7); border: 1.5px solid rgba(255, 255, 255, .9); }
+body.ct .ct-stats .paid { background: linear-gradient(160deg, #e0f8ed, #aef0cf); } body.ct .ct-stats .left { background: linear-gradient(160deg, #fff, #ffdfe4); }
+body.ct .ct-stats small { font-size: 15.5px; font-weight: 600; color: #0f2c55; }
+body.ct .ct-stats b { font-size: clamp(16px, 6.100vw, 25px); margin-top: 3px; }
+body.ct .ct-due { gap: 13px; margin-top: 11px; padding: 11px 16px; border-radius: 18px; font-size: 21px; background: rgba(255, 255, 255, .96); }
+body.ct .ct-due b { display: block; font-weight: 800; line-height: 1.15; } body.ct .ct-duedate { display: block; font-size: 16.5px; margin-top: 2px; } body.ct .ct-due small { font-size: 13.5px; color: #33507a; }
+body.ct .ct-duebell { font-size: 32px; line-height: 1; } body.ct .ct-due.soon, body.ct .ct-due.late, body.ct .ct-due.done { font-size: 20px; }
+body.ct .ct-mlist { margin-top: 11px; padding: 3px 16px; border-radius: 18px; background: rgba(255, 255, 255, .96); }
+body.ct .ct-mrow { padding: 10px 0; font-size: 18px; font-weight: 600; gap: 12px; } body.ct .ct-mrow b { font-size: 18px; font-weight: 800; } body.ct .ct-mrow .ct-mic { width: 25px; height: 25px; }
+body.ct .ct-pulse { margin-top: 11px; padding: 12px 16px; border-radius: 18px; gap: 14px; background: rgba(255, 255, 255, .96); }
+body.ct .ct-pulse b { font-size: 21px; font-weight: 800; } body.ct .ct-pulse small { font-size: 15.5px; color: #1d3a66; } body.ct .ct-pulse .ct-mic.big { width: 46px; height: 46px; }
+body.ct .ct-dot { width: 36px; height: 36px; font-size: 22px; } body.ct .ct-dot.ok { background: #16b04a; }
+
+/* CRISIS MODE: his board's title and his big buttons */
+body.ct #helpSheet .sheet-body:has(.help-grid) .sheet-head { flex-direction: row-reverse; align-items: center; }
+body.ct #helpSheet .sheet-body:has(.help-grid) .sheet-head h2 { flex: 1; justify-content: center; }
+body.ct #helpSheet .sheet-body:has(.help-grid) .sheet-head h2::after { font-size: 30px; font-weight: 800; }
+body.ct #helpSheet .sheet-body:has(.help-grid) .sheet-head h2::before { width: 44px; height: 44px; }
+body.ct #helpSheet .sheet-body:has(.help-grid) .icon-btn { width: 36px; height: 44px; font-size: 0; background: none; border: 0; }
+body.ct #helpSheet .sheet-body:has(.help-grid) .icon-btn::before { content: "‹"; color: #fff; font-size: 46px; font-weight: 400; line-height: 34px; text-shadow: 0 2px 6px rgba(0, 0, 0, .5); }
+body.ct #helpSheet .help-grid { gap: 11px; }
+body.ct #helpSheet .help-grid::before { font-size: 17.5px; margin-bottom: 6px; }
+body.ct #helpSheet .help-btn { min-height: 86px; padding: 10px 40px 10px 14px; gap: 16px; border-width: 2px; border-color: rgba(255, 255, 255, .7); border-radius: 18px; }
+body.ct #helpSheet .help-btn::before { width: 58px; height: 58px; background-size: 52px 52px; }
+body.ct #helpSheet .help-btn b::before { font-size: 25px; font-weight: 800; letter-spacing: -.01em; line-height: 1.1; }
+body.ct #helpSheet .help-btn b::after { font-size: 14.5px; font-weight: 600; margin-top: 3px; }
+body.ct #helpSheet .help-btn[data-help="contacts"] { min-height: 70px; } body.ct #helpSheet .help-btn[data-help="contacts"]::before { width: 38px; height: 38px; background-size: 30px 30px; }
+body.ct #helpSheet .help-btn[data-help="contacts"] b::before { font-size: 19px; } body.ct #helpSheet .help-btn[data-help="contacts"] .sub { left: 68px; }
+
+/* round 7, second look beside the board: nothing wraps, Packing's picture shows */
+body.ct .ct-brand b { font-size: clamp(24px, 8.600vw, 34px); white-space: nowrap; gap: 6px; } body.ct .ct-logo { width: clamp(34px, 12vw, 48px); }
+body.ct .ct-brand small { font-size: clamp(10.500px, 3.400vw, 13.500px); white-space: nowrap; }
+body.ct .ct-hero .ct-life, body.ct .ct-hero .ct-gear { width: 38px; height: 38px; } body.ct .ct-hero .ct-life svg { width: 30px; height: 30px; } body.ct .ct-hero .ct-gear svg { width: 22px; height: 22px; }
+body.ct .ct-catlink, body.ct .ct-cat > summary { min-height: 66px; }
+body.ct[data-ctscreen="packing"] .ct-artgap { height: 33vh; } body.ct[data-ctscreen="packing"]::after { height: 31vh; }
+body.ct .ct-port { padding: 8px 10px 8px 8px; gap: 12px; } body.ct .ct-port img { width: 96px; height: 74px; }
+body.ct .ct-port b { font-size: 19.500px; } body.ct .ct-port .ct-portwhen { font-size: 15px; } body.ct .ct-port .chev { font-size: 28px; }
+body.ct .ct-guardrow b { font-size: 21px; } body.ct .ct-guardrow small { font-size: 14.500px; } body.ct .ct-guardrow .ct-mic.big { width: 48px; height: 48px; }
+body.ct[data-ctscreen="ports"]::after { background-position: center top; }
+body.ct[data-ctscreen="money"] .ct-title { font-size: 24px; } body.ct[data-ctscreen="money"] .ct-titleic { width: 28px; height: 28px; margin-right: 7px; vertical-align: -5px; }
+body.ct #helpSheet .help-btn { padding: 10px 34px 10px 14px; gap: 12px; } body.ct #helpSheet .help-btn::before { width: 52px; height: 52px; background-size: 46px 46px; }
+body.ct #helpSheet .help-btn b::after { font-size: 13.500px; }
+body.ct #helpSheet .help-btn[data-help="contacts"] b::before { font-size: 16.500px; } body.ct #helpSheet .help-btn[data-help="contacts"] .sub { left: 64px; }
+body.ct[data-ctscreen="ports"]::after { background: linear-gradient(180deg, rgba(255, 170, 120, 0) 0, rgba(255, 176, 130, .55) 100%), url("../cruisehub/art/sky.webp") center top / cover no-repeat; }   /* his board's warm clouds */
+body.ct .ct-title .offline-pill { display: block; font-size: 12.5px; font-weight: 700; letter-spacing: 0; color: #fff; margin-top: 1px; }   /* full screens keep the Offline word */
+body.ct .ct-stats.mid b { font-size: clamp(14px, 4.700vw, 20px); } body.ct .ct-stats.tiny b { font-size: clamp(12px, 3.800vw, 16px); }   /* a big number with cents stays in its box */
+
+/* round 7, the review */
+body.ct .ct-brand small .offline-pill { display: block; width: fit-content; margin: 2px auto 0; }   /* on its own line, or it pushes the gear off a phone at sea */
+body.ct .ct-back { width: 44px; margin-left: -8px; } body.ct .ct-plus { width: 44px; } body.ct .ct-life.small { width: 44px; height: 44px; margin-right: -4px; }   /* back is the only way out now: full-size targets */
+body.ct #helpSheet .sheet-body:has(.help-grid) .icon-btn { width: 44px; margin-left: -6px; }
+body.ct[data-ctscreen="money"] .fab, body.ct[data-ctscreen="ports"] .fab { background: rgba(255, 255, 255, .94); color: #0b2f63; box-shadow: 0 6px 16px rgba(0, 25, 70, .35); }
+body.ct.ct-noart[data-ctscreen] .ct-artgap { height: 14px; }             /* Real photo off: no picture to leave room for */
+body.ct .ct-artgap { column-span: all; -webkit-column-span: all; }       /* tablets: the gap goes across both columns */
+body.ct .ct-hero .ct-life, body.ct .ct-hero .ct-gear { position: relative; } body.ct .ct-hero .ct-life::after, body.ct .ct-hero .ct-gear::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; }   /* Home's two stay small to fit the logo; their tap area is full size */

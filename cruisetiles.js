@@ -245,15 +245,17 @@ function ctMoneyTopHtml(tr) {
   const left = tripLeft(tr) || 0, fd = ctYmd(tr.finalDue) ? daysUntil(tr.finalDue) : null;
   const fareWord = trCruise(tr) ? "fare" : "trip cost";
   const due = W.fare <= 0 ? "" : left <= 0 ? `<div class="ct-due done"><span aria-hidden="true">✅</span><span><b>${W.left > 0 ? `${trCruise(tr) ? "Cruise fare" : "Trip cost"} paid` : "Paid in full"}</b>${W.left > 0 ? `<small>${esc(ctMoney(W.left))} left on the rest</small>` : ""}</span></div>`
-    : fd !== null ? `<div class="ct-due${fd < 0 ? " late" : fd <= 14 ? " soon" : ""}"><span aria-hidden="true">🔔</span><span><b>Final payment ${fd < 0 ? "was due" : "due"} ${esc(prettyDate(tr.finalDue))}</b>
-        <small>${fd >= 0 ? esc(inDays(fd)) : `${-fd} day${fd === -1 ? "" : "s"} ago`} · ${esc(ctMoney(left))} left${W.left > left ? ` on the ${fareWord}` : ""}</small></span></div>` : "";
+    : fd !== null ? `<div class="ct-due${fd < 0 ? " late" : fd <= 14 ? " soon" : ""}"><span class="ct-duebell" aria-hidden="true">🔔</span><span><b>Final Payment ${fd < 0 ? "Was Due" : "Due"}</b>
+        <span class="ct-duedate">${esc(prettyDate(tr.finalDue))}, ${esc(tr.finalDue.slice(0, 4))} (${fd >= 0 ? esc(inDays(fd)) : `${-fd} day${fd === -1 ? "" : "s"} ago`})</span>
+        <small>${esc(ctMoney(left))} left${W.left > left ? ` on the ${fareWord}` : ""}</small></span></div>` : "";
   // What it adds up to: the cruise, then each kind of cost around it. Spent on board is on top of that total, so it sits apart.
   const cats = {}; W.costs.forEach(c => { const k = COST_CATS.some(x => x[0] === c.cat) ? c.cat : "other"; cats[k] = (cats[k] || 0) + Number(c.amt); });
   const row = (ic, l, n) => `<div class="ct-mrow"><span class="ct-mic" aria-hidden="true">${CT_ICONS[ic]}</span><span class="grow">${esc(l)}</span><b>${esc(ctMoney(n))}</b></div>`;
   const spent = tripSpent(tr), rows = [W.fare > 0 && row("ship", trCruise(tr) ? "Cruise Fare" : "Trip Cost", W.fare),
     ...CT_COSTS.filter(([k]) => cats[k] > 0).map(([k, ic, l]) => row(ic, l, cats[k])),
     spent > 0 && `<div class="ct-mrow ct-monb"><span class="ct-mic" aria-hidden="true">${CT_ICONS.card}</span><span class="grow">${trCruise(tr) ? "Onboard Spending" : "Trip Spending"}<small>On top of the trip total</small></span><b>${esc(ctMoney(spent))}</b></div>`].filter(Boolean);
-  return `<section class="ct-money" aria-label="Payments"><div class="ct-stats"><div><small>Trip Total</small><b>${esc(ctMoney(W.total))}</b></div>
+  const longest = Math.max(...[W.total, W.paid, W.left].map(n => ctMoney(n).length));   // a big number with cents stays in its box
+  return `<section class="ct-money" aria-label="Payments"><div class="ct-stats${longest > 8 ? " tiny" : longest > 6 ? " mid" : ""}"><div><small>Trip Total</small><b>${esc(ctMoney(W.total))}</b></div>
       <div class="paid"><small>Paid</small><b>${esc(ctMoney(W.paid))}</b></div><div class="left"><small>Left to Pay</small><b>${esc(ctMoney(W.left))}</b></div></div>${due}
       ${rows.length ? `<div class="ct-mlist">${rows.join("")}</div>` : ""}${ctPulseHtml(tr)}</section>`;
 }
@@ -278,8 +280,8 @@ function ctMoneyToolsHtml(tr) {
 }
 
 // ---- full screens opened from More: ‹ comes back to it, a tab leaves them
-let CT_SCREEN = null, CT_FROM = null, CT_LIST_FROM = null, CT_DOCS_BACK = false;
-const ctBackHtml = (t, right, attrs, ic) => `<h2 class="ct-title"><button class="ct-back" ${attrs || 'data-ctgo="back"'} aria-label="Back">‹</button><span class="grow">${ic ? `<span class="ct-titleic" aria-hidden="true">${ic}</span>` : ""}${esc(t)}</span>${right || ""}<button class="ct-life small" data-help="home" aria-label="Crisis Mode - help now">${CT_LIFE}</button></h2>`;
+let CT_SCREEN = null, CT_FROM = null, CT_LIST_FROM = null, CT_DOCS_BACK = false, CT_TAB_FROM = null;
+const ctBackHtml = (t, right, attrs, ic) => `<h2 class="ct-title"><button class="ct-back" ${attrs || 'data-ctgo="back"'} aria-label="Back">‹</button><span class="grow">${ic ? `<span class="ct-titleic" aria-hidden="true">${ic}</span>` : ""}${esc(t)}${navigator.onLine === false ? `<span class="offline-pill">🟠 Offline</span>` : ""}</span>${right || ""}<button class="ct-life small" data-help="home" aria-label="Crisis Mode - help now">${CT_LIFE}</button></h2>`;
 
 // COUNTDOWN (his board): the ship, the days as big tiles, Trip Readiness and Next Up. The checklist behind it is the old one.
 function ctCountdownHtml(tr) {
@@ -317,10 +319,12 @@ function ctListsHtml(tr) {
     : `<section class="ct-listcard">${shown.map(row).join("") || `<div class="empty">Nothing on this list yet.</div>`}</section>`;
   const add = `<button class="ct-plus" data-ctgo="addfocus" aria-label="Add to this list">＋</button>`;
   const sugN = pack && typeof packSuggest === "function" ? packSuggest(tr).length : 0;
+  const tabs = `<nav class="ct-listtabs" aria-label="Lists">${keys.map(k => `<button class="${k === lk ? "on" : ""}" data-triplist="${k}">${esc(TRIP_LISTS[k])}</button>`).join("")}</nav>`;   // on Packing they wait below the picture, as on his board
   return `<div class="ct-screen">${ctBackHtml(pack ? "Packing List" : TRIP_LISTS[lk], add, 'data-ctgo="listback"')}
     <section class="ct-progress"><span class="ct-cdrow"><b>${pack ? "Packing Progress" : "Progress"}</b><span>${pack ? allD : done} of ${pack ? allN : L.length}</span></span><span class="ct-bar"><i style="width:${(pack ? allN : L.length) ? Math.round((pack ? allD / allN : done / L.length) * 100) : 0}%"></i></span></section>
-    <nav class="ct-listtabs" aria-label="Lists">${keys.map(k => `<button class="${k === lk ? "on" : ""}" data-triplist="${k}">${esc(TRIP_LISTS[k])}</button>`).join("")}</nav>
+    ${pack ? "" : tabs}
     ${body}
+    ${pack ? `<div class="ct-artgap" aria-hidden="true"></div>${tabs}` : ""}
     <form class="inline-add ct-add" data-tadd="${tr.id}:${lk}"><input name="text" placeholder="Add to ${esc(TRIP_LISTS[lk])}…" required autocomplete="off"><button class="btn sm">Add</button></form>
     ${pack ? `<details class="ct-cat ct-extras" data-ctcat="extras" ${CT_OPEN.has("extras") ? "open" : ""}><summary><span class="ct-mic" aria-hidden="true">${CT_ICONS.suitcase}</span><b>Bags + suggestions</b>${sugN ? `<span class="ct-count">${sugN} idea${sugN === 1 ? "" : "s"}</span>` : ""}${CT_CHEV}</summary><div class="ct-catbody">${packExtrasHtml(tr)}</div></details>` : ""}
     <div class="ct-artgap" aria-hidden="true"></div></div>`;
@@ -351,15 +355,15 @@ function ctPortsHtml(tr, cardHtml) {
   const card = pt => { const g = typeof portGuide === "function" && portGuide(pt.name), n = tr.start ? Math.round((parseDay(pt.day) - parseDay(tr.start)) / 86400000) + 1 : 0;
     const times = pt.arrive && pt.allAboard ? `${hm(pt.arrive)} – ${hm(aaLocal(pt))}` : pt.allAboard ? `all aboard ${hm(aaLocal(pt))}` : "";
     return `<button class="ct-port" data-tlday="${pt.day}">${S.photo === false ? "" : `<img src="art/${ctPortArt(pt)}.webp" alt="" loading="lazy" width="88" height="66">`}<span class="grow"><b>${esc(pt.name)}${g && g.country && !String(pt.name).includes(g.country) ? `, ${esc(g.country)}` : ""}</b>
-      <small>${n > 0 ? `Day ${n} · ` : ""}${esc(prettyDate(pt.day))}</small>${times ? `<small>${esc(times)}</small>` : ""}${portWxText(pt) ? `<small>${portWxText(pt)}</small>` : ""}${pt.excursion && pt.excursion.toLowerCase() !== "none" ? `<small>${esc(pt.excursion)}</small>` : ""}</span>${CT_CHEV}</button>`; };
+      <small class="ct-portwhen">${n > 0 ? `Day ${n} • ${esc(times || prettyDate(pt.day))}` : `${esc(prettyDate(pt.day))}${times ? ` • ${esc(times)}` : ""}`}</small>${portWxText(pt) ? `<small>${portWxText(pt)}</small>` : ""}${pt.excursion && pt.excursion.toLowerCase() !== "none" ? `<small>${esc(pt.excursion)}</small>` : ""}</span>${CT_CHEV}</button>`; };
   const g = guardFor(tr), noTime = ports.find(p => !p.allAboard), remOn = !!S.remind.on && can("reminders");   // no reminders = no alert (app.js checkReminders), so never a green On
   const [guardAttr, guardSay, guardPill, guardOk] = g ? ['data-rg="open"', "Running now. Tap for your time back", "Now", true]
     : noTime ? [`data-tlday="${noTime.day}"`, "Add your all-aboard times and it can warn you", "Add times", false]
     : !remOn ? ['data-ctgo="reminders"', "Turn reminders on and it can warn you on the day", "Turn on", false]
     : ['data-ctgo="reminders"', "Heads up when it's time to head back to the ship", "On", true];
-  const guardBody = `<span class="ct-mic big" aria-hidden="true">${CT_ICONS.ship}</span><span class="grow"><b>Return Guard</b><small>${guardSay}</small></span><span class="ct-pill ${guardOk ? "on" : ""}">${guardPill}</span>`;
+  const guardBody = `<span class="ct-mic big" aria-hidden="true">${CT_ICONS.ship}</span><span class="grow"><b>Return Guard</b><small>${guardSay}</small></span><span class="ct-pill ${guardOk ? "on" : ""}${guardPill === "On" ? " ct-switch" : ""}">${guardPill}</span>`;
   return `${ports.length ? `<section class="ct-ports">${ports.map(card).join("")}</section>` : `<section class="card"><h3>Port Days</h3><div class="body"><div class="empty">Add your port days (My Cruise → your cruise → Ports) and they show up here with weather and all-aboard times.</div></div></section>`}
-    ${ports.length ? `<button class="ct-guardrow" ${guardAttr}>${guardBody}</button>` : ""}
+    ${ports.length ? `<button class="ct-guardrow" ${guardAttr} aria-label="Return Guard: ${esc(guardPill)}. ${esc(guardSay)}">${guardBody}</button><div class="ct-artgap" aria-hidden="true"></div>` : ""}
     <section class="card my-ship"><h3><span class="ci">🚢</span>My ship</h3><div class="body">${typeof shipGuideHtml === "function" ? shipGuideHtml(tr) : ""}
       <button class="btn sm ghost" data-shellgo="plan" data-triptabgo="tips">💡 Good to know</button></div></section>
     ${SHELL_CARDS.explore.map(k => cardHtml(k)).join("")}`;
@@ -395,7 +399,9 @@ function ctShellHtml(cardHtml) {
   const tr = curTrip(), packing = TAB === "plan" && PLAN_VIEW === "packing" && !!tr && !CT_SCREEN;
   const list = packing && (tripListKeys(tr).includes(S.tripList) ? S.tripList : "packing");
   const sc = CT_SCREEN === "pass" ? (ctPassOffered() ? "pass" : null) : tr && (CT_SCREEN !== "countdown" || tr.start) ? CT_SCREEN : null;   // a cruise pasted from an email can have no dates yet
-  document.body.dataset.ctscreen = sc || (packing ? (list === "packing" ? "packing" : "lists") : "");
+  // Port Days and Payments & Budget are full screens on his board too: their own title and picture, back to Home, no tab bar.
+  const portsScreen = !sc && !packing && TAB === "explore" && !!tr && trCruise(tr), moneyScreen = !sc && !packing && TAB === "wallet" && !!tr;
+  document.body.dataset.ctscreen = sc || (packing ? (list === "packing" ? "packing" : "lists") : portsScreen ? "ports" : moneyScreen ? "money" : "");
   document.body.classList.toggle("ct-noart", S.photo === false);           // ⚙ Real photo off: no pictures behind the screens
   if (sc === "countdown") return ctCountdownHtml(tr);
   if (sc === "onboard") return ctOnBoardHtml(tr);
@@ -404,11 +410,14 @@ function ctShellHtml(cardHtml) {
   if (packing) return ctListsHtml(tr);
   if (TAB === "home") return homeHtml();                                   // homeHtml() hands over to ctHomeHtml()
   const top = `<section class="ct-band">${ctTopHtml(false)}</section>`;
+  const homeBack = (t, ic) => `<div class="ct-screen">${ctBackHtml(t, "", 'data-ctgo="tabback"', ic)}</div>`;
+  const cards = () => SHELL_CARDS[TAB].filter(k => k !== "inbox" || S.mail.on || S.mail.found.length).map(k => cardHtml(k)).join("");
   if (TAB === "ai") return top + ctMoreHtml();
+  if (portsScreen) return homeBack("Port Days", CT_ICONS.pin) + ctPortsHtml(tr, cardHtml);
   if (TAB === "explore") return top + (tr ? ctPortsHtml(tr, cardHtml) : exploreHtml(cardHtml));
   if (TAB === "plan") return top + planHtml(cardHtml);
-  return top + (TAB === "wallet" ? ctMoneyTopHtml(tr) + ctMoneyToolsHtml(tr) : "")
-    + SHELL_CARDS[TAB].filter(k => k !== "inbox" || S.mail.on || S.mail.found.length).map(k => cardHtml(k)).join("");
+  if (moneyScreen) return homeBack("Payments & Budget", CT_ICONS.wallet) + ctMoneyTopHtml(tr) + `<div class="ct-artgap" aria-hidden="true"></div>` + ctMoneyToolsHtml(tr) + cards();
+  return top + (TAB === "wallet" ? ctMoneyTopHtml(tr) + ctMoneyToolsHtml(tr) : "") + cards();
 }
 
 // Taps that belong to the new look only.
@@ -426,18 +435,22 @@ document.addEventListener("click", e => {
   const lg = e.target.closest && e.target.closest('button[data-planview="packing"], button[data-triplistgo]');
   if (lg) { CT_LIST_FROM = TAB; CT_DOCS_BACK = false; if (ctOn() && !lg.dataset.triplistgo) S.tripList = "packing"; }   // ‹ on a list goes back where it came from; a way in called Packing opens Packing, not the list last looked at
   if (e.target.closest && e.target.closest(".ct-catlink")) CT_DOCS_BACK = true;   // Documents & ID reads as part of Packing
-  if (sg) { CT_SCREEN = null; CT_FROM = null;                               // a tab or a tile that goes to one leaves a full screen
+  if (sg) { const to = sg.dataset.shellgo;                                  // Money or Port Days opened from another screen: its ‹ goes back there
+    CT_TAB_FROM = ctOn() && (to === "wallet" || to === "explore") && !sg.closest("#tabbar") && (CT_SCREEN || TAB !== "home") ? { tab: TAB, screen: CT_SCREEN } : null;
+    CT_SCREEN = null; CT_FROM = null;                                       // a tab or a tile that goes to one leaves a full screen
     if (ctOn() && sg.closest("#tabbar")) { CT_LIST_FROM = null; CT_DOCS_BACK = false; if (PLAN_VIEW === "packing") PLAN_VIEW = "trip"; } }   // a tab leaves the list; My Cruise opens My Cruise, not the list you left
   if (ctOn() && e.target.closest) {
     const gh = e.target.closest("button[data-ghgo]");                       // Get me home's Open: Home has no card to open, so go to the list or the perks
-    if (gh) { const k = gh.dataset.ghgo; setTimeout(() => { CT_SCREEN = null; CT_FROM = null; if (k === "perks") { shellGo("wallet"); const c = document.querySelector('#cards [data-card="trips"]'); if (c) c.scrollIntoView({ block: "start" }); } else { CT_LIST_FROM = TAB; PLAN_VIEW = "packing"; shellGo("plan"); } }, 0); }
+    if (gh) { const k = gh.dataset.ghgo, from = CT_SCREEN || TAB !== "home" ? { tab: TAB, screen: CT_SCREEN } : null; setTimeout(() => { CT_SCREEN = null; CT_FROM = null; if (k === "perks") { CT_TAB_FROM = from; shellGo("wallet"); const c = document.querySelector('#cards [data-card="trips"]'); if (c) c.scrollIntoView({ block: "start" }); } else { CT_LIST_FROM = TAB; PLAN_VIEW = "packing"; shellGo("plan"); } }, 0); }
     if (e.target.closest("button[data-cwx]")) setTimeout(() => { if (TAB !== "explore") shellGo("explore"); const c = document.querySelector('#cards [data-card="weather"]'); if (c) c.scrollIntoView({ block: "start" }); }, 0);   // the weather card lives on Port Days here
   }
-  if (ctOn() && e.target.closest && e.target.closest("button[data-spendgo]")) setTimeout(() => { const c = document.querySelector('#cards [data-card="trips"]'); if (c) c.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60);   // the card sits below the tools
+  if (ctOn() && e.target.closest && e.target.closest(".ct-screen button[data-triplist]")) setTimeout(() => window.scrollTo({ top: 0 }), 0);   // on Packing the list tabs sit past the picture; My Cruise's list tiles stay where they are
+  if (ctOn() && e.target.closest && e.target.closest("button[data-spendgo], button[data-triptabgo]")) setTimeout(() => { const c = document.querySelector('#cards [data-card="trips"]'); if (c) c.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60);   // the card sits below the tools
   const b = e.target.closest && e.target.closest("button[data-ctgo]");
   if (!b) return;
   const go = b.dataset.ctgo;
   if (go === "back") { CT_SCREEN = CT_FROM; CT_FROM = null; render(); window.scrollTo({ top: 0 }); return; }
+  if (go === "tabback") { const f = CT_TAB_FROM; CT_TAB_FROM = null; if (!f) { shellGo("home"); return; } CT_SCREEN = f.screen; shellGo(f.tab); return; }
   if (go === "listback") { if (CT_DOCS_BACK) { CT_DOCS_BACK = false; S.tripList = "packing"; render(); window.scrollTo({ top: 0 }); return; }
     const to = CT_LIST_FROM || "home"; CT_LIST_FROM = null; PLAN_VIEW = "trip"; shellGo(to); return; }
   if (go === "pass" || go === "first10" || go === "countdown" || go === "onboard") { CT_FROM = CT_SCREEN; CT_SCREEN = go; render(); window.scrollTo({ top: 0 }); return; }
@@ -447,7 +460,7 @@ document.addEventListener("click", e => {
   if (go.startsWith("day:")) { const [, d, what] = go.split(":"); ctDayAt(d, what); return; }
   if (go === "settings") { if (typeof openSettings === "function") openSettings(); return; }
   if (go === "classic") { try { localStorage.setItem(CT_KEY, "classic"); } catch (e2) { /* private mode */ } CT_SCREEN = null; render(); window.scrollTo({ top: 0 }); toast("Classic look on this phone"); return; }
-  if (go === "ship") { CT_SCREEN = null; CT_FROM = null; shellGo("explore"); setTimeout(() => { const el = document.querySelector("#cards .my-ship"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); }
+  if (go === "ship") { CT_TAB_FROM = { tab: TAB, screen: CT_SCREEN }; CT_SCREEN = null; CT_FROM = null; shellGo("explore"); setTimeout(() => { const el = document.querySelector("#cards .my-ship"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); }
 });
 // A folded packing group stays as you left it when a tick redraws the screen.
 document.addEventListener("toggle", e => { const d = e.target; if (!d || !d.dataset || !d.dataset.ctcat || (S.bagView && S.bagView !== "all" && d.dataset.ctcat !== "extras")) return; if (d.open) CT_OPEN.add(d.dataset.ctcat); else CT_OPEN.delete(d.dataset.ctcat); }, true);
