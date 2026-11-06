@@ -152,8 +152,16 @@ def main():
         for path, nm, mine, other in ((T.HOMEP, "Home Hub", "turned on in Day Hub", "change your pay"), (T.MONEYP, "Money Hub", "change your pay", "turned on in Day Hub"), (T.TRIP, "Trip Hub", "trips read like trips", "turned on in Day Hub")):
             a = T.App(b, base, path=path); welcome(a)
             a.js("S.seenVersion = '1.58'; saveLocal(); checkUpdate()"); a.page.wait_for_timeout(300)
-            w = a.js("(document.querySelector('.whatsnew') || {}).innerText || ''")
+            # v1.58.11: the filter itself, on 1.58.1's notes. The card keeps the newest 8, so these drop off as later releases ship.
+            w = a.js("(NOTES['1.58.1'] || []).filter(noteForMe).filter(playOk).join(' | ')")
             check(f"{nm}: What's New shows its own note and the shared ones, not another Hub's", mine in w and "Safer backup" in w and other not in w, w[:300])
+            n = a.js("document.querySelectorAll('.whatsnew .today-line').length")
+            owners = a.js("[...document.querySelectorAll('.whatsnew .today-line')].map(el => (el.textContent.trim().match(/^[^A-Za-z]*((?:Day|Cruise|Trip|Home|Auto|Money|Health) Hub|Hub Universe):/) || [])[1] || '')")
+            check(f"{nm}: the card shows at most 8 notes, none of them another Hub's own", 0 < n <= 8 and all(o in ("", nm) for o in owners), owners)
+            lines = a.js("[...document.querySelectorAll('.whatsnew .today-line')].map(el => el.textContent)")
+            check(f"{nm}: no 'groundwork, nothing changes yet' line left over from 1.58.10", not any("groundwork" in ln for ln in lines), lines[:3])
+            if nm == "Trip Hub":
+                check("Trip Hub: the card leads with this release's own note (Use my car)", bool(lines) and "Use my car" in lines[0], lines[:1])
             a.close()
         b.close()
     srv.shutdown()

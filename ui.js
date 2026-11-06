@@ -1966,15 +1966,17 @@ takeRedirectToken();
 const RENEWING = autoRenew();                                   // hops to Google and straight back
 // HUB CONNECTIONS (v1.58.10, Scott's 11/04 Auto Hub list; 11/05 "cont"): Day Hub and Trip Hub READ Auto Hub's records on this
 // phone and show them; nothing is copied or written. The code is hubconnect.js (+ auto.js's math where it isn't loaded), fetched only
-// when it's on, so a customer downloads nothing new. HC_ON = false: only a phone holding Scott Hub or the owner mark gets it.
+// when it's on. v1.58.11: ON for every phone (Scott 11/06: "go"); Day and Trip Hub fetch it only where Auto Hub's records are
+// on this phone, so a phone without Auto Hub downloads nothing new. HC_ON = false would put it back to owner phones only.
 // Each Hub's own Settings -> Hub family (S.family) turns it off there.
-const HC_ON = false;                 // THE SWITCH: true = every phone gets Hub Connections (Scott's go only)
+const HC_ON = true;                  // THE SWITCH: ON for every phone (Scott 11/06: "go"); false = only a phone holding Scott Hub or the owner mark
 function hcOn() {
   try { return !!S && S.family !== false && (HC_ON || !!localStorage.getItem("scotthub.k") || localStorage.getItem("dayhub.ownerok") === "1"); } catch (e) { return false; }
 }
 let HC_LOAD = null;
 function hcLoad() {
   if (HC_LOAD || !["day", "trip", "auto"].includes(MODE) || !hcOn()) return;
+  try { if (MODE !== "auto" && !localStorage.getItem("autohub.v1")) return; } catch (e) { return; }   // no Auto Hub here: nothing to read, nothing downloaded
   const add = f => new Promise(ok => { const s = document.createElement("script"); s.src = new URL(f, BASE_URL).href; s.onload = s.onerror = () => ok(); document.head.appendChild(s); });
   // hubconnect.js only once auto.js's math is really here: without it every car would read as "nothing due"
   HC_LOAD = (typeof carDue === "function" ? Promise.resolve() : add("auto.js")).then(() => typeof carDue === "function" ? add("hubconnect.js") : null)
@@ -2019,5 +2021,5 @@ setInterval(checkUpdate, 30 * 60000);
 setInterval(() => { if (S.mail.on && mReady()) scanMail(); }, 20 * 60000);
 checkReminders();
 if (!RENEWING) { syncOnOpen(true); maybeBrief(); }
-document.addEventListener("visibilitychange", () => { if (!document.hidden) { if (autoRenew()) return; recheckPro(); VIEW = today(); render(); checkReminders(); syncOnOpen(); maybeBrief(); } });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { if (autoRenew()) return; recheckPro(); VIEW = today(); render(); checkReminders(); syncOnOpen(); maybeBrief(); hcLoad(); } });
 if ("serviceWorker" in navigator) navigator.serviceWorker.register(new URL("sw.js", HOME_URL)).catch(() => {});

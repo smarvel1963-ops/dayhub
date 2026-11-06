@@ -2,7 +2,7 @@
 SAVE AS: test_hub_connect.py   LOCATION: C:/MarvelApps/dayhub/tests/test_hub_connect.py
 
 HUB CONNECTIONS (hubconnect.js; Scott's 11/04 Auto Hub list, 11/05 "cont"). Day Hub and Trip Hub READ Auto Hub's records on this phone; Auto Hub
-lists what each Hub picks up. Checks: the switch is OFF and a customer downloads nothing new; the owner's phone gets Auto Hub's own due list on Day
+lists what each Hub picks up. Checks: the switch is ON for everyone (v1.58.11) and a phone without Auto Hub downloads nothing new; a phone gets Auto Hub's own due list on Day
 Hub's Car card (both looks) and Use my car on a road trip; nothing is ever written to Auto Hub or copied into another Hub; a fix or a deleted car in
 Auto Hub shows at once; Settings -> Hub family turns it off; crafted records run nothing and hide nothing; the other Hubs never load it.
 
@@ -30,7 +30,7 @@ def go(a, path, fn=None):
 def car_card(a): return a.js("(() => { const el = document.querySelector('[data-card=\"auto\"]'); return el ? el.innerText : ''; })()")
 def raw(a, k="autohub.v1"): return a.js(f"localStorage.getItem('{k}')")
 TRIP = """(() => { S.trips = S.trips.filter(t => t.id !== 'rt'); S.trips.push({ id: 'rt', type: 'trip', name: 'Orlando', start: '2026-10-20', end: '2026-10-25',
-  drives: [{ id: 'dv1', day: '2026-10-20', from: 'Little Rock', to: 'Orlando', t: '07:00', miles: 900, mins: 810 }] }); S.tripSel = 'rt'; save(); render(); showDrive('rt|dv1'); 0 })()"""
+  drives: [{ id: 'dv1', day: '2026-10-20', from: 'Maple Ridge', to: 'Orlando', t: '07:00', miles: 900, mins: 810 }] }); S.tripSel = 'rt'; save(); render(); showDrive('rt|dv1'); 0 })()"""
 
 
 def app(b, base, owner):
@@ -42,18 +42,28 @@ def app(b, base, owner):
 
 
 def test_customer(b, base):
-    print("\n-- A customer: the switch is OFF and nothing new comes down")
-    a = app(b, base, owner=False)
-    check("the switch in the code is OFF", a.js("HC_ON === false"))
-    check("Auto Hub: off on a customer's phone", a.js("hcOn()") is False and a.js("typeof hcShow") == "undefined" and not loaded(a, "hubconnect.js"))
-    a.js("openSettings(); 0"); a.page.wait_for_timeout(120)
-    check("Auto Hub: no Hub Connections button in Settings -> Hub family", not a.js("!!document.querySelector('#famBox [data-hcopen]')")); a.js("closeSettings(); 0")
-    before = raw(a)
-    go(a, "/")
-    check("Day Hub: nothing new downloaded (no auto.js, no hubconnect.js)", not loaded(a, "auto.js") and not loaded(a, "hubconnect.js"))
-    check("Day Hub: the Car card has nothing from Auto Hub", not FROM(car_card(a)), car_card(a)[:200])
+    print("\n-- A customer (v1.58.11, Scott 11/06 \"go\"): the switch is ON; a phone without Auto Hub downloads nothing new")
+    # no Auto Hub on the phone: Day Hub and Trip Hub fetch nothing and draw what they always did
+    a = T.App(b, base, path="/", at=AT_DAY); a.base = base
+    a.js("S.name = 'Sam'; save(); render(); 0"); a.page.wait_for_timeout(400)
+    check("the switch in the code is ON", a.js("HC_ON === true") and a.js("hcOn()") is True)
+    check("no Auto Hub on this phone: Day Hub downloads nothing new (no auto.js, no hubconnect.js)", not loaded(a, "auto.js") and not loaded(a, "hubconnect.js"))
+    check("...and the Car card is just Day Hub's", not FROM(car_card(a)), car_card(a)[:200])
     go(a, T.TRIP); a.js(TRIP); a.page.wait_for_timeout(150)
-    check("Trip Hub: no Use my car on the drive sheet", not a.js("!!document.querySelector('#driveSheet [data-hcuse]')") and not loaded(a, "hubconnect.js"))
+    check("Trip Hub: the drive sheet opens as before, nothing downloaded", a.js("!!document.querySelector('#driveSheet form[data-vehicle]')")
+          and not a.js("!!document.querySelector('#driveSheet [data-hcuse]')") and not loaded(a, "auto.js") and not loaded(a, "hubconnect.js"))
+    a.close()
+    # Auto Hub on the phone: a customer (no Scott Hub, no owner mark) gets all three, read only
+    a = app(b, base, owner=False)
+    a.page.wait_for_function("typeof hcShow === 'function'", timeout=15000)
+    check("Auto Hub: on for a customer", a.js("hcOn()") is True and not a.js("!!localStorage.getItem('scotthub.k')") and a.js("localStorage.getItem('dayhub.ownerok')") is None)
+    a.js("openSettings(); 0"); a.page.wait_for_timeout(120)
+    check("Auto Hub: a Hub Connections button in Settings -> Hub family", a.js("!!document.querySelector('#famBox [data-hcopen]')")); a.js("closeSettings(); 0")
+    before = raw(a)
+    go(a, "/", "hcAutoRows"); a.js("S.name = 'Sam'; save(); render(); 0")
+    check("Day Hub: the Car card has From Auto Hub", FROM(car_card(a)) and "Oil change · Daily Driver" in car_card(a), car_card(a)[-300:])
+    go(a, T.TRIP, "hcCarButtons"); a.js(TRIP); a.page.wait_for_timeout(150)
+    check("Trip Hub: Use my car on the drive sheet", a.js("!!document.querySelector('#driveSheet [data-hcuse]')"))
     check("Auto Hub's records untouched", raw(a) == before)
     a.close()
 
@@ -203,10 +213,10 @@ def test_crafted(b, base):
 def test_no_auto_and_others(b, base):
     print("\n-- No Auto Hub on the phone, and the other Hubs never load it")
     a = T.App(b, base, path="/", at=AT_DAY); a.base = base
-    a.js("localStorage.setItem('scotthub.k', 'TEST-PASS'); 0"); go(a, "/", "hcAutoRows")
-    check("Day Hub, no Auto Hub data: the Car card is just Day Hub's", not FROM(car_card(a)) and a.js("hcAutoRows()") == "")
-    go(a, T.TRIP, "hcCarButtons"); a.js(TRIP); a.page.wait_for_timeout(150)
-    check("Trip Hub, no Auto Hub data: no button", not a.js("!!document.querySelector('#driveSheet [data-hcuse]')"))
+    a.js("localStorage.setItem('scotthub.k', 'TEST-PASS'); 0"); go(a, "/")
+    check("Day Hub, no Auto Hub data: nothing downloaded, the Car card is just Day Hub's", not FROM(car_card(a)) and not loaded(a, "auto.js") and not loaded(a, "hubconnect.js"))
+    go(a, T.TRIP); a.js(TRIP); a.page.wait_for_timeout(150)
+    check("Trip Hub, no Auto Hub data: no button, nothing downloaded", not a.js("!!document.querySelector('#driveSheet [data-hcuse]')") and not loaded(a, "auto.js") and not loaded(a, "hubconnect.js"))
     for name, path in (("Money Hub", T.MONEY if hasattr(T, "MONEY") else "/../moneyhub/"), ("Cruise Hub", T.CRUISE), ("Home Hub", "/../homehub/"), ("Health Hub", "/../healthhub/"), ("Hub Universe", "/../hubuniverse/")):
         a.page.goto(base + path); a.page.wait_for_function("typeof render === 'function'"); a.page.wait_for_timeout(400)
         check(f"{name}: never loads it, even on your phone", not loaded(a, "hubconnect.js") and a.js("typeof hcShow") == "undefined")

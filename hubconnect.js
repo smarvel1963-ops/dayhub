@@ -10,8 +10,9 @@
  *   - Auto Hub: a Hub Connections sheet (new look: More -> This App; classic: Settings -> Hub family) - which Hubs are on this phone
  *     and what each one picks up.
  *   - Money Hub already reads Auto Hub's costs (moneyviz.js mvFamily). It's listed on the sheet, not changed here.
- * SWITCH: ui.js HC_ON = false. While it's off only a phone holding Scott Hub or the owner mark loads this file (and auto.js where it
- * isn't loaded), so a customer downloads nothing new. Each Hub's own Settings -> Hub family switch (S.family) turns it off there.
+ * SWITCH: ui.js HC_ON, ON for every phone since v1.58.11 (false = owner phones only). Day and Trip Hub load this file (and auto.js
+ * where it isn't loaded) only where Auto Hub's records are on the phone, so a phone without Auto Hub downloads nothing new.
+ * Each Hub's own Settings -> Hub family switch (S.family) turns it off there.
  * Every value from Auto Hub's records is escaped where it's drawn: it may have come from a backup file.
  */
 "use strict";
