@@ -1,6 +1,9 @@
 {
- "version": "1.58.9",
+ "version": "1.58.10",
  "notes": {
+  "1.58.10": [
+   "🚗 Auto Hub, ☀️ Day Hub and ✈️ Trip Hub: behind-the-scenes groundwork. Nothing changes for you yet."
+  ],
   "1.58.9": [
    "🛡️ Backup files are safer in every Hub. Nothing changes for you."
   ],

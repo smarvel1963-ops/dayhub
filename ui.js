@@ -390,7 +390,8 @@ const CARDS = {
   home: { icon: "🏠", title: "Home", add: ["upkeep", "Add something"],
     meta: () => { const n = upkeepDue("home", 7).length; return n ? `${n} coming up` : ""; }, body: () => upkeepCard("home") },
   auto: { icon: "🚗", title: "Car", add: ["upkeep", "Add something"],
-    meta: () => { const n = upkeepDue("auto", 14).length; return n ? `${n} coming up` : ""; }, body: () => upkeepCard("auto") },
+    meta: () => { const n = upkeepDue("auto", 14).length + (typeof hcAutoSoon === "function" ? hcAutoSoon() : 0); return n ? `${n} coming up` : ""; },
+    body: () => upkeepCard("auto") + (typeof hcAutoRows === "function" ? hcAutoRows() : "") },   // v1.58.10 Hub Connections: Auto Hub's service + papers, read only
 
   leave: { icon: "🚪", title: "Don't forget",
     meta: () => { const n = leaveLeft(); return n ? `${n} left` : "all set ✓"; },
@@ -699,7 +700,7 @@ const MINI = {
   lists:      [() => !S.lists.some(l => l.items.length), "open", "Add to a list"],
   routines:   [() => !S.routines.length, "open", "Add a routine"],
   home:       [() => !S.upkeep.some(x => x.area === "home"), "open", "Add home upkeep"],
-  auto:       [() => !S.upkeep.some(x => x.area === "auto"), "open", "Add car upkeep"],
+  auto:       [() => !S.upkeep.some(x => x.area === "auto") && !(typeof hcAutoRows === "function" && hcAutoRows()), "open", "Add car upkeep"],   // v1.58.10 Auto Hub's rows open the card
   loads:      [() => !S.loads.some(x => x.day === today()), 'data-qa="loads"', "Add a load"],
   jobs:       [() => !S.jobs.some(x => x.day === today()), 'data-qa="jobs"', "Add a job"],
 };
@@ -1644,7 +1645,7 @@ document.addEventListener("change", e => {
   if (ds.rgback) { const tr = curTrip(), pt = tr && (tr.ports || []).find(x => x.id === ds.rgback);
     // redraw after this event finishes: redrawing the sheet while its input is still blurring throws
     if (pt) { pt.backMin = Math.max(0, Math.min(240, Number(t.value) || 0)); save(); setTimeout(() => { render(); showGuard(); }, 0); } return; }
-  if (ds.fam) { S.family = t.checked; FAM_RAW = null; save(); drawSettings(); render();
+  if (ds.fam) { S.family = t.checked; FAM_RAW = null; save(); drawSettings(); render(); hcLoad();
     toast(t.checked ? `Linked with ${SIB.name} ✓` : `${APP_NAME} on its own — ${SIB.name} trips hidden`); if (t.checked) famDriveRefresh(); return; }
   if (ds.owner) { setOwnerSwitch(ds.owner, t.checked); drawSettings(); render(); toast(`${ds.owner} ${t.checked ? "on" : "off"} — this phone only`); return; }
   if (ds.dkind !== undefined) { const x = DUMP[Number(ds.dkind)]; x.kind = t.value;
@@ -1905,6 +1906,8 @@ function drawFamBox() {
   g.innerHTML = `<h3>${SIB.icon} Hub family</h3>
     ${famLink}
     <a class="btn sm ghost" href="${esc(hubHref(SIB.url))}" data-famopen="1">Open ${SIB.name}</a>
+    ${typeof hcShow !== "function" ? "" : MODE === "auto" ? `<button class="btn sm" data-hcopen="1" style="margin-left:6px">🔗 Hub Connections</button>`
+      : `<p class="fine" style="margin-top:6px">On this phone the switch above also lets ${APP_NAME} read your car records from Auto Hub.</p>`}
     <h3 style="margin-top:14px">More from the Hub family</h3>${hubRows()}`;
 }
 function drawOwnerBox() {
@@ -1961,6 +1964,22 @@ S = load();
 loadTokens();
 takeRedirectToken();
 const RENEWING = autoRenew();                                   // hops to Google and straight back
+// HUB CONNECTIONS (v1.58.10, Scott's 11/04 Auto Hub list; 11/05 "cont"): Day Hub and Trip Hub READ Auto Hub's records on this
+// phone and show them; nothing is copied or written. The code is hubconnect.js (+ auto.js's math where it isn't loaded), fetched only
+// when it's on, so a customer downloads nothing new. HC_ON = false: only a phone holding Scott Hub or the owner mark gets it.
+// Each Hub's own Settings -> Hub family (S.family) turns it off there.
+const HC_ON = false;                 // THE SWITCH: true = every phone gets Hub Connections (Scott's go only)
+function hcOn() {
+  try { return !!S && S.family !== false && (HC_ON || !!localStorage.getItem("scotthub.k") || localStorage.getItem("dayhub.ownerok") === "1"); } catch (e) { return false; }
+}
+let HC_LOAD = null;
+function hcLoad() {
+  if (HC_LOAD || !["day", "trip", "auto"].includes(MODE) || !hcOn()) return;
+  const add = f => new Promise(ok => { const s = document.createElement("script"); s.src = new URL(f, BASE_URL).href; s.onload = s.onerror = () => ok(); document.head.appendChild(s); });
+  // hubconnect.js only once auto.js's math is really here: without it every car would read as "nothing due"
+  HC_LOAD = (typeof carDue === "function" ? Promise.resolve() : add("auto.js")).then(() => typeof carDue === "function" ? add("hubconnect.js") : null)
+    .then(() => { if (typeof hcShow !== "function") HC_LOAD = null; try { render(); } catch (e) { /* the next draw shows it */ } });   // a failed load tries again next time
+}
 // If saved data still breaks the first draw, never leave a blank screen with
 // the Erase button out of reach: offer to save the raw data, then start fresh.
 try { render(); }
@@ -1974,6 +1993,7 @@ catch (e) {
     a.download = `${APP_ID}-saved-data.json`; document.body.appendChild(a); a.click(); };
   document.getElementById("bootReset").onclick = () => { S = blank(); saveLocal(); location.reload(); };
 }
+hcLoad();
 loadWeather();
 recheckPro();
 // v1.31 (store audit S6): the 7 taps open Owner switches only on the owner's phone - one that has checked the

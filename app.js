@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.58.9";
+const VERSION = "1.58.10";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -2570,7 +2570,7 @@ function upkeepCard(area) {
           <span class="sub">${upkeepWhen(x, day)} · ${prettyDate(day)} · every ${x.every > 1 ? x.every + " " + x.unit : UNIT_WORD[x.unit]}</span></span>
         ${!x.auto && n <= 14 ? `<button class="btn sm ghost" data-updone="${x.id}">✓ Done</button>` : ""}
         <button class="x" data-upedit="${x.id}" aria-label="Edit">✏️</button></div>`; }).join("")
-      : `<div class="empty">${area === "home" ? "Trash day, filters, batteries — tap one to start:" : "Oil, tires, registration, insurance — tap one to start:"}</div>`) +
+      : `<div class="empty">${area === "home" ? "Trash day, filters, batteries — tap one to start:" : (typeof hcAutoRows === "function" && hcAutoRows() ? "Auto Hub keeps your car's service and papers, below. Add anything else here:" : "Oil, tires, registration, insurance — tap one to start:")}</div>`) +
     (chips ? `<div class="chips up-chips">${chips}</div>` : "");
 }
 

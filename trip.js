@@ -1202,7 +1202,7 @@ function showDrive(key) {
     ${M.map(m => `<div class="bstat tight ${m.ok ? "" : "over"}">${esc(m.text)}</div>`).join("")}
     ${P.cost ? `<div class="today-line">⛽ About ${P.gallons.toFixed(1)} gal · ${money(P.cost)}</div>` : ""}
     <a class="btn sm ghost" href="https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(dv.from)}&destination=${encodeURIComponent(dv.to)}" target="_blank" rel="noopener">🗺️ Open in maps</a>
-    <div class="day-label" style="margin-top:10px">Your car</div>
+    <div class="day-label" style="margin-top:10px">Your car</div>${typeof hcCarButtons === "function" ? hcCarButtons() : ""}
     <form class="qa-form" data-vehicle="${tr.id}|${dv.id}">
       <div class="two"><label class="field" style="margin:0">Miles on a full tank<input name="range" type="number" min="0" max="1500" inputmode="numeric" value="${V.range || ""}"></label>
         <label class="field" style="margin:0">Miles per gallon<input name="mpg" type="number" min="0" max="150" step="0.1" inputmode="decimal" value="${V.mpg || ""}"></label></div>
