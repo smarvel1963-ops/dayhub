@@ -1,6 +1,9 @@
 {
- "version": "1.58.12",
+ "version": "1.58.13",
  "notes": {
+  "1.58.13": [
+   "🏡 Home Hub: behind-the-scenes work on a fresh new look, not switched on yet."
+  ],
   "1.58.12": [
    "✈️ Trip Hub: behind-the-scenes work on a fresh new look, not switched on yet."
   ],

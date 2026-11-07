@@ -30,6 +30,9 @@ const TT_KEY = "triphub.look";
   } catch (e) { /* private mode: the link just doesn't stick */ }
 })();
 const ttPick = () => { try { return localStorage.getItem(TT_KEY); } catch (e) { return null; } };
+// A phone that may flip the look by five taps (as Auto Hub's atOwnerish; Home Hub's review 11/06): it already picked a look, or it holds Scott Hub
+// or the owner's OK. A customer's phone has none of these, so five taps there do nothing.
+const ttOwnerish = () => { try { return !!ttPick() || !!localStorage.getItem("scotthub.k") || localStorage.getItem("dayhub.ownerok") === "1"; } catch (e) { return false; } };
 // The owner's phone holds Scott Hub or the owner's OK, so it turns the new look on by itself, once. After that Classic Look and Simple Mode
 // still stick. Customers have neither, so nothing changes for them.
 let TT_OWNER_CHECKED = false;
@@ -325,19 +328,19 @@ document.addEventListener("click", e => {
   if (go === "simple") { ttSettingsAt("simpleBox"); return; }
   if (go === "settings") { if (typeof openSettings === "function") openSettings(); return; }
   if (go.startsWith("day:")) { const [, d, what] = go.split(":"); if (ttYmd(d)) ttDayAt(d, what); return; }
-  if (go === "classic") { try { localStorage.setItem(TT_KEY, "classic"); } catch (e2) { /* private mode */ } TT_SCREEN = null; render(); window.scrollTo({ top: 0 }); toast("Classic look on this phone"); return; }
+  if (go === "classic") { try { localStorage.setItem(TT_KEY, "classic"); } catch (e2) { /* private mode */ } TT_SCREEN = null; TAB = "home"; render(); window.scrollTo({ top: 0 }); toast("Classic look on this phone"); return; }
 });
 // Any other copy on his phone: five quick taps on the app's name at the bottom of Settings flip the look, whatever browser it lives in.
 let TT_NAME_TAPS = [];
 document.addEventListener("click", e => {
   const b = e.target.closest && e.target.closest("#sheet p.fine > b");
-  if (!b || !/Marvel Corp app/.test(b.textContent) || typeof MODE === "undefined" || MODE !== "trip") return;
+  if (!b || !/Marvel Corp app/.test(b.textContent) || typeof MODE === "undefined" || MODE !== "trip" || !ttOwnerish()) return;   // never on a customer's phone
   const now = Date.now(); TT_NAME_TAPS = TT_NAME_TAPS.filter(x => now - x < 3000).concat(now);
   if (TT_NAME_TAPS.length < 5) return;
   TT_NAME_TAPS = []; const on = !ttOn();
   try { localStorage.setItem(TT_KEY, on ? "tiles" : "classic"); localStorage.setItem("triphub.ownerlook", "1"); } catch (e2) { /* private mode */ }
   if (on && S.simple) { S.simple = false; saveLocal(); }
-  TT_SCREEN = null; closeSettings(); render(); window.scrollTo({ top: 0 }); toast(on ? "New look on for this phone" : "Classic look on this phone");
+  TT_SCREEN = null; TAB = "home"; closeSettings(); render(); window.scrollTo({ top: 0 }); toast(on ? "New look on for this phone" : "Classic look on this phone");
 });
 // The phone's own back button walks the same path as the arrow on screen (as Cruise Hub's new look): an open sheet closes first, a full
 // screen goes back, a plain tab goes to Home, and only Home leaves the app. One step of history per press it takes to reach Home, added

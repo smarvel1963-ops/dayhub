@@ -71,6 +71,11 @@ def test_switch(b, base):
     a.js("showHelp()"); a.page.wait_for_timeout(150); a.page.click("#helpSheet .sheet-head h2"); a.page.wait_for_timeout(150)
     check("...and tapping round the tabs and a sheet adds no history (the back button is the browser's own)", a.js("history.length") == h0 and a.js("TT_DEPTH") == 0, (h0, a.js("history.length"), a.js("TT_DEPTH")))
     close_sheets(a)
+    a.js("openSettings(); 0"); a.page.wait_for_timeout(150)
+    for _ in range(5): a.page.locator("#sheet p.fine > b", has_text="Marvel Corp app").first.click()
+    a.page.wait_for_timeout(200)
+    check("a customer's five taps on the app's name do nothing (Home Hub's review, 11/06)", not a.js("ttOn()") and a.js("localStorage.getItem('triphub.look')") is None)
+    a.js("closeSettings(); 0")
     a.page.goto(base + T.TRIP + "?look=tiles"); a.page.wait_for_function("typeof render === 'function'"); a.page.wait_for_timeout(300)
     check("?look=tiles turns it on for this phone", a.js("ttOn()") and a.js("document.body.classList.contains('tt')"))
     check("...and leaves the address clean", "look=" not in a.js("location.href"))
@@ -83,6 +88,11 @@ def test_switch(b, base):
     check("More -> Classic Look: the old look, on this phone", not a.js("ttOn()") and "Classic look on this phone" in a.page.inner_text("#toast"))
     a.page.reload(); a.page.wait_for_function("typeof render === 'function'"); a.page.wait_for_timeout(300)
     check("...and it sticks after a reload (the owner turn-on runs once)", not a.js("ttOn()"))
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')               # the morning brief comes back on a reload; it isn't what's tested here
+    a.js("openSettings(); 0"); a.page.wait_for_timeout(150)
+    for _ in range(5): a.page.locator("#sheet p.fine > b", has_text="Marvel Corp app").first.click()
+    a.page.wait_for_timeout(250)
+    check("on the owner's phone five taps flip it back on, landing on Home", a.js("ttOn()") and a.js("TAB") == "home")
     a.ctx.close()
 
 

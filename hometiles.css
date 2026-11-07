@@ -1,0 +1,144 @@
+/* SAVE AS: hometiles.css · LOCATION: C:/MarvelApps/dayhub/hometiles.css
+ * Home Hub NEW LOOK, "Lamplight" (Scott 11/06 board): a warm house at dusk, deep forest-green bars with brass edges, cream cards, glossy
+ * coloured tiles with white line icons, a painted picture across the top of each inner screen (../homehub/art/*.webp). Everything is under
+ * body.ht, which shell.js paintTabs sets only while the new look is on (hometiles.js htOn). Without body.ht this file changes nothing. */
+
+body.ht { --ht-green: #1c3a26; --ht-green2: #284f33; --ht-brass: #c9a24a; --ht-cream: #fbf3df; --ht-ink: #2a2116; --ht-ink2: #5d4c33; --ht-amber: #f2c14e;
+  /* the app's own colour tokens re-pointed for cream cards (under body.ht only) */
+  --card: rgba(251, 245, 228, .97); --card-solid: #fbf3df; --line: rgba(90, 70, 40, .18); --text: #2a2116; --dim: #6a5838; --muted: #6a5838;
+  --accent: #2f6b3a; --accent2: #7a4a1e; --gold: #8a6424; --red: #b42318; --green: #2f6b2a; --orange: #b5561a;
+  color: var(--text); min-height: 100vh; background: none; }
+html:has(body.ht) { background: #15301e; }
+body.ht #hero { display: none !important; }
+body.ht #cards { padding-top: 0; }
+body.ht[data-tab="home"] #cards { display: flex; flex-direction: column; }
+body.ht[data-tab="home"] #cards > .ht-hero { order: -1; }
+body.ht::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(180deg, #1c3a26 0%, #22402b 40%, #2c2418 100%); }
+body.ht[data-tab="home"][data-htscreen=""]::before { background: linear-gradient(180deg, rgba(20, 34, 26, .85) 0, rgba(20, 34, 26, .3) 8%, rgba(20, 34, 26, 0) 14%), url("../homehub/art/home.webp") center top / cover no-repeat #15301e; }
+body.ht.ht-noart[data-tab="home"]::before { background: linear-gradient(180deg, #2c4a33 0, #15301e 100%); }
+
+/* ---- top bar: house · Home Hub · settings */
+body.ht .ht-top { display: flex; align-items: center; gap: 10px; padding: calc(env(safe-area-inset-top) + 10px) 2px 6px; }
+body.ht .ht-logo { width: 50px; height: 46px; flex: none; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .45)); } body.ht .ht-logo svg { width: 100%; height: 100%; display: block; }
+body.ht .ht-brand { flex: 1; min-width: 0; color: #fff; }
+body.ht .ht-brand b { display: block; font-family: Georgia, "Times New Roman", serif; font-style: italic; font-size: clamp(28px, 9vw, 38px); font-weight: 700; letter-spacing: -.01em; line-height: 1.05; text-shadow: 0 2px 10px rgba(0, 0, 0, .55); white-space: nowrap; }
+body.ht .ht-brand small { display: block; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .9; margin-top: 2px; }
+body.ht .ht-brand .offline-pill { display: inline-block; margin-top: 2px; color: #fff; }
+body.ht .ht-gear { width: 44px; height: 44px; flex: none; border: 0; border-radius: 50%; background: rgba(20, 34, 26, .35); color: var(--ht-amber); display: grid; place-items: center; cursor: pointer; }
+body.ht .ht-gear svg { width: 28px; height: 28px; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .5)); }
+body.ht .ht-bar { margin: 0 -14px 10px; padding: 0 14px 8px; background: linear-gradient(180deg, #1c3a26, #284f33); border-bottom: 2px solid var(--ht-brass); box-shadow: 0 4px 14px rgba(0, 0, 0, .3); column-span: all; -webkit-column-span: all; }
+body.ht .ht-bar .ht-brand b { font-size: 26px; } body.ht .ht-bar .ht-logo { width: 40px; height: 36px; }
+
+/* ---- HOME: the house behind the bar, then Your House and the twelve tiles */
+body.ht .ht-hero { margin: 0; padding: 0; column-span: all; -webkit-column-span: all; }
+body.ht .ht-house { margin-top: max(56px, calc(17vh - 64px)); border-radius: 18px; overflow: hidden; border: 2px solid var(--ht-brass); background: var(--ht-cream); box-shadow: 0 10px 26px rgba(0, 0, 0, .4); }
+body.ht .ht-house h3 { display: flex; align-items: center; gap: 9px; margin: 0; padding: 8px 14px; background: linear-gradient(180deg, #2c5a37, #1f4229); color: #fff; font-size: 21px; font-weight: 800; }
+body.ht .ht-hic { width: 26px; height: 26px; display: inline-flex; } body.ht .ht-hic svg { width: 100%; height: 100%; }
+body.ht .ht-housebody { display: block; width: 100%; padding: 9px 14px 10px; border: 0; background: none; font: inherit; text-align: left; color: var(--ht-ink); cursor: pointer; }
+body.ht .ht-hname { display: block; font-size: 21px; font-weight: 800; line-height: 1.15; }
+body.ht .ht-hline { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 15.5px; font-weight: 600; }
+body.ht .ht-hline + .ht-hline { padding-top: 4px; border-top: 1px solid rgba(90, 70, 40, .16); }
+body.ht .ht-alert { display: flex; align-items: center; gap: 10px; width: calc(100% - 16px); margin: 0 8px 8px; padding: 8px 12px; border: 0; border-radius: 12px; background: linear-gradient(180deg, #f7d26a, #eab33a); color: #3a2a08; font: inherit; font-size: 14.5px; font-weight: 800; text-align: left; cursor: pointer; }
+body.ht .ht-alert span:first-child { font-size: 22px; }
+body.ht .ht-notices { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; column-span: all; -webkit-column-span: all; }
+
+/* the twelve tiles: glossy colour, a white line icon, a white label (his board) */
+body.ht .ht-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin: 12px 0 4px; column-span: all; -webkit-column-span: all; }
+body.ht .ht-tile { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 86px; padding: 7px 4px; border-radius: 16px; cursor: pointer; font: inherit; color: #fff; text-align: center;
+  border: 1.5px solid rgba(255, 255, 255, .35); background: var(--tc, #3b5a43);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, .28) 0, rgba(255, 255, 255, .06) 46%, rgba(0, 0, 0, .12) 100%);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .45); }
+body.ht .ht-tile .ht-ic { width: 38px; height: 38px; display: block; } body.ht .ht-tile .ht-ic svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .35)); }
+body.ht .ht-tile b { font-size: 16px; font-weight: 800; line-height: 1.1; text-shadow: 0 1px 3px rgba(0, 0, 0, .45); }
+body.ht .ht-tile small { font-size: 11.5px; font-weight: 700; opacity: .92; }
+body.ht .ht-main .ht-tile small { display: none; }
+body.ht .ht-tile:active { transform: scale(.97); }
+body.ht .t-rooms { --tc: #8a3b28; } body.ht .t-out { --tc: #3f6b2c; } body.ht .t-sys { --tc: #3b5f7a; } body.ht .t-up { --tc: #9a5a1c; }
+body.ht .t-coming { --tc: #5e3a7a; } body.ht .t-value { --tc: #a87a1c; } body.ht .t-bills { --tc: #1f6262; } body.ht .t-todo { --tc: #2f6b38; }
+body.ht .t-lists { --tc: #6e4522; } body.ht .t-wx { --tc: #2f5f8a; } body.ht .t-ask { --tc: #6e3a7e; } body.ht .t-add { --tc: #3c7a36; }
+body.ht .t-plain { --tc: #2c5a37; }
+body.ht .ht-card { margin: 12px 0; padding: 8px 12px 6px; border-radius: 16px; border: 2px solid var(--ht-brass); background: var(--ht-cream); color: var(--ht-ink); box-shadow: 0 6px 16px rgba(0, 0, 0, .25); column-span: all; -webkit-column-span: all; }
+body.ht .ht-card h4 { margin: 4px 2px 4px; font-size: 13px; letter-spacing: .07em; text-transform: uppercase; color: var(--ht-ink2); }
+body.ht .ht-row { display: flex; align-items: center; gap: 11px; width: 100%; padding: 10px 2px; border: 0; border-top: 1px solid rgba(90, 70, 40, .16); background: none; font: inherit; color: var(--ht-ink); text-align: left; cursor: pointer; }
+body.ht .ht-row:first-of-type { border-top: 0; } body.ht .ht-row .grow { flex: 1; min-width: 0; }
+body.ht .ht-row b { display: block; font-size: 16px; font-weight: 700; } body.ht .ht-row small { display: block; font-size: 13px; color: var(--ht-ink2); margin-top: 1px; }
+body.ht .ht-rowic { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 10px; background: #efe2c0; font-size: 19px; }
+body.ht .ht-pill { flex: none; padding: 4px 10px; border-radius: 999px; background: #efe2c0; color: var(--ht-ink2); font-size: 12.5px; font-weight: 800; white-space: nowrap; }
+body.ht .ht-pill.soon { background: #fbe3b0; color: #7a4a08; } body.ht .ht-pill.late { background: #f6cfc4; color: #8a2410; }
+body.ht .ht-note { margin: 6px 2px 10px; font-size: 14.5px; color: var(--ht-ink2); }
+body.ht .ht-more-link { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 10px; border: 0; border-top: 1px solid rgba(90, 70, 40, .16); background: none; font: inherit; font-size: 15px; font-weight: 700; color: #2f6b3a; cursor: pointer; }
+body.ht .ht-below { margin-top: 16px; }
+
+/* ---- ROOMS: picture tiles in three groups */
+body.ht .ht-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 2px 0 6px; column-span: all; -webkit-column-span: all; }
+body.ht .ht-stats > div { padding: 10px 4px; border-radius: 14px; border: 2px solid var(--ht-brass); background: var(--ht-cream); text-align: center; color: var(--ht-ink); }
+body.ht .ht-stats b { display: block; font-size: 24px; font-weight: 800; } body.ht .ht-stats small { display: block; font-size: 12px; font-weight: 700; color: var(--ht-ink2); }
+body.ht .ht-group { display: flex; align-items: center; gap: 8px; margin: 16px 2px 8px; color: #fff; font-size: 19px; font-weight: 800; text-shadow: 0 1px 4px rgba(0, 0, 0, .4); column-span: all; -webkit-column-span: all; }
+body.ht .ht-group small { margin-left: auto; padding: 2px 10px; border-radius: 999px; background: rgba(255, 255, 255, .16); font-size: 13px; }
+body.ht .ht-spaces { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; column-span: all; -webkit-column-span: all; }
+body.ht .ht-space { display: flex; flex-direction: column; align-items: stretch; gap: 3px; padding: 0 0 8px; border-radius: 14px; border: 2px solid var(--ht-brass); background: var(--ht-cream); color: var(--ht-ink); font: inherit; text-align: center; overflow: hidden; cursor: pointer; box-shadow: 0 5px 12px rgba(0, 0, 0, .3); }
+body.ht .ht-spimg { display: block; height: 70px; background: center / cover no-repeat #c9b98f; border-bottom: 1.5px solid var(--ht-brass); }
+body.ht .ht-spic { display: grid; place-items: center; height: 70px; font-size: 30px; background: #efe2c0; }
+body.ht .ht-space b { font-size: 14.5px; font-weight: 800; line-height: 1.15; padding: 4px 4px 0; overflow-wrap: anywhere; } body.ht .ht-space small { font-size: 11.5px; color: var(--ht-ink2); padding: 0 4px; }
+body.ht .ht-space.add .ht-spic { background: #dbe8cf; color: #2f6b3a; font-weight: 800; }
+
+/* ---- full screens: a deep green title bar, a picture across the top, no tab bar (his board) */
+body.ht .ht-screen { column-span: all; -webkit-column-span: all; }
+body.ht .ht-title { display: flex; align-items: center; gap: 6px; margin: 0 -14px 0; padding: calc(env(safe-area-inset-top) + 8px) 10px 10px; color: #fff; background: linear-gradient(180deg, #1c3a26, #284f33); border-bottom: 2px solid var(--ht-brass);
+  font-size: clamp(22px, 7vw, 28px); font-weight: 800; line-height: 1.1; }
+body.ht .ht-title .grow { flex: 1; min-width: 0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.ht .ht-title .offline-pill { display: block; font-size: 12px; margin-top: 2px; }
+body.ht .ht-back, body.ht .ht-plus { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border: 0; background: none; color: #fff; font: inherit; cursor: pointer; }
+body.ht .ht-back svg { width: 30px; height: 30px; } body.ht .ht-plus { font-size: 30px; font-weight: 600; } body.ht .ht-titlepad { width: 44px; flex: none; }
+body.ht .ht-band { height: 170px; margin: 0 -14px 10px; background: center / cover no-repeat #c9b98f; border-bottom: 2px solid var(--ht-brass); column-span: all; -webkit-column-span: all; }
+body.ht .ht-where { margin: 0 2px 8px; color: #e9dfc4; font-size: 14px; font-weight: 600; }
+body.ht .ht-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+body.ht .ht-tabs button { flex: 1 1 auto; min-height: 40px; padding: 7px 10px; border-radius: 999px; border: 1.5px solid rgba(201, 162, 74, .7); background: var(--ht-cream); color: var(--ht-ink); font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
+body.ht .ht-tabs button.on { background: #2f6b3a; color: #fff; border-color: #2f6b3a; }
+body.ht .ht-pane { padding: 10px 12px 12px; }
+body.ht .ht-pane .check { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #7a6a48; background: #fff; color: transparent; font-size: 0; cursor: pointer; }
+body.ht:not([data-htscreen=""]) #tabbar { display: none; }
+body.ht:not([data-htscreen=""]) .fab { display: none; }
+body.ht:not([data-htscreen=""]) #cards > .whatsnew, body.ht:not([data-htscreen=""]) #cards > .future-banner { display: none; }
+
+/* ---- the tab bar: deep green, brass edge, the chosen one lit */
+body.ht #tabbar { background: rgba(22, 44, 30, .97); border-top: 2px solid var(--ht-brass); box-shadow: 0 -8px 24px rgba(0, 0, 0, .35); backdrop-filter: blur(10px); }
+body.ht #tabbar button { color: #f1e8cf; font-weight: 700; font-size: 13px; }
+body.ht #tabbar button span { display: flex; justify-content: center; } body.ht #tabbar button svg { width: 26px; height: 26px; }
+body.ht #tabbar button.on { color: #fff; background: linear-gradient(180deg, #3f8a4a, #2c6a37); border-radius: 14px; }
+body.ht .fab { background: linear-gradient(135deg, #f0b13a, #c98a1e); color: #2a1a04; border: 2px solid #f6d78a; }
+
+/* ---- cards, sheets, inputs and buttons on cream */
+body.ht .card { background: var(--card); border: 2px solid var(--ht-brass); border-radius: 16px; box-shadow: 0 6px 16px rgba(0, 0, 0, .25); color: var(--text); }
+body.ht .card h3 { color: #1f4229; }
+body.ht .card h3 .ci { background: #efe2c0; }
+body.ht .sheet-body { background: #fbf3df; color: var(--text); border: 2px solid var(--ht-brass); border-bottom: 0; }
+body.ht .sheet-head h2 { color: #1f4229; }
+body.ht .sheet .icon-btn { color: var(--ht-ink); background: #fff8e8; border-color: rgba(138, 100, 36, .45); font-weight: 700; }
+body.ht .grab { background: rgba(90, 70, 40, .3); }
+body.ht input, body.ht select, body.ht textarea { background: #fffaf0; color: var(--text); border-color: rgba(138, 100, 36, .4); }
+body.ht input:focus, body.ht select:focus, body.ht textarea:focus { border-color: #2f6b3a; box-shadow: 0 0 0 3px rgba(47, 107, 58, .22); }
+body.ht input[type=date], body.ht input[type=time] { color-scheme: light; }
+body.ht .btn:not(.ghost):not(.on), body.ht .seg button.on, body.ht .gbar span, body.ht .big-btn { background: linear-gradient(180deg, #3f8a4a, #2c6a37); color: #fff; border-color: transparent; }
+body.ht .btn.ghost { background: #fff8e8; color: var(--ht-ink); border-color: rgba(138, 100, 36, .45); }
+body.ht .seg button:not(.on), body.ht .chip:not(.good):not(.warn):not(.on):not(.upd-flash) { background: #f1e5c6; color: var(--text); border-color: rgba(138, 100, 36, .3); }
+body.ht .chip.good { background: #dcefd2; border-color: #9cc78a; color: #23461c; } body.ht .chip.warn { background: #fbe0d4; border-color: #e8a084; color: #7a2410; }
+body.ht .chip.on, body.ht .tab.on { background: #1f4229; color: #fff; border-color: #1f4229; }
+body.ht .add-link { color: #2f6b3a; }
+body.ht input[type=checkbox].tick:not(:checked) { border-color: rgba(90, 70, 40, .5); background: #fffaf0; }
+body.ht input[type=checkbox].tick { position: relative; }
+body.ht input[type=checkbox].tick::after { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; }
+body.ht .tile { background: #f6ecd2; border: 1.5px solid #c9a865; color: var(--ht-ink); } body.ht .tile.on { background: #1f4229; color: #fff; }
+body.ht .hour, body.ht .fact, body.ht .home-stat { background: #f1e4c4; }
+body.ht .bar, body.ht .gbar { background: rgba(90, 70, 40, .14); }
+body.ht .ring { background: conic-gradient(var(--green) calc(var(--p) * 1%), rgba(90, 70, 40, .16) 0); }
+body.ht .tag { background: #2f6b3a; color: #fff; }
+body.ht .wx-alert { background: linear-gradient(180deg, #f7d26a, #eab33a); color: #3a2a08; border-radius: 12px; font-weight: 700; }
+body.ht .pill.late { background: #f6cfc4; color: #8a2410; } body.ht .pill.soon { background: #fbe3b0; color: #7a4a08; }
+body.ht .hos-ring b, body.ht .hpv b { color: var(--ht-ink); }
+
+@media (min-width: 700px) { body.ht .ht-grid, body.ht .ht-spaces { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) { body.ht .ht-tile:active { transform: none; } }
+@media (max-height: 760px) and (max-width: 599px) {
+  body.ht .ht-house { margin-top: 36px; } body.ht .ht-main .ht-tile { min-height: 72px; } body.ht .ht-main .ht-tile .ht-ic { width: 32px; height: 32px; }
+}

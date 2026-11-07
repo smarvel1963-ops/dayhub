@@ -63,11 +63,13 @@ function hubProState() {
 const dtLook = () => typeof dtOn === "function" && dtOn();
 // Auto Hub's new look (autotiles.js, switch OFF) runs Auto Hub on the shell with its own five tabs; a car owner may have no name or city.
 const atLook = () => typeof atOn === "function" && atOn();
-const shellOn = () => ((SHELL_MODES.includes(MODE) || dtLook()) && !!(S.city || S.name)) || atLook();
+// Home Hub's new look (hometiles.js, switch OFF) runs Home Hub on the shell with its own five tabs (Home Hub has no tab bar otherwise).
+const htLook = () => typeof htOn === "function" && htOn();
+const shellOn = () => ((SHELL_MODES.includes(MODE) || dtLook()) && !!(S.city || S.name)) || atLook() || htLook();
 const shellTripTabOk = k => !shellOn() || !SHELL_TRIP_TABS[TAB] || SHELL_TRIP_TABS[TAB].includes(k);
 const shellTabFor = key => dtLook() ? dtTabFor(key) : key === "trips" ? "plan" : (Object.entries(SHELL_CARDS).find(([, ks]) => ks.includes(key)) || ["plan"])[0];
 function shellGo(tab) {
-  if (!(atLook() ? AT_TABS : dtLook() ? DT_TABS : SHELL_TABS).some(t => t[0] === tab)) return;
+  if (!(atLook() ? AT_TABS : htLook() ? HT_TABS : dtLook() ? DT_TABS : SHELL_TABS).some(t => t[0] === tab)) return;
   TAB = tab; render(); window.scrollTo({ top: 0 });
 }
 
@@ -184,6 +186,7 @@ function aiTabHtml() {
 // Called by render(): the content for the current tab.
 function shellHtml(cardHtml) {
   if (atLook()) return atShellHtml(cardHtml);                              // Auto Hub new look (autotiles.js, switch OFF)
+  if (htLook()) return htShellHtml(cardHtml);                              // Home Hub new look (hometiles.js, switch OFF)
   if (dtLook()) return dtShellHtml(cardHtml);                              // Day Hub new look (daytiles.js, switch OFF)
   if (typeof ctOn === "function" && ctOn()) return ctShellHtml(cardHtml);  // Cruise Hub new look (cruisetiles.js, switch OFF)
   if (typeof ttOn === "function" && ttOn()) return ttShellHtml(cardHtml);  // Trip Hub new look (triptiles.js, switch OFF)
@@ -195,14 +198,15 @@ function shellHtml(cardHtml) {
 }
 function paintTabs() {
   let nav = document.getElementById("tabbar");
-  if (!shellOn()) { if (nav) nav.remove(); document.body.classList.remove("shell", "ct", "dt", "at", "tt"); return; }
+  if (!shellOn()) { if (nav) nav.remove(); document.body.classList.remove("shell", "ct", "dt", "at", "tt", "ht"); return; }
   if (!nav) { nav = document.createElement("nav"); nav.id = "tabbar"; nav.setAttribute("aria-label", "Main"); document.body.appendChild(nav); }
-  const ct = typeof ctOn === "function" && ctOn(), dt = dtLook(), at = atLook(), tt = typeof ttOn === "function" && ttOn();   // the new looks: their own labels + icons
+  const ct = typeof ctOn === "function" && ctOn(), dt = dtLook(), at = atLook(), tt = typeof ttOn === "function" && ttOn(), ht = htLook();   // the new looks: their own labels + icons
   if (dt && !DT_TABS.some(t => t[0] === TAB)) TAB = "home";               // Day Hub's tabs aren't Cruise Hub's
   if (at && !AT_TABS.some(t => t[0] === TAB)) TAB = "home";               // Auto Hub's tabs are its own
+  if (ht && !HT_TABS.some(t => t[0] === TAB)) TAB = "home";               // so are Home Hub's
   document.body.classList.add("shell"); document.body.dataset.tab = TAB; document.body.classList.toggle("simple", !!S.simple);
-  document.body.classList.toggle("ct", ct); document.body.classList.toggle("dt", dt); document.body.classList.toggle("at", at); document.body.classList.toggle("tt", tt);
-  nav.innerHTML = (at ? AT_TABS : ct ? CT_TABS : tt ? TT_TABS : dt ? DT_TABS : SHELL_TABS).map(([k, ic, l]) => `<button class="${k === TAB ? "on" : ""}" data-shellgo="${k}" aria-current="${k === TAB ? "page" : "false"}"><span>${ic}</span>${l}</button>`).join("");
+  document.body.classList.toggle("ct", ct); document.body.classList.toggle("dt", dt); document.body.classList.toggle("at", at); document.body.classList.toggle("tt", tt); document.body.classList.toggle("ht", ht);
+  nav.innerHTML = (at ? AT_TABS : ht ? HT_TABS : ct ? CT_TABS : tt ? TT_TABS : dt ? DT_TABS : SHELL_TABS).map(([k, ic, l]) => `<button class="${k === TAB ? "on" : ""}" data-shellgo="${k}" aria-current="${k === TAB ? "page" : "false"}"><span>${ic}</span>${l}</button>`).join("");
 }
 // Clicks that move between tabs (data-shellgo), optionally landing on a trips-card tab or list.
 function shellClick(ds) {
