@@ -100,8 +100,9 @@ def main():
             a.close()
 
         print("\n[The Update bar (Scott 11/07: 'need to show customer easily when to update make it really easy')]")
-        BAR = """(() => { const e = document.getElementById('updBar'); if (!e || !e.offsetWidth) return null; const r = e.getBoundingClientRect(), t = document.getElementById('tabbar');
-          const tr = t && getComputedStyle(t).display !== 'none' && t.getBoundingClientRect().height ? t.getBoundingClientRect().top : null;
+        BAR = """(() => { const e = document.getElementById('updBar'); if (!e || !e.offsetWidth) return null; const r = e.getBoundingClientRect();
+          const tops = [...document.querySelectorAll('#tabbar, .mv-nav')].filter(t => getComputedStyle(t).display !== 'none' && t.getBoundingClientRect().height).map(t => t.getBoundingClientRect().top);
+          const tr = tops.length ? Math.min(...tops) : null;   // 1.58.16: the shell's tab bar OR the Hub's own bottom bar (Money / Health Hub)
           return { top: r.top, bottom: r.bottom, h: innerHeight, tab: tr, text: e.innerText }; })()"""
         ok = lambda g: bool(g) and g["top"] >= 0 and g["bottom"] <= g["h"] and (g["tab"] is None or g["bottom"] <= g["tab"] + 1)
         for path, nm in HUBS:
@@ -113,7 +114,7 @@ def main():
             for i in range(n or 1):
                 if n: a.page.locator("#tabbar button").nth(i).click(); a.page.wait_for_timeout(150); a.js("document.querySelectorAll('.sheet:not(.hidden)').forEach(s => s.classList.add('hidden'))")
                 seen.append(ok(a.js(BAR)))
-            check(f"{nm}: the Update bar is on every screen ({n or 1}), in full view, above the tab bar", all(seen), seen)
+            check(f"{nm}: the Update bar is on every screen ({n or 1}), in full view, above its bottom bar", all(seen), seen)
             check(f"{nm}: one place only, no old chip", not a.js("!!document.querySelector('.chip[data-update]')"))
             a.close()
         for path, nm in ((T.TRIP + "?look=tiles", "Trip Hub new look"), (T.HOMEP + "?look=tiles", "Home Hub new look"), (T.CRUISE + "?look=tiles", "Cruise Hub new look")):
@@ -122,6 +123,13 @@ def main():
             a.js("shellGo('home'); checkUpdate()"); a.page.wait_for_timeout(300)
             g = a.js(BAR)
             check(f"{nm}: the bar sits just above its tab bar", ok(g) and g["tab"] is not None and g["tab"] - g["bottom"] < 20, g)
+            a.close()
+        for path, nm in ((T.MONEYP, "Money Hub"), (T.HEALTHP, "Health Hub")):          # 1.58.16: their own bottom bars (#mvNav, #hhNav)
+            a = T.App(b, base, path=path); welcome(a)
+            a.ctx._version = {"version": "9.9", "notes": {"9.9": ["Test"]}}
+            a.js("checkUpdate()"); a.page.wait_for_timeout(300)
+            g = a.js(BAR)
+            check(f"{nm}: the bar sits just above its own bottom bar, every button still showing", ok(g) and g["tab"] is not None and g["tab"] - g["bottom"] < 20, g)
             a.close()
         a = T.App(b, base, path=T.HOMEP + "?look=tiles"); welcome(a)
         a.ctx._version = {"version": "9.9", "notes": {"9.9": ["Test"]}}

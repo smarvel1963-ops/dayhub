@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.58.15";
+const VERSION = "1.58.16";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -1710,8 +1710,12 @@ function paintUpd() {
     : `<span class="upd-ic" aria-hidden="true">✨</span><span class="upd-t"><b>Update ready</b><small>Takes a few seconds. Your info stays.</small></span><span class="upd-go">Update now</span>`;
   if (h !== UPD_HTML) { el.innerHTML = h; UPD_HTML = h; el.setAttribute("aria-label", UPDATING ? "Updating" : `Update ready: update ${APP_NAME} now`); }
   el.classList.toggle("busy", UPDATING);
-  const tb = document.getElementById("tabbar"), r = tb && getComputedStyle(tb).display !== "none" && tb.getBoundingClientRect();
-  const lift = r && r.height > 0 && r.top < innerHeight ? Math.round(innerHeight - r.top) + 8 : 0;   // a full screen hides the tab bar: then the bottom
+  // v1.58.16: above whichever bottom bar this Hub has - the shell's tab bar, Money / Health / Family Hub's own (.mv-nav), a routine's bar.
+  // 1.58.15 measured #tabbar only, so in Money Hub and Health Hub the bar covered most of their bottom buttons.
+  let top = innerHeight;
+  document.querySelectorAll("#tabbar, .mv-nav, .rg-bar").forEach(n => { if (getComputedStyle(n).display === "none") return;
+    const r = n.getBoundingClientRect(); if (r.height > 0 && r.top < innerHeight && r.bottom > innerHeight - 40) top = Math.min(top, r.top); });
+  const lift = top < innerHeight ? Math.round(innerHeight - top) + 8 : 0;   // a full screen hides the tab bar: then the bottom
   el.style.bottom = lift ? lift + "px" : "";
   document.body.style.setProperty("--upd-h", (el.offsetHeight + 10) + "px");
   document.body.classList.add("upd-on");

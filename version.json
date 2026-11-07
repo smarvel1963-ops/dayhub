@@ -1,6 +1,10 @@
 {
- "version": "1.58.15",
+ "version": "1.58.16",
  "notes": {
+  "1.58.16": [
+   "💰 Money Hub: the green update bar now sits above your bottom buttons, so every button stays in reach.",
+   "💚 Health Hub: the green update bar now sits above your bottom buttons, so every button stays in reach."
+  ],
   "1.58.15": [
    "✨ Updates are easier: when a new version is ready, a big green bar shows on every screen. Tap Update now and your info stays just as it was."
   ],
