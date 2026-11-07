@@ -1,6 +1,10 @@
 {
- "version": "1.58.16",
+ "version": "1.58.17",
  "notes": {
+  "1.58.17": [
+   "💰 Money Hub: behind-the-scenes work on a fresh new look, not switched on yet.",
+   "💚 Health Hub: behind-the-scenes work on a fresh new look, not switched on yet."
+  ],
   "1.58.16": [
    "💰 Money Hub: the green update bar now sits above your bottom buttons, so every button stays in reach.",
    "💚 Health Hub: the green update bar now sits above your bottom buttons, so every button stays in reach."

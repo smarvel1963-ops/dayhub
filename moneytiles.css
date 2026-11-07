@@ -1,0 +1,177 @@
+/* SAVE AS: moneytiles.css · LOCATION: C:/MarvelApps/dayhub/moneytiles.css
+ * Money Hub NEW LOOK, "Emerald Vault" (Scott 11/06 boards): a private vault at night, emerald green and polished gold, glossy tiles with white line
+ * icons, a painted picture across the top of every inner screen (../moneyhub/art/*.webp). Everything is under body.mt, which moneytiles.js sets
+ * only while the new look is on (mtOn). Without body.mt this file changes nothing. */
+
+body.mt { --mt-gold: #e2b54e; --mt-gold2: #b8862b; --mt-gold-hi: #f6dc8a; --mt-green: #0f3b26; --mt-deep: #082417; --mt-ink: #f6efdc; --mt-dim: #cdbf98;
+  --mt-glass: rgba(8, 34, 22, .82); --mt-edge: rgba(226, 181, 78, .45);
+  /* the app's own colour tokens, re-pointed (under body.mt only): the to-do and list cards and every button follow */
+  --card: rgba(8, 36, 23, .86); --card-solid: #0c2c1d; --line: rgba(226, 181, 78, .22); --text: #f6efdc; --dim: #cdbf98; --muted: #cdbf98;
+  --accent: #e9c467; --accent2: #c08f2f; --gold: #e2b54e; --green: #6ee7a8; --red: #ff9a8a; --orange: #f2b35e;
+  color: var(--mt-ink); background: none; }
+html:has(body.mt) { background: #082417; }
+body.mt #hero { display: none !important; }
+body.mt #cards { padding-top: 0; display: block; column-count: 1; max-width: 640px; margin: 0 auto; }
+body.mt[data-mttab="home"] #cards { display: flex; flex-direction: column; }
+body.mt #cards > .mt-hero { order: -4; } body.mt #cards > .mt-grid { order: -3; } body.mt #cards > .whatsnew, body.mt #cards > .future-banner { order: -2; margin-top: 12px; }
+body.mt #cards > .mt-below { order: -1; }
+body.mt:not([data-mttab="home"]) #cards > .whatsnew, body.mt:not([data-mttab="home"]) #cards > .future-banner { display: none; }
+body.mt::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(5, 20, 13, .2), rgba(5, 20, 13, .55)), url("../moneyhub/art/soft.webp") center top / cover no-repeat #082417; }
+body.mt[data-mttab="home"]::before { background: linear-gradient(180deg, rgba(5, 20, 13, .7) 0, rgba(5, 20, 13, .15) 9%, rgba(5, 20, 13, 0) 40%, rgba(5, 20, 13, .35) 100%),
+  url("../moneyhub/art/home.webp") center top / cover no-repeat #082417; }
+/* Plan and More show only their own list: the to-do and list cards (and Arrange) stay on Home */
+body.mt:not([data-mttab="home"]) #cards > .card[data-card], body.mt:not([data-mttab="home"]) #cards > .arrange-link { display: none; }
+body.mt { padding-bottom: 110px; }
+
+/* ---- the top: his shield, Money Hub, the eye, the gear */
+body.mt .mt-top { display: flex; align-items: center; gap: 10px; padding: calc(env(safe-area-inset-top) + 10px) 2px 8px; }
+body.mt .mt-logo { width: 42px; height: 46px; flex: none; filter: drop-shadow(0 2px 5px rgba(0, 0, 0, .5)); } body.mt .mt-logo svg { width: 100%; height: 100%; display: block; }
+body.mt .mt-brand { flex: 1; min-width: 0; font-family: Georgia, "Times New Roman", serif; font-size: clamp(28px, 8.6vw, 36px); font-weight: 700; letter-spacing: -.01em;
+  color: var(--mt-gold-hi); text-shadow: 0 2px 10px rgba(0, 0, 0, .65); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.mt .mt-round { width: 42px; height: 42px; flex: none; display: grid; place-items: center; border: 1px solid var(--mt-edge); border-radius: 50%;
+  background: rgba(8, 34, 22, .55); color: var(--mt-gold-hi); cursor: pointer; }
+body.mt .mt-round .mt-ic, body.mt .mt-round svg { width: 24px; height: 24px; display: block; }
+body.mt .mt-bar { margin: 0 -14px 6px; padding: 0 14px 4px; background: linear-gradient(180deg, rgba(6, 28, 18, .96), rgba(10, 44, 28, .9)); border-bottom: 2px solid var(--mt-gold2);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .35); }
+body.mt .mt-bar .mt-brand { font-size: 28px; } body.mt .mt-bar .mt-logo { width: 34px; height: 38px; }
+
+/* ---- HOME: his Cash card over the vault, then Up to date? */
+body.mt .mt-hero { margin: 0; }
+body.mt .mt-cash { margin-top: max(8px, calc(9vh - 60px)); padding: 12px 12px 10px; border-radius: 20px; border: 2px solid var(--mt-gold2);
+  background: linear-gradient(160deg, rgba(14, 60, 38, .9), rgba(6, 30, 19, .9)); box-shadow: 0 12px 28px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(246, 220, 138, .25);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+body.mt .mt-cash button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: left; }
+body.mt .mt-cash-main { display: flex; align-items: center; gap: 12px; width: 100%; padding: 0; }
+body.mt .mt-coin { width: 52px; height: 52px; flex: none; display: grid; place-items: center; border-radius: 50%; color: #3d2706;
+  background: radial-gradient(circle at 35% 30%, #fbe7a6, #d9a843 60%, #9c6d1c); box-shadow: 0 3px 10px rgba(0, 0, 0, .4); }
+body.mt .mt-coin svg { width: 30px; height: 30px; }
+body.mt .mt-cash-main small { display: block; font-size: 15px; font-weight: 800; color: var(--mt-dim); }
+body.mt .mt-big { display: block; font-size: clamp(34px, 11vw, 44px); font-weight: 800; line-height: 1.02; color: #fffaf0; letter-spacing: -.02em; }
+body.mt .mt-cash-main em { display: block; font-style: normal; font-size: 13.5px; font-weight: 700; color: var(--mt-dim); }
+body.mt .mt-cash-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+body.mt .mt-cash-row button { padding: 7px 10px; border-radius: 12px; background: rgba(4, 22, 14, .6); border: 1px solid rgba(226, 181, 78, .28); }
+body.mt .mt-cash-row small { display: block; font-size: 12.5px; font-weight: 700; color: var(--mt-dim); }
+body.mt .mt-cash-row b { display: block; font-size: 19px; font-weight: 800; color: #fffaf0; } body.mt .mt-cash-row b.pos { color: #8ef0b8; } body.mt .mt-cash-row b.neg { color: #ffab9c; }
+body.mt .mt-payday { display: flex !important; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 10px; padding: 9px 12px !important;
+  border-radius: 12px !important; background: linear-gradient(180deg, #f6d77e, #d7a33c) !important; color: #2a1c05 !important; font-weight: 800; font-size: 16px; text-align: center !important; }
+body.mt .mt-payday .mt-ic, body.mt .mt-payday svg { width: 20px; height: 20px; }
+body.mt .mt-fresh { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin: 8px 0 0; padding: 8px 12px; border-radius: 14px;
+  border: 1px solid var(--mt-edge); background: rgba(8, 34, 22, .8); color: var(--mt-ink); font: inherit; font-size: 14.5px; font-weight: 800; cursor: pointer; }
+body.mt .mt-fresh .mt-ic, body.mt .mt-fresh svg { width: 20px; height: 20px; color: #8ef0b8; }
+body.mt .mt-notices { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; }
+body.mt .mt-off { flex: none; font-size: 12px; }
+
+/* ---- the twelve tiles (his board): glossy colour, a white line icon, a white label, a gold edge */
+body.mt .mt-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0 4px; }
+body.mt .mt-tile { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 76px; padding: 7px 4px;
+  border-radius: 16px; cursor: pointer; font: inherit; color: #fff; text-align: center; border: 1.5px solid rgba(246, 220, 138, .55); background: var(--tc, #1f6a42);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, .26) 0, rgba(255, 255, 255, .05) 46%, rgba(0, 0, 0, .18) 100%);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .4); }
+body.mt .mt-tile .mt-ic { width: 34px; height: 34px; display: block; } body.mt .mt-tile svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .4)); }
+body.mt .mt-tile b { font-size: 15px; font-weight: 800; line-height: 1.1; text-shadow: 0 1px 3px rgba(0, 0, 0, .5); }
+body.mt .mt-tile:active { transform: scale(.97); }
+body.mt .t-acc { --tc: #7b2d26; } body.mt .t-tx { --tc: #23704a; } body.mt .t-bills { --tc: #a8771f; } body.mt .t-bud { --tc: #1d6440; }
+body.mt .t-subs { --tc: #6f2c2a; } body.mt .t-debt { --tc: #23704a; } body.mt .t-pay { --tc: #1f6a42; } body.mt .t-goals { --tc: #9c6d1c; }
+body.mt .t-fc { --tc: #1d6440; } body.mt .t-aff { --tc: #23704a; } body.mt .t-vault { --tc: #a8771f; } body.mt .t-rep { --tc: #1f6a42; }
+
+/* ---- one scroll down, Plan and More */
+body.mt .mt-card { margin: 12px 0; padding: 10px 12px; border-radius: 18px; border: 2px solid var(--mt-edge); background: var(--mt-glass); box-shadow: 0 6px 16px rgba(0, 0, 0, .3); }
+body.mt .mt-h { margin: 10px 0 6px; font-size: 13px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--mt-gold); }
+body.mt .mt-next, body.mt .mt-row, body.mt .mt-mrow { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 4px; border: 0; border-bottom: 1px solid rgba(226, 181, 78, .16);
+  background: none; color: var(--mt-ink); font: inherit; text-align: left; cursor: pointer; }
+body.mt .mt-next { padding: 10px; border: 1px solid rgba(226, 181, 78, .3); border-radius: 14px; background: rgba(14, 60, 38, .7); }
+body.mt .mt-next-ic { font-size: 24px; }
+body.mt .mt-next small, body.mt .mt-mrow small, body.mt .mt-row small { display: block; font-size: 12.5px; color: var(--mt-dim); font-weight: 600; }
+body.mt .mt-next b, body.mt .mt-row b, body.mt .mt-mrow b { display: block; font-size: 16px; font-weight: 800; }
+body.mt .mt-next em { display: block; font-style: normal; font-size: 13px; color: var(--mt-dim); }
+body.mt .mt-row em { font-style: normal; font-size: 13px; font-weight: 800; color: #8ef0b8; } body.mt .mt-row em.warn { color: #f6d77e; } body.mt .mt-row em.late { color: #ffab9c; }
+body.mt .mt-mrow .mt-ic { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 10px; color: #fff; background: linear-gradient(160deg, #2b7a50, #0f3b26);
+  border: 1px solid rgba(246, 220, 138, .45); padding: 6px; } body.mt .mt-mrow .mt-ic svg { width: 100%; height: 100%; }
+body.mt .mt-hint, body.mt .mt-lead, body.mt .mt-fine { color: var(--mt-dim); font-size: 14px; } body.mt .mt-fine { font-size: 12.5px; text-align: center; margin: 10px 4px 18px; }
+body.mt .mt-quick { display: flex; gap: 6px; } body.mt .mt-quick input, body.mt .mt-quick select { flex: 1; min-width: 0; background: rgba(4, 22, 14, .85); border: 1px solid var(--mt-edge); color: #fff; border-radius: 10px; padding: 8px; font: inherit; }
+body.mt .mt-quick input[name=amt] { flex: .7; }
+body.mt .mt-qbtn { flex: none; width: 42px; border: 0; border-radius: 10px; background: linear-gradient(180deg, #f6d77e, #d7a33c); color: #2a1c05; font-size: 22px; font-weight: 800; cursor: pointer; }
+
+/* ---- the tab bar: Home | Accounts | Bills | Plan | More, his gold + floating above the middle */
+body.mt #mvNav.mv-nav { background: linear-gradient(180deg, rgba(10, 44, 28, .97), rgba(5, 24, 15, .99)); border-top: 2px solid var(--mt-gold2); display: flex; overflow: visible;
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, .4); }
+body.mt #mvNav.mv-nav > button:not(.mt-plus) { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0 4px; border: 0; background: none;
+  color: #cdbf98; font: inherit; font-size: 12px; font-weight: 800; border-radius: 12px; cursor: pointer; }
+body.mt #mvNav > button > span { font-size: 12px; line-height: 1.1; filter: none; }
+body.mt #mvNav .mt-nic { width: 24px; height: 24px; display: block; font-size: 0; } body.mt #mvNav .mt-nic svg { width: 100%; height: 100%; display: block; }
+body.mt #mvNav > button.on { color: var(--mt-gold-hi); background: rgba(226, 181, 78, .14); }
+body.mt #mvNav .mt-plus { position: absolute; left: 50%; top: -50px; transform: translateX(-50%); width: 56px; height: 56px; padding: 12px; border-radius: 50%; cursor: pointer;
+  border: 3px solid #0b2c1c; background: radial-gradient(circle at 35% 30%, #fbe7a6, #d9a843 58%, #9c6d1c); color: #2a1c05; box-shadow: 0 6px 16px rgba(0, 0, 0, .5), 0 0 0 2px var(--mt-gold-hi); }
+body.mt #mvNav .mt-plus .mt-pic, body.mt #mvNav .mt-plus svg { width: 100%; height: 100%; display: block; stroke-width: 2.6; font-size: 0; margin: 0; filter: none; }
+body.mt #mvNav .mt-plus:active { transform: translateX(-50%) scale(.94); }
+/* the green Update bar (app.js paintUpd) goes above the gold +, which floats over the bar's top edge */
+body.mt.upd-on #updBar { bottom: calc(124px + env(safe-area-inset-bottom)) !important; }
+body.mt.upd-on:has(#mhSheet.mt-full:not(.hidden)) #updBar { bottom: calc(12px + env(safe-area-inset-bottom)) !important; z-index: 31; }
+body.mt.upd-on #mhSheet.mt-full .sheet-body { padding-bottom: calc(28px + var(--upd-h, 80px) + env(safe-area-inset-bottom)); }
+
+/* ---- PAGES: the page sheet as a full screen - back arrow, big title, a picture across the top, no tab bar */
+body.mt #mhSheet.mt-full { background: #082417; align-items: stretch; }
+body.mt #mhSheet.mt-full .sheet-body, body.mt #mhSheet.mt-full .sheet-body.mv-sheet { position: absolute; inset: 0; max-height: none; height: 100%; width: 100%; max-width: 640px; margin: 0 auto;
+  border-radius: 0; border: 0; padding: 0 14px calc(28px + env(safe-area-inset-bottom)); overflow-y: auto; -webkit-overflow-scrolling: touch;
+  background: linear-gradient(180deg, rgba(5, 20, 13, .25), rgba(5, 20, 13, .55)), url("../moneyhub/art/soft.webp") center top / cover no-repeat #0b2a1c !important; color: var(--mt-ink); }
+body.mt #mhSheet.mt-full .grab, body.mt #mhSheet.mt-full nav.auto-tabs { display: none !important; }
+body.mt #mhSheet .mt-head { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 10px; margin: 0 -14px 8px; padding: calc(env(safe-area-inset-top) + 8px) 14px 8px;
+  background: linear-gradient(180deg, rgba(6, 28, 18, .97), rgba(10, 44, 28, .93)); border-bottom: 2px solid var(--mt-gold2); box-shadow: 0 4px 14px rgba(0, 0, 0, .35); }
+body.mt #mhSheet .mt-head h2 { margin: 0; flex: 1; min-width: 0; font-size: 24px; font-weight: 800; color: #fffaf0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.mt .mt-back { width: 40px; height: 40px; flex: none; border: 1px solid var(--mt-edge); border-radius: 50%; background: rgba(226, 181, 78, .14); color: var(--mt-gold-hi);
+  font-size: 30px; line-height: 1; font-weight: 700; cursor: pointer; padding: 0 0 4px; }
+body.mt .mt-band { height: clamp(118px, 34vw, 190px); margin: 2px 0 12px; border-radius: 16px; border: 2px solid rgba(226, 181, 78, .6); background: center / cover no-repeat #0f3b26;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .4); }
+body.mt .mt-band-spend { background-image: url("../moneyhub/art/spend.webp"); } body.mt .mt-band-accounts { background-image: url("../moneyhub/art/accounts.webp"); }
+body.mt .mt-band-bills { background-image: url("../moneyhub/art/bills.webp"); } body.mt .mt-band-budget { background-image: url("../moneyhub/art/budget.webp"); }
+body.mt .mt-band-debt { background-image: url("../moneyhub/art/debt.webp"); } body.mt .mt-band-subs { background-image: url("../moneyhub/art/subs.webp"); }
+body.mt .mt-band-payday { background-image: url("../moneyhub/art/payday.webp"); } body.mt .mt-band-goals { background-image: url("../moneyhub/art/goals.webp"); }
+body.mt .mt-band-reports { background-image: url("../moneyhub/art/reports.webp"); } body.mt .mt-band-forecast { background-image: url("../moneyhub/art/forecast.webp"); }
+body.mt .mt-band-vault { background-image: url("../moneyhub/art/vault.webp"); } body.mt .mt-band-afford { background-image: url("../moneyhub/art/afford.webp"); }
+
+/* Money Hub's own page pieces, navy and cyan -> emerald glass and gold (colours only; nothing moves) */
+body.mt .mv-sheet :is(.home-stat, .mv-tstats div, .mv-tiles3 div, .mv-ins, .mv-bring, .mv-sub, .mv-doc, .mhp-bill, .mv-upd, .mv-acct) {
+  background: rgba(8, 38, 25, .84) !important; border-color: rgba(226, 181, 78, .35) !important; }
+body.mt .mv-sheet :is(.mhp-hero, .mhp-panel, .mv-banner, .mv-budget-top, .mv-bars, .mv-road, .mv-finder, .mv-chart, .mv-tiles .tile, .mv-upd-hero) {
+  background: linear-gradient(150deg, rgba(20, 72, 46, .94), rgba(7, 30, 20, .94)) !important; border-color: rgba(226, 181, 78, .45) !important; }
+body.mt .mv-sheet :is(input, select, textarea, .mv-search) { background: rgba(4, 22, 14, .9) !important; border-color: rgba(226, 181, 78, .4) !important; color: #fff; }
+body.mt .mv-sheet :is(.hos-chips button, .mhp-filters button, .mv-count, .mv-days button, .mv-kinds button, .mv-ins-acts button, .mv-when, .mv-seg, .mhp-pill, .mhp-insight) {
+  background: rgba(8, 38, 25, .9) !important; border-color: rgba(226, 181, 78, .35) !important; color: #f3ead2 !important; }
+body.mt .mv-sheet :is(.hos-chips button.on, .mhp-filters button.on, .mv-days button.on, .mv-seg button.on, .mv-kinds button.on, .mv-go),
+body.mt .mv-sheet .mv-seg label input:checked + span { background: linear-gradient(135deg, #f6d77e, #c8952e) !important; color: #2a1c05 !important; border-color: #f6d77e !important;
+  box-shadow: 0 0 12px rgba(246, 215, 126, .35) !important; }
+body.mt .mv-sheet .mv-days button.today { border-color: var(--mt-gold-hi) !important; }
+body.mt .mv-sheet :is(.mv-gbar, .mv-ctrack) { background: rgba(4, 22, 14, .9) !important; }
+body.mt .mv-sheet .mv-grid { stroke: rgba(226, 181, 78, .22); }
+body.mt .mv-sheet .row { border-color: rgba(226, 181, 78, .2); }
+body.mt .mv-sheet .fine, body.mt .mv-sheet .hos-hint { color: #cdbf98; }
+body.mt .mv-sheet .mhp-sym { background: linear-gradient(145deg, #2f7a4f, #0f3b26) !important; box-shadow: 0 0 12px rgba(246, 215, 126, .25) !important; }
+body.mt .mv-sheet .mv-tip { background: rgba(4, 22, 14, .96); border-color: rgba(226, 181, 78, .45); }
+/* the pale-blue small print -> pale gold; anything carrying a state (late, warn, paid, in, out, up, down) keeps its own colour */
+body.mt .mv-sheet :where(small, p, em, label, summary, .mhp-label, .mhp-mini, .mv-split-k, .mv-cal-h):not(.late, .warn, .paid, .in, .neg, .up, .down, .pos, .ok, .bad, .over, .near) { color: #d4c69f; }
+body.mt .mv-sheet :is(.mv-acard, .mv-part) { background: linear-gradient(140deg, rgba(16, 62, 40, .92), rgba(6, 28, 18, .92)) !important; border-color: rgba(226, 181, 78, .38) !important; }
+body.mt .mv-sheet :is(.mv-adv-hero, .mv-conn-hero, .mv-fall-chart) { background: linear-gradient(150deg, rgba(22, 76, 48, .95), rgba(6, 28, 18, .95)) !important; border-color: rgba(226, 181, 78, .45) !important; }
+body.mt .mv-sheet .mhp-bar { background: rgba(4, 22, 14, .9); } body.mt .mv-sheet .mhp-bar div { background: linear-gradient(90deg, #d7a33c, #f6d77e); }
+body.mt .mv-sheet .mhp-action, body.mt .mv-sheet .mv-rn { background: linear-gradient(135deg, #f6d77e, #c8952e) !important; color: #2a1c05 !important; }
+body.mt .mv-sheet .mhp-st:not(.paid):not(.late) { color: #f6d77e; background: rgba(226, 181, 78, .16); }
+body.mt .mv-sheet .mv-x { color: #b9a77a; }
+body.mt .mv-sheet .mv-linkb { color: #f6d77e; }
+body.mt .mv-sheet .mv-seg button:not(.on), body.mt .mv-sheet .mv-seg label input:not(:checked) + span { color: #d4c69f; }
+body.mt .mt-mrow .grow, body.mt .mt-row .grow, body.mt .mt-next .grow { flex: 1; min-width: 0; }
+/* the old navy art inside pages: the blue app-icon orb on Bills goes (decoration only), the night island behind Goals becomes the goals picture,
+   the cyan chart line turns gold */
+body.mt .mv-sheet .mhp-orb { display: none; }
+body.mt .mv-sheet .mv-goalscene { background: linear-gradient(90deg, rgba(6, 28, 18, .9) 0, rgba(6, 28, 18, .55) 45%, rgba(6, 28, 18, .1) 100%), url("../moneyhub/art/goals.webp") right center / cover no-repeat #0f3b26;
+  border: 1px solid rgba(226, 181, 78, .45); }
+body.mt .mv-sheet .mv-goalscene > :not(b):not(small) { display: none; }
+body.mt .mv-sheet .mv-goalscene b { color: #fffaf0; text-shadow: 0 0 14px rgba(246, 215, 126, .6); }
+body.mt .mv-sheet .mv-line { stroke: #f6d77e; filter: drop-shadow(0 0 4px rgba(246, 215, 126, .55)); }
+
+@media (min-width: 700px) { body.mt .mt-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* a 320-wide phone: a goal's ring drops under it instead of running off the side (the classic page has the same overflow) */
+@media (max-width: 359px) { body.mt .mv-sheet .goal-card { flex-wrap: wrap; } body.mt .mv-sheet .goal-card .mhp-acts { flex-wrap: wrap; } }
+@media (prefers-reduced-motion: reduce) { body.mt .mt-tile:active, body.mt #mvNav .mt-plus:active { transform: translateX(-50%); } body.mt .mt-tile:active { transform: none; } }
+@media (max-height: 760px) and (max-width: 599px) {
+  body.mt .mt-cash { margin-top: 6px; } body.mt .mt-big { font-size: 32px; } body.mt .mt-tile { min-height: 68px; } body.mt .mt-tile .mt-ic { width: 30px; height: 30px; }
+}

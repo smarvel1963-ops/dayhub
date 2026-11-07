@@ -1,0 +1,154 @@
+/* SAVE AS: healthtiles.css · LOCATION: C:/MarvelApps/dayhub/healthtiles.css
+ * Health Hub NEW LOOK, "Green and Gold Wellness" (Scott 11/06 board): mountains at golden sunset, deep forest green and warm gold, glossy tiles
+ * with white line icons, a painted picture across the top of every inner screen (../healthhub/art/*.webp). Everything is under body.hw, which
+ * healthtiles.js sets only while the new look is on (hwOn). Without body.hw this file changes nothing. */
+
+body.hw { --hw-gold: #e2b54e; --hw-gold2: #b8862b; --hw-gold-hi: #f6dc8a; --hw-ink: #f4f1e2; --hw-dim: #cfc8a4; --hw-glass: rgba(10, 36, 20, .84); --hw-edge: rgba(226, 181, 78, .45);
+  --card: rgba(10, 38, 21, .86); --card-solid: #0e2c18; --line: rgba(226, 181, 78, .22); --text: #f4f1e2; --dim: #cfc8a4; --muted: #cfc8a4;
+  --accent: #e9c467; --accent2: #c08f2f; --gold: #e2b54e; --green: #8ee6a0; --red: #ff9a8a; --orange: #f2b35e;
+  color: var(--hw-ink); background: none; }
+html:has(body.hw) { background: #0b2414; }
+body.hw #hero { display: none !important; }
+body.hw #cards { padding-top: 0; display: block; column-count: 1; max-width: 640px; margin: 0 auto; }
+body.hw[data-hwtab="home"] #cards { display: flex; flex-direction: column; }
+body.hw #cards > .hw-hero { order: -4; } body.hw #cards > .hw-grid { order: -3; } body.hw #cards > .whatsnew, body.hw #cards > .future-banner { order: -2; margin-top: 12px; }
+body.hw #cards > .hw-below { order: -1; }
+body.hw:not([data-hwtab="home"]) #cards > .whatsnew, body.hw:not([data-hwtab="home"]) #cards > .future-banner { display: none; }
+body.hw::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(6, 20, 11, .15), rgba(6, 20, 11, .5)), url("../healthhub/art/soft.webp") center top / cover no-repeat #0b2414; }
+body.hw[data-hwtab="home"]::before { background: linear-gradient(180deg, rgba(6, 20, 11, .55) 0, rgba(6, 20, 11, .05) 10%, rgba(6, 20, 11, 0) 34%, rgba(6, 20, 11, .45) 100%),
+  url("../healthhub/art/home.webp") center top / cover no-repeat #0b2414; }
+body.hw:not([data-hwtab="home"]) #cards > .card[data-card], body.hw:not([data-hwtab="home"]) #cards > .arrange-link { display: none; }
+body.hw { padding-bottom: 96px; }
+
+/* ---- the top: his leaf logo, Health Hub, Ask, the gear */
+body.hw .hw-top { display: flex; align-items: center; gap: 10px; padding: calc(env(safe-area-inset-top) + 10px) 2px 8px; }
+body.hw .hw-logo { width: 46px; height: 40px; flex: none; filter: drop-shadow(0 2px 5px rgba(0, 0, 0, .5)); } body.hw .hw-logo svg { width: 100%; height: 100%; display: block; }
+body.hw .hw-brand { flex: 1; min-width: 0; font-family: Georgia, "Times New Roman", serif; font-style: italic; font-size: clamp(20px, 7vw, 34px); font-weight: 700;
+  color: #fffbea; text-shadow: 0 2px 10px rgba(0, 0, 0, .65); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.hw .hw-off { flex: none; font-size: 12px; }
+body.hw .hw-round { width: 42px; height: 42px; flex: none; display: grid; place-items: center; border: 1px solid var(--hw-edge); border-radius: 50%;
+  background: rgba(10, 36, 20, .55); color: var(--hw-gold-hi); cursor: pointer; }
+body.hw .hw-round .hw-ic, body.hw .hw-round svg { width: 24px; height: 24px; display: block; }
+body.hw .hw-bar-top { margin: 0 -14px 6px; padding: 0 14px 4px; background: linear-gradient(180deg, rgba(8, 30, 16, .96), rgba(14, 48, 26, .9)); border-bottom: 2px solid var(--hw-gold2);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .35); }
+body.hw .hw-bar-top .hw-brand { font-size: 28px; } body.hw .hw-bar-top .hw-logo { width: 38px; height: 34px; }
+
+/* ---- HOME: Today's Health over the mountains */
+body.hw .hw-today { margin-top: max(8px, calc(10vh - 66px)); padding: 10px 12px 12px; border-radius: 20px; border: 2px solid var(--hw-gold2);
+  background: linear-gradient(160deg, rgba(20, 70, 36, .9), rgba(8, 32, 17, .92)); box-shadow: 0 12px 28px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(246, 220, 138, .25);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+body.hw .hw-today h3 { margin: 0 0 8px; font-size: 21px; font-weight: 800; color: #fffbea; }
+body.hw .hw-today-in { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 8px; }
+body.hw .hw-today button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; text-align: left; }
+body.hw .hw-score { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px !important; border-radius: 14px; background: rgba(4, 20, 10, .55) !important;
+  border: 1px solid rgba(226, 181, 78, .3) !important; }
+body.hw .hw-heart { width: 34px; height: 34px; color: #ff8f7a; } body.hw .hw-heart svg { width: 100%; height: 100%; }
+body.hw .hw-score small { font-size: 12.5px; font-weight: 700; color: var(--hw-dim); }
+body.hw .hw-score b { font-size: 38px; font-weight: 800; line-height: 1; color: #fffbea; } body.hw .hw-score b em { font-style: normal; font-size: 16px; color: var(--hw-dim); }
+body.hw .hw-bar { display: block; width: 100%; height: 8px; margin: 4px 0 2px; border-radius: 4px; background: rgba(0, 0, 0, .35); overflow: hidden; }
+body.hw .hw-bar > i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #f6d77e, #8ee6a0); }
+body.hw .hw-rows { display: grid; gap: 6px; }
+body.hw .hw-trow { display: flex; align-items: center; gap: 8px; padding: 6px 8px !important; border-radius: 12px; background: rgba(4, 20, 10, .5) !important; border: 1px solid rgba(226, 181, 78, .2) !important; }
+body.hw .hw-trow .hw-ic { width: 22px; height: 22px; flex: none; color: var(--hw-gold-hi); } body.hw .hw-trow svg { width: 100%; height: 100%; display: block; }
+body.hw .hw-trow b { font-size: 15.5px; font-weight: 800; color: #fffbea; } body.hw .hw-trow small { font-size: 12.5px; color: var(--hw-dim); }
+body.hw .hw-notices { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; }
+
+/* ---- the twelve tiles (his board): glossy forest green, gold and earth tones, a white line icon, a white label, a gold edge */
+body.hw .hw-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0 4px; }
+body.hw .hw-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 76px; padding: 7px 4px; border-radius: 16px; cursor: pointer;
+  font: inherit; color: #fff; text-align: center; border: 1.5px solid rgba(246, 220, 138, .5); background: var(--tc, #2f6b33);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, .26) 0, rgba(255, 255, 255, .05) 46%, rgba(0, 0, 0, .18) 100%);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .4); }
+body.hw .hw-tile .hw-ic { width: 34px; height: 34px; display: block; } body.hw .hw-tile svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .4)); }
+body.hw .hw-tile b { font-size: 15px; font-weight: 800; line-height: 1.1; text-shadow: 0 1px 3px rgba(0, 0, 0, .5); }
+body.hw .hw-tile:active { transform: scale(.97); }
+body.hw .t-my { --tc: #8a2f24; } body.hw .t-vis { --tc: #2f6b33; } body.hw .t-med { --tc: #9c7224; } body.hw .t-ref { --tc: #2f6b33; }
+body.hw .t-vit { --tc: #7a3a24; } body.hw .t-wat { --tc: #2f6b33; } body.hw .t-act { --tc: #3c7a2e; } body.hw .t-slp { --tc: #2a5f5a; }
+body.hw .t-wt { --tc: #9c7224; } body.hw .t-goal { --tc: #3c6b2a; } body.hw .t-sos { --tc: #8a2f24; } body.hw .t-well { --tc: #2f6b33; }
+
+/* ---- one scroll down and More */
+body.hw .hw-card { margin: 12px 0; padding: 10px 12px; border-radius: 18px; border: 2px solid var(--hw-edge); background: var(--hw-glass); box-shadow: 0 6px 16px rgba(0, 0, 0, .3); }
+body.hw .hw-h { margin: 10px 0 6px; font-size: 13px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--hw-gold); }
+body.hw .hw-row, body.hw .hw-mrow { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 4px; border: 0; border-bottom: 1px solid rgba(226, 181, 78, .16);
+  background: none; color: var(--hw-ink); font: inherit; text-align: left; cursor: pointer; }
+body.hw .hw-row .grow, body.hw .hw-mrow .grow { flex: 1; min-width: 0; }
+body.hw .hw-row.late b { color: #ffb4a6; } body.hw .hw-row-ic { font-size: 22px; }
+body.hw .hw-row small, body.hw .hw-mrow small { display: block; font-size: 12.5px; color: var(--hw-dim); font-weight: 600; }
+body.hw .hw-row b, body.hw .hw-mrow b { display: block; font-size: 16px; font-weight: 800; }
+body.hw .hw-mrow .hw-ic { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 10px; color: #fff; background: linear-gradient(160deg, #3d8a43, #164a22);
+  border: 1px solid rgba(246, 220, 138, .45); padding: 6px; } body.hw .hw-mrow .hw-ic svg { width: 100%; height: 100%; }
+body.hw .hw-acts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+body.hw .hw-acts button { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 2px; border-radius: 14px; border: 1px solid var(--hw-edge);
+  background: rgba(20, 70, 36, .75); color: var(--hw-ink); font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+body.hw .hw-acts .hw-ic { width: 24px; height: 24px; color: var(--hw-gold-hi); } body.hw .hw-acts svg { width: 100%; height: 100%; display: block; }
+body.hw .hw-sos { display: block; width: 100%; margin: 14px 0 6px; min-height: 52px; border-radius: 16px; border: 2px solid #ff8f7a; background: rgba(255, 143, 122, .14);
+  color: #ffe9e2; font: inherit; font-size: 17px; font-weight: 800; cursor: pointer; }
+body.hw .hw-hint, body.hw .hw-fine { color: var(--hw-dim); font-size: 14px; } body.hw .hw-fine { font-size: 12.5px; text-align: center; margin: 10px 4px 18px; }
+
+/* ---- the tab bar (his board): Home | Visits | Vitals | Goals | More */
+body.hw #hhNav.mv-nav { background: linear-gradient(180deg, rgba(14, 48, 26, .97), rgba(6, 24, 13, .99)); border-top: 2px solid var(--hw-gold2); display: flex;
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, .4); }
+body.hw #hhNav.mv-nav > button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0 4px; border: 0; background: none;
+  color: #cfc8a4; font: inherit; font-size: 12px; font-weight: 800; border-radius: 12px; cursor: pointer; }
+body.hw #hhNav > button > span { font-size: 12px; line-height: 1.1; filter: none; }
+body.hw #hhNav .hw-nic { width: 24px; height: 24px; display: block; font-size: 0; } body.hw #hhNav .hw-nic svg { width: 100%; height: 100%; display: block; }
+body.hw #hhNav > button.on { color: var(--hw-gold-hi); background: rgba(226, 181, 78, .14); }
+
+/* ---- PAGES: the page sheet as a full screen - back arrow, big title, a picture across the top, no tab bar */
+body.hw #hhSheet.hw-full { background: #0b2414; align-items: stretch; }
+body.hw #hhSheet.hw-full .sheet-body, body.hw #hhSheet.hw-full .sheet-body.hh-sheet { position: absolute; inset: 0; max-height: none; height: 100%; width: 100%; max-width: 640px; margin: 0 auto;
+  border-radius: 0; border: 0; padding: 0 14px calc(28px + env(safe-area-inset-bottom)); overflow-y: auto; -webkit-overflow-scrolling: touch;
+  background: linear-gradient(180deg, rgba(6, 20, 11, .2), rgba(6, 20, 11, .5)), url("../healthhub/art/soft.webp") center top / cover no-repeat #0e2a17 !important; color: var(--hw-ink); }
+body.hw #hhSheet.hw-full .grab, body.hw #hhSheet.hw-full nav.auto-tabs { display: none !important; }
+body.hw #hhSheet .hw-head { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 10px; margin: 0 -14px 8px; padding: calc(env(safe-area-inset-top) + 8px) 14px 8px;
+  background: linear-gradient(180deg, rgba(8, 30, 16, .97), rgba(14, 48, 26, .93)); border-bottom: 2px solid var(--hw-gold2); box-shadow: 0 4px 14px rgba(0, 0, 0, .35); }
+body.hw #hhSheet .hw-head h2 { margin: 0; flex: 1; min-width: 0; font-size: 24px; font-weight: 800; color: #fffbea; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.hw .hw-back { width: 40px; height: 40px; flex: none; border: 1px solid var(--hw-edge); border-radius: 50%; background: rgba(226, 181, 78, .14); color: var(--hw-gold-hi);
+  font-size: 30px; line-height: 1; font-weight: 700; cursor: pointer; padding: 0 0 4px; }
+body.hw .hw-band { height: clamp(118px, 34vw, 190px); margin: 2px 0 12px; border-radius: 16px; border: 2px solid rgba(226, 181, 78, .6); background: center / cover no-repeat #164a22;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .4); }
+body.hw .hw-band-meds { background-image: url("../healthhub/art/meds.webp"); } body.hw .hw-band-vitals { background-image: url("../healthhub/art/vitals.webp"); }
+body.hw .hw-band-visits { background-image: url("../healthhub/art/visits.webp"); } body.hw .hw-band-move { background-image: url("../healthhub/art/move.webp"); }
+body.hw .hw-band-sleep { background-image: url("../healthhub/art/sleep.webp"); } body.hw .hw-band-water { background-image: url("../healthhub/art/water.webp"); }
+body.hw .hw-band-wellness { background-image: url("../healthhub/art/wellness.webp"); } body.hw .hw-band-records { background-image: url("../healthhub/art/records.webp"); }
+body.hw .hw-band-summary { background-image: url("../healthhub/art/summary.webp"); } body.hw .hw-band-goals { background-image: url("../healthhub/art/goals.webp"); }
+
+/* Health Hub's own page pieces, navy and teal -> forest glass and gold (colours only; nothing moves; warnings keep their colours) */
+body.hw .hh-sheet :is(input, select, textarea) { background: rgba(4, 20, 10, .9) !important; border-color: rgba(226, 181, 78, .4) !important; color: #fff; }
+body.hw .hh-sheet :is(.mv-tiles3 div, .hh-tiles3 div, .mv-doc, .mv-count, .mv-switch, .hh-ap, .hh-part, .hh-dose, .hh-left, .hh-goalin label, .hh-scanbox) {
+  background: rgba(10, 40, 21, .86) !important; border-color: rgba(226, 181, 78, .32) !important; }
+body.hw .hh-sheet :is(.mv-chart, .mv-banner, .hh-hero, .hh-tiles .tile) { background: linear-gradient(150deg, rgba(26, 82, 42, .94), rgba(8, 32, 17, .94)) !important; border-color: rgba(226, 181, 78, .45) !important; }
+body.hw .hh-sheet .btn.ghost { background: rgba(226, 181, 78, .1) !important; color: #f4ecd0 !important; border-color: rgba(226, 181, 78, .4) !important; }
+body.hw .hh-sheet .hh-go, body.hw .hh-sheet .hh-take { background: linear-gradient(135deg, #f6d77e, #c8952e) !important; color: #2a1c05 !important; border-color: #f6d77e !important;
+  box-shadow: 0 0 12px rgba(246, 215, 126, .3) !important; }
+body.hw .hh-sheet .hh-skip { color: #d4c69f; border-color: rgba(226, 181, 78, .35); }
+body.hw .hh-sheet .hh-track { background: rgba(4, 20, 10, .9); } body.hw .hh-sheet .hh-track span { background: linear-gradient(90deg, #d7a33c, #8ee6a0); }
+body.hw .hh-sheet .hh-dose.due { border-color: var(--hw-gold-hi) !important; box-shadow: 0 0 14px rgba(246, 215, 126, .3); }
+body.hw .hh-sheet :where(small, p, em, label, summary, .fine, .field):not(.late, .warn, .seek, .check, .caution, .good, .low, .taken, .missed, .skipped, .soon, .in, .neg, .up, .down) { color: #d6cfae; }
+body.hw .hh-sheet .hh-qtick { border-color: var(--hw-gold-hi); }
+body.hw .hh-sheet .hh-dose.missed { background: rgba(90, 24, 30, .72) !important; border-color: #ff8f7a !important; }
+body.hw .hh-sheet .hh-dose.missed small { color: #ffb4a6; } body.hw .hh-sheet .hh-dose.taken small { color: #8ee6a0; } body.hw .hh-sheet .hh-dose.skipped small { color: #f2b35e; }
+body.hw .hh-sheet .hh-track.low span { background: linear-gradient(90deg, #ff8f7a, #f2b35e); }
+/* the rest of the old teal / cyan / purple inside pages: heroes, tiles, the water bottle, faces, bars (a symptom tapped stays coral) */
+body.hw .hh-sheet :is(.hh-moon, .hh-vhero, .hh-water) { background: linear-gradient(150deg, rgba(26, 82, 42, .95), rgba(8, 32, 17, .95)) !important; border-color: rgba(226, 181, 78, .45) !important; }
+body.hw .hh-sheet .hh-moon-art { opacity: .25; }
+body.hw .hh-sheet .hh-moon-in b, body.hw .hh-sheet .hh-water-in b { color: #fffbea; text-shadow: 0 0 16px rgba(246, 215, 126, .45); }
+body.hw .hh-sheet .hh-water-in em { color: var(--hw-gold-hi); }
+body.hw .hh-sheet :is(.hh-bars, .hh-vtile, .hh-face, .hh-sym, .hh-moons span, .hh-medmeta, .hh-advline, .hh-wminus) { background: rgba(10, 40, 21, .86) !important; border-color: rgba(226, 181, 78, .32) !important; color: #f4ecd0; }
+body.hw .hh-sheet :is(.hh-vtile.on, .hh-face.on), body.hw .hh-sheet .hh-moons input:checked + span { background: rgba(226, 181, 78, .2) !important; border-color: var(--hw-gold-hi) !important;
+  box-shadow: 0 0 12px rgba(246, 215, 126, .35) !important; }
+body.hw .hh-sheet .hh-sym.on { background: rgba(255, 143, 122, .2) !important; border-color: #ff8f7a !important; }
+body.hw .hh-sheet .hh-wplus { background: linear-gradient(135deg, #f6d77e, #c8952e) !important; color: #2a1c05 !important; box-shadow: 0 0 16px rgba(246, 215, 126, .35) !important; }
+body.hw .hh-sheet .hh-bottle { filter: drop-shadow(0 0 14px rgba(246, 215, 126, .25)); }
+body.hw .hh-sheet .hh-link { color: var(--hw-gold-hi) !important; }
+/* the green Update bar on a full-screen page: at the bottom, above the page (the page pads for it) */
+body.hw.upd-on:has(#hhSheet.hw-full:not(.hidden)) #updBar { bottom: calc(12px + env(safe-area-inset-bottom)) !important; z-index: 31; }
+body.hw.upd-on #hhSheet.hw-full .sheet-body { padding-bottom: calc(28px + var(--upd-h, 80px) + env(safe-area-inset-bottom)); }
+
+@media (min-width: 700px) { body.hw .hw-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) { body.hw .hw-tile:active { transform: none; } }
+@media (max-height: 760px) and (max-width: 599px) {
+  body.hw .hw-today { margin-top: 6px; } body.hw .hw-score b { font-size: 32px; } body.hw .hw-tile { min-height: 68px; } body.hw .hw-tile .hw-ic { width: 30px; height: 30px; }
+}
+@media (max-width: 359px) { body.hw .hw-today-in { grid-template-columns: minmax(0, 1fr); } }
