@@ -325,7 +325,7 @@ def main():
         a = cruise(b, base)
         check("nothing to say: no notices row", not a.js("!!document.querySelector('.ct-notices')"))
         a.js("UPDATE = { version: '9.9' }; render()")
-        check("a new version shows on the new home, tappable", a.js("!!document.querySelector('.ct-notices [data-update]')"))
+        check("a new version shows as the Update bar on the new home, tappable (1.58.15: it replaced the notice chip)", a.js("!!document.querySelector('#updBar[data-update]') && document.getElementById('updBar').offsetWidth > 0"))
         a.js("UPDATE = null; INSTALL_EVT = { prompt() {} }; render()")
         check("the install prompt too", a.js("!!document.querySelector('.ct-notices [data-install]')"))
         a.js("INSTALL_EVT = null; localStorage.setItem('cruisehub.pro', JSON.stringify({ buyer: 'buyer@example.com', ok: false, checked: Date.now(), status: 'not found', product: 'cruisehub' })); S.sync.on = true; render()")

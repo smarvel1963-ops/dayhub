@@ -1,6 +1,9 @@
 {
- "version": "1.58.14",
+ "version": "1.58.15",
  "notes": {
+  "1.58.15": [
+   "✨ Updates are easier: when a new version is ready, a big green bar shows on every screen. Tap Update now and your info stays just as it was."
+  ],
   "1.58.14": [
    "🏡 Home Hub: more behind-the-scenes work on the new look, not switched on yet."
   ],

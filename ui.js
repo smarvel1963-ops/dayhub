@@ -751,6 +751,7 @@ function render() {
 }
 
 function tick() {
+  paintUpd();                                                          // v1.58.15 the Update bar: shown, placed, or gone
   const c = document.getElementById("clockNow");
   if (!c) return;
   const s = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -1448,6 +1449,7 @@ document.addEventListener("click", e => {
     const c = document.querySelector(`[data-card="${ds.goto}"]`); if (c) c.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   if (ds.day !== undefined) { const n = Number(ds.day); VIEW = n === 0 ? today() : addDays(VIEW, n); render(); return; }
   if (ds.update) { applyUpdate(); return; }
+  if (ds.updcheck) { updCheckNow(); return; }                          // v1.58.15 ⚙ Check for updates
   if (ds.seen) { S.seenVersion = VERSION; saveLocal(); render(); return; }
   if (ds.tact) { const f = TOAST_ACT; TOAST_ACT = null; if (f) f(); return; }
   if (ds.install && INSTALL_EVT) { INSTALL_EVT.prompt(); INSTALL_EVT.userChoice.finally(() => { INSTALL_EVT = null; drawInstallBox(); render(); }); return; }
@@ -1758,7 +1760,7 @@ function drawSettings() {
     `<h3 id="arrangeHead">Arrange your screen</h3>
      <p class="fine" style="margin-top:0">▲▼ moves a card one spot · ⤒ puts it at the top · the switch shows or hides it.</p>`;
   document.querySelector("#sheet .sheet-body > h3").style.display = "none";
-  document.getElementById("ver").textContent = `Version ${VERSION}.`;
+  verLine();                                                           // v1.58.15 the version + Update now / Check for updates
   let lg = document.getElementById("legalLinks");
   if (!lg) { lg = document.createElement("span"); lg.id = "legalLinks"; document.getElementById("ver").after(lg); }
   // v1.57 (Play review): Privacy opens THIS app's own policy (each hub has its own privacy.html); Terms stay Day Hub's
@@ -2016,6 +2018,7 @@ setInterval(() => { const a = document.activeElement;
   if (!a || !/INPUT|SELECT|TEXTAREA/.test(a.tagName)) render(); }, 60000);
 setInterval(loadWeather, 30 * 60000);
 setInterval(checkReminders, 30000);
+updDone();                                                            // v1.58.15 just updated: say so
 checkUpdate();
 setInterval(checkUpdate, 30 * 60000);
 setInterval(() => { if (S.mail.on && mReady()) scanMail(); }, 20 * 60000);

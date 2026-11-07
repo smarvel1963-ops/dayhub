@@ -426,7 +426,7 @@ def t_reminders_backup_update(b, base):
     check("Undo after restore", a.js("S.name") == "Scott")
     a.ctx._version = {"version": "9.9", "notes": {"9.9": ["Test"]}}
     a.js("checkUpdate()"); a.page.wait_for_timeout(300)
-    check("'Update ready' chip when a newer version is published", "Update ready" in a.page.inner_text("#hero"))
+    check("the Update bar when a newer version is published (1.58.15: it replaced the chip)", "Update ready" in a.js("(document.getElementById('updBar') || {}).innerText || ''"))
     a.close()
 
 
@@ -4542,11 +4542,11 @@ def t_v150_store_mode_and_flash(b, base):
     print("\n[v1.50 Google Play store mode (no price / buy / Whop) + the flashing update chip]")
     a = App(b, base); setup(a)
     a.js("UPDATE = {version: '9.99', notes: {}}; render()")
-    check("update waiting: the top chip flashes (upd-flash) and still updates on tap", a.page.locator("#hero [data-update].upd-flash, [data-update].upd-flash").count() >= 1)
-    anim = a.js("getComputedStyle(document.querySelector('[data-update].upd-flash')).animationName")
-    check("...and it is really animated (updPulse)", "updPulse" in anim, anim)
+    check("update waiting: the Update bar shows and updates on tap (1.58.15: it replaced the flashing chip)", a.page.locator("#updBar[data-update]").count() == 1)
+    anim = a.js("getComputedStyle(document.getElementById('updBar')).animationName")
+    check("...and it is really animated (updGlow)", "updGlow" in anim, anim)
     a.js("UPDATE = null; render()")
-    check("no update: no flashing chip", a.page.locator("[data-update]").count() == 0)
+    check("no update: no bar, nothing to tap", a.page.locator("[data-update]").count() == 0)
     # web app in Chrome: buy buttons as before
     a.js("openSettings()")
     web = a.js("document.getElementById('proBox') ? document.getElementById('proBox').innerHTML : ''")

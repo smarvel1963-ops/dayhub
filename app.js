@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.58.14";
+const VERSION = "1.58.15";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -1672,7 +1672,7 @@ const noteForMe = x => { const m = String(x).match(/^[^A-Za-z]*((?:Day|Cruise|Tr
 async function checkUpdate() {
   try {
     const r = await fetch(new URL(`version.json?x=${Date.now()}`, BASE_URL), { cache: "no-store" });
-    if (!r.ok) return;
+    if (!r.ok) return false;
     const j = await r.json(); NOTES = j.notes || {};
     if (j.version && String(j.version).localeCompare(VERSION, undefined, { numeric: true }) > 0) {   // newer only: offline, a Hub's worker can hand back an older copy
       const first = !UPDATE; UPDATE = j; render();
@@ -1681,18 +1681,56 @@ async function checkUpdate() {
         notify(`✨ ${APP_NAME} update ready`, ((j.notes && j.notes[j.version] || []).filter(noteForMe).filter(playOk)[0] || "Tap to get the newest version."), "dh-update");
       }
     } else if (S.seenVersion !== VERSION) render();          // notes arrived: show WHAT'S NEW
-  } catch (e) { /* offline - try again later */ }
+    return true;
+  } catch (e) { return false; /* offline - try again later */ }
 }
 let UPDATING = false;
 async function applyUpdate() {
   if (UPDATING) return;
-  UPDATING = true; toast("Updating…");
+  UPDATING = true; paintUpd(); toast("Updating…");
   // A reload alone can reuse scripts from the browser's 10-minute cache, and then the button just comes back. Fetch this app's own files fresh first.
   const fresh = [...document.querySelectorAll("script[src], link[rel=stylesheet]")].map(el => el.src || el.href).filter(u => new URL(u).origin === location.origin)
     .map(u => fetch(u, { cache: "reload" }).then(r => r.ok).catch(() => false));
   const got = await Promise.race([Promise.all(fresh).then(l => l.every(Boolean)), new Promise(r => setTimeout(() => r(false), 8000))]);
-  if (!got) { UPDATING = false; toast("Weak signal: tap again when it's better"); return; }   // half new, half old files could break the app: stay as it is
+  if (!got) { UPDATING = false; paintUpd(); toast("Weak signal: tap again when it's better"); return; }   // half new, half old files could break the app: stay as it is
+  try { sessionStorage.setItem("dh.updated", (UPDATE && UPDATE.version) || ""); } catch (e) { /* private mode: no thank-you toast */ }
   location.reload();
+}
+// v1.58.15 (Scott 11/07: "need to show customer easily when to update make it really easy"). When a new version is waiting, ONE big
+// green bar sits on every screen - every tab, every full screen, every look, Simple mode - just above the tab bar (at the bottom when
+// there is none): "Update ready · Takes a few seconds. Your info stays. · Update now". The whole bar is the button. It replaced the small
+// chip only the front screen had. While it works it says "Updating…"; after the reload a toast says it worked (only when the new number
+// really arrived); ⚙ Settings shows the version with Update now or Check for updates. Nothing about HOW it updates changed (applyUpdate).
+let UPD_HTML = "";
+function paintUpd() {
+  let el = document.getElementById("updBar");
+  if (!UPDATE) { if (el) el.remove(); UPD_HTML = ""; document.body.classList.remove("upd-on"); return; }
+  if (!el) { el = document.createElement("button"); el.type = "button"; el.id = "updBar"; el.className = "upd-bar"; el.dataset.update = "1"; document.body.appendChild(el); UPD_HTML = ""; }
+  const h = UPDATING ? `<span class="upd-ic" aria-hidden="true">⏳</span><span class="upd-t"><b>Updating…</b><small>One moment. Your info stays.</small></span>`
+    : `<span class="upd-ic" aria-hidden="true">✨</span><span class="upd-t"><b>Update ready</b><small>Takes a few seconds. Your info stays.</small></span><span class="upd-go">Update now</span>`;
+  if (h !== UPD_HTML) { el.innerHTML = h; UPD_HTML = h; el.setAttribute("aria-label", UPDATING ? "Updating" : `Update ready: update ${APP_NAME} now`); }
+  el.classList.toggle("busy", UPDATING);
+  const tb = document.getElementById("tabbar"), r = tb && getComputedStyle(tb).display !== "none" && tb.getBoundingClientRect();
+  const lift = r && r.height > 0 && r.top < innerHeight ? Math.round(innerHeight - r.top) + 8 : 0;   // a full screen hides the tab bar: then the bottom
+  el.style.bottom = lift ? lift + "px" : "";
+  document.body.style.setProperty("--upd-h", (el.offsetHeight + 10) + "px");
+  document.body.classList.add("upd-on");
+}
+addEventListener("resize", () => paintUpd());
+function updDone() {
+  let v = null; try { v = sessionStorage.getItem("dh.updated"); sessionStorage.removeItem("dh.updated"); } catch (e) { /* private mode */ }
+  if (v !== null && (!v || String(VERSION).localeCompare(v, undefined, { numeric: true }) >= 0))
+    setTimeout(() => toast(`✅ Updated: you have the newest ${APP_NAME} (${VERSION})`), 600);
+}
+function verLine() {
+  const el = document.getElementById("ver"); if (!el) return;
+  el.innerHTML = `Version ${esc(VERSION)}. ${UPDATE ? `<button class="btn sm" data-update="1">✨ Update now</button>` : `<button class="btn sm ghost" data-updcheck="1">Check for updates</button>`}`;
+}
+async function updCheckNow() {
+  toast("Checking…");
+  const ok = await checkUpdate();
+  verLine();
+  toast(UPDATE ? "✨ Update ready: tap Update now" : ok ? `✓ You have the newest ${APP_NAME} (${VERSION})` : "No connection: try again in a bit");
 }
 // What's New reaches back over old releases, and the Play app shows no Pro or price words outside the unlock box.
 const playOk = x => !STORE_MODE || !/\bPro\b|whop|trial|\bsubscribe\b|\bupgrade to\b|\$\d/i.test(x);
@@ -3125,7 +3163,7 @@ function heroHtml() {
     if (d >= 0 && (uses || !STORE_MODE)) chips.unshift(`<button class="chip" data-open="sheet" data-prolapse="1">⏳ ${STORE_MODE ? `Calendar sync and backup end ${proEndsWhen(d)} on this phone` : `${esc(lapsedName(proEndsRec()))} ends ${proEndsWhen(d)}${uses ? " · renew to keep automatic syncing" : ""}`} · ⚙</button>`); }
   if (!TRAVEL && h >= 4 && h < 12 && (S.name || hasData(S))) chips.push(`<button class="chip" data-brief="open">☀️ Morning brief</button>`);
   // v1.50 (Scott 10/17: "when needed it should flash and draw attention to it"): the update chip pulses until tapped.
-  if (UPDATE) chips.unshift(`<button class="chip good upd-flash" data-update="1">✨ Update ready — tap to update</button>`);
+  // v1.58.15: an update waiting is no longer a chip here - one big bar sits on every screen instead (paintUpd)
   if (INSTALL_EVT && !standalone()) chips.push(`<button class="chip" data-install="1">📲 Install ${APP_NAME}</button>`);
 
 

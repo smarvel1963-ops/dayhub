@@ -6,6 +6,8 @@ update ready". A phone resumes an app left open on its old code, and version.jso
 says every push bumps the version; the 12 commits from 10/22 to 11/03 didn't, so no phone was told about any of them.
 Covers every Hub on the web and on Play, plus both new looks: Update ready is on the front screen with no scrolling, tapping it
 reloads, it stays away when nothing is new, What's New shows after updating, and this release's notes keep to the Play wording rule.
+1.58.15 (Scott 11/07: "need to show customer easily when to update make it really easy"): it is one big bar on every screen, above
+the tab bar, with Updating... while it works, an "Updated" toast after, and the version + Check for updates in Settings.
 
 RUN:   python tests/test_update_ready.py      (from C:/MarvelApps/dayhub)   Exit 0 = all passed.
 """
@@ -96,6 +98,74 @@ def main():
             w = a.js(WHERE)
             check(f"{nm} Simple mode: Update ready is on the front screen", bool(w) and w["shown"] and "Update ready" in w["text"] and w["top"] >= 0 and w["bottom"] <= w["h"], w)
             a.close()
+
+        print("\n[The Update bar (Scott 11/07: 'need to show customer easily when to update make it really easy')]")
+        BAR = """(() => { const e = document.getElementById('updBar'); if (!e || !e.offsetWidth) return null; const r = e.getBoundingClientRect(), t = document.getElementById('tabbar');
+          const tr = t && getComputedStyle(t).display !== 'none' && t.getBoundingClientRect().height ? t.getBoundingClientRect().top : null;
+          return { top: r.top, bottom: r.bottom, h: innerHeight, tab: tr, text: e.innerText }; })()"""
+        ok = lambda g: bool(g) and g["top"] >= 0 and g["bottom"] <= g["h"] and (g["tab"] is None or g["bottom"] <= g["tab"] + 1)
+        for path, nm in HUBS:
+            a = T.App(b, base, path=path); welcome(a)
+            a.ctx._version = {"version": "9.9", "notes": {"9.9": ["Test"]}}
+            a.js("checkUpdate()"); a.page.wait_for_timeout(300)
+            n = a.js("document.querySelectorAll('#tabbar button').length")
+            seen = []
+            for i in range(n or 1):
+                if n: a.page.locator("#tabbar button").nth(i).click(); a.page.wait_for_timeout(150); a.js("document.querySelectorAll('.sheet:not(.hidden)').forEach(s => s.classList.add('hidden'))")
+                seen.append(ok(a.js(BAR)))
+            check(f"{nm}: the Update bar is on every screen ({n or 1}), in full view, above the tab bar", all(seen), seen)
+            check(f"{nm}: one place only, no old chip", not a.js("!!document.querySelector('.chip[data-update]')"))
+            a.close()
+        for path, nm in ((T.TRIP + "?look=tiles", "Trip Hub new look"), (T.HOMEP + "?look=tiles", "Home Hub new look"), (T.CRUISE + "?look=tiles", "Cruise Hub new look")):
+            a = T.App(b, base, path=path); welcome(a)
+            a.ctx._version = {"version": "9.9", "notes": {"9.9": ["Test"]}}
+            a.js("shellGo('home'); checkUpdate()"); a.page.wait_for_timeout(300)
+            g = a.js(BAR)
+            check(f"{nm}: the bar sits just above its tab bar", ok(g) and g["tab"] is not None and g["tab"] - g["bottom"] < 20, g)
+            a.close()
+        a = T.App(b, base, path=T.HOMEP + "?look=tiles"); welcome(a)
+        a.ctx._version = {"version": "9.9", "notes": {"9.9": ["Test"]}}
+        a.js("shellGo('home'); HT_SCREEN = 'weather'; render(); checkUpdate()"); a.page.wait_for_timeout(300)
+        g = a.js(BAR)
+        check("a full screen with no tab bar (Home Hub's Weather): the bar sits at the bottom", a.js("document.body.dataset.htscreen") == "weather" and ok(g) and g["tab"] is None and g["h"] - g["bottom"] < 30, (a.js("document.body.dataset.htscreen"), g))
+        a.close()
+        a = T.App(b, base); welcome(a)
+        a.ctx._version = {"version": "9.9", "notes": {"9.9": ["Test"]}}
+        a.js("checkUpdate()"); a.page.wait_for_timeout(300)
+        g = a.js(BAR); fab = a.js("document.getElementById('fab').getBoundingClientRect().bottom")
+        check("it says it plainly: Update ready, your info stays, Update now", bool(g) and all(x in g["text"] for x in ("Update ready", "Your info stays", "Update now")), g)
+        check("the + button moves up out of its way", bool(g) and fab <= g["top"] + 1, (fab, g and g["top"]))
+        check("the page's last card can scroll clear of it", a.js("parseFloat(getComputedStyle(document.getElementById('cards')).marginBottom)") >= 60)
+        a.js("UPDATING = true; paintUpd()")
+        check("while it works the bar says Updating…", "Updating" in (a.js(BAR) or {}).get("text", ""))
+        a.js("UPDATING = false; paintUpd(); openSettings(); 0"); a.page.wait_for_timeout(150)
+        check("⚙ Settings: the version and an Update now button", "Version" in a.page.inner_text("#ver") and a.js("!!document.querySelector('#ver [data-update]')"), a.page.inner_text("#ver"))
+        a.js("closeSettings(); 0"); a.close()
+        a = T.App(b, base); welcome(a)
+        a.js("openSettings(); 0"); a.page.wait_for_timeout(150)
+        check("⚙ Settings, nothing new: Check for updates", a.js("!!document.querySelector('#ver [data-updcheck]')") and "Version" in a.page.inner_text("#ver"))
+        a.page.click("#ver [data-updcheck]"); a.page.wait_for_timeout(500)
+        check("...tapped: it says this is the newest", "newest" in a.page.inner_text("#toast"), a.page.inner_text("#toast"))
+        a.ctx._version = {"version": "9.9", "notes": {"9.9": ["Test"]}}
+        a.page.click("#ver [data-updcheck]"); a.page.wait_for_timeout(500)
+        check("...one waiting: it says so and the button becomes Update now", a.js("!!document.querySelector('#ver [data-update]')") and "Update ready" in a.page.inner_text("#toast"), a.page.inner_text("#toast"))
+        a.js("closeSettings(); 0"); a.close()
+        a = T.App(b, base); welcome(a)
+        a.ctx._version = {"version": "9.9", "notes": {"9.9": ["Test"]}}
+        a.js("checkUpdate()"); a.page.wait_for_timeout(300)
+        a.page.click("#updBar", force=True); a.page.wait_for_timeout(1500)
+        a.page.wait_for_function("typeof render === 'function'"); a.page.wait_for_timeout(900)
+        check("the new number didn't arrive: no 'Updated' toast (the bar comes back instead)", "Updated" not in a.page.inner_text("#toast"), a.page.inner_text("#toast"))
+        a.js("sessionStorage.setItem('dh.updated', VERSION)"); a.page.reload(); a.page.wait_for_function("typeof render === 'function'"); a.page.wait_for_timeout(1000)
+        check("it arrived: '✅ Updated: you have the newest'", "Updated" in a.page.inner_text("#toast"), a.page.inner_text("#toast"))
+        check("...said once (the mark is used up)", a.js("sessionStorage.getItem('dh.updated')") is None)
+        a.close()
+        a = T.App(b, base, path="/?src=play"); welcome(a)
+        a.ctx._version = {"version": "9.9", "notes": {"9.9": ["Test"]}}
+        a.js("checkUpdate()"); a.page.wait_for_timeout(300)
+        g = a.js(BAR)
+        check("Play app: the same bar, no Pro or price words on it", ok(g) and not __import__("re").search(T.PLAY_BAD[1:-2], g["text"], __import__("re").I), g)
+        a.close()
 
         print("\n[What's New reaches back over old releases: the Play app keeps to its wording rule]")
         OLD_NOTE = {"version": v, "notes": {v: ["A plain note"], "1.55": ["Cruise Hub Pro is $2.99/month with 30 days free"]}}

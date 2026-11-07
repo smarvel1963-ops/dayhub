@@ -1507,3 +1507,22 @@ body.hh .toast { bottom: 100px; }
 .hh-tiles3 { margin-top: 10px; } .hh-bars { margin-bottom: 10px; }
 .hh-apdate small { color: #fff !important; }
 .hh-sheet .field input, .hh-sheet .field select { min-width: 0; width: 100%; }
+/* v1.58.15 (Scott 11/07: "need to show customer easily when to update make it really easy"): the Update bar (app.js paintUpd). One big
+   green bar on every screen while a new version waits, above the tab bar (JS sets its bottom), the whole bar one button. Above the tab bar
+   and the + button, under every pop-up and the toast. The + button and the page's last card move up out of its way. */
+.upd-bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 26;
+  width: min(560px, calc(100% - 20px)); display: flex; align-items: center; gap: 10px; padding: 9px 9px 9px 13px; border: 2px solid #bbf7d0;
+  border-radius: 16px; cursor: pointer; text-align: left; font: inherit; color: #fff;
+  background: linear-gradient(90deg, #15803d, #22c55e, #15803d); background-size: 200% 100%;
+  animation: updGlow 1.6s ease-in-out infinite, updShine 2.6s linear infinite; }
+.upd-bar .upd-ic { flex: none; font-size: 26px; line-height: 1; }
+.upd-bar .upd-t { flex: 1; min-width: 0; }
+.upd-bar .upd-t b { display: block; font-size: 17px; font-weight: 800; line-height: 1.2; }
+.upd-bar .upd-t small { display: block; font-size: 13px; font-weight: 600; line-height: 1.25; opacity: .95; }
+.upd-bar .upd-go { flex: none; padding: 10px 14px; border-radius: 12px; background: #fff; color: #166534; font-size: 15px; font-weight: 800; white-space: nowrap; }
+.upd-bar.busy { animation: none; background: #15803d; cursor: progress; }
+@keyframes updGlow { 0%, 100% { box-shadow: 0 8px 22px rgba(0,0,0,.35), 0 0 0 0 rgba(134,239,172,.85); } 50% { box-shadow: 0 8px 22px rgba(0,0,0,.35), 0 0 0 9px rgba(134,239,172,0); } }
+@media (prefers-reduced-motion: reduce) { .upd-bar { animation: none; box-shadow: 0 8px 22px rgba(0,0,0,.35), 0 0 0 3px rgba(134,239,172,.6); } }
+body.upd-on #cards { margin-bottom: var(--upd-h, 80px); }
+body.upd-on .fab { translate: 0 calc(-1 * var(--upd-h, 80px)); }
+body.upd-on .toast { translate: 0 calc(-1 * var(--upd-h, 80px) + 40px); }
