@@ -161,7 +161,7 @@ def main():
             lines = a.js("[...document.querySelectorAll('.whatsnew .today-line')].map(el => el.textContent)")
             check(f"{nm}: no 'groundwork, nothing changes yet' line left over from 1.58.10", not any("groundwork" in ln for ln in lines), lines[:3])
             if nm == "Trip Hub":
-                check("Trip Hub: the card leads with this release's own note (Use my car)", bool(lines) and "Use my car" in lines[0], lines[:1])
+                check("Trip Hub: the card has its Use my car note (1.58.11)", any("Use my car" in ln for ln in lines), lines[:3])
             a.close()
         b.close()
     srv.shutdown()

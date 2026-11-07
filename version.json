@@ -1,6 +1,9 @@
 {
- "version": "1.58.11",
+ "version": "1.58.12",
  "notes": {
+  "1.58.12": [
+   "✈️ Trip Hub: behind-the-scenes work on a fresh new look, not switched on yet."
+  ],
   "1.58.11": [
    "☀️ Day Hub: With Auto Hub on this phone (Android), your Car card now shows the service and papers coming due on your car. Settings → Hub family turns it off.",
    "✈️ Trip Hub: Planning a road trip? \"Use my car\" fills in your real MPG and the last gas price you paid, from Auto Hub on this phone (Android).",

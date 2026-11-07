@@ -1,0 +1,236 @@
+/* SAVE AS: triptiles.css · LOCATION: C:/MarvelApps/dayhub/triptiles.css
+ * Trip Hub NEW LOOK, "Atlas" (Scott 11/06 board): parchment cards with brass edges, dark pine bars, serif titles, one orange route line,
+ * painted scenes behind every screen (../triphub/art/*.webp). Everything is under body.tt, which shell.js paintTabs sets only while
+ * the new look is on (triptiles.js ttOn). Without body.tt this file changes nothing. Built with the lessons of Cruise Hub's rounds:
+ * deep colour behind inner screens, no tab bar on full screens, the art to the bottom edge, big bold type, a back arrow on every title. */
+
+body.tt { --tt-pine: #16332e; --tt-pine2: #20473f; --tt-slate: #3d5a6c; --tt-parch: #f6ecd2; --tt-parch2: #ecdcb6; --tt-brass: #b8893b; --tt-brass2: #8a6424;
+  --tt-ink: #2b2416; --tt-ink2: #5a4a30; --tt-orange: #e8742a; --tt-cream: #fbf3dd; --tt-serif: Georgia, "Times New Roman", serif;
+  /* the app's own colour tokens re-pointed for parchment (under body.tt only) */
+  --card: rgba(250, 243, 224, .96); --card-solid: #f8efd8; --line: rgba(90, 70, 40, .2); --text: #2b2416; --dim: #6a5a3e; --muted: #6a5a3e;
+  --accent: #b5561a; --accent2: #20473f; --gold: #8a6424; --red: #b42318; --green: #2f6b2a; --orange: #b5561a;
+  color: var(--text); min-height: 100vh; background: none; }
+html:has(body.tt) { background: #16332e; }
+body.tt #hero { display: none !important; }                                 /* the new hero lives in #cards */
+body.tt #cards { padding-top: 0; }
+body.tt[data-tab="home"] #cards { display: flex; flex-direction: column; }
+body.tt[data-tab="home"] #cards > .tt-hero { order: -1; }                   /* above any what's-new banner */
+
+/* the painting sits on a fixed layer behind everything: a screen scrolls over it and it costs no re-layout */
+body.tt::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: url("../triphub/art/screen.webp") center bottom / cover no-repeat #e9dcbd; }
+body.tt[data-tab="home"]:not([data-ttscreen="timeline"]):not([data-ttscreen="bookings"]):not([data-ttscreen="things"])::before {
+  background: linear-gradient(180deg, rgba(14, 38, 34, .9) 0, rgba(14, 38, 34, .55) 7%, rgba(14, 38, 34, 0) 15%), url("../triphub/art/home.webp") center top / cover no-repeat #16332e; }
+body.tt.tt-noart::before { background: linear-gradient(180deg, #16332e 0, #20473f 30%, #e9dcbd 31%, #e9dcbd 100%); }
+body.tt.tt-noart[data-tab="home"]::before { background: linear-gradient(180deg, #20473f 0, #16332e 100%); }
+
+/* ---- top bar: compass · Trip Hub · settings */
+body.tt .tt-top { display: flex; align-items: center; gap: 10px; padding: calc(env(safe-area-inset-top) + 10px) 2px 6px; }
+body.tt .tt-logo { width: 44px; height: 44px; flex: none; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .35)); } body.tt .tt-logo svg { width: 100%; height: 100%; display: block; }
+body.tt .tt-brand { flex: 1; min-width: 0; color: var(--tt-cream); }
+body.tt .tt-brand b { display: block; font-family: var(--tt-serif); font-size: clamp(28px, 9vw, 36px); font-weight: 700; letter-spacing: -.01em; line-height: 1.05; text-shadow: 0 2px 8px rgba(0, 0, 0, .45); white-space: nowrap; }
+body.tt .tt-brand small { display: block; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .9; margin-top: 2px; }
+body.tt .tt-brand .offline-pill { display: inline-block; margin-top: 2px; color: #fff; }
+body.tt .tt-gear { position: relative; width: 44px; height: 44px; flex: none; border-radius: 50%; border: 1px solid rgba(251, 243, 221, .35); background: rgba(14, 38, 34, .35);
+  color: var(--tt-cream); display: grid; place-items: center; cursor: pointer; }
+body.tt .tt-gear svg { width: 25px; height: 25px; }
+body.tt .tt-band { margin: 0 -14px 10px; padding: 0 14px 8px; background: linear-gradient(180deg, #16332e, #20473f); border-bottom: 2px solid var(--tt-brass); box-shadow: 0 4px 14px rgba(0, 0, 0, .25);
+  column-span: all; -webkit-column-span: all; }
+body.tt .tt-band .tt-brand b { font-size: 24px; } body.tt .tt-band .tt-logo { width: 36px; height: 36px; }
+
+/* ---- HOME: the scene between the bar and My Trip, then the card and the twelve tiles on the dark pines */
+body.tt .tt-hero { margin: 0; padding: 0; }
+body.tt .tt-hero > .tt-stage, body.tt .tt-hero > button.tt-stage { margin-top: max(64px, calc(19vh - 62px)); }   /* the scene shows, and all twelve tiles still clear the tab bar */
+body.tt .tt-stage { display: block; width: 100%; border-radius: 18px; overflow: hidden; border: 2px solid var(--tt-brass); box-shadow: 0 10px 26px rgba(0, 0, 0, .35); background: var(--tt-parch); font: inherit; text-align: left; padding: 0; }
+body.tt .tt-card { display: flex; align-items: stretch; gap: 10px; width: 100%; padding: 14px 16px 12px; border: 0; cursor: pointer; font: inherit; text-align: left; color: var(--tt-ink);
+  background: linear-gradient(90deg, rgba(248, 239, 216, .93) 0, rgba(248, 239, 216, .82) 52%, rgba(248, 239, 216, .55) 100%), url("../triphub/art/card.webp") center / cover no-repeat var(--tt-parch); }
+body.tt button.tt-stage.tt-card { border: 2px solid var(--tt-brass); }
+body.tt.tt-noart .tt-card { background: var(--tt-parch); }
+body.tt .tt-cardtext { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+body.tt .tt-k { font-family: var(--tt-serif); font-size: 17px; font-weight: 700; color: var(--tt-ink2); }
+body.tt .tt-name { font-family: var(--tt-serif); font-size: clamp(21px, 6.4vw, 27px); font-weight: 700; line-height: 1.12; margin-top: 1px; overflow-wrap: anywhere; }
+body.tt .tt-sub { font-family: var(--tt-serif); font-size: 16px; color: var(--tt-ink2); margin-top: 3px; }
+body.tt .tt-big { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 92px; padding-left: 12px; border-left: 1.5px solid rgba(138, 100, 36, .35); text-align: center; }
+body.tt .tt-big b { font-family: var(--tt-serif); font-size: 54px; font-weight: 700; line-height: .95; color: var(--tt-ink); }
+body.tt .tt-big small { font-family: var(--tt-serif); font-size: 15px; font-weight: 700; color: var(--tt-ink2); margin-top: 3px; max-width: 120px; }
+body.tt .tt-home b { font-size: 40px; }
+body.tt .tt-leave { display: inline-block; width: fit-content; margin-top: 7px; padding: 4px 11px; border-radius: 999px; background: var(--tt-orange); color: #fff; font-size: 14px; font-weight: 800; box-shadow: 0 2px 6px rgba(181, 86, 26, .4); }
+body.tt .tt-next { display: block; margin-top: 6px; font-size: 14px; font-weight: 600; color: var(--tt-ink); }
+body.tt .tt-ready { display: block; width: 100%; padding: 9px 16px 11px; border: 0; border-top: 1.5px solid rgba(138, 100, 36, .3); background: rgba(251, 245, 228, .97); font: inherit; text-align: left; cursor: pointer; color: var(--tt-ink); }
+body.tt .tt-readyt { font-family: var(--tt-serif); font-size: 18px; font-weight: 700; } body.tt .tt-readyt b { font-weight: 700; }
+body.tt .tt-bar { display: block; height: 12px; margin-top: 6px; border-radius: 12px; background: rgba(90, 70, 40, .16); overflow: hidden; box-shadow: inset 0 1px 2px rgba(0, 0, 0, .15); }
+body.tt .tt-bar i { display: block; height: 100%; border-radius: 12px; background: linear-gradient(90deg, #f08a3c, #d8601c); }
+body.tt .tt-notices { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; }
+
+/* the twelve tiles: cream parchment, brass edge, a painted icon, a serif label */
+body.tt .tt-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin: 12px 0 4px; }
+body.tt .tt-tile { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 92px; padding: 7px 4px 8px; cursor: pointer; font: inherit; text-align: center;
+  border-radius: 15px; border: 2px solid var(--tt-brass); color: var(--tt-ink); background: linear-gradient(180deg, #fbf4df, #efe0bb);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, .3), inset 0 1px 0 rgba(255, 255, 255, .8); }
+body.tt .tt-tile .tt-ic { width: 48px; height: 48px; flex: none; display: block; }
+body.tt .tt-icimg { width: 100%; height: 100%; display: block; object-fit: contain; filter: drop-shadow(0 2px 2px rgba(60, 40, 10, .25)); }
+body.tt .tt-tile b { font-family: var(--tt-serif); font-size: 16px; font-weight: 700; line-height: 1.1; }
+body.tt .tt-tile small { font-size: 11.5px; font-weight: 600; color: var(--tt-ink2); line-height: 1.15; }
+body.tt .tt-main .tt-tile small { display: none; }
+body.tt .tt-main .tt-tile.need small { display: block; color: #a8401a; font-size: 11px; }   /* a tile that needs something first says so (it opens Bookings) */
+body.tt .tt-tile:active { transform: scale(.97); }
+body.tt .tt-ways .card { background: var(--tt-parch); border: 2px solid var(--tt-brass); border-radius: 18px; }
+body.tt .tt-below { margin-top: 18px; }
+body.tt button.tt-big-btn { display: block; width: 100%; padding: 15px 16px; border: 2px solid #f3b27a; border-radius: 16px; cursor: pointer; font: inherit; font-size: 17px; font-weight: 800; letter-spacing: .02em; color: #fff;
+  background: linear-gradient(135deg, #f08a3c, #c95a1a); box-shadow: 0 8px 18px rgba(0, 0, 0, .3); }
+body.tt .tt-phase { margin-top: 12px; }
+body.tt .tt-needs { margin-top: 12px; padding: 8px 12px 6px; border-radius: 18px; border: 2px solid var(--tt-brass); background: var(--tt-parch); color: var(--tt-ink); }
+body.tt .tt-needs h4 { margin: 4px 2px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--tt-ink2); }
+body.tt .tt-need { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 2px; border: 0; border-top: 1px solid rgba(90, 70, 40, .18); background: none; font: inherit; font-size: 15px; font-weight: 600; color: var(--tt-ink); text-align: left; cursor: pointer; }
+body.tt .tt-need:first-of-type { border-top: 0; } body.tt .tt-need .grow { flex: 1; min-width: 0; } body.tt .tt-need .chev { color: var(--tt-brass2); font-size: 20px; }
+body.tt .tt-need small { display: block; font-size: 12.5px; font-weight: 500; color: var(--tt-ink2); margin-top: 2px; }
+body.tt .tt-nextup { padding: 10px 2px 8px; border-top: 1px solid rgba(90, 70, 40, .18); font-size: 14px; font-weight: 600; color: var(--tt-ink); }
+body.tt .tt-nextup:first-child { border-top: 0; }
+body.tt .tt-nextup span { font-size: 11px; font-weight: 800; letter-spacing: .08em; color: #b5561a; margin-right: 8px; }
+
+/* ---- the tab bar: dark pine, brass edge, cream line icons, the chosen one orange */
+body.tt #tabbar { background: rgba(18, 44, 39, .97); border-top: 2px solid var(--tt-brass); box-shadow: 0 -8px 24px rgba(0, 0, 0, .35); backdrop-filter: blur(10px); }
+body.tt #tabbar button { color: #f2e6c6; font-weight: 700; font-family: var(--tt-serif); font-size: 13px; }
+body.tt #tabbar button span { display: flex; justify-content: center; } body.tt #tabbar button svg { width: 25px; height: 25px; }
+body.tt #tabbar button.on { color: #ff9a4d; background: rgba(255, 154, 77, .12); }
+body.tt:not([data-ttscreen=""]) #tabbar { display: none; }                  /* full screens: a back arrow, no tab bar (his board) */
+body.tt:not([data-ttscreen=""]) .fab { display: none; }                     /* they have their own + in the title bar */
+body.tt .fab { background: linear-gradient(135deg, #f08a3c, #c95a1a); color: #fff; border: 2px solid #f3b27a; }
+body.tt:not([data-ttscreen=""]) #cards > .whatsnew, body.tt:not([data-ttscreen=""]) #cards > .future-banner { display: none; }
+
+/* ---- full screens: a dark pine title bar, the painting to the bottom edge */
+body.tt .tt-screen { column-span: all; -webkit-column-span: all; }
+body.tt .tt-title { display: flex; align-items: center; gap: 6px; margin: 0 -14px 12px; padding: calc(env(safe-area-inset-top) + 8px) 10px 10px; color: var(--tt-cream);
+  background: linear-gradient(180deg, #16332e, #20473f); border-bottom: 2px solid var(--tt-brass); box-shadow: 0 4px 14px rgba(0, 0, 0, .25);
+  font-family: var(--tt-serif); font-size: clamp(22px, 7vw, 28px); font-weight: 700; line-height: 1.1; }
+body.tt .tt-title .grow { flex: 1; min-width: 0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.tt .tt-titleic { display: inline-block; width: 32px; height: 32px; vertical-align: -7px; margin-right: 8px; }
+body.tt .tt-title .offline-pill { display: block; font-family: Inter, sans-serif; font-size: 12px; margin-top: 2px; }
+body.tt .tt-back, body.tt .tt-plus { width: 44px; height: 44px; flex: none; border: 0; background: none; color: var(--tt-cream); font: inherit; cursor: pointer; line-height: 1; }
+body.tt .tt-back { font-size: 44px; font-weight: 400; padding: 0 0 6px; margin-left: -4px; }
+body.tt .tt-plus { font-size: 30px; font-weight: 600; } body.tt .tt-titlepad { width: 44px; flex: none; }
+body.tt .tt-artgap { height: 30vh; column-span: all; -webkit-column-span: all; }
+body.tt.tt-noart .tt-artgap { height: 14px; }
+
+/* ---- cards, sheets, inputs and buttons on parchment */
+body.tt .card { background: var(--card) url("../triphub/art/parchment.webp") center / 420px auto; border: 1.5px solid #c9a865; border-radius: 16px; box-shadow: 0 6px 16px rgba(60, 40, 10, .2); color: var(--text); }
+body.tt.tt-noart .card { background: var(--card); }
+body.tt .card h3 { font-family: var(--tt-serif); color: var(--tt-pine); font-size: 19px; }
+body.tt .card h3 .ci, body.tt .tl-row .tl-ic { background: #efe0bb; }
+body.tt .sheet-body { background: #f8efd8 url("../triphub/art/parchment.webp") center top / 520px auto; color: var(--text); border: 2px solid var(--tt-brass); border-bottom: 0; }
+body.tt.tt-noart .sheet-body { background: #f8efd8; }
+body.tt .sheet-head h2 { font-family: var(--tt-serif); color: var(--tt-pine); }
+body.tt .sheet .icon-btn { color: var(--tt-ink); background: #fbf4df; border-color: rgba(138, 100, 36, .45); font-weight: 700; }
+body.tt .grab { background: rgba(90, 70, 40, .3); }
+body.tt input, body.tt select, body.tt textarea { background: #fffaf0; color: var(--text); border-color: rgba(138, 100, 36, .4); }
+body.tt input:focus, body.tt select:focus, body.tt textarea:focus { border-color: #b5561a; box-shadow: 0 0 0 3px rgba(232, 116, 42, .22); }
+body.tt input[type=date], body.tt input[type=time] { color-scheme: light; }
+body.tt .btn:not(.ghost):not(.on), body.tt .seg button.on, body.tt .gbar span { background: linear-gradient(135deg, #f08a3c, #c95a1a); color: #fff; border-color: transparent; }
+body.tt .btn.ghost { background: #fbf4df; color: var(--tt-ink); border-color: rgba(138, 100, 36, .45); }
+body.tt .seg button:not(.on), body.tt .chip:not(.good):not(.warn):not(.on):not(.upd-flash) { background: #f3e6c4; color: var(--text); border-color: rgba(138, 100, 36, .3); }
+body.tt .chip.good { background: #dcefd2; border-color: #9cc78a; color: #23461c; }
+body.tt .chip.warn { background: #fbe0d4; border-color: #e8a084; color: #7a2410; }
+body.tt .chip.on, body.tt .tab.on { background: var(--tt-pine); color: var(--tt-cream); border-color: var(--tt-pine); }
+body.tt .add-link { color: #a8501a; }
+body.tt .big-btn { background: linear-gradient(135deg, #f08a3c, #c95a1a); color: #fff; border: 2px solid #f3b27a; }
+body.tt input[type=checkbox].tick:not(:checked) { border-color: rgba(90, 70, 40, .5); background: #fffaf0; }
+body.tt input[type=checkbox].tick { position: relative; }
+body.tt input[type=checkbox].tick::after { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; }
+body.tt .tile { background: #f6ecd2; border: 1.5px solid #c9a865; color: var(--tt-ink); }
+body.tt .tile.on { background: var(--tt-pine); color: var(--tt-cream); border-color: var(--tt-pine); }
+body.tt .hour, body.tt .fact { background: #f1e4c4; }
+body.tt .bar, body.tt .gbar { background: rgba(90, 70, 40, .14); }
+body.tt .ring { background: conic-gradient(var(--green) calc(var(--p) * 1%), rgba(90, 70, 40, .16) 0); }
+body.tt .tag { background: var(--tt-orange); color: #fff; }
+body.tt .leave-line { border-left: 4px solid var(--tt-orange); background: rgba(232, 116, 42, .1); border-radius: 6px; padding: 6px 10px; }
+body.tt .refund-add, body.tt .split-item { flex-wrap: wrap; }
+body.tt .split-item .grow { flex: 1 0 100%; } body.tt .split-item select { flex: 1 1 40%; min-width: 0; }
+
+/* ---- TRIP TIMELINE: one orange route line down the left, a parchment card per day, an orange dot on each */
+body.tt .timeline .body { position: relative; padding-left: 24px; }
+body.tt .timeline .body::before { content: ""; position: absolute; left: 13px; top: 18px; bottom: 18px; width: 4px; border-radius: 4px; background: linear-gradient(180deg, #f08a3c, #d8601c); }
+body.tt .timeline .tl-row { position: relative; margin: 0 0 8px; padding: 10px 12px; border: 1.5px solid #d8bf86; border-radius: 13px; background: #fbf4df; box-shadow: 0 3px 8px rgba(60, 40, 10, .14); }
+body.tt .timeline .tl-row::before { content: ""; position: absolute; left: -19px; top: 50%; width: 14px; height: 14px; margin-top: -7px; border-radius: 50%; background: #fff7ea; border: 3.5px solid var(--tt-orange); box-sizing: border-box; }
+body.tt .timeline .tl-row.now { border-color: var(--tt-orange); box-shadow: 0 0 0 2px rgba(232, 116, 42, .35), 0 3px 8px rgba(60, 40, 10, .14); }
+body.tt .timeline .tl-row.now::before { background: var(--tt-orange); }
+body.tt .timeline .tl-row b { font-family: var(--tt-serif); font-size: 17px; }
+body.tt .timeline .tl-row .sub { color: var(--tt-ink2); }
+body.tt .tl-row.now .tl-ic { background: #fde3cc; }
+body.tt .timeline h3 { display: none; }                                    /* the title bar already says Trip Timeline */
+body.tt[data-ttscreen="timeline"] .timeline { background: none; border: 0; box-shadow: none; }
+
+/* ---- TRIP MONEY: three boxes, what it adds up to, who owes whom, the spending pace */
+body.tt .tt-money { margin-bottom: 10px; column-span: all; -webkit-column-span: all; }
+body.tt .tt-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+body.tt .tt-stats > div { padding: 11px 4px 12px; border-radius: 15px; text-align: center; border: 2px solid var(--tt-brass); background: linear-gradient(180deg, #fbf4df, #efe0bb); box-shadow: 0 4px 10px rgba(60, 40, 10, .18); }
+body.tt .tt-stats .paid { background: linear-gradient(180deg, #eef6df, #cfe6b5); } body.tt .tt-stats .left { background: linear-gradient(180deg, #fff6ec, #f6d9c4); }
+body.tt .tt-stats small { display: block; font-family: var(--tt-serif); font-size: 14.5px; font-weight: 700; color: var(--tt-ink2); }
+body.tt .tt-stats b { display: block; font-family: var(--tt-serif); font-size: clamp(16px, 6vw, 25px); font-weight: 700; color: var(--tt-ink); margin-top: 3px; white-space: nowrap; letter-spacing: -.01em; }
+body.tt .tt-stats.mid b { font-size: clamp(14px, 4.7vw, 20px); } body.tt .tt-stats.tiny b { font-size: clamp(12px, 3.8vw, 16px); }
+body.tt .tt-stats .paid b { color: #2f6b2a; } body.tt .tt-stats .left b { color: #a8401a; }
+body.tt .tt-due { display: flex; align-items: center; gap: 12px; margin-top: 9px; padding: 10px 14px; border-radius: 15px; border: 1.5px solid #d8bf86; background: #fbf4df; color: var(--tt-ink); font-size: 16px; }
+body.tt .tt-due b { display: block; font-weight: 800; } body.tt .tt-due small { display: block; font-size: 13px; color: var(--tt-ink2); margin-top: 1px; }
+body.tt .tt-due.soon { background: #fdf0d9; border-color: #e9b46a; } body.tt .tt-due.late { background: #fbe0d4; border-color: #e8a084; }
+body.tt .tt-mlist, body.tt .tt-split, body.tt .tt-pulse, body.tt .tt-nextstop { border: 2px solid var(--tt-brass); border-radius: 15px; background: #fbf4df; box-shadow: 0 4px 10px rgba(60, 40, 10, .16); color: var(--tt-ink); }
+body.tt .tt-mlist { margin-top: 9px; padding: 2px 14px; }
+body.tt .tt-mrow { display: flex; align-items: center; gap: 11px; width: 100%; padding: 9px 0; border: 0; border-top: 1px solid rgba(90, 70, 40, .18); background: none; font: inherit; font-size: 17px; font-weight: 600; color: var(--tt-ink); text-align: left; }
+body.tt .tt-mrow:first-child { border-top: 0; } body.tt .tt-mrow .grow { flex: 1; min-width: 0; } body.tt .tt-mrow b { font-family: var(--tt-serif); font-size: 18px; font-weight: 700; white-space: nowrap; }
+body.tt .tt-mrow small { display: block; font-size: 12.5px; font-weight: 500; color: var(--tt-ink2); }
+body.tt .tt-mempty { padding: 12px 2px; font-size: 15px; color: var(--tt-ink2); }
+body.tt .tt-mic { display: inline-block; width: 28px; height: 28px; flex: none; } body.tt .tt-mic.big { width: 44px; height: 44px; }
+body.tt button.tt-splitrow { margin-top: 9px; padding: 9px 14px; border: 2px solid var(--tt-brass); border-radius: 15px; background: #fbf4df; box-shadow: 0 4px 10px rgba(60, 40, 10, .16); cursor: pointer; }
+body.tt .tt-splitrow .chev, body.tt .tt-split .chev, body.tt .tt-pulse .chev, body.tt .tt-nextstop .chev { font-size: 26px; color: var(--tt-brass2); }
+body.tt .tt-split { display: block; width: 100%; margin-top: 9px; padding: 8px 14px 10px; font: inherit; text-align: left; cursor: pointer; }
+body.tt .tt-splith { display: flex; align-items: center; justify-content: space-between; font-family: var(--tt-serif); font-size: 19px; }
+body.tt .tt-person { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid rgba(90, 70, 40, .15); font-size: 16px; font-weight: 600; }
+body.tt .tt-person .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } body.tt .tt-person small { font-size: 15px; font-weight: 700; color: var(--tt-ink2); white-space: nowrap; }
+body.tt .tt-ini { display: grid; place-items: center; width: 30px; height: 30px; flex: none; border-radius: 50%; color: #fff; font-style: normal; font-weight: 800; font-size: 15px; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); }
+body.tt .tt-ini.c0 { background: #2f5d8a; } body.tt .tt-ini.c1 { background: #3f7a35; } body.tt .tt-ini.c2 { background: #6b3f8f; } body.tt .tt-ini.c3 { background: #b5561a; }
+body.tt .tt-splitopen { display: block; margin-top: 4px; font-size: 13px; color: #a8401a; font-weight: 700; }
+body.tt .tt-pulse, body.tt .tt-nextstop { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 9px; padding: 10px 14px; font: inherit; text-align: left; cursor: pointer; }
+body.tt .tt-pulse .grow, body.tt .tt-nextstop .grow { flex: 1; min-width: 0; }
+body.tt .tt-pulse b, body.tt .tt-nextstop b { display: block; font-family: var(--tt-serif); font-size: 19px; font-weight: 700; } body.tt .tt-pulse small, body.tt .tt-nextstop small { display: block; font-size: 14px; color: var(--tt-ink2); }
+body.tt .tt-dot { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 50%; color: #fff; font-weight: 800; } body.tt .tt-dot.ok { background: #3f7a35; } body.tt .tt-dot.warn { background: #c95a1a; }
+
+/* ---- TRIP MAP: the real map in a brass frame, the route and the pins orange */
+body.tt .tt-nextstop { margin: 0 0 10px; column-span: all; -webkit-column-span: all; }
+body.tt .trip-map { border: 2px solid var(--tt-brass); border-radius: 14px; overflow: hidden; }
+body.tt .trip-map .leaflet-interactive { stroke: #e8742a; stroke-opacity: .95; stroke-width: 4px; }
+body.tt .map-pin span { background: #e8742a; color: #fff; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .35); }
+body.tt .map-n { background: #e8742a; color: #fff; }
+
+/* ---- MORE: group names on a pine pill, tiles with a line under the name */
+body.tt .tt-more-h { display: table; margin: 16px 2px 8px; padding: 4px 12px; border-radius: 999px; background: var(--tt-pine); color: var(--tt-cream); font-family: var(--tt-serif); font-size: 14px; font-weight: 700; letter-spacing: .03em; }
+body.tt .tt-more { margin-top: 0; }
+body.tt .tt-more .tt-tile { min-height: 96px; } body.tt .tt-more .tt-tile .tt-ic { width: 42px; height: 42px; } body.tt .tt-more .tt-tile b { font-size: 15px; }
+
+/* ---- the pop-ups: Help keeps its own buttons, coloured; a booking's leave time stands out */
+body.tt #helpSheet .help-btn { border-radius: 15px; border: 2px solid rgba(255, 255, 255, .55); color: #fff; background: var(--tt-slate); box-shadow: 0 5px 12px rgba(0, 0, 0, .22); }
+body.tt #helpSheet .help-btn[data-help="medical"] { background: linear-gradient(135deg, #c8352b, #9b1f17); }
+body.tt #helpSheet .help-btn[data-help="travel"] { background: linear-gradient(135deg, #e8742a, #b5561a); }
+body.tt #helpSheet .help-btn[data-fixopen] { background: linear-gradient(135deg, #2f7a6c, #1f5a4f); }
+body.tt #helpSheet .help-btn[data-help="docs"] { background: linear-gradient(135deg, #6b3f8f, #4c2a69); }
+body.tt #helpSheet .help-btn[data-help="get"], body.tt #helpSheet .help-btn[data-help="back"] { background: linear-gradient(135deg, #2f5d8a, #1f4266); }
+body.tt #helpSheet .help-btn[data-help="contacts"] { background: #fbf4df; color: var(--tt-ink); border-color: var(--tt-brass); }
+body.tt #bookSheet .leave-line b { color: #a8401a; font-size: 17px; }
+/* his board's big time: the first row (Departs / Check-in / Pick up ...) reads large; the words are trip.js's own */
+body.tt #bookSheet .sheet-head + .fine + .row .sub { font-family: var(--tt-serif); font-size: 24px; font-weight: 700; color: var(--tt-ink); line-height: 1.15; margin-top: 2px; }
+body.tt #bookSheet .foot-actions .btn { min-height: 44px; padding: 10px 16px; font-size: 15px; }
+/* a painted band across the top of the booking, road-trip and hotel pop-ups (the jet has no markings; Real photo off drops them) */
+body.tt #bookSheet .sheet-body::before, body.tt #driveSheet .sheet-body::before, body.tt #hotelSheet .sheet-body::before {
+  content: ""; display: block; height: 116px; margin: -10px -18px 8px; border-radius: 24px 24px 0 0; border-bottom: 2px solid var(--tt-brass); background: center 55% / cover no-repeat #c9b98f; }
+body.tt #bookSheet .sheet-body::before { background-image: url("../triphub/art/booking.webp"); }
+body.tt #driveSheet .sheet-body::before { background-image: url("../triphub/art/road.webp"); }
+body.tt #hotelSheet .sheet-body::before { background-image: url("../triphub/art/lodge.webp"); background-position: center 40%; }
+body.tt.tt-noart #bookSheet .sheet-body::before, body.tt.tt-noart #driveSheet .sheet-body::before, body.tt.tt-noart #hotelSheet .sheet-body::before { display: none; }
+body.tt #wrapSheet .wrap-stat { background: #f1e4c4; border: 1.5px solid #d8bf86; }
+
+@media (min-width: 700px) { body.tt .tt-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* tablets: the cards sit in two columns; the look's own blocks go across both */
+body.tt .tt-hero, body.tt .tt-notices, body.tt .tt-grid, body.tt .tt-below, body.tt .tt-more-h, body.tt .tt-ways, body.tt .tt-needs { column-span: all; -webkit-column-span: all; }
+@media (prefers-reduced-motion: reduce) { body.tt .tt-tile:active { transform: none; } }
+/* shorter phones: the twelve tiles still reach the first screen */
+@media (max-height: 760px) and (max-width: 599px) {
+  body.tt .tt-hero > .tt-stage, body.tt .tt-hero > button.tt-stage { margin-top: 40px; }
+  body.tt .tt-main .tt-tile { min-height: 76px; } body.tt .tt-main .tt-tile .tt-ic { width: 40px; height: 40px; } body.tt .tt-big b { font-size: 44px; }
+}

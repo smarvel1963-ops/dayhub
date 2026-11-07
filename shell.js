@@ -4,7 +4,8 @@
  * ... its position never changes. Only its job changes.").
  *
  * On for Cruise Hub and Trip Hub (SHELL_MODES, Trip Hub v0.97). Day Hub keeps its cards - except on a phone with its
- * new look on (daytiles.js, Day Hub's own 5 tabs; switch OFF, 11/01).
+ * new look on (daytiles.js, Day Hub's own 5 tabs; switch OFF, 11/01). Trip Hub's new look (triptiles.js, switch OFF, 11/06) keeps
+ * the five keys and gives them its own names: Home | Plan | Map | Money | More.
  * A regular (non-cruise) trip gets trip words - no ship, ports or all aboard.
  *   HOME    - what matters right now: the hero, at most 3 RIGHT NOW items, NEXT UP,
  *             and the big contextual button.
@@ -130,6 +131,7 @@ function bubblesHtml(items) {
 function homeHtml() {
   if (S.simple) return simpleHomeHtml();                                    // v0.62 simple mode
   if (typeof ctOn === "function" && ctOn()) return ctHomeHtml();           // Cruise Hub new look (cruisetiles.js, switch OFF)
+  if (typeof ttOn === "function" && ttOn()) return ttHomeHtml();           // Trip Hub new look (triptiles.js, switch OFF)
   const tr = curTrip(), items = rightNow(tr), nx = nextUp(), bb = bigButton(tr);
   if (!tr) return MODE === "trip" ? addTripHtml() : addCruiseHtml();       // v0.60 no cruise / trip yet: the ways in
   const [bi, bl] = splitIcon(bb.label);                                     // the big button's job = the hot bubble
@@ -184,6 +186,7 @@ function shellHtml(cardHtml) {
   if (atLook()) return atShellHtml(cardHtml);                              // Auto Hub new look (autotiles.js, switch OFF)
   if (dtLook()) return dtShellHtml(cardHtml);                              // Day Hub new look (daytiles.js, switch OFF)
   if (typeof ctOn === "function" && ctOn()) return ctShellHtml(cardHtml);  // Cruise Hub new look (cruisetiles.js, switch OFF)
+  if (typeof ttOn === "function" && ttOn()) return ttShellHtml(cardHtml);  // Trip Hub new look (triptiles.js, switch OFF)
   if (TAB === "home") return homeHtml();
   if (TAB === "explore") return exploreHtml(cardHtml);
   if (TAB === "ai") return aiTabHtml();
@@ -192,14 +195,14 @@ function shellHtml(cardHtml) {
 }
 function paintTabs() {
   let nav = document.getElementById("tabbar");
-  if (!shellOn()) { if (nav) nav.remove(); document.body.classList.remove("shell", "ct", "dt", "at"); return; }
+  if (!shellOn()) { if (nav) nav.remove(); document.body.classList.remove("shell", "ct", "dt", "at", "tt"); return; }
   if (!nav) { nav = document.createElement("nav"); nav.id = "tabbar"; nav.setAttribute("aria-label", "Main"); document.body.appendChild(nav); }
-  const ct = typeof ctOn === "function" && ctOn(), dt = dtLook(), at = atLook();          // the new looks: their own labels + icons
+  const ct = typeof ctOn === "function" && ctOn(), dt = dtLook(), at = atLook(), tt = typeof ttOn === "function" && ttOn();   // the new looks: their own labels + icons
   if (dt && !DT_TABS.some(t => t[0] === TAB)) TAB = "home";               // Day Hub's tabs aren't Cruise Hub's
   if (at && !AT_TABS.some(t => t[0] === TAB)) TAB = "home";               // Auto Hub's tabs are its own
   document.body.classList.add("shell"); document.body.dataset.tab = TAB; document.body.classList.toggle("simple", !!S.simple);
-  document.body.classList.toggle("ct", ct); document.body.classList.toggle("dt", dt); document.body.classList.toggle("at", at);
-  nav.innerHTML = (at ? AT_TABS : ct ? CT_TABS : dt ? DT_TABS : SHELL_TABS).map(([k, ic, l]) => `<button class="${k === TAB ? "on" : ""}" data-shellgo="${k}" aria-current="${k === TAB ? "page" : "false"}"><span>${ic}</span>${l}</button>`).join("");
+  document.body.classList.toggle("ct", ct); document.body.classList.toggle("dt", dt); document.body.classList.toggle("at", at); document.body.classList.toggle("tt", tt);
+  nav.innerHTML = (at ? AT_TABS : ct ? CT_TABS : tt ? TT_TABS : dt ? DT_TABS : SHELL_TABS).map(([k, ic, l]) => `<button class="${k === TAB ? "on" : ""}" data-shellgo="${k}" aria-current="${k === TAB ? "page" : "false"}"><span>${ic}</span>${l}</button>`).join("");
 }
 // Clicks that move between tabs (data-shellgo), optionally landing on a trips-card tab or list.
 function shellClick(ds) {
