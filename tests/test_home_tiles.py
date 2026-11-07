@@ -107,6 +107,12 @@ def test_home(b, base):
     bottom = a.js("Math.max(...[...document.querySelectorAll('.ht-main .ht-tile')].map(e => e.getBoundingClientRect().bottom))")
     bar = a.js("document.getElementById('tabbar').getBoundingClientRect().top")
     check("all twelve tiles on the first screen of a 390x844 phone", bottom <= bar + 1, (bottom, bar))
+    a.js("window.scrollTo(0, 0)"); a.page.wait_for_timeout(100)
+    top = a.js("document.querySelector('.ht-house').getBoundingClientRect().top")
+    bg = a.js("getComputedStyle(document.body, '::before').backgroundImage")
+    pos = a.js("getComputedStyle(document.body, '::before').backgroundPosition.split(',').pop().trim()")   # the picture's layer is the last
+    check("the house shows under the title (Scott 11/07): the picture moves up, Your House starts on the lawn",
+          top >= 240 and "home.webp" in bg and pos.split()[-1].startswith("-"), (top, pos))
     below = a.page.inner_text(".ht-below")
     check("Coming up one scroll down, from the rooms and the Upkeep list", a.js("document.querySelectorAll('.ht-below .ht-row').length") == 4 and "Test smoke alarm" in below and "Trash day" in below, below[:200])
     a.js("WXDATA.here.days[1].lo = 27; render()"); a.page.wait_for_timeout(150)
@@ -237,12 +243,14 @@ def test_safety(b, base):
     a.js("S.photo = false; save(); HT_ART_ASKED = false; render()"); a.page.wait_for_timeout(150)
     a.js("shellGo('rooms')"); a.page.wait_for_timeout(150)
     check("Real photo off: no pictures (rooms show their icons)", a.js("document.body.classList.contains('ht-noart')") and a.js("document.querySelectorAll('.ht-space .ht-spimg').length") == 0 and a.js("document.querySelectorAll('.ht-space .ht-spic').length") >= 12)
+    a.js("shellGo('home')"); a.page.wait_for_timeout(150)
+    check("Real photo off: Home has no house picture either", "home.webp" not in a.js("getComputedStyle(document.body, '::before').backgroundImage"))
     a.ctx.close()
     for path, nm in (("/", "Day Hub"), (T.TRIP, "Trip Hub"), (T.AUTOP, "Auto Hub")):
         x = T.App(b, base, path=path); x.js("localStorage.setItem('homehub.look', 'tiles')"); x.page.reload(); x.page.wait_for_function("typeof render === 'function'")
         check(f"{nm} never gets it", x.js("typeof htOn") == "undefined" and not x.js("document.body.classList.contains('ht')"))
         x.ctx.close()
-    for w, h in ((360, 740), (320, 640), (820, 1180)):
+    for w, h in ((360, 740), (320, 640), (360, 780), (384, 854), (412, 915), (820, 1180)):
         a = home(b, base, width=w, height=h)
         wide = []
         for go in ("home", "rooms", "upkeep", "money", "more"):
@@ -252,6 +260,10 @@ def test_safety(b, base):
             a.js(f"HT_SCREEN = '{sc}'; render()"); a.page.wait_for_timeout(80)
             if a.js("document.documentElement.scrollWidth > window.innerWidth + 1"): wide.append(sc)
         check(f"{w}x{h}: nothing runs off the side on any screen", not wide, wide)
+        if w < 700 and h >= 740:                                   # a 320x640 phone scrolls for the last row, as it always has
+            a.js("HT_SCREEN = null; shellGo('home'); window.scrollTo(0, 0)"); a.page.wait_for_timeout(120)
+            bot = a.js("Math.max(...[...document.querySelectorAll('.ht-main .ht-tile')].map(e => e.getBoundingClientRect().bottom))")
+            check(f"{w}x{h}: all twelve tiles on the first screen", bot <= a.js("document.getElementById('tabbar').getBoundingClientRect().top") + 1, bot)
         if w == 820:
             a.js("HT_SCREEN = null; shellGo('more')"); a.page.wait_for_timeout(120)
             lefts = a.js("[...document.querySelectorAll('.ht-more')].map(e => Math.round(e.getBoundingClientRect().left))")

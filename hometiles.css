@@ -139,6 +139,17 @@ body.ht .hos-ring b, body.ht .hpv b { color: var(--ht-ink); }
 
 @media (min-width: 700px) { body.ht .ht-grid, body.ht .ht-spaces { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) { body.ht .ht-tile:active { transform: none; } }
+/* Scott 11/07: "drop down text a little so can see house pic". Phones: the picture moves up so the house sits under the title, Your House
+   drops down onto the lawn, the tiles are a little shorter, so all twelve still fit on the first screen. Short phones (the rule below) keep the
+   compact layout; Real photo off keeps its plain green (:not(.ht-noart)). */
+@media (max-width: 599px) {
+  body.ht:not(.ht-noart)[data-tab="home"][data-htscreen=""]::before { background: linear-gradient(180deg, rgba(20, 34, 26, .85) 0, rgba(20, 34, 26, .3) 8%, rgba(20, 34, 26, 0) 14%),
+    linear-gradient(180deg, rgba(21, 48, 30, 0) 0, rgba(21, 48, 30, 0) 67vh, #15301e 81vh), url("../homehub/art/home.webp") center -19vh / max(100vw, 55.8vh) auto no-repeat #15301e; }
+  body.ht .ht-house { margin-top: clamp(56px, calc(100vh - 646px), calc(31vh - 62px)); }
+  body.ht .ht-house h3 { padding: 6px 14px; } body.ht .ht-housebody { padding: 7px 14px 8px; }
+  body.ht .ht-main.ht-grid { gap: 8px; } body.ht .ht-main .ht-tile { min-height: 76px; } body.ht .ht-main .ht-tile .ht-ic { width: 36px; height: 36px; }
+}
+@media (max-width: 379px) { body.ht .ht-house { margin-top: clamp(56px, calc(100vh - 680px), calc(31vh - 62px)); } }   /* narrow: more lines wrap */
 @media (max-height: 760px) and (max-width: 599px) {
   body.ht .ht-house { margin-top: 36px; } body.ht .ht-main .ht-tile { min-height: 72px; } body.ht .ht-main .ht-tile .ht-ic { width: 32px; height: 32px; }
 }
