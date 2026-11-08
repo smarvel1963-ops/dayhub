@@ -33,7 +33,7 @@ body.fhapp .cards > .card:not(.fh-hello) { background: linear-gradient(160deg, #
 .fh-badge { position: absolute; top: -2px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; display: inline-grid; place-items: center;
   background: #ff3b5c; color: #fff; font-size: .68rem; font-weight: 900; font-style: normal; line-height: 1; box-shadow: 0 0 0 2px #fff; }
 h3 .fh-badge, .fhm-thread .fh-badge { position: static; margin-left: 6px; box-shadow: none; vertical-align: middle; }
-.fh-hello2 { position: relative; min-height: 200px; border-radius: 22px; padding: 16px 16px 14px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; overflow: hidden;
+.fh-hello2 { position: relative; min-height: min(74vw, 300px); border-radius: 22px; padding: 16px 16px 14px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; overflow: hidden;
   background: #8fd0ff url("../familyhub/art/home.webp") center 62% / cover; box-shadow: 0 10px 24px rgba(15,47,122,.22); }
 .fh-hello2 h1 { margin: 0; font-size: 1.75rem; line-height: 1.12; font-weight: 900; color: var(--navy); text-shadow: 0 0 10px #fff, 0 0 3px #fff; }
 .fh-hello2 small { font-weight: 800; color: var(--navy); background: rgba(255,255,255,.8); border-radius: 10px; padding: 2px 8px; }

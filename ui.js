@@ -2035,6 +2035,6 @@ checkUpdate();
 setInterval(checkUpdate, 30 * 60000);
 setInterval(() => { if (S.mail.on && mReady()) scanMail(); }, 20 * 60000);
 checkReminders();
-if (!RENEWING) { syncOnOpen(true); maybeBrief(); }
+if (!RENEWING) { syncOnOpen(true); maybeBrief(); hubPanOpen(); }     // v1.59.2 opens on the art, then glides to the useful part
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { if (autoRenew()) return; recheckPro(); VIEW = today(); render(); checkReminders(); syncOnOpen(); maybeBrief(); hcLoad(); } });
 if ("serviceWorker" in navigator) navigator.serviceWorker.register(new URL("sw.js", HOME_URL)).catch(() => {});

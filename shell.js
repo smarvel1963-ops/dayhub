@@ -365,3 +365,56 @@ function hosOrbit(center, items) {
     return `<button class="hos-bub" ${it.attr} style="left:${(50 + 38 * Math.cos(a)).toFixed(1)}%;top:${(50 + 38 * Math.sin(a)).toFixed(1)}%;--tone:${it.tone};--d:${(i * 0.37).toFixed(2)}s" aria-label="${esc(it.label)}${it.val ? ": " + esc(it.val) : ""}">
       <span class="hos-ic" aria-hidden="true">${esc(it.icon)}</span><b>${esc(it.label)}</b>${it.val ? `<small>${esc(it.val)}</small>` : ""}${it.badge ? `<i class="hos-badge">${esc(it.badge)}</i>` : ""}</button>`; }).join("")}</div>`;
 }
+
+// ------------------------------------------------------------ THE OPENING (v1.59.2, every Hub and every look; Scott 11/08: "we need the pretty parts of opening
+// screen to show then pan to bottom half of screen you use", "that first page look makes or breaks the app", "all our apps"). The Hub opens at the top on its art,
+// holds, then glides down to the part you use. Never under someone's fingers: any touch, scroll or key stops it, and it waits while something is open on top.
+const HUB_PAN_HOLD = 1800, HUB_PAN_GLIDE = 1100, HUB_PAN_AWAY = 10 * 60000;
+const HUB_PAN_TO = [".fh-faces2", ".ct-main", ".tt-main", ".ht-main", ".mt-grid", ".hw-grid", ".at-next", ".dt-home"];   // where the useful part starts in each new look; the classic look = the first card
+let HP_T = 0, HP_RAF = 0, HP_LIVE = false, HP_AWAY = 0;
+function hubPanY() {                                                          // 0 = stay put (a setup screen, an update note to read, a page too short to move)
+  const cards = document.getElementById("cards"), hero = document.getElementById("hero"); if (!cards || (typeof TAB !== "undefined" && TAB !== "home")) return 0;
+  if (cards.querySelector(".welcome, .whatsnew, form[data-setup], form[data-fhsetup]")) return 0;
+  const el = HUB_PAN_TO.map(s => cards.querySelector(s)).find(Boolean) || (hero && hero.offsetHeight > 40 ? cards : null); if (!el) return 0;
+  const bar = cards.querySelector(".fh-topbar"), probe = document.createElement("div");
+  probe.style.cssText = "position:fixed;top:0;height:env(safe-area-inset-top,0px);visibility:hidden"; document.body.appendChild(probe); const safe = probe.offsetHeight; probe.remove();
+  const y = el.getBoundingClientRect().top + window.scrollY - (bar ? bar.offsetHeight : safe) - 12, y2 = Math.min(y, document.documentElement.scrollHeight - window.innerHeight);
+  return y2 >= 24 ? Math.round(y2) : 0;
+}
+function hubPanClear() {                                                      // nothing on top of the Home screen, nobody typing
+  const el = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2), a = document.activeElement;
+  return !!el && !!el.closest("#cards, #hero") && !(a && /INPUT|SELECT|TEXTAREA/.test(a.tagName));
+}
+function hubPanStop() {
+  clearTimeout(HP_T); cancelAnimationFrame(HP_RAF); HP_RAF = 0; if (!HP_LIVE) return; HP_LIVE = false;
+  ["touchstart", "pointerdown", "wheel", "keydown"].forEach(e => window.removeEventListener(e, hubPanHands, true));
+}
+function hubPanHands() { if (hubPanClear() || HP_RAF) hubPanStop(); }          // a tap on something open on top (the morning brief) isn't a tap on Home: the glide still comes after it closes
+function hubPanGlide(y) {
+  const t0 = performance.now(), from = window.scrollY;
+  const step = now => { const k = Math.min(1, Math.max(0, (now - t0) / HUB_PAN_GLIDE)), e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+    window.scrollTo(0, from + (y - from) * e); if (k < 1) HP_RAF = requestAnimationFrame(step); else { HP_RAF = 0; hubPanStop(); } };
+  HP_RAF = requestAnimationFrame(step);
+}
+function hubPanStart(hold) {
+  hubPanStop();
+  if (!switchOn("HUB_PAN") || (navigator.webdriver && !window.__HUB_PAN) || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) return;
+  HP_LIVE = true; ["touchstart", "pointerdown", "wheel", "keydown"].forEach(e => window.addEventListener(e, hubPanHands, { capture: true, passive: true }));
+  let waits = 0, waited = false;
+  const fire = () => {
+    if (window.scrollY > 30) { hubPanStop(); return; }                        // they've already moved
+    if (!hubPanClear()) { waited = true; if (++waits > 120) hubPanStop(); else HP_T = setTimeout(fire, 700); return; }
+    if (waited) { waited = false; HP_T = setTimeout(fire, 700); return; }    // it just closed: a moment to see the art
+    const y = hubPanY(); if (y) hubPanGlide(y); else hubPanStop();
+  };
+  HP_T = setTimeout(fire, hold);
+}
+function hubPanOpen() {
+  const go = () => hubPanStart(HUB_PAN_HOLD);
+  if (document.readyState === "complete") go(); else window.addEventListener("load", go, { once: true });   // after the art has loaded
+  document.addEventListener("visibilitychange", () => {                       // coming back to the app after a while counts as opening it
+    if (document.hidden) { HP_AWAY = Date.now(); hubPanStop(); return; }
+    if (HP_AWAY && Date.now() - HP_AWAY >= HUB_PAN_AWAY && hubPanClear() && hubPanY()) { window.scrollTo(0, 0); hubPanStart(HUB_PAN_HOLD); }
+    HP_AWAY = 0;
+  });
+}

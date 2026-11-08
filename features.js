@@ -30,6 +30,7 @@ const SWITCHES = Object.freeze({
   CHALLENGES: false,  // Health Hub friend step challenges (Scott 10/17: "step competitions against friends"). OFF until the relay has a "challenge" task.
   FAMILY_SYNC: true,  // Family Hub sharing between phones (Scott 10/25: "A - use Firebase free plan"; 11/07 "Phase B: all phones"). Needs the Firestore rules published.
   FAMILY_PASS: true,  // ON 2026-11-08 (Scott "Yes, build it"). Family Hub: $25 once, Whop prod_uPpRIheUlmL76, relay v19. OFF = no Buy button and nothing pauses after the trial.
+  HUB_PAN: true,      // ON 2026-11-08 (Scott: "all our apps"). Every Hub opens on its art, then glides down to the part you use (shell.js). OFF = opens at the top and stays.
   MONEY_PASS: true,   // ON 2026-10-18 (Scott "relay done"). Money Hub Pro $2.99/mo, 30-day trial, Whop prod_xg2i3uygnEw5s; relay v18 PASSES moneyhub; Day Hub Pro also unlocks it. Free = 3 accounts, no CSV / Reports.
   HOME_VALUE: true,   // ON 2026-10-14 (Scott: "get it done"). Home Hub "Hub Predicted Value" card (homevalue.js), Redfin ZIP data in hpv/.
 });
