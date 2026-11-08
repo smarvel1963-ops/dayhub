@@ -28,6 +28,7 @@ const SWITCHES = Object.freeze({
   AUTO_PASS: true,    // ON 2026-10-14 (Scott "yes do 1-5"). Whop "Auto Hub Pro" prod_JZvlJLr71aVz4 $2.99/mo, 30-day trial; relay v14 (deploy 19). Free = 1 car.
   UNIVERSE_PASS: false, // Hub Universe Pro - one membership, Pro in every hub (Scott 10/17 "yes to hub universe pro"). OFF until Scott sets the price + Whop product.
   CHALLENGES: false,  // Health Hub friend step challenges (Scott 10/17: "step competitions against friends"). OFF until the relay has a "challenge" task.
+  FAMILY_SYNC: true,  // Family Hub sharing between phones (Scott 10/25: "A - use Firebase free plan"; 11/07 "Phase B: all phones"). Needs the Firestore rules published.
   MONEY_PASS: true,   // ON 2026-10-18 (Scott "relay done"). Money Hub Pro $2.99/mo, 30-day trial, Whop prod_xg2i3uygnEw5s; relay v18 PASSES moneyhub; Day Hub Pro also unlocks it. Free = 3 accounts, no CSV / Reports.
   HOME_VALUE: true,   // ON 2026-10-14 (Scott: "get it done"). Home Hub "Hub Predicted Value" card (homevalue.js), Redfin ZIP data in hpv/.
 });

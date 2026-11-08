@@ -27,8 +27,9 @@ const UNI_HUBS = [
   ["trip", "triphub.v1", "Trip Hub", "✈️", "#a855f7", () => TRIP_URL, "Travel", uniTrips],
   ["cruise", "cruisehub.v1", "Cruise Hub", "🚢", "#06b6d4", () => CRUISE_URL, "Travel", uniTrips],
   ["health", "healthhub.v1", "Health Hub", "❤️", "#2dd4bf", () => HEALTHHUB_URL, "Wellness", uniHealth],   // v1.53 app #8
+  ["family", "familyhub.v1", "Family Hub", "👨‍👩‍👧", "#2e86de", () => FAMILYHUB_URL, "Everyday", uniFamily],   // v1.59 app #9
 ];
-const UNI_SOON = ["🐾 Pet Hub", "👨‍👩‍👧 Family Hub"];    // shown faint under the orbits: more planets coming
+const UNI_SOON = ["🐾 Pet Hub"];    // shown faint under the orbits: more planets coming
 let UNI_OPEN = null, UNI_CACHE = null;
 if (typeof document !== "undefined" && typeof MODE !== "undefined" && MODE === "universe") document.body.classList.add("uniapp");   // hides the Day Hub ＋ button
 
@@ -109,6 +110,19 @@ function uniHealth(t) {
     branches: [["💊", "Meds", D.length ? `${taken}/${D.length} taken` : "none"], ["💧", "Water", `${w}/${g.water}`], ["👟", "Steps", st ? st.toLocaleString("en-US") : "log"],
       ["🌙", "Sleep", sl ? `${hhFmtH(sl.hrs)}` : "log"], ["❤️", "Vitals", V.bp ? `${V.bp.sys}/${V.bp.dia}` : "log"], ["🩺", "Visits", ap.length ? prettyDate(ap[0].date) : "none"]] };
 }                                                // which hub uniTrips is reading (trip / cruise share it)
+
+// v1.59 FAMILY HUB: today's events, chores waiting for a parent's OK - asked with family.js's own helpers (adults-only stays
+// hidden for a kid's view, a hidden birthday stays hidden). Its UNI_HUBS row went in with the release that published /familyhub/.
+function uniFamily(t) {
+  if (typeof fhSet !== "function" || !fhSet()) return { set: false };
+  const ev = fhDay(t).filter(x => x.e), ch = fhChoresOn(t), done = ch.filter(x => x.st === "done" || x.st === "ok").length, wait = fhWaiting(), nb = fhBdays()[0], now = nowT();
+  const items = ev.filter(x => !x.time || x.time >= now).slice(0, 4).map(x => uniItem("family", fhKind(x.e.kind)[1], x.e.title, x.time ? hm(x.time) : "today", t, false, "#ff6b8b"))
+    .concat(wait.slice(0, 3).map(w => uniItem("family", "🙋", `${fhName(w.c.who)}: ${w.c.title}`, "waiting for your OK", t, false, "#feca57")));
+  const open = fh().lists.reduce((n, l) => n + l.items.filter(i => !i.done).length, 0);
+  return { set: true, val: ev.length ? `${ev.length} today` : ch.length ? `${done}/${ch.length} chores` : "all clear", badge: wait.length || "", items,
+    branches: [["📅", "Today", ev.length ? `${ev.length} on it` : "free"], ["✅", "Chores", ch.length ? `${done}/${ch.length}` : "none"], ["🛒", "Lists", open ? `${open} to get` : "all set"],
+      ["👨‍👩‍👧", "Family", String(fhMembers().length)], ["🎂", "Birthday", nb ? (nb.days === 0 ? "today!" : `${nb.m.name} ${nb.days}d`) : "add"]] };
+}
 
 // Every hub's summary, once per render.
 function uniScan() {

@@ -478,6 +478,7 @@ function welcomeHtml() {
   if (MODE === "home" && typeof homeSetupHtml === "function") return homeSetupHtml();   // v1.25 Home Hub: set up your home
   if (MODE === "auto" && typeof autoSetupHtml === "function") return autoSetupHtml();
   if (MODE === "health" && typeof hhSetupHtml === "function") return hhSetupHtml();     // v1.53 Health Hub
+  if (MODE === "family" && typeof fhSetupHtml === "function") return fhSetupHtml();     // v1.59 Family Hub
   if (MODE === "money" && typeof mhSetupHtml === "function") return mhSetupHtml();     // v1.42 Money Hub   // v1.35 Auto Hub: add your first car
   // v0.45: Cruise Hub greets as itself and has no profession packs.
   return `<section class="card welcome"><h2>${TRAVEL ? `Welcome to ${APP_NAME} ${MODE === "cruise" ? "🚢" : "✈️"}` : "Welcome to Day Hub 👋"}</h2>
@@ -634,6 +635,7 @@ const HUBS = [
   { id: "moneyhub", name: "Money Hub", icon: "💰", what: "Bills, budget, debt payoff and what's left after payday.", url: MONEYHUB_URL },   // v1.42 COMING SOON; open since v1.49 (Scott 10/17 "go")
   { id: "hubuniverse", name: "Hub Universe", icon: "🌌", what: "Every Hub app on your phone in one place - what needs you across all of them.", url: UNIVERSE_URL },   // v1.52
   { id: "healthhub", name: "Health Hub", icon: "❤️", what: "Meds, appointments, blood pressure, sleep, water and steps - your wellness command center.", url: HEALTHHUB_URL },   // v1.53
+  { id: "familyhub", name: "Family Hub", icon: "👨‍👩‍👧", what: "The family calendar, messages, chores, lists, photos and the family tree - on everyone's phone.", url: FAMILYHUB_URL },   // v1.59 app #9 (published with this release)
 ];
 function hubRows() {
   const sd = sibData();
@@ -745,8 +747,8 @@ function render() {
     document.getElementById("cards").innerHTML = (TAB === "home" ? futureBanner() + whatsNewHtml() : "") + shellHtml(cardHtml);
     tick(); return;
   }
-  document.getElementById("cards").innerHTML = futureBanner() + whatsNewHtml() + (MODE === "home" ? (typeof homeSet === "function" && homeSet() ? homeDashHtml() : welcomeHtml()) : MODE === "auto" ? (typeof autoSet === "function" && autoSet() ? autoDashHtml() : welcomeHtml()) : MODE === "money" ? (typeof mhSet === "function" && mhSet() ? mhDashHtml() : welcomeHtml()) : MODE === "universe" ? (typeof uniHomeHtml === "function" ? uniHomeHtml() : "") : MODE === "health" ? (typeof hhSet === "function" && hhSet() ? hhDashHtml() : welcomeHtml()) : !S.city && !S.name ? welcomeHtml() : dayHubHomeHtml(order)) + cards +
-    (MODE === "universe" || MODE === "health" ? "" : `<button class="add-link arrange-link" data-arrange="1">↕ Arrange my screen</button>`);
+  document.getElementById("cards").innerHTML = futureBanner() + whatsNewHtml() + (MODE === "home" ? (typeof homeSet === "function" && homeSet() ? homeDashHtml() : welcomeHtml()) : MODE === "auto" ? (typeof autoSet === "function" && autoSet() ? autoDashHtml() : welcomeHtml()) : MODE === "money" ? (typeof mhSet === "function" && mhSet() ? mhDashHtml() : welcomeHtml()) : MODE === "universe" ? (typeof uniHomeHtml === "function" ? uniHomeHtml() : "") : MODE === "health" ? (typeof hhSet === "function" && hhSet() ? hhDashHtml() : welcomeHtml()) : MODE === "family" ? (typeof fhSet === "function" && fhSet() ? fhDashHtml() : welcomeHtml()) : !S.city && !S.name ? welcomeHtml() : dayHubHomeHtml(order)) + cards +
+    (MODE === "universe" || MODE === "health" || MODE === "family" ? "" : `<button class="add-link arrange-link" data-arrange="1">↕ Arrange my screen</button>`);
   tick();
 }
 
@@ -1364,6 +1366,7 @@ document.addEventListener("submit", e => {
   if (typeof autoSubmit === "function" && autoSubmit(f, data)) return;     // v1.35 auto.js
   if (typeof mhSubmit === "function" && mhSubmit(f, data)) return;         // v1.42 money.js
   if (typeof hhSubmit === "function" && hhSubmit(f, data)) return;         // v1.53 health.js
+  if (typeof fhSubmit === "function" && fhSubmit(f, data)) return;         // v1.59 family.js
   if (f.dataset.setup) {
     S.name = (data.name || "").trim(); S.city = (data.city || "").trim(); S.pack = data.pack || "general";
     save(); WXDATA = null; render(); loadWeather(); toast("You're all set ✓"); return;
@@ -1556,6 +1559,7 @@ document.addEventListener("click", e => {
   if (typeof autoClick === "function" && autoClick(ds)) return;              // v1.35 auto.js
   if (typeof mhClick === "function" && mhClick(ds)) return;                  // v1.42 money.js
   if (typeof hhClick === "function" && hhClick(ds)) return;                  // v1.53 health.js
+  if (typeof fhClick === "function" && fhClick(ds)) return;                  // v1.59 family.js
   if (typeof cruiseClick === "function" && cruiseClick(ds)) return;          // v0.56 cruise.js
   if (ds.cd) { showReady(); return; }
   if (ds.rg) { showGuard(); return; }
@@ -1886,7 +1890,7 @@ function unlockPro(buyer) {
 // phone only, to try a feature before it goes on for everyone (features.js).
 let OWNER_OPEN = false, VER_TAPS = [];
 const OWNER_ROWS = [["PRO_GATE", "Pro gate — free vs Pro"], ["AI_PUBLIC", "AI for Whop-key holders"], ["GMAIL", "Gmail → plans"],
-  ["STORE", "Google Play link"], ["CRUISE_PASS", "Cruise Hub Pass ($9.99/yr)"], ["TRIP_PASS", "Trip Hub Pass ($9.99/yr)"], ["AI_CREDITS", "Hub AI Credits (packs)"], ["HOME_VALUE", "Home Hub: Hub Predicted Value"], ["AUTO_PASS", "Auto Hub Pro ($2.99/mo)"], ["MONEY_PASS", "Money Hub Pro ($2.99/mo)"], ["CHALLENGES", "Health Hub: friend step challenges"], ["OWNER", "Count this phone as Pro"]];
+  ["STORE", "Google Play link"], ["CRUISE_PASS", "Cruise Hub Pass ($9.99/yr)"], ["TRIP_PASS", "Trip Hub Pass ($9.99/yr)"], ["AI_CREDITS", "Hub AI Credits (packs)"], ["HOME_VALUE", "Home Hub: Hub Predicted Value"], ["AUTO_PASS", "Auto Hub Pro ($2.99/mo)"], ["MONEY_PASS", "Money Hub Pro ($2.99/mo)"], ["CHALLENGES", "Health Hub: friend step challenges"], ["FAMILY_SYNC", "Family Hub: sharing between phones"], ["OWNER", "Count this phone as Pro"]];
 // v0.46 HUB FAMILY (Scott 10/4): separate apps that work together. The steps
 // are in the box (Scott 10/2: every setting carries its own easy setup).
 // The switch for another Hub's trips, and how to link two phones that keep apps apart.

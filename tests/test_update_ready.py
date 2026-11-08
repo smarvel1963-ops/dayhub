@@ -191,7 +191,7 @@ def main():
         a.close()
 
         print("\n[The real worker on each Hub: one shared address, and every Hub's cache holds ../dayhub/ files]")
-        for path, key in (("/", "dayhub"), (T.CRUISE, "cruisehub"), (T.TRIP, "triphub"), (T.HOMEP, "homehub"), (T.AUTOP, "autohub"), (T.MONEYP, "moneyhub"), (T.HEALTHP, "healthhub"), (T.UNIP, "hubuniverse")):
+        for path, key in (("/", "dayhub"), (T.CRUISE, "cruisehub"), (T.TRIP, "triphub"), (T.HOMEP, "homehub"), (T.AUTOP, "autohub"), (T.MONEYP, "moneyhub"), (T.HEALTHP, "healthhub"), (T.UNIP, "hubuniverse"), (T.FAMILYP, "familyhub")):
             srv2, base2 = T.serve()                                   # its own server, so "offline" can really mean the network is gone
             ctx = b.new_context()
             ctx.add_init_script("if (self.caches && !sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', 1); caches.open('other-v1').then(c => c.put(new URL('/dayhub/app.js', location.href), new Response('window.__WRONG = 1;', { headers: { 'Content-Type': 'text/javascript' } }))); caches.open('%s-v0'); }" % key)

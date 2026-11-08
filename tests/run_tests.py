@@ -36,6 +36,7 @@ TRIP = "/../triphub/"         # Trip Hub's own address (v0.97, app #3)
 HOMEP = "/../homehub/"        # Home Hub's own address (v1.25, app #4)
 UNIP = "/../hubuniverse/"      # Hub Universe (v1.52, app #7)
 HEALTHP = "/../healthhub/"     # Health Hub (v1.53, app #8)
+FAMILYP = "/../familyhub/"     # Family Hub (v1.59, app #9)
 MONEYP = "/../moneyhub/"      # Money Hub's own address (v1.42, app #6)
 AUTOP = "/../autohub/"        # Auto Hub's own address (v1.35, app #5)
 
@@ -1248,7 +1249,7 @@ def t_v039_short_home(b, base):
 def t_v040_switches(b, base):
     print("\n[v0.40 switchboard: everything OFF by default, owner switches, Pro key, legal pages, manifest]")
     a = App(b, base); setup(a)
-    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), PRO_LAPSE on (11/1), CRUISE_PASS on (10/7), TRIP_PASS + AI_CREDITS on (10/11), MONEY_PASS on (10/18), GMAIL + STORE + UNIVERSE_PASS + CHALLENGES OFF", a.js("SWITCHES.CHALLENGES === false && SWITCHES.PRO_GATE === true && SWITCHES.PRO_LAPSE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && SWITCHES.AI_CREDITS === true && SWITCHES.HOME_VALUE === true && SWITCHES.AUTO_PASS === true && SWITCHES.MONEY_PASS === true && SWITCHES.UNIVERSE_PASS === false && Object.keys(SWITCHES).join() === 'PRO_GATE,TRAVEL_CAL,PRO_LAPSE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS,AI_CREDITS,AUTO_PASS,UNIVERSE_PASS,CHALLENGES,MONEY_PASS,HOME_VALUE'"))
+    check("switchboard: PRO_GATE + AI_PUBLIC on (10/3), PRO_LAPSE on (11/1), CRUISE_PASS on (10/7), TRIP_PASS + AI_CREDITS on (10/11), MONEY_PASS on (10/18), FAMILY_SYNC on (11/07 Phase B), GMAIL + STORE + UNIVERSE_PASS + CHALLENGES + TRAVEL_CAL OFF", a.js("SWITCHES.CHALLENGES === false && SWITCHES.PRO_GATE === true && SWITCHES.PRO_LAPSE === true && SWITCHES.AI_PUBLIC === true && !SWITCHES.GMAIL && !SWITCHES.STORE && SWITCHES.CRUISE_PASS === true && SWITCHES.TRIP_PASS === true && SWITCHES.AI_CREDITS === true && SWITCHES.HOME_VALUE === true && SWITCHES.AUTO_PASS === true && SWITCHES.MONEY_PASS === true && SWITCHES.UNIVERSE_PASS === false && SWITCHES.FAMILY_SYNC === true && Object.keys(SWITCHES).join() === 'PRO_GATE,TRAVEL_CAL,PRO_LAPSE,AI_PUBLIC,GMAIL,STORE,CRUISE_PASS,TRIP_PASS,AI_CREDITS,AUTO_PASS,UNIVERSE_PASS,CHALLENGES,FAMILY_SYNC,MONEY_PASS,HOME_VALUE'"))
     check("plan: approved price, contact, Whop checkout", a.js("PLAN.MONTHLY") == "$4.99/month" and a.js("PLAN.YEARLY") == "$29.99/year" and a.js("PLAN.CONTACT_EMAIL") == "smarvel1963@gmail.com" and a.js("PLAN.WHOP_CHECKOUT_URL") == "https://whop.com/commander-marvel-por-picks/day-hub-pro")
     check("PRO_GATE on, free phone: Pro features locked, free ones open", a.js("!['ai','gcal','mail','sync'].some(can) && ['reminders','budget'].every(can)"))
     a.page.click("#settingsBtn")
@@ -1575,7 +1576,7 @@ def t_v050_countdown_family(b, base):
     # hub family card: last, lists the others (Trip Hub listed 10/11 - no COMING SOON)
     check("Hub family card is the last card", a.js("cardOrder().slice(-1)[0]") == "family")
     f = a.card("family")
-    check("family card: Day Hub + Trip Hub + Home Hub + Auto Hub with Open (Auto Hub listed v1.38), Money Hub open too (v1.49), not itself", "Day Hub" in f and "Trip Hub" in f and f.count("COMING SOON") == 0 and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/moneyhub/\"]')") and "Money Hub" in f and "Auto Hub" in f and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/autohub/\"]')") and "Home Hub" in f and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/homehub/\"]')") and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/triphub/\"]')") and "Cruise Hub" not in f.split("Day Hub")[0] and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/dayhub/\"]')"), f[:300])
+    check("family card: Day Hub + Trip Hub + Home Hub + Auto Hub with Open (Auto Hub listed v1.38), Money Hub open too (v1.49), not itself", "Day Hub" in f and "Trip Hub" in f and (f.count("COMING SOON") == 0 or (f.count("COMING SOON") == 1 and "Family Hub" in f)) and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/moneyhub/\"]')") and "Money Hub" in f and "Auto Hub" in f and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/autohub/\"]')") and "Home Hub" in f and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/homehub/\"]')") and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/triphub/\"]')") and "Cruise Hub" not in f.split("Day Hub")[0] and a.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/dayhub/\"]')"), f[:300])
     a.close()
     a = App(b, base)
     setup(a)
@@ -3705,7 +3706,7 @@ def t_v125_home_hub(b, base):
     a = App(b, base)
     setup(a)
     f = a.js("hubRows()")
-    check("Day Hub lists Home Hub and Auto Hub with Open buttons (v1.33 / v1.38), nothing COMING SOON (Money Hub open v1.49)", "Home Hub" in f and f.count("COMING SOON") == 0 and "Auto Hub" in f and 'href="' + a.js("HOMEHUB_URL") + '"' in f, f[:400])
+    check("Day Hub lists Home Hub and Auto Hub with Open buttons (v1.33 / v1.38), nothing COMING SOON but Family Hub until it publishes (Money Hub open v1.49)", "Home Hub" in f and (f.count("COMING SOON") == 0 or (f.count("COMING SOON") == 1 and "Family Hub" in f)) and "Auto Hub" in f and 'href="' + a.js("HOMEHUB_URL") + '"' in f, f[:400])
     check("Day Hub never runs home.js (not loaded, its screen unchanged)", a.js("typeof homeClick") == "undefined" and a.js("MODE") == "day")
     a.close()
 
@@ -4153,7 +4154,7 @@ def t_v142_money_hub(b, base):
     a.close()
     d = App(b, base)
     f = d.card("family")
-    check("Day Hub's family card: Money Hub with an Open button (v1.49, Scott 10/17 'go')", "Money Hub" in f and f.count("COMING SOON") == 0 and d.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/moneyhub/\"]')"), f[:400])
+    check("Day Hub's family card: Money Hub with an Open button (v1.49, Scott 10/17 'go')", "Money Hub" in f and (f.count("COMING SOON") == 0 or (f.count("COMING SOON") == 1 and "Family Hub" in f)) and d.js("!!document.querySelector('[data-card=\"family\"] a[href$=\"/moneyhub/\"]')"), f[:400])
     d.close()
 
 
@@ -5177,6 +5178,158 @@ def t_v109_port_wx_alerts(b, base):
     a.close()
 
 
+def t_v159_family_hub(b, base):
+    print("\n[v1.59 Family Hub: app #9 at /familyhub/ - setup, members + roles, calendar repeats + adults-only, chores -> OK -> allowance, lists, to-do board, PIN, guests, emergency card, Grandparent Mode, reminders, Ask]")
+    a = App(b, base, path=FAMILYP)
+    check("Family Hub: its own name, id and data", a.js("[MODE, APP_NAME, APP_ID, STORE, TRAVEL]") == ["family", "Family Hub", "familyhub", "familyhub.v1", False] and a.page.title() == "Family Hub")
+    check("first run: the Family Hub welcome (family name, your name, your face)", "Welcome to Family Hub" in a.page.inner_text("#cards") and a.page.locator("form[data-fhsetup] [name=fam]").count() == 1)
+    a.page.fill('form[data-fhsetup] [name=fam]', "The Marvel Family"); a.page.fill('form[data-fhsetup] [name=name]', "Scott")
+    a.page.click('form[data-fhsetup] button'); a.page.wait_for_function("S.fh && S.fh.setup")
+    if a.js("briefOpen()"): a.page.click('[data-brief="go"]')
+    check("setup: Scott is the owner and the one using this phone; 3 starter lists",
+          a.js("[fhMe().name, fhRole(), S.name, S.fh.name, S.fh.lists.map(l => l.name).join()]") == ["Scott", "owner", "Scott", "The Marvel Family", "Grocery,Household,School"])
+    check("home = Today (v2, Scott's board 1): the greeting, faces Scott + Add; bottom bar Today, Messages, Calendar, Family, More + a floating Add; no + button, no Arrange link; the Hub family card stays",
+          a.page.locator("#cards .fh-hello2").count() == 1 and a.js("[...document.querySelectorAll('#cards .fh-faces2 .fh-face b')].map(x => x.textContent).join()") == "Scott,Add"
+          and a.js("[...document.querySelectorAll('#fhNav button')].map(b => b.getAttribute('aria-label')).join()") == "Today,Messages,Calendar,Family,More,Add something"
+          and a.js("getComputedStyle(document.getElementById('fab')).display") == "none" and "Arrange my screen" not in a.page.inner_text("#cards") and "Hub family" in a.page.inner_text("#cards"))
+
+    def member(name, role, face, bday=""):
+        a.js("FH_EDIT = null; showFh('family')"); a.page.click('#fhSheet [data-fhmemnew]')
+        a.page.fill('#fhSheet form[data-fhmember] [name=name]', name); a.page.check(f'#fhSheet form[data-fhmember] input[name=face][value="{face}"]', force=True)
+        a.page.select_option('#fhSheet form[data-fhmember] [name=role]', role)
+        if bday: a.page.fill('#fhSheet form[data-fhmember] [name=bday]', bday)
+        a.page.click('#fhSheet form[data-fhmember] button.fh-go'); a.page.wait_for_timeout(100)
+    member("Dana", "adult", "👩"); member("Mia", "child", "👧", "2018-10-05"); member("Grandma", "guest", "👵")
+    ids = a.js("Object.fromEntries(fhMembers().map(m => [m.name, m.id]))")
+    def use(name, pin=None):
+        a.js("FH_EDIT = null; FH_PIN_FOR = null; showFh('who')"); a.page.click(f'#fhSheet [data-fhuse="{ids[name]}"]'); a.page.wait_for_timeout(80)
+        if pin is not None:
+            a.page.fill('#fhSheet form[data-fhpinchk] [name=pin]', pin); a.page.click('#fhSheet form[data-fhpinchk] button.fh-go'); a.page.wait_for_timeout(80)
+    check("members with roles, each in their own color", a.js("fhMembers().map(m => m.name + ':' + m.role).join()") == "Scott:owner,Dana:adult,Mia:child,Grandma:guest"
+          and len(set(a.js("fhMembers().map(m => m.color)"))) == 4)
+    check("Mia's birthday Monday Oct 5, turns 8 - on Needs you", a.js("[fhBdays()[0].m.name, fhBdays()[0].days, fhBdays()[0].age]") == ["Mia", 4, 8]
+          and any("Mia's birthday" in n["text"] for n in a.js("fhNeeds(today())")))
+
+    def event(vals, who=(), adults=False):
+        a.js("FH_EDIT = null; showFh('cal')"); a.page.click('#fhSheet .fh-go[data-fhevnew]')
+        for k, v in vals.items():
+            sel = f'#fhSheet form[data-fhevent] [name={k}]'
+            if a.page.locator(sel).evaluate("e => e.tagName") == "SELECT": a.page.select_option(sel, v)
+            else: a.page.fill(sel, v)
+        for w in who: a.page.check(f'#fhSheet form[data-fhevent] [name=w_{ids[w]}]', force=True)
+        if adults: a.page.check('#fhSheet form[data-fhevent] [name=adults]')
+        a.page.click('#fhSheet form[data-fhevent] button.fh-go'); a.page.wait_for_timeout(100)
+    event({"title": "Soccer practice", "time": "17:30", "kind": "sports", "rep": "weekly", "where": "Laurel Park"}, who=["Mia"])
+    event({"title": "Date night", "time": "19:00"}, adults=True)
+    event({"title": "Trash day", "date": "2026-10-02", "rep": "weekdays"})
+    day = "d => fhDay(d).map(x => x.e ? x.e.title : 'bday:' + x.bday.name).join('+')"
+    check("today: Soccer 5:30 PM then Date night 7 PM", a.js("fhDay(today()).map(x => x.e.title)") == ["Soccer practice", "Date night"])
+    check("repeats: weekly Soccer on Thu Oct 8, weekdays Trash day from Fri (not Sat), birthdays on the calendar",
+          a.js(f"['2026-10-08', '2026-10-02', '2026-10-03', '2026-10-05'].map({day})") == ["Trash day+Soccer practice", "Trash day", "", "Trash day+bday:Mia"])
+    a.js("FH_EDIT = 'ev:' + S.fh.events[0].id + '@2026-10-08'; showFh('cal')"); a.page.click('#fhSheet [data-fhevskip]'); a.page.wait_for_timeout(80)
+    check("skip just one day of a repeat: gone Oct 8, back Oct 15", a.js(f"['2026-10-08', '2026-10-15'].map({day})") == ["Trash day", "Trash day+Soccer practice"])
+    check("per person: Mia's day = Soccer; Dana's = Date night (adults-only, nobody picked = the adults); Grandma's = nothing",
+          a.js(f"['Mia', 'Dana', 'Grandma'].map(n => fhDay(today(), S.fh.members.find(m => m.name === n).id).map(x => x.e.title).join('+'))") == ["Soccer practice", "Date night", ""])
+    a.js("FH_EDIT = null; FH_WHO = 'all'; hideFh(); render()")
+    t = a.page.inner_text("#cards .fh-home")
+    check("home Today list: times, no day label on today's rows", "5:30 PM" in t and "7:00 PM" in t and a.js("document.querySelector('#cards .fh-agenda').querySelectorAll('.fh-when small').length") == 0)
+
+    a.js("FH_EDIT = null; showFh('tasks')"); a.page.click('#fhSheet [data-fhchnew]')
+    a.page.fill('#fhSheet form[data-fhchore] [name=title]', "Feed the dog"); a.page.select_option('#fhSheet form[data-fhchore] [name=who]', ids["Mia"])
+    a.page.select_option('#fhSheet form[data-fhchore] [name=every]', "daily"); a.page.fill('#fhSheet form[data-fhchore] [name=pts]', "2"); a.page.fill('#fhSheet form[data-fhchore] [name=amt]', "1")
+    a.page.click('#fhSheet form[data-fhchore] button.fh-go'); a.page.wait_for_timeout(100)
+    check("chore: Mia, every day, 2 stars + $1 - open today and on Needs you", a.js("fhChoresOn(today()).map(x => x.c.title + ':' + x.st)") == ["Feed the dog:open"]
+          and any(n["text"] == "Mia: Feed the dog" for n in a.js("fhNeeds(today())")) and a.js("fhChoresOn('2026-10-02').length") == 1)
+
+    # Mia's view: what a kid sees and can do
+    use("Mia")
+    check("Mia's view: Soccer yes, adults-only Date night no; can't add events or approve; the card is for family",
+          a.js("[fhRole(), fhDay(today()).map(x => x.e.title).join('+'), fhCan('event'), fhCan('approve'), fhCan('seeCard'), fhCan('listAdd')]") == ["child", "Soccer practice", False, False, True, True])
+    a.js("showFh('cal')")
+    check("Mia's calendar has no add buttons", a.page.locator("#fhSheet [data-fhevnew]").count() == 0)
+    a.js("showFh('tasks')"); a.page.click('#fhSheet [data-fhdone]'); a.page.wait_for_timeout(80)
+    check("Mia checks it off: waiting for a parent's OK, nothing earned yet, no OK button for her",
+          a.js("fhChoresOn(today())[0].st") == "done" and a.js("fhWaiting().length") == 1 and a.js(f"fhEarned('{ids['Mia']}').amt") == 0 and a.page.locator("#fhSheet [data-fhok]").count() == 0)
+    a.page.click('#fhSheet [data-fhdone]'); a.page.wait_for_timeout(80)
+    check("tap again before the OK = take it back", a.js("fhChoresOn(today())[0].st") == "open")
+    a.page.click('#fhSheet [data-fhdone]'); a.page.wait_for_timeout(80)
+
+    # the parent PIN
+    use("Scott")
+    check("no PIN yet: a kid can switch to a parent", a.js("fhMe().name") == "Scott")
+    a.js("FH_EDIT = null; showFh('family')"); a.page.fill('#fhSheet form[data-fhpinset] [name=pin]', "12"); a.page.click('#fhSheet form[data-fhpinset] button.fh-go'); a.page.wait_for_timeout(60)
+    check("a PIN is 4 numbers", "4 numbers" in a.page.inner_text("#fhMsg") and not a.js("S.fh.pin"))
+    a.page.fill('#fhSheet form[data-fhpinset] [name=pin]', "2468"); a.page.click('#fhSheet form[data-fhpinset] button.fh-go'); a.page.wait_for_timeout(60)
+    use("Mia"); use("Scott")
+    check("with a PIN: Mia -> Scott asks for it", a.page.locator("#fhSheet form[data-fhpinchk]").count() == 1 and a.js("fhMe().name") == "Mia")
+    a.page.fill('#fhSheet form[data-fhpinchk] [name=pin]', "1111"); a.page.click('#fhSheet form[data-fhpinchk] button.fh-go'); a.page.wait_for_timeout(60)
+    check("wrong PIN: stays Mia", a.js("fhMe().name") == "Mia" and "not the PIN" in a.page.inner_text("#fhMsg"))
+    a.page.fill('#fhSheet form[data-fhpinchk] [name=pin]', "2468"); a.page.click('#fhSheet form[data-fhpinchk] button.fh-go'); a.page.wait_for_timeout(60)
+    check("right PIN: Scott again", a.js("fhMe().name") == "Scott")
+
+    # OK -> allowance
+    a.js("showFh('tasks')")
+    check("Scott sees 'Waiting for your OK' with Mia's chore", "Waiting for your OK" in a.page.inner_text("#fhSheet") and a.page.locator("#fhSheet [data-fhok]").count() == 1)
+    a.page.click('#fhSheet [data-fhok]'); a.page.wait_for_timeout(80)
+    check("OK'd: Mia earned 2 stars + $1, owed $1", a.js(f"fhEarned('{ids['Mia']}')") == {"amt": 1, "pts": 2, "paid": 0, "owed": 1} and a.js("fhWaiting().length") == 0)
+    a.js(f"FH_EDIT = 'ch:' + S.fh.chores[0].id; showFh('tasks')"); a.page.fill('#fhSheet form[data-fhchore] [name=amt]', "5"); a.page.click('#fhSheet form[data-fhchore] button.fh-go'); a.page.wait_for_timeout(60)
+    check("raising the chore to $5 later doesn't change what was earned", a.js(f"fhEarned('{ids['Mia']}').amt") == 1 and a.js("S.fh.chores[0].amt") == 5)
+    a.js("showFh('money')"); a.page.fill(f'#fhSheet form[data-fhpay="{ids["Mia"]}"] [name=amt]', "1"); a.page.click(f'#fhSheet form[data-fhpay="{ids["Mia"]}"] button'); a.page.wait_for_timeout(60)
+    check("paid Mia $1: owed $0, the pay-out is logged", a.js(f"fhEarned('{ids['Mia']}')") == {"amt": 1, "pts": 2, "paid": 1, "owed": 0} and len(a.js("S.fh.payouts")) == 1)
+
+    # shopping list
+    a.js("FH_LIST = null; showFh('lists')"); a.page.click('#fhSheet .fh-listbtn')
+    for item in ("Milk", "Bread"):
+        a.page.fill('#fhSheet form[data-fhitemadd] input', item); a.page.click('#fhSheet form[data-fhitemadd] button'); a.page.wait_for_timeout(60)
+    a.page.click('#fhSheet .fh-tick'); a.page.wait_for_timeout(60)
+    check("Grocery: Milk + Bread added, Milk checked -> 'In the cart'", a.js("S.fh.lists[0].items.map(i => i.text + ':' + !!i.done).join()") == "Milk:true,Bread:false" and "In the cart" in a.page.inner_text("#fhSheet"))
+    a.page.click('#fhSheet [data-fhclear]'); a.page.wait_for_timeout(60)
+    check("Clear takes the checked ones off", a.js("S.fh.lists[0].items.map(i => i.text).join()") == "Bread")
+
+    # emergency card + guests
+    a.js("showFh('card')"); a.page.fill('#fhSheet form[data-fhcontact] [name=name]', "Aunt Jo"); a.page.fill('#fhSheet form[data-fhcontact] [name=phone]', "501-555-0100")
+    a.page.click('#fhSheet form[data-fhcontact] button'); a.page.wait_for_timeout(60)
+    a.page.fill('#fhSheet form[data-fhcard] [name=meet]', "the big oak at the corner"); a.page.click('#fhSheet form[data-fhcard] button'); a.page.wait_for_timeout(60)
+    t = a.page.inner_text("#fhSheet")
+    check("emergency card: contact with a call button, meeting place, 911 + Poison Help", "Aunt Jo" in t and a.page.locator('#fhSheet a[href="tel:5015550100"]').count() == 1 and "the big oak" in t and "1-800-222-1222" in t)
+    use("Grandma")
+    a.js("showFh('card')")
+    check("Grandma (guest): calendar + lists yes, no events to add, card locked until shared", a.js("[fhCan('event'), fhCan('listAdd'), fhCan('seeCard'), fhCan('seeMoney', fhMe().id)]") == [False, True, False, False]
+          and "for family members" in a.page.inner_text("#fhSheet"))
+    a.js("FH_LIST = S.fh.lists[0].id; showFh('lists')"); a.page.fill('#fhSheet form[data-fhitemadd] input', "Eggs"); a.page.click('#fhSheet form[data-fhitemadd] button'); a.page.wait_for_timeout(60)
+    check("Grandma can add to the grocery list", a.js("S.fh.lists[0].items.map(i => i.text).join()") == "Bread,Eggs")
+    use("Scott", pin="2468")
+    a.js("showFh('card')"); a.page.check('#fhSheet form[data-fhcard] [name=guests]'); a.page.click('#fhSheet form[data-fhcard] button'); a.page.wait_for_timeout(60)
+    check("the card shared with guests: Grandma's role now sees it", a.js(f"(() => {{ const k = S.fh.me; S.fh.me = '{ids['Grandma']}'; const r = fhCan('seeCard'); S.fh.me = k; return r; }})()") is True)
+
+    # family to-do board
+    a.js("showFh('todo')"); a.page.fill('#fhSheet form[data-fhtodo] [name=title]', "Clean out the garage"); a.page.select_option('#fhSheet form[data-fhtodo] [name=who]', ids["Dana"])
+    a.page.click('#fhSheet form[data-fhtodo] button'); a.page.wait_for_timeout(60)
+    a.page.click('#fhSheet [data-fhtodomove]'); a.page.wait_for_timeout(60)
+    st1 = a.js("S.fh.todos[0].st"); a.page.click('#fhSheet [data-fhtodomove]'); a.page.wait_for_timeout(60)
+    check("to-do board: To do -> Doing -> Done", st1 == "doing" and a.js("S.fh.todos[0].st") == "done")
+
+    # Grandparent Mode
+    a.js("showFh('big')"); a.page.click('#fhSheet [data-fhbig="1"]'); a.page.wait_for_timeout(80)
+    check("Grandparent Mode: big text, the simple home with 6 big buttons (Messages, Calendar, Photos, Lists, Emergency, Family)", a.js("document.body.classList.contains('fh-big')") and a.page.locator("#cards .fh-bighome").count() == 1
+          and a.page.locator("#cards .fh-bigbtns button").count() == 6 and a.page.locator("#cards .fh-hello2").count() == 0)
+    a.page.click('#cards [data-fhbig="0"]'); a.page.wait_for_timeout(80)
+    check("and off again", not a.js("document.body.classList.contains('fh-big')") and a.page.locator("#cards .fh-hello2").count() == 1)
+
+    # reminders, Ask
+    R = a.js("(() => { const out = []; fhReminders((key, start, at, title, body) => out.push({ key, at, title }), () => true); return out; })()")
+    soc = [r for r in R if r["key"].startswith("fhev:") and "Soccer" in r["title"]]
+    check("reminders: Soccer at 5:30 PM (15 min before), the open chores at 5 PM, Mia's birthday the morning of Oct 5 is outside today/tomorrow",
+          soc and a.js(f"new Date({soc[0]['at']}).toTimeString().slice(0, 5)") == "17:15" and not any(r["key"].startswith("fhbd:") for r in R), [r["title"] for r in R])
+    ctx = a.js("aiContext()")
+    check("Ask reads the family (first names, calendar, chores, lists) - never the PIN or the emergency card",
+          '"family"' in ctx and "Soccer practice" in ctx and "Bread" in ctx and "2468" not in ctx and "Aunt Jo" not in ctx and "555-0100" not in ctx)
+    use("Mia")
+    check("as Mia, Ask never sees the adults-only Date night", "Date night" not in a.js("aiContext()") and "Soccer practice" in a.js("aiContext()"))
+    use("Scott", pin="2468")
+    a.close()
+
+
 def main():
     srv, base = serve()
     with sync_playwright() as p:
@@ -5208,7 +5361,7 @@ def main():
                   t_v064_ship_guide, t_v065_port_guides,
                   t_v066_more_ports, t_v067_tender,
                   t_v068_ports_batch3, t_v069_alaska,
-                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete, t_v142_money_hub, t_v145_money_control_room, t_v146_connect_and_cash_flow, t_v147_share_and_rings, t_v148_money_advisor, t_v148_data_update, t_v150_store_mode_and_flash, t_v151_real_photos, t_v152_hub_universe, t_v153_health_hub, t_v153_health_reminders, t_v157_play_review, t_v158_erase_gap):
+                  t_v070_private, t_v071_bermuda_hmc, t_v072_home_ports, t_v073_more_home_ports, t_v075_se_home_ports, t_v076_emerald, t_v077_royal, t_v078_ruby, t_v079_regal, t_v080_majestic, t_v081_sky, t_v082_enchanted, t_v083_discovery, t_v084_sun, t_v085_home_layout, t_v086_star, t_v087_grand, t_v088_crown, t_v089_diamond, t_v090_sapphire, t_v091_coral, t_v092_island, t_v093_carnival, t_v094_breeze, t_v095_dream, t_v097_trip_hub, t_v098_bookings, t_v099_map, t_v100_paste, t_v101_diary, t_v102_port_reality, t_v103_final_bill, t_v104_fun_finder, t_v105_package_calc, t_v106_secrets, t_v107_upgrade, t_v108_wrap_up, t_v109_port_wx_alerts, t_v110_scene_pick, t_v111_fix_my_trip, t_v112_leave_time, t_v113_split, t_v114_hotel_mode, t_v115_cancel_refunds, t_v116_road_trip, t_v117_free_time, t_v118_group_vote, t_v119_money_export, t_v120_doc_expiry, t_v121_spend_pulse, t_v122_trip_briefing, t_v123_trip_pass, t_v124_ai_credits, t_v125_home_hub, t_v127_email_codes, t_v128_safe_input, t_v129_erase_all, t_v130_ai_privacy, t_v132_sri_and_sw, t_v133_home_value, t_v135_auto_hub, t_v136_auto_more, t_v138_auto_finish, t_v140_auto_complete, t_v142_money_hub, t_v145_money_control_room, t_v146_connect_and_cash_flow, t_v147_share_and_rings, t_v148_money_advisor, t_v148_data_update, t_v150_store_mode_and_flash, t_v151_real_photos, t_v152_hub_universe, t_v153_health_hub, t_v153_health_reminders, t_v157_play_review, t_v158_erase_gap, t_v159_family_hub):
             if os.environ.get("ONLY") and not any(k in t.__name__ for k in os.environ["ONLY"].split(",")): continue   # ONLY=t_v145 python tests/run_tests.py
             try:
                 t(b, base)
