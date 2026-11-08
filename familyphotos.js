@@ -102,7 +102,7 @@ async function fhpAdd(files) {
 // Pictures picked with a file button: Photos, a profile photo (familytree.js) - one listener for this phone's picture store.
 if (typeof document !== "undefined") document.addEventListener("change", async e => {
   const t = e.target; if (typeof MODE === "undefined" || MODE !== "family" || !t || !t.dataset) return;
-  if (t.dataset.fhpadd) { await fhpAdd(t.files); t.value = ""; return; }
+  if (t.dataset.fhpadd) { if (fhPaused()) { toast(fhPauseWhy()); t.value = ""; return; } await fhpAdd(t.files); t.value = ""; return; }
   if (t.dataset.fhpto) { FHP_TO = FH_AUD.some(a => a[0] === t.value) ? t.value : "all"; return; }
   if (t.dataset.fhtpic && t.files && t.files[0]) { const p = typeof fhtPerson === "function" && fhtPerson(t.dataset.fhtpic);
     if (!p || typeof fhtCanEdit !== "function" || !fhtCanEdit(p)) return;

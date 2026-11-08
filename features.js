@@ -29,6 +29,7 @@ const SWITCHES = Object.freeze({
   UNIVERSE_PASS: false, // Hub Universe Pro - one membership, Pro in every hub (Scott 10/17 "yes to hub universe pro"). OFF until Scott sets the price + Whop product.
   CHALLENGES: false,  // Health Hub friend step challenges (Scott 10/17: "step competitions against friends"). OFF until the relay has a "challenge" task.
   FAMILY_SYNC: true,  // Family Hub sharing between phones (Scott 10/25: "A - use Firebase free plan"; 11/07 "Phase B: all phones"). Needs the Firestore rules published.
+  FAMILY_PASS: true,  // ON 2026-11-08 (Scott "Yes, build it"). Family Hub: $25 once, Whop prod_uPpRIheUlmL76, relay v19. OFF = no Buy button and nothing pauses after the trial.
   MONEY_PASS: true,   // ON 2026-10-18 (Scott "relay done"). Money Hub Pro $2.99/mo, 30-day trial, Whop prod_xg2i3uygnEw5s; relay v18 PASSES moneyhub; Day Hub Pro also unlocks it. Free = 3 accounts, no CSV / Reports.
   HOME_VALUE: true,   // ON 2026-10-14 (Scott: "get it done"). Home Hub "Hub Predicted Value" card (homevalue.js), Redfin ZIP data in hpv/.
 });
@@ -75,6 +76,10 @@ const PLAN = Object.freeze({
   MONEY_NAME: "Money Hub Pro",
   MONEY_MONTHLY: "$2.99/month",
   MONEY_CHECKOUT_URL: "https://whop.com/commander-marvel-por-picks/money-hub-pro",   // prod_xg2i3uygnEw5s, created 10/18, 30-day trial
+  // FAMILY HUB (Scott 11/07: "1 time price of 25 ... invite all his family to it for free"; "Free trial first"). Family Hub only; Day Hub Pro doesn't include it.
+  FAMILY_NAME: "Family Hub",
+  FAMILY_PRICE: "$25 once",
+  FAMILY_CHECKOUT_URL: "https://whop.com/commander-marvel-por-picks/family-hub-a5",   // prod_uPpRIheUlmL76, created 11/08, hidden from the store page (the link works)
   UNIVERSE_NAME: "Hub Universe Pro",
   UNIVERSE_CHECKOUT_URL: "",         // the Whop link once Scott creates "Hub Universe Pro" (price not set yet)
   AI_PACKS: [{ n: 100, price: "$2.99", url: "https://whop.com/commander-marvel-por-picks/hub-ai-credits-100-questions" },   // prod_PZs1nowbQqbau

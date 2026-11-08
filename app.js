@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.59";
+const VERSION = "1.59.1";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -111,8 +111,9 @@ const cruisePass = () => MODE === "cruise" && switchOn("CRUISE_PASS");
 const tripPass = () => MODE === "trip" && switchOn("TRIP_PASS");
 const autoPass = () => MODE === "auto" && switchOn("AUTO_PASS");   // v1.38 Auto Hub Pro, $2.99/month
 const moneyPass = () => MODE === "money" && switchOn("MONEY_PASS");   // v1.42 Money Hub Pro, $2.99/month (OFF until the Whop product)
-const hubPass = () => cruisePass() || tripPass() || autoPass() || moneyPass();
-const proName = () => cruisePass() ? PLAN.CRUISE_NAME : tripPass() ? PLAN.TRIP_NAME : autoPass() ? PLAN.AUTO_NAME : moneyPass() ? PLAN.MONEY_NAME : PLAN.NAME;
+const familyPass = () => MODE === "family" && switchOn("FAMILY_PASS");   // v1.59.1 Family Hub, $25 once for the whole family
+const hubPass = () => cruisePass() || tripPass() || autoPass() || moneyPass() || familyPass();
+const proName = () => cruisePass() ? PLAN.CRUISE_NAME : tripPass() ? PLAN.TRIP_NAME : autoPass() ? PLAN.AUTO_NAME : moneyPass() ? PLAN.MONEY_NAME : familyPass() ? PLAN.FAMILY_NAME : PLAN.NAME;
 // v1.57 (Play review, Scott 10/22 "yes"): in the Play app no "Pro" / price / trial wording anywhere outside the
 // ⚙ unlock box - a locked extra just says it isn't on for this phone and where to enter an email already unlocked.
 const storeLock = what => `${what}: not turned on for this phone. Already unlocked it? ⚙ → enter your email.`;
@@ -123,6 +124,12 @@ async function verifyPro(buyer) {                   // throws when the check can
   // A "no" never wipes a known buyer: the email stays so Check now can retry. v1.58b: it keeps which plan it was too -
   // a hub on a Day Hub Pro unlock keeps "dayhub", so the paused line never names a plan they didn't buy.
   const src = prev.buyer === buyer ? prev : day.buyer === buyer ? day : {};
+  // v1.59.1 Family Hub is paid once, so a passing "no" (this phone aged off the list, a code to confirm, Whop's search coming back empty) never takes
+  // it away: only "not found" twice, at least a week apart, does (a refund).
+  if (!j.valid && familyPass() && prev.ok && prev.buyer === buyer && prev.product === "familyhub") {
+    const noAt = j.status === "not found" ? (prev.noAt || Date.now()) : (prev.noAt || 0);
+    if (j.status !== "not found" || Date.now() - noAt < 7 * DAY_MS) { setProState({ ...prev, checked: Date.now(), noAt }); return true; }
+  }
   setProState({ buyer, ok: j.valid, checked: Date.now(), status: j.status || "", until: j.until || null, product: j.product || src.product || "" });
   if (switchOn("PRO_LAPSE") && !was && isPro() && (S.gcal.connected || S.sync.on)) PRO_BACK = had ? "back" : "new";   // v1.58b: sync picks up now
   return j.valid;
@@ -2237,7 +2244,7 @@ const hubProKeys = () => { try { return Object.keys(localStorage).filter(k => /^
 // Remove frees the phone for that buyer at the relay, not just for this Hub, so no Hub here keeps a copy of that email.
 function forgetBuyerHere(buyer) {
   const b = String(buyer || "").toLowerCase(); if (!b) return [];
-  return hubProKeys().map(key => ({ key, product: readPro(key).product || "", buyer: String(readPro(key).buyer || "").toLowerCase() })).filter(x => x.buyer === b)
+  return hubProKeys().map(key => ({ key, product: readPro(key).product || "", buyer: String(readPro(key).buyer || "").toLowerCase() })).filter(x => x.buyer === b && (x.product !== "familyhub" || x.key === PRO_KEY))   // Family Hub's one-time purchase is only removed in Family Hub
     .map(x => { try { localStorage.removeItem(x.key); } catch (e) { /* private mode */ } return x; });
 }
 function forgetPhone() {

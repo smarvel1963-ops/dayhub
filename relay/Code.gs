@@ -145,6 +145,12 @@
  *
  * v18 (Scott 10/18 "finish up money hub"): Money Hub accepts its own Money Hub Pro ($2.99/mo, Whop prod_xg2i3uygnEw5s,
  * 30-day trial) as well as Day Hub Pro - same shape as Auto Hub Pro. Script Property MONEY_PRODUCT_ID overrides the id.
+ *
+ * v19 (Scott 11/08 "Yes, build it"): Family Hub, $25 one time, Whop prod_uPpRIheUlmL76. The answer says which product it was: "familyhub" is the
+ * $25 purchase; a Day Hub Pro email still answers "dayhub" (its AI and backup keep working in Family Hub, but the phone doesn't count that as buying
+ * Family Hub). When a buyer has both, the Family Hub purchase is the one reported. /memberships hides one-time ("completed") purchases unless
+ * asked by status (measured v8), so this one lookup asks by status. Script Property FAMILY_PRODUCT_ID overrides the id. The relay never hears
+ * about the family itself: the buyer's phone marks the family paid after this says yes.
  */
 const MODEL = "claude-haiku-4-5";
 const DAILY_CAP = 200;              // requests per day, all tasks together
@@ -339,23 +345,25 @@ function proLookup(P, b, isMem, app) {
   // v14 (Auto Hub v1.38): Auto Hub accepts its own Auto Hub Pro ($2.99/mo) as well as Day Hub Pro.
   // v18 (Money Hub): Money Hub accepts its own Money Hub Pro ($2.99/mo) as well as Day Hub Pro.
   const PASSES = { cruisehub: ["CRUISE_PRODUCT_ID", "Cruise Hub Pass"], triphub: ["TRIP_PRODUCT_ID", "Trip Hub Pass"], autohub: ["AUTO_PRODUCT_ID", "Auto Hub Pro", "prod_JZvlJLr71aVz4"],
-                   moneyhub: ["MONEY_PRODUCT_ID", "Money Hub Pro", "prod_xg2i3uygnEw5s"] };   // 3rd = default id (public, on the checkout page); a Script Property overrides it
+                   moneyhub: ["MONEY_PRODUCT_ID", "Money Hub Pro", "prod_xg2i3uygnEw5s"],
+                   familyhub: ["FAMILY_PRODUCT_ID", "Family Hub", "prod_uPpRIheUlmL76", true] };   // 3rd = default id (public, on the checkout page); a Script Property overrides it. 4th = sold one time (v19).
   const pass = PASSES[app] || null;
   const cpid = pass ? (prop(P, pass[0]) || pass[2] || null) : null;
-  const pids = cpid ? [pid, cpid] : [pid];
+  const pids = cpid ? [pid, cpid] : [pid], oneTime = !!(pass && pass[3]);
 
   // Whop answer cached 6 h (spares Whop's API); the phone list is checked every time.
   const cache = CacheService.getScriptCache(), ck = "B_" + keyHash(b.toLowerCase() + "|" + pids.join(",")), hit = cache.get(ck);
   let res = hit ? JSON.parse(hit) : null;
   if (!res) {
     if (!lookupOk(P)) return { error: "the purchase check is busy - try again later" };
-    const got = buyerMems(whop, co, b, isMem, pids);
+    const got = buyerMems(whop, co, b, isMem, pids, oneTime ? OK_STATUS : null);
     if (got.error) return got;
     if (!got.mems) { cache.put(ck, JSON.stringify({ valid: false, status: NOT_FOUND }), 300); return { valid: false, status: NOT_FOUND }; }
     const mems = got.mems;
     const mine = mems.filter(function (m) { return pids.indexOf(memProd(m)) >= 0; });
     const good = mine.filter(function (m) { return OK_STATUS.indexOf(m.status) >= 0; });
-    const m = good.filter(function (x) { return x.status !== "canceling" && x.cancel_at_period_end !== true; })[0] || good[0] || mine[0];   // a renewal beats an old plan winding down
+    const own = oneTime ? good.filter(function (x) { return memProd(x) === cpid; })[0] : null;   // v19: bought this Hub AND has Day Hub Pro: report this Hub's purchase
+    const m = own || good.filter(function (x) { return x.status !== "canceling" && x.cancel_at_period_end !== true; })[0] || good[0] || mine[0];   // a renewal beats an old plan winding down
     // Whop's docs list a "canceling" status AND a cancel_at_period_end flag without saying which a plan set not to renew gets, and their
     // example shows a trial with the flag on. Either way it's "ends soon" to the phone (its 7-day notice), and still paid up.
     const ending = m && (m.status === "active" || m.status === "trialing") && m.cancel_at_period_end === true;
@@ -391,7 +399,7 @@ function bindPhone(P, res, dev) {
 
 // The buyer's Whop memberships in pids (email search or mem_ id).
 // -> {mems} | {error} | {valid:false, status} (no Whop user with that email).
-function buyerMems(whop, co, b, isMem, pids) {
+function buyerMems(whop, co, b, isMem, pids, statuses) {
   if (isMem) {
     const m = whopGet(whop, "/memberships/" + encodeURIComponent(b), {});
     if (m.error) return m;
@@ -410,7 +418,9 @@ function buyerMems(whop, co, b, isMem, pids) {
   if (!users.length) return { valid: false, status: "no Whop purchase with that email" };
   let mems = [];
   for (let k = 0; k < users.length; k++) {
-    const list = whopGet(whop, "/memberships", { account_id: co, user_ids: users[k].id, product_ids: pids, first: 50 });
+    const q = { account_id: co, user_ids: users[k].id, product_ids: pids, first: 50 };
+    if (statuses) q.statuses = statuses;                         // v19: one-time purchases don't show without this
+    const list = whopGet(whop, "/memberships", q);
     if (list.error) return list;
     mems = mems.concat((list.data || []).filter(function (m) { return memUser(m) === users[k].id; }));
   }
@@ -530,7 +540,7 @@ function markConfirmed(P, b, dev) { P.setProperty(confirmKey(b, dev), Utilities.
 
 // Did this address buy any Hub product (Pro, a Pass or AI Credits)? Same cached lookups as verify / credits.
 function hubBuyer(P, b) {
-  for (const app of ["dayhub", "cruisehub", "triphub"]) {
+  for (const app of ["dayhub", "cruisehub", "triphub", "familyhub"]) {
     const r = proLookup(P, b, false, app);
     if (r.error) return r;
     if (r.valid) return { yes: true };

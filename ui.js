@@ -801,7 +801,7 @@ const aiPass = () => { try { return localStorage.getItem(AI_KEY) || ""; } catch 
 // buyer their own cap.
 // v0.53: in Cruise Hub a Day Hub Pro unlock on the same phone counts (proViaDayHub) - send that buyer.
 // v1.23: a Cruise Hub Pass / Trip Hub Pass on its own never gets the AI - the relay only answers Day Hub Pro.
-const passOnly = () => !proGood(readPro(DAY_PRO_KEY)) && ["cruisehub", "triphub", "autohub", "moneyhub"].includes(proState().product);
+const passOnly = () => !proGood(readPro(DAY_PRO_KEY)) && ["cruisehub", "triphub", "autohub", "moneyhub", "familyhub"].includes(proState().product);
 // v1.24 HUB AI CREDITS (AI_CREDITS switch): one email + questions-left on this phone, shared by every hub
 // ("hub.aicredits", same storage for Day/Cruise/Trip Hub). The relay keeps the real count; this is the last answer.
 const CREDIT_KEY = "hub.aicredits";
@@ -1817,7 +1817,12 @@ function drawProBox() {
   // v0.45: Cruise Hub lists only what Cruise Hub has; it is included with Day Hub Pro (one Whop purchase).
   // v0.48: with CRUISE_PASS on, Cruise Hub sells its own Cruise Hub Pass ($9.99/year, every cruise that year).
   // v0.97: Trip Hub has no product of its own yet - Day Hub Pro unlocks it (the relay checks Day Hub Pro for any app but Cruise Hub).
-  const what = moneyPass()
+  const famNote = familyPass() && typeof fhProNote === "function" ? fhProNote() : "";   // v1.59.1: a phone the family's purchase already covers, or someone else's to make
+  if (famNote) { g.innerHTML = `<h3>⭐ ${proName()}</h3>` + famNote; return; }
+  const what = familyPass()
+    ? `<p class="fine" style="margin-top:0"><b>One purchase, your whole family.</b> Everyone you invite uses it free. Nothing to renew.</p>
+       <p class="fine" style="margin-top:4px">No ads, ever. No location tracking.</p>`
+    : moneyPass()
     ? `<p class="fine" style="margin-top:0"><b>All your money in one place.</b> Free Money Hub keeps 3 accounts with bills, budget, debt payoff, subscriptions and the payday planner. Already have ${PLAN.NAME}? It includes Money Hub: enter that email below.</p>
        <ul class="pro-list"><li>🏦 Unlimited accounts</li><li>📥 Import your bank's CSV - duplicates skipped</li><li>📊 Reports - this month vs the last 3</li><li>☁️ Backup to your own Google Drive</li></ul>
        <p class="fine" style="margin-top:4px">No ads, ever. Money Hub never asks for a bank password.</p>`
@@ -1843,11 +1848,12 @@ function drawProBox() {
     : `<ul class="pro-list"><li>🤖 AI helper — Brain dump, Ask Day Hub, Top 3</li><li>🗓️ Two-way Google Calendar sync</li>
     ${switchOn("GMAIL") ? "<li>📬 Plans found in your email</li>" : ""}<li>☁️ Backup to your own Google Drive</li></ul>
     <p class="fine" style="margin-top:4px">Everything else — every card, reminders, budget, lists, trips — is free forever. No ads, ever.</p>`;
-  const price = moneyPass() ? `<p class="fine"><b>${PLAN.MONEY_MONTHLY}</b> — 30 days free, cancel any time on Whop.</p>`
+  const price = familyPass() ? `<p class="fine"><b>${PLAN.FAMILY_PRICE}</b> — no subscription.</p>`
+    : moneyPass() ? `<p class="fine"><b>${PLAN.MONEY_MONTHLY}</b> — 30 days free, cancel any time on Whop.</p>`
     : autoPass() ? `<p class="fine"><b>${PLAN.AUTO_MONTHLY}</b> — 30 days free, cancel any time on Whop.</p>`
     : cruisePass() ? `<p class="fine"><b>${PLAN.CRUISE_YEARLY}</b> — every cruise you take that year.</p>`
     : tripPass() ? `<p class="fine"><b>${PLAN.TRIP_YEARLY}</b> — every trip you take that year.</p>` : `<p class="fine"><b>${PLAN.MONTHLY}</b> or <b>${PLAN.YEARLY}</b>.</p>`;
-  const buyUrl = STORE_MODE ? "" : moneyPass() ? PLAN.MONEY_CHECKOUT_URL : autoPass() ? PLAN.AUTO_CHECKOUT_URL : cruisePass() ? PLAN.CRUISE_CHECKOUT_URL : tripPass() ? PLAN.TRIP_CHECKOUT_URL : PLAN.WHOP_CHECKOUT_URL;
+  const buyUrl = STORE_MODE ? "" : familyPass() ? PLAN.FAMILY_CHECKOUT_URL : moneyPass() ? PLAN.MONEY_CHECKOUT_URL : autoPass() ? PLAN.AUTO_CHECKOUT_URL : cruisePass() ? PLAN.CRUISE_CHECKOUT_URL : tripPass() ? PLAN.TRIP_CHECKOUT_URL : PLAN.WHOP_CHECKOUT_URL;
   // v1.58b: where Calendar sync / backup stand - paused (this phone isn't Pro now) or ending soon (plan set not to renew)
   const ends = proEndsIn(), uses = S.gcal.connected || S.sync.on, r = lapsedRec();
   const syncLine = syncPaused() ? `<p class="fine" style="margin-top:0">⏸ <b>Calendar sync and backup are paused.</b> Your info is safe — on this phone and in your Google Drive, and restoring a backup still works. ${!STORE_MODE && r.buyer && !r.ok ? `Renew ${esc(lapsedName(r))}, then tap Unlock below` : "Tap Unlock below"} and they pick up where they left off.</p>`
@@ -1859,10 +1865,10 @@ function drawProBox() {
     ? `<div class="leg"><span>✅ Included with your ${PLAN.NAME} on this phone</span></div>
        <div class="foot-actions"><button class="btn sm ghost" data-pro="check">Check now</button></div>
        <p class="fine" style="margin-top:6px">To take it off this phone, use Remove in Day Hub: ⚙ → ${PLAN.NAME}.</p>`
-    : isPro()
-    ? `<div class="leg"><span>✅ ${p.product === "dayhub" && hubPass() ? `Included with ${PLAN.NAME}` : `${proName()} is on`} · ${who} · checked ${prettyDate(ymd(new Date(p.checked)))}</span></div>
+    : (familyPass() ? typeof fhBought === "function" && fhBought() : isPro())
+    ? `<div class="leg"><span>✅ ${p.product === "dayhub" && hubPass() && !familyPass() ? `Included with ${PLAN.NAME}` : `${proName()} is on`} · ${who} · checked ${prettyDate(ymd(new Date(p.checked)))}</span></div>
        <div class="foot-actions"><button class="btn sm ghost" data-pro="check">Check now</button><button class="btn sm ghost" data-pro="remove">Remove from this phone</button></div>
-       <p class="fine" style="margin-top:6px">One purchase works on up to ${PLAN.MAX_PHONES} phones. Removing it here frees this phone's spot${iosAlone() ? "" : " and takes it off every Hub on this phone"}.</p>`
+       <p class="fine" style="margin-top:6px">${familyPass() ? `Your whole family is covered. Your own purchase can sit on up to ${PLAN.MAX_PHONES} of your phones.` : `One purchase works on up to ${PLAN.MAX_PHONES} phones.`} Removing it here frees this phone's spot${iosAlone() ? "" : " and takes it off every Hub on this phone"}.</p>`
     : STORE_MODE                                                    // v1.50 Play Store app: no price, no buy, no Whop
     ? what + `<p class="fine">Already have ${proName()}? Enter your email to unlock it on this phone.</p>
        <form class="inline-add" data-proform="1"><input name="key" type="text" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="Your email" value="${who}" autocomplete="email" required><button class="btn sm">Unlock</button></form>`
@@ -1871,7 +1877,7 @@ function drawProBox() {
         : `<p class="fine">Coming soon.</p>`) +
       `<ol class="steps"><li>Buy ${proName()} on Whop.</li><li>Enter the <b>email you used on Whop</b> below and tap <b>Unlock</b>.</li></ol>
        <form class="inline-add" data-proform="1"><input name="key" type="text" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="Email you used on Whop" value="${who}" autocomplete="email" required><button class="btn sm">Unlock</button></form>
-       <p class="fine" style="margin-top:6px">Bought with a different sign-in? Your Whop membership id (starts with <b>mem_</b>, on your Whop purchase page) works too. Works on up to ${PLAN.MAX_PHONES} phones.</p>`) +
+       <p class="fine" style="margin-top:6px">Bought with a different sign-in? Your Whop membership id (starts with <b>mem_</b>, on your Whop purchase page) works too. ${familyPass() ? "You only do this on your own phone; everyone you invite is covered." : `Works on up to ${PLAN.MAX_PHONES} phones.`}</p>`) +
     (PRO_MSG ? `<p class="fine" style="margin-top:6px">${esc(PRO_MSG)}</p>` : "") + codeHtml("pro");
 }
 function unlockPro(buyer) {
@@ -1880,7 +1886,9 @@ function unlockPro(buyer) {
       if (!ok && st === "needs code") { PRO_MSG = ""; askCode(buyer, "pro"); return; }   // v1.27
       PRO_MSG = ok ? "" : /phones/.test(st) ? `It's already on ${PLAN.MAX_PHONES} phones — tap Remove from this phone on one of them, then try again.`
         : proViaDayHub() || proCopyOfDay() ? "That didn't check out here. Open Day Hub and tap Check now there."          // this box has no email to change
-        : `No active ${hubPass() ? `${proName()} or ${PLAN.NAME}` : PLAN.NAME} found for that — use the email you bought with${STORE_MODE ? "" : " on Whop"} (or your mem_ membership id).`;
+        : `No active ${familyPass() ? `${proName()} purchase` : hubPass() ? `${proName()} or ${PLAN.NAME}` : PLAN.NAME} found for that — use the email you bought with${STORE_MODE ? "" : " on Whop"} (or your mem_ membership id).`;
+      if (ok && familyPass() && typeof fhBought === "function" && !fhBought()) PRO_MSG = `That email has ${PLAN.NAME}, which doesn't include ${proName()}. Use the email you bought ${proName()} with.`;
+      if (ok && familyPass() && typeof fhsPaidNow === "function") fhsPaidNow();          // v1.59.1 Family Hub: the whole family is covered
       drawProBox(); drawAiBox(); render();
       if (ok && !proWelcomeBack()) toast(STORE_MODE ? "⭐ Unlocked on this phone" : `⭐ ${lapsedName(proState())} unlocked`); })
     .catch(e => { PRO_MSG = "Couldn't reach the check — try again in a minute. (" + e.message + ")"; drawProBox(); });
@@ -1890,7 +1898,7 @@ function unlockPro(buyer) {
 // phone only, to try a feature before it goes on for everyone (features.js).
 let OWNER_OPEN = false, VER_TAPS = [];
 const OWNER_ROWS = [["PRO_GATE", "Pro gate — free vs Pro"], ["AI_PUBLIC", "AI for Whop-key holders"], ["GMAIL", "Gmail → plans"],
-  ["STORE", "Google Play link"], ["CRUISE_PASS", "Cruise Hub Pass ($9.99/yr)"], ["TRIP_PASS", "Trip Hub Pass ($9.99/yr)"], ["AI_CREDITS", "Hub AI Credits (packs)"], ["HOME_VALUE", "Home Hub: Hub Predicted Value"], ["AUTO_PASS", "Auto Hub Pro ($2.99/mo)"], ["MONEY_PASS", "Money Hub Pro ($2.99/mo)"], ["CHALLENGES", "Health Hub: friend step challenges"], ["FAMILY_SYNC", "Family Hub: sharing between phones"], ["OWNER", "Count this phone as Pro"]];
+  ["STORE", "Google Play link"], ["CRUISE_PASS", "Cruise Hub Pass ($9.99/yr)"], ["TRIP_PASS", "Trip Hub Pass ($9.99/yr)"], ["AI_CREDITS", "Hub AI Credits (packs)"], ["HOME_VALUE", "Home Hub: Hub Predicted Value"], ["AUTO_PASS", "Auto Hub Pro ($2.99/mo)"], ["MONEY_PASS", "Money Hub Pro ($2.99/mo)"], ["CHALLENGES", "Health Hub: friend step challenges"], ["FAMILY_SYNC", "Family Hub: sharing between phones"], ["FAMILY_PASS", "Family Hub: $25 purchase + trial pause"], ["OWNER", "Count this phone as Pro"]];
 // v0.46 HUB FAMILY (Scott 10/4): separate apps that work together. The steps
 // are in the box (Scott 10/2: every setting carries its own easy setup).
 // The switch for another Hub's trips, and how to link two phones that keep apps apart.

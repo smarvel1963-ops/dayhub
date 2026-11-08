@@ -24,8 +24,9 @@
  * what), familyphotos.js (Photos & memories), familylife.js (Meals, School, Documents, Pets, Goals, Trips). This file asks every
  * one in turn for its panes, taps, forms, Today card, reminders and what Ask reads. Still one phone; Phase B = Firebase sync.
  * WHO SEES WHAT: fhAudOk / fhSees - one rule for profiles, birthdays on the calendar, photos and documents (nothing forced public).
- * PRICE (Scott 11/07): $25 once for the whole family after a 30-day free trial (fhTrial). Nothing is charged or paused until the
- * product exists; the Play app never shows it (store wording rule).
+ * PRICE (Scott 11/07): $25 once for the whole family after a 30-day free trial (fhTrial); the Play app never shows it (store wording rule).
+ * v1.59.1 (Scott 11/08 "Yes, build it"): the Buy button, the unlock (the same email check as every Hub, ⚙) and what waits after the trial:
+ * adding NEW things and sharing (fhPaused). Nothing is ever deleted, everything stays readable, and checking things off and fixing what's there still work.
  */
 "use strict";
 const FH_TABS = [["home", "🏠", "Today"], ["tasks", "✅", "Family tasks & chores"], ["add", "＋", "Add something"], ["family", "👨‍👩‍👧", "Our family"], ["more", "☰", "More family tools"], ["needs", "🔔", "Needs you"],
@@ -77,14 +78,37 @@ const fhShareOf = (mid, f) => { const x = (fh().share[mid] || {})[f]; return x &
 const fhSees = (m, f) => !!m && fhAudOk(fhShareOf(m.id, f), m.id);
 // THE PRICE (Scott 11/07): a 30-day free trial of everything for the whole family, from the day the family is made; then $25 once.
 const FH_TRIAL_DAYS = 30;
-function fhTrial() { const F = fh(), used = fhIsD(F.setup) ? Math.max(0, -daysUntil(F.setup)) : 0; return { paid: !!F.paid, left: Math.max(0, FH_TRIAL_DAYS - used) }; }
+const fhStoreApp = () => typeof STORE_MODE !== "undefined" && STORE_MODE;
+const fhSells = () => typeof familyPass === "function" && familyPass() && !fhStoreApp();
+const fhOwnerName = () => (fhMembers().find(m => m.role === "owner") || {}).name || "The family's owner";
+// Did THIS phone buy it? The owner's own phone counts, and a friend on Scott's free list. Once the relay has said yes it stays yes until the relay says no (not a monthly plan).
+function fhBought() { if (typeof ownerPhone !== "function") return false; if (ownerPhone()) return true; const p = proState(); return !!(p.buyer && p.ok && (p.product === "familyhub" || p.status === "friend")); }
+function fhTrial() { const F = fh(), used = fhIsD(F.setup) ? Math.max(0, -daysUntil(F.setup)) : 0; return { paid: fhBought() || (typeof fhsPaid === "function" && fhsPaid()), left: Math.max(0, FH_TRIAL_DAYS - used) }; }
+const fhPaused = () => { if (!fhSells() || !fhSet()) return false; const T = fhTrial(); return !T.paid && !T.left; };
+const fhPauseWhy = () => fhRole() === "owner" ? "⏸ Your free trial has ended. Unlock Family Hub in More to add new things." : `⏸ The free trial has ended. ${fhOwnerName()} can unlock Family Hub to add new things.`;
+// What waits after the trial: forms that add something new (their "new" versions; fixing what's already there stays open). PIN, who sees what and the emergency card are never in this list.
+const FH_ADD_FORMS = new Set(["fhlistnew", "fhitemadd", "fhmsend", "fhpalnew", "fhlhwadd", "fhlgoaladd", "fhlcare", "fhlpick", "fhpay", "fhsinv"]), FH_NEW_FORMS = ["fhevent", "fhchore", "fhtodo", "fhmember", "fhlrecipe", "fhlpet", "fhtprof"];
+const FH_ADD_TAPS = new Set(["fhmchk", "fhlings", "fhlpack", "fhltrip", "fhson"]);   // taps that add, or send, with no form (the week's meals handle their own: days already planned can still change)
+const fhFormAdds = D => Object.keys(D).some(k => FH_ADD_FORMS.has(k)) || FH_NEW_FORMS.some(k => D[k] === "new");
+const fhBuyBtns = () => `<div class="fh-btns"><a class="btn fh-go" href="${esc(PLAN.FAMILY_CHECKOUT_URL)}" target="_blank" rel="noopener">Get Family Hub</a><button class="btn sm ghost" data-fhgo="unlock">I already bought it</button></div>`;
 function fhTrialHtml() {
-  if (typeof STORE_MODE !== "undefined" && STORE_MODE) return "";        // the Play app: no price or trial words outside the unlock box
-  const T = fhTrial();
+  if (fhStoreApp()) return "";        // the Play app: no price or trial words outside the unlock box
+  const T = fhTrial(), own = fhRole() === "owner", buy = own && fhSells() ? fhBuyBtns() : "";
   if (T.paid) return `<p class="fh-trial paid">💛 Family Hub is yours, for your whole family.</p>`;
-  if (!T.left) return `<div class="fh-trial"><b>🎁 Your free trial has ended</b><small>Everything your family added stays yours. $25 once keeps Family Hub for everyone you invite - no subscription.</small></div>`;
-  return `<div class="fh-trial"><b>🎁 Free trial: ${T.left} day${T.left === 1 ? "" : "s"} left</b><small>Everything, for your whole family. After that, $25 once keeps Family Hub for everyone you invite - no subscription.</small></div>`;
+  if (!T.left) return own ? `<div class="fh-trial"><b>🎁 Your free trial has ended</b><small>Everything your family added stays yours, and you can still read it all. $25 once opens adding and sharing again for everyone you invite - no subscription.</small>${buy}</div>`
+    : `<div class="fh-trial"><b>🎁 The free trial has ended</b><small>Everything stays safe and you can still read it all. ${esc(fhOwnerName())} can unlock Family Hub for the whole family.</small></div>`;
+  if (!own) return "";                 // kids and guests don't get a sales pitch
+  return `<div class="fh-trial"><b>🎁 Free trial: ${T.left} day${T.left === 1 ? "" : "s"} left</b><small>Everything, for your whole family. After that, $25 once keeps Family Hub for everyone you invite - no subscription.</small>${buy}</div>`;
 }
+// ⚙ box: a phone with nothing to buy (the family's covered, or the purchase is the owner's to make). "" = show the normal unlock box.
+function fhProNote() {
+  if (!fhSet() || fhBought()) return "";
+  if (fhTrial().paid) return `<div class="leg"><span>✅ Unlocked for your whole family</span></div>`;
+  if (fhRole() === "adult" && !(typeof FHS !== "undefined" && FHS) && fhPaused()) return "";   // an adult who left a family keeps their own copy, and can unlock that
+  if (fhRole() !== "owner") return `<p class="fine" style="margin-top:0">One purchase covers the whole family, and it's ${esc(fhOwnerName())}'s to make. You don't need to buy anything.</p>`;
+  return "";
+}
+const fhPausedHtml = () => !fhPaused() ? "" : `<section class="fh-card fh-paused" aria-label="Free trial ended"><div class="fh-cardh"><h3>⏸ Your free trial has ended</h3></div><p class="hos-hint">Nothing is lost. You can still see everything and check things off. Adding new things and sharing wait until ${fhRole() === "owner" ? "you unlock" : `${esc(fhOwnerName())} unlocks`} Family Hub.</p>${fhRole() === "owner" ? `<div class="fh-btns"><button class="btn fh-go" data-fhnav="more">See how</button></div>` : ""}</section>`;
 const FH_ART = { home: "home", cal: "calendar", msg: "messages", family: "tree", tree: "tree", photos: "memories", meals: "meals", school: "school", pets: "pets", trips: "trips" };
 const fhArt = k => FH_ART[k] ? `../familyhub/art/${FH_ART[k]}.webp` : "";
 const fhTiles = (items, cls = "") => `<div class="fh-qtiles ${cls}">${items.map(i => `<button class="fh-qt" ${i.attrs} style="--tone:${i.tone || "#2e86de"}"><span aria-hidden="true">${i.icon}</span><b>${esc(i.label)}</b></button>`).join("")}</div>`;
@@ -395,6 +419,7 @@ function fhDashHtml() {
   const faces = fhMembers().slice(0, 12).map(m => `<button class="fh-face" data-fhprof="${m.id}" style="--tone:${m.color || "#c8d6e5"}" aria-label="${esc(m.name)}'s profile"><span aria-hidden="true">${m.face || "🙂"}</span><b>${esc(m.name)}</b></button>`).join("")
     + (adult && fhMembers().length < 16 ? `<button class="fh-face add" data-fhmemnew="1" aria-label="Add a family member"><span aria-hidden="true">＋</span><b>Add</b></button>` : "");
   const sec = [];
+  if (fhPaused()) sec.push([0, fhPausedHtml()]);
   sec.push([10, `<section class="fh-card" aria-label="Today's events"><div class="fh-cardh"><h3>📅 Today's Events</h3><button data-fhnav="cal">Calendar ›</button></div>
     ${D.length ? `<div class="fh-agenda">${D.map(x => fhAgendaRow(x)).join("")}</div>` : `<p class="hos-hint">Nothing on the calendar today.${fhCan("event") ? ` <button class="mv-linkb fh-link" data-fhevnew="${t}">Add something</button>` : ""}</p>`}</section>`]);
   sec.push([15, `<section class="fh-card" aria-label="Quick actions"><div class="fh-cardh"><h3>⚡ Quick Actions</h3></div>${fhTiles([
@@ -704,7 +729,8 @@ function fhClick(ds) {
   if (ds.fhclose) { hideFh(); render(); return true; }
   if (ds.fhtop) { window.scrollTo({ top: 0, behavior: "smooth" }); return true; }
   if (ds.fhask) { if (FH_OPEN) hideFh(); showAsk(); return true; }
-  if (ds.fhgo === "settings") { if (FH_OPEN) hideFh(); render(); if (typeof openSettings === "function") openSettings(); return true; }
+  if (ds.fhgo === "settings" || ds.fhgo === "unlock") { if (FH_OPEN) hideFh(); render(); if (typeof openSettings === "function") openSettings(); const b = ds.fhgo === "unlock" && document.getElementById("proBox"); if (b && b.scrollIntoView) b.scrollIntoView({ block: "start" }); return true; }
+  if (fhPaused() && Object.keys(ds).some(k => /^fh\w*new$/.test(k) || FH_ADD_TAPS.has(k))) { toast(fhPauseWhy()); return true; }
   if (ds.fhcancel) { FH_EDIT = null; FH_PIN_FOR = null; FH_MSG = ""; FH_EVKIND = FH_EVTITLE = FH_EVPET = ""; showFh(); return true; }
   if (ds.fhback) { fhBack(); return true; }
   if (ds.fhnav) { FH_STACK = []; FH_EDIT = null; FH_PIN_FOR = null; FH_MSG = ""; FH_EVKIND = FH_EVTITLE = FH_EVPET = ""; fhEach("reset"); if (ds.fhnav === "lists") FH_LIST = null; showFh(ds.fhnav, true); return true; }
@@ -777,6 +803,7 @@ function fhSubmit(f, data) {
   const F = fh(), t = today(), D = f.dataset, me = fhMe(), bad = m => { FH_MSG = m; fhMsgShow(); return true; };
   const face = v => FH_FACES.includes(v) ? v : "🙂", color = v => FH_COLORS.includes(v) ? v : FH_COLORS[0];
   if (!D.fhsetup && !fhSet()) return false;
+  if (!D.fhsetup && fhPaused() && fhFormAdds(D)) { toast(fhPauseWhy()); return true; }
   if (D.fhsetup) { if (fhSet()) return true; const name = fhTxt(data.name, 24), fam = fhTxt(data.fam, 40); if (!name || !fam) return true;
     const id = uid(); F.members = [{ id, name, face: face(data.face), color: FH_COLORS[0], role: "owner", bday: "" }]; F.me = id; F.name = fam; S.name = name;
     F.lists = [["Grocery", "🛒"], ["Household", "🧻"], ["School", "🎒"]].map(([n, i]) => ({ id: uid(), name: n, icon: i, items: [] }));

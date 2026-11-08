@@ -101,7 +101,10 @@ class Fake:
                     if v is None: new["members"].pop(u, None)
                     else: new["members"][u] = v
                 else: new[k] = v
-            if any(new.get(x) != old.get(x) for x in ("owner", "created", "paid")): return {"err": "permission-denied"}
+            if any(new.get(x) != old.get(x) for x in ("owner", "created")): return {"err": "permission-denied"}
+            me_m, boss_m = old["members"].get(uid, {}).get("m"), old["members"].get(old["owner"], {}).get("m")
+            marking = set(a) == {"paid"} and old.get("paid") is False and new.get("paid") is True and uid in old["members"] and me_m == boss_m   # the owner's phone, or the owner's own second phone, once, false -> true (11/08)
+            if new.get("paid") != old.get("paid") and not marking: return {"err": "permission-denied"}
             added = set(new["members"]) - set(old["members"]); removed = set(old["members"]) - set(new["members"])
             changed = {u for u in set(new["members"]) & set(old["members"]) if new["members"][u] != old["members"][u]}
             owner_edit = old["owner"] == uid and new["members"].get(uid, {}).get("role") == "owner"
@@ -111,7 +114,7 @@ class Fake:
                        and inv.get("by") == old["owner"] and f"invites/{new.get('join')}" in batch_dels
                        and new["members"][uid].get("m") == inv["m"] and set(k for k in a if not k.startswith("members.")) <= {"join"})
             leaving = uid in old["members"] and old["owner"] != uid and removed == {uid} and not added and not changed and all(k.startswith("members.") for k in a)
-            if not (owner_edit or joining or leaving): return {"err": "permission-denied"}
+            if not (owner_edit or joining or leaving or marking): return {"err": "permission-denied"}
             self.docs[path] = new; self._bump(path); return {"d": True}
         if op == "del":
             self.writes += 1
@@ -335,7 +338,7 @@ def main():
         E.page.fill('form[data-fhsjoin] [name=code]', "ZZZZZZZZZZ"); E.page.click('form[data-fhsjoin] button')
         check("an expired code doesn't work", until(E, "/didn't work/.test(document.getElementById('fhsJoinMsg').textContent)") and not E.js("!!FHS"))
         check("a crafted join as an adult with a guest's code is refused by the server", "err" in fake.op("uidE", "update", f"families/{fid}", json.dumps({"members.uidE": {"m": "gma", "role": "adult"}, "join": "ZZZZZZZZZZ"})))
-        check("nobody can mark the family paid", "err" in fake.op("uidA", "update", f"families/{fid}", json.dumps({"paid": True})))
+        check("only the owner's phone can mark the family paid (a member can't)", "err" in fake.op("uidB", "update", f"families/{fid}", json.dumps({"paid": True})) and "err" in fake.op("uidE", "update", f"families/{fid}", json.dumps({"paid": True})))
         E.ctx.close()
         A.js("showFh('share')"); A.page.select_option('#fhSheet form[data-fhsinv] [name=m]', "gma"); A.page.click('#fhSheet form[data-fhsinv] button')
         until(A, "FHS_INV && FHS_INV.mid === 'gma' && FHS_INV.code !== '%s'" % gcode); g2 = A.js("FHS_INV.code")

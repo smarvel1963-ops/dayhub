@@ -94,7 +94,7 @@ const fhsCopy = (o, drop) => { const c = {}; Object.keys(o).forEach(k => { if (!
 const FHS_TREE_F = ["interests", "bio", "school", "phone", "place", "facts", "story", "heritage"];
 function fhsExport(adult) {
   const F = fh(), out = {}, put = (aud, part, k, v) => { if (aud) out[k] = [`${aud}/${part}`, v]; };
-  out["fam~1"] = ["all/people", { name: F.name || "" }];
+  out["fam~1"] = ["all/people", { name: F.name || "", setup: fhIsD(F.setup) ? F.setup : "" }];   // setup: every phone counts the free trial from the day the family was made
   F.members.forEach(m => {
     const a = fhsAudOf(fhShareOf(m.id, "bday").to);
     put("all", "people", "mem~" + m.id, fhsCopy(m, a === "all" ? [] : ["bday"]));
@@ -135,6 +135,7 @@ function fhsBuild(flat, adult) {
   const P = kind => (by[kind] || []).map(([k, v]) => [k.split("|"), v]).filter(([p]) => p.length === 2 && ok(p[0]) && (ok(p[1]) || fhIsD(p[1])));
   const keepOrder = (old, list) => { const ix = new Map(old.map((x, i) => [x.id, i])); return list.sort((a, b) => (ix.has(a.id) ? ix.get(a.id) : 1e6 + (+a.at || 0)) - (ix.has(b.id) ? ix.get(b.id) : 1e6 + (+b.at || 0))); };
   const fam = M("fam")["1"]; if (fam && typeof fam.name === "string" && fam.name) F.name = fam.name.slice(0, 40);
+  if (fam && fhIsD(fam.setup) && (!fhIsD(F.setup) || fam.setup < F.setup)) F.setup = fam.setup;
   // A parent's phone keeps what it knew of a person beyond the shared copy; a guest's keeps that only for its own person.
   const keepOld = (id, old) => adult || id === meId ? (old || {}) : {};
   const mx = adult ? M("memx") : {}, om = new Map(F.members.map(m => [m.id, m]));
@@ -179,8 +180,27 @@ function fhsRoleWatch() {
   const now = new Map(fhMembers().map(m => [m.id, m.role]));
   if (FHS_ROLESEEN) { now.forEach((r, id) => { if (FHS_ROLESEEN.has(id) && FHS_ROLESEEN.get(id) !== r) FHS_ROLEDIRTY.add(id); }); FHS_ROLESEEN.forEach((r, id) => { if (!now.has(id)) FHS_ROLEDIRTY.add(id); }); }
 }
+// v1.59.1 THE PURCHASE: the family's record says whether it's paid, and only the owner's phone can mark it, once, after the relay confirmed the
+// buyer with Whop. Every phone keeps the answer, so one that opens offline still knows. A refused write (or no signal) just tries again later.
+let FHS_PAIDAT = 0, FHS_PAIDBAD = false;
+const fhsPaid = () => !!(FHS && FHS.paid);
+// The owner's phone, or "another phone or tablet for me" (it joins as an adult, but it's the same person).
+const fhsOwnersPhone = () => { const f = FHS_FAM, mem = f && f.members || {}, me = FHS && mem[FHS.uid], boss = f && mem[f.owner]; return !!(me && boss && me.m === boss.m); };
+async function fhsMarkPaid() {
+  if (!FHS || !fhsOwnersPhone() || FHS_FAM.paid === true || !fhBought() || Date.now() - FHS_PAIDAT < 6e5) return;
+  FHS_PAIDAT = Date.now();
+  try { await fhsNet().update(`families/${FHS.fid}`, { paid: true }); FHS_PAIDBAD = false; }
+  catch (e) { FHS_PAIDBAD = true; setTimeout(fhsMarkPaid, 6e5 + 1000); fhsPaintShare(); }   // offline, or the server said no: tried again, and the Share page says so
+}
+function fhsPaidNow() { FHS_PAIDAT = 0; fhsMarkPaid(); fhsSoon(50); }
+function fhsTakePaid(d) {
+  const p = d.paid === true;
+  if (p !== !!FHS.paid) { FHS.paid = p; fhsStore(); fhsSoon(50); fhsPaint(); }
+  fhsMarkPaid();
+}
 async function fhsSync() {
   if (!FHS || FHS_STATE === "removed") return;
+  if (fhPaused()) return;                                                         // the trial ended without a purchase: nothing is sent or taken in until it's unlocked (nothing is lost; the merge catches up)
   if (FHS_RUN) { FHS_AGAIN = true; return; }
   if (!FHS_LIVE.length || FHS_LIVE.some(p => !FHS_GOT.has(p))) return;           // wait for every part's first answer from the server
   if (FHS_FAM && !FHS_LIVE.some(p => p.endsWith("/all/" + fhsMonth(Date.now())))) { fhsParts(FHS_FAM, true); return; }   // a new month: listen to it first
@@ -188,7 +208,7 @@ async function fhsSync() {
   try {
     let F = fh(); const pre = `families/${FHS.fid}/`, adult = fhsAdult();
     // A copy of the family that didn't come from sharing (a backup restored, Undo): never read as "everything since was deleted".
-    if ((F.sid || "") !== FHS.fid) { S.fh = { setup: F.setup || today(), name: "", me: (fhsMine() || {}).m || "", pin: F.pin, big: F.big, sid: FHS.fid, members: [], lists: [] }; FH_FIXED = null; F = fh(); FHS.shadow = {}; }
+    if ((F.sid || "") !== FHS.fid) { S.fh = { setup: today(), name: "", me: (fhsMine() || {}).m || "", pin: F.pin, big: F.big, sid: FHS.fid, members: [], lists: [] }; FH_FIXED = null; F = fh(); FHS.shadow = {}; }
     else if ((+F.sv || 0) < (+FHS.sv || 0)) FHS.shadow = {};
     fhsRoleWatch();
     const live = new Set(FHS_LIVE.filter(p => !FHS_DEAD.has(p)).map(p => p.slice(pre.length))), first = !!FHS.first;
@@ -328,7 +348,7 @@ async function fhsListen() {
   FHS_UNSUB.push(net.listen(famPath, d => {
     if (!FHS) return;
     if (!d || !d.members || !d.members[FHS.uid]) { fhsRemoved(); return; }
-    FHS_FAM = d; fhsParts(d); fhsPaintShare();
+    FHS_FAM = d; fhsTakePaid(d); fhsParts(d); fhsPaintShare();
   }, e => { if (!FHS) return; const denied = /permission|denied/i.test(String(e && (e.code || e.message)));
     if (denied && FHS_FAM) { fhsRemoved(); return; }                                // was in the family, now turned away: taken off
     FHS_STATE = denied ? "denied" : "offline"; FHS_ERR = String(e && (e.code || e.message)); if (!denied) fhsRetry(); fhsPaintShare(); }));
@@ -350,7 +370,7 @@ async function fhsCreate() {
 function fhsCode() { const b = new Uint8Array(10); (window.crypto || window.msCrypto).getRandomValues(b); return [...b].map(x => FHS_ABC[x % 32]).join(""); }
 // Only the owner makes invites (Scott: the owner invites the family), each for one person in Family: an adult or a guest.
 async function fhsInvite(mid) {
-  const m = fhMem(mid); if (!FHS || !fhsOwner() || !m || m.role === "child") return null;
+  const m = fhMem(mid); if (!FHS || !fhsOwner() || !m || m.role === "child" || fhPaused()) return null;
   const role = m.role === "guest" ? "guest" : "adult", code = fhsCode(), net = fhsNet(), exp = Date.now() + FHS_INVITE_DAYS * 864e5;
   await net.set(`invites/${code}`, { fid: FHS.fid, m: m.id, role, by: FHS.uid, exp: net.ts(exp), name: fh().name || "", who: m.name });
   FHS_INV = { code, mid: m.id, who: m.name, exp }; return FHS_INV;
@@ -418,8 +438,9 @@ function fhsShareHtml0() {
   const phones = FHS_FAM ? Object.entries(FHS_FAM.members || {}) : [], inv = FHS_INV && FHS_INV.exp > Date.now() ? FHS_INV : null;
   const linked = new Set(phones.map(([, x]) => x && x.m)), canInv = fhMembers().filter(m => m.role !== "child")
     .sort((x, y) => ((me && x.id === me.id) - (me && y.id === me.id)) || (linked.has(x.id) - linked.has(y.id)));   // people without a phone yet first, "another phone for me" last
-  return `<div class="fhs-status${FHS_STATE === "ok" ? " ok" : ""}"><b>${esc(st)}</b><small>${phones.length} phone${phones.length === 1 ? "" : "s"} in the family</small></div>
-    ${owner ? `<div class="mv-sec"><h3>Invite someone</h3></div>
+  const paused = fhPaused();
+  return `<div class="fhs-status${FHS_STATE === "ok" && !paused ? " ok" : ""}"><b>${paused ? "⏸ Sharing is paused - the free trial has ended" : esc(st)}</b><small>${phones.length} phone${phones.length === 1 ? "" : "s"} in the family${paused ? ". Nothing is lost: it all catches up once Family Hub is unlocked." : FHS_PAIDBAD && !(FHS_FAM && FHS_FAM.paid === true) ? ". ⚠️ Your purchase is saved, but the family's phones haven't heard yet. It keeps trying." : ""}</small></div>
+    ${owner && !paused ? `<div class="mv-sec"><h3>Invite someone</h3></div>
       ${inv ? `<div class="fhs-code"><small>Code for ${esc(inv.who)} · works once, for ${FHS_INVITE_DAYS} days</small><b>${esc(fhsPretty(inv.code))}</b>
         <div class="fh-btns"><button class="btn fh-go" data-fhsshare="1">📤 Send it</button><button class="btn sm ghost" data-fhscopy="1">Copy</button></div>
         <p class="fine">On their phone: open Family Hub and tap "Join your family", or open the link you send.</p></div>` : ""}

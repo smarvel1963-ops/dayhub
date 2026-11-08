@@ -1,5 +1,5 @@
 {
- "version": "1.59",
+ "version": "1.59.1",
  "notes": {
   "1.58.17": [
    "💰 Money Hub: behind-the-scenes work on a fresh new look, not switched on yet.",
@@ -27,6 +27,9 @@
    "🚗 Auto Hub: Day Hub and Trip Hub on this phone (Android) can now show your car records. They only read them, nothing is copied. See Settings → Hub family → Hub Connections."
   ],
   "1.58.10": [],
+  "1.59.1": [
+   "👨‍👩‍👧 Family Hub: See how to keep it for your whole family - tap More."
+  ],
   "1.59": [
    "👨‍👩‍👧 New in the Hub family: Family Hub - one family, one place, on everyone's phone. Find it in Settings → Hub family.",
    "👨‍👩‍👧 Family Hub: welcome! A shared calendar with reminders a week, a day or the same day ahead, messages and quick check-ins, chores kids check off and you OK, shopping lists, meals and recipes, homework and pickups, pets, family goals, photos and the family tree.",

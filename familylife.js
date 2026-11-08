@@ -227,6 +227,7 @@ if (typeof document !== "undefined") document.addEventListener("change", async e
   if (t.dataset.fhldwho !== undefined && t.matches("select[data-fhldwho]")) { FHL_DWHO = fhMem(t.value) ? t.value : ""; return; }
   if (t.dataset.fhldto) { FHL_DTO = FH_AUD.some(a => a[0] === t.value) ? t.value : "parents"; return; }
   if (t.dataset.fhldocadd && t.files && t.files[0]) { if (!fhAdult() || typeof fhpPutFile !== "function") return;
+    if (fhPaused()) { toast(fhPauseWhy()); t.value = ""; return; }
     try { const id = await fhpPutFile(t.files[0]), T = fhlDocT(FHL_DT);
       fh().docs.unshift({ id, type: T[0], title: `${T[2]}${FHL_DWHO ? " - " + fhName(FHL_DWHO) : ""}`, who: FHL_DWHO, to: FHL_DTO, ids: [], by: (fhMe() || {}).id, date: today(), at: Date.now() });
       save(); showFh("docs"); toast(`${T[1]} Saved on this phone`); } catch (err) { toast("That didn't look like a picture"); }
@@ -237,10 +238,12 @@ if (typeof document !== "undefined") document.addEventListener("change", async e
 function fhlSubmit(f, data) {
   const D = f.dataset, F = fh(), t = today(), me = fhMe(), adult = fhAdult(), bad = m => { FH_MSG = m; fhMsgShow(); return true; };
   if (D.fhlmeals) { if (!adult) return true;
+    const paused = fhPaused(); let held = 0;                                       // after the trial: days already planned can change, new ones wait
     fhlDays().forEach(d => { const v = fhTxt(data["m_" + d], 60), r = v && F.recipes.find(x => x.name.toLowerCase() === v.toLowerCase());
+      if (paused && v && !F.meals[d]) { held++; return; }
       if (v) F.meals[d] = { d: v, rid: r ? r.id : "" }; else delete F.meals[d]; });
     Object.keys(F.meals).forEach(k => { if (!fhIsD(k) || k < addDays(t, -30)) delete F.meals[k]; });
-    save(); render(); showFh("meals"); toast("🍽️ Meal plan saved"); return true; }
+    save(); render(); showFh("meals"); toast(held ? fhPauseWhy() : "🍽️ Meal plan saved"); return true; }
   if (D.fhlrecipe) { if (!adult) return true; const name = fhTxt(data.name, 60); if (!name) return bad("Name the recipe.");
     const vals = { name, ings: String(data.ings || "").split(/\r?\n/).map(x => fhTxt(x, 60)).filter(Boolean).slice(0, 40), steps: String(data.steps || "").trim().slice(0, 3000), at: Date.now() };
     const r = D.fhlrecipe !== "new" && F.recipes.find(x => x.id === D.fhlrecipe);
