@@ -88,6 +88,8 @@ def main():
         check("...and glides once that page closes", FS.until(a, "window.scrollY > 5", 4000), a.js(TOP)); a.ctx.close()
         a = arm(FS.phone(b, base, FS.Fake(), "uidS", setup=False)); a.page.wait_for_timeout(3300)
         check("a setup screen stays put", a.js(TOP) == 0 and a.js("hubPanY()") == 0, a.js("hubPanY()")); a.ctx.close()
+        a = arm(W.health(b, base, look=None, setup=False)); a.page.wait_for_timeout(3300)
+        check("Health Hub's first-time welcome stays put", a.js(TOP) == 0 and a.js("hubPanY()") == 0 and a.js("!!document.querySelector('form[data-hhsetup]')"), a.js("[window.scrollY, hubPanY()]")); a.ctx.close()
         a = fam(); a.js("document.getElementById('cards').insertAdjacentHTML('afterbegin', '<section class=\"card whatsnew\">New</section>'); 0")
         check("an update note to read stays on screen", a.js("hubPanY()") == 0); a.ctx.close()
         a = arm(D.phone(b, base)); a.js("TAB = 'today'; 0")
