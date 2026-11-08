@@ -1453,7 +1453,7 @@ document.addEventListener("click", e => {
   if (ds.day !== undefined) { const n = Number(ds.day); VIEW = n === 0 ? today() : addDays(VIEW, n); render(); return; }
   if (ds.update) { applyUpdate(); return; }
   if (ds.updcheck) { updCheckNow(); return; }                          // v1.58.15 ⚙ Check for updates
-  if (ds.seen) { S.seenVersion = VERSION; saveLocal(); render(); return; }
+  if (ds.seen) { S.seenVersion = VERSION; saveLocal(); render(); if (typeof hubPanStart === "function" && !window.scrollY) hubPanStart(500); return; }   // v1.59.4 the note read: on to the glide
   if (ds.tact) { const f = TOAST_ACT; TOAST_ACT = null; if (f) f(); return; }
   if (ds.install && INSTALL_EVT) { INSTALL_EVT.prompt(); INSTALL_EVT.userChoice.finally(() => { INSTALL_EVT = null; drawInstallBox(); render(); }); return; }
   if (ds.del && ds.del.startsWith("occ:")) {            // one day of a repeating event
@@ -2036,5 +2036,5 @@ setInterval(checkUpdate, 30 * 60000);
 setInterval(() => { if (S.mail.on && mReady()) scanMail(); }, 20 * 60000);
 checkReminders();
 if (!RENEWING) { syncOnOpen(true); maybeBrief(); hubPanOpen(); }     // v1.59.2 opens on the art, then glides to the useful part
-document.addEventListener("visibilitychange", () => { if (!document.hidden) { if (autoRenew()) return; recheckPro(); VIEW = today(); render(); checkReminders(); syncOnOpen(); maybeBrief(); hcLoad(); } });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { if (autoRenew()) return; recheckPro(); VIEW = today(); render(); checkReminders(); syncOnOpen(); maybeBrief(); hcLoad(); if (Date.now() - UPD_ASKED > 60000) checkUpdate(); } });   // v1.59.4 an app reopened from memory asks too (Scott 11/08: "dont see updates coming across all my apps")
 if ("serviceWorker" in navigator) navigator.serviceWorker.register(new URL("sw.js", HOME_URL)).catch(() => {});

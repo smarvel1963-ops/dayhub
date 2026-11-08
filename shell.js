@@ -374,8 +374,8 @@ const HUB_PAN_TO = [".fh-faces2", ".ct-main", ".tt-main", ".ht-main", ".mt-grid"
 let HP_T = 0, HP_RAF = 0, HP_LIVE = false, HP_AWAY = 0;
 function hubPanY() {                                                          // 0 = stay put (a setup screen, an update note to read, a page too short to move)
   const cards = document.getElementById("cards"), hero = document.getElementById("hero"); if (!cards || (typeof TAB !== "undefined" && TAB !== "home")) return 0;
-  if (cards.querySelector(".welcome, .hh-hello, .whatsnew, form[data-setup], form[data-fhsetup]")) return 0;
-  const el = HUB_PAN_TO.map(s => cards.querySelector(s)).find(Boolean) || (hero && hero.offsetHeight > 40 ? cards : null); if (!el) return 0;
+  if (cards.querySelector(".welcome, .hh-hello, form[data-setup], form[data-fhsetup]")) return 0;
+  const el = HUB_PAN_TO.map(s => cards.querySelector(s)).find(Boolean) || (hero && hero.offsetHeight > 40 ? cards : null); if (!el || (el !== cards && cards.querySelector(".whatsnew"))) return 0;   // a new look's update note sits above the art: stay and let it be read
   const bar = cards.querySelector(".fh-topbar"), probe = document.createElement("div");
   probe.style.cssText = "position:fixed;top:0;height:env(safe-area-inset-top,0px);visibility:hidden"; document.body.appendChild(probe); const safe = probe.offsetHeight; probe.remove();
   const y = el.getBoundingClientRect().top + window.scrollY - (bar ? bar.offsetHeight : safe) - 12, y2 = Math.min(y, document.documentElement.scrollHeight - window.innerHeight);

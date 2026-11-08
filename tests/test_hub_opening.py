@@ -104,6 +104,22 @@ def main():
         a.js("HP_AWAY = Date.now() - 60000; document.dispatchEvent(new Event('visibilitychange')); 0"); a.page.wait_for_timeout(200)
         check("back after one minute: left alone", a.js(TOP) == y, [y, a.js(TOP)]); a.ctx.close()
 
+        print("\n[Updates, and the What's New note]")
+        a = family(); a.js("window.__CHECKS = 0; const f0 = window.fetch; window.fetch = (u, o) => { if (String(u).includes('version.json')) window.__CHECKS++; return f0(u, o); }; UPD_ASKED = Date.now() - 120000; document.dispatchEvent(new Event('visibilitychange')); 0"); a.page.wait_for_timeout(300)
+        check("an app reopened from memory asks for updates", a.js("window.__CHECKS") == 1, a.js("window.__CHECKS"))
+        a.js("document.dispatchEvent(new Event('visibilitychange')); 0"); a.page.wait_for_timeout(300)
+        check("...but not again within a minute", a.js("window.__CHECKS") == 1, a.js("window.__CHECKS"))
+        a.ctx.close()
+        a = arm(D.phone(b, base, path="/")); a.page.wait_for_timeout(200)
+        if a.js("typeof briefOpen === 'function' && briefOpen()"): a.page.click('[data-brief="go"]')
+        a.js("document.getElementById('cards').insertAdjacentHTML('afterbegin', '<section class=\"card whatsnew\">New</section>'); window.scrollTo(0, 0); 0")
+        check("the customer look: the note is at the top of what it glides to, so it still glides", a.js("hubPanY()") > 0, a.js("hubPanY()")); a.ctx.close()
+        a = fam(); a.js("document.getElementById('cards').insertAdjacentHTML('afterbegin', '<section class=\"card whatsnew\">New</section>'); 0")
+        check("a new look: the note is above the art, so it waits", a.js("hubPanY()") == 0)
+        a.js("window.scrollTo(0, 0); 0")
+        a.js("(() => { const b = document.createElement('button'); b.dataset.seen = '1'; document.getElementById('cards').prepend(b); b.click(); })(); 0")
+        check("...and tapping Got it starts the glide", FS.until(a, "window.scrollY > 5", 4000), a.js("[window.scrollY, HP_LIVE]")); a.ctx.close()
+
         print("\n[Reduced motion, test robots, the picture]")
         a = family(); ctx2 = a.ctx
         check("a test robot doesn't get it unless it asks (the other checks stay still)", True if a.js("navigator.webdriver") and not a.js("window.__HUB_PAN") and a.js("(hubPanStart(10), HP_LIVE)") is False else False); a.ctx.close()
