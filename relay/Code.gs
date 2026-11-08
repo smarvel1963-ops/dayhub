@@ -151,6 +151,8 @@
  * Family Hub). When a buyer has both, the Family Hub purchase is the one reported. /memberships hides one-time ("completed") purchases unless
  * asked by status (measured v8), so this one lookup asks by status. Script Property FAMILY_PRODUCT_ID overrides the id. The relay never hears
  * about the family itself: the buyer's phone marks the family paid after this says yes.
+ *
+ * v20 (Scott 11/08 "Yes, fix them"): the emailed code on a new phone also goes to someone who bought only Auto Hub Pro or Money Hub Pro.
  */
 const MODEL = "claude-haiku-4-5";
 const DAILY_CAP = 200;              // requests per day, all tasks together
@@ -540,7 +542,7 @@ function markConfirmed(P, b, dev) { P.setProperty(confirmKey(b, dev), Utilities.
 
 // Did this address buy any Hub product (Pro, a Pass or AI Credits)? Same cached lookups as verify / credits.
 function hubBuyer(P, b) {
-  for (const app of ["dayhub", "cruisehub", "triphub", "familyhub"]) {
+  for (const app of ["dayhub", "cruisehub", "triphub", "autohub", "moneyhub", "familyhub"]) {
     const r = proLookup(P, b, false, app);
     if (r.error) return r;
     if (r.valid) return { yes: true };
