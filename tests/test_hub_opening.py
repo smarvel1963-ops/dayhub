@@ -60,11 +60,11 @@ def main():
             a = FS.phone(b, base, FS.Fake(), "uidA"); a.js(FS.SEED); return a
         for name, make, sel, bar in [("day", lambda: D.phone(b, base, path="/"), "#cards", 0), ("day_new", lambda: D.phone(b, base), ".dt-home", 0),
                 ("cruise", lambda: C.cruise(b, base, look=None), "#cards", 0), ("cruise_new", lambda: C.cruise(b, base), ".ct-main", 0),
-                ("trip", lambda: R.trip(b, base, look=None), "#cards", 0), ("trip_new", lambda: R.trip(b, base), ".tt-main", 0),
+                ("trip", lambda: R.trip(b, base, look=None), "#cards", 0), ("trip_new", lambda: R.trip(b, base), ".tt-stage", 0),
                 ("home", lambda: H.home(b, base, look=None), "#cards", 0), ("home_new", lambda: H.home(b, base), ".ht-house", 0),
                 ("auto", lambda: A.app(b, base, look=None), "#cards", 0), ("auto_new", lambda: A.app(b, base), ".at-next", 0),
-                ("money", lambda: M.money(b, base, look=None), "#cards", 0), ("money_new", lambda: M.money(b, base), ".mt-grid", 0),
-                ("health", lambda: W.health(b, base, look=None), "#cards", 0), ("health_new", lambda: W.health(b, base), ".hw-grid", 0),
+                ("money", lambda: M.money(b, base, look=None), "#cards", 0), ("money_new", lambda: M.money(b, base), ".mt-cash", 0),
+                ("health", lambda: W.health(b, base, look=None), "#cards", 0), ("health_new", lambda: W.health(b, base), ".hw-today", 0),
                 ("family", family, ".fh-faces2", 62)]:
             try: opens(b, name, make, sel, bar)
             except Exception as e: check(f"{name}: ran", False, str(e)[:300])
@@ -131,6 +131,18 @@ def main():
             check(f"Home Hub {w}x{h}: the card sits below the whole house", t >= art * .565, [t, round(art * .565)])
             if SHOTS: a.page.screenshot(path=os.path.join(SHOTS, f"homeopen_{w}.png"))
             a.ctx.close()
+
+        for label, make, card, tiles, part in [("Trip Hub", R.trip, ".tt-stage", ".tt-main .tt-tile", .56), ("Money Hub", M.money, ".mt-cash", ".mt-grid .mt-tile", .60), ("Health Hub", W.health, ".hw-today", ".hw-grid .hw-tile", .53)]:
+            for w, h in [(360, 740), (390, 844), (412, 915)]:
+                a = make(b, base, width=w, height=h); a.page.wait_for_timeout(250); a.js("window.scrollTo(0, 0); 0")
+                t = a.js(f"Math.round(document.querySelector('{card}').getBoundingClientRect().top)"); art = a.js("Math.max(innerWidth, innerHeight * .558) * 1.792")
+                check(f"{label} {w}x{h}: the picture shows first, the card below it", t >= art * part, [t, round(art * part)])
+                if SHOTS and w == 390: a.page.screenshot(path=os.path.join(SHOTS, f"{label.split()[0].lower()}_open.png"))
+                a.js("window.scrollTo(0, hubPanY()); 0"); a.page.wait_for_timeout(100)
+                bot = a.js(f"Math.max(...[...document.querySelectorAll('{tiles}')].map(e => e.getBoundingClientRect().bottom))"); nav = a.js("Math.min(...['#tabbar', '#mvNav', '#hhNav', '.mv-nav', '.rg-bar'].map(s => document.querySelector(s)).filter(e => e && e.getBoundingClientRect().height).map(e => e.getBoundingClientRect().top), innerHeight)")
+                check(f"{label} {w}x{h}: after the glide, the card and all twelve tiles fit", bot <= nav + 1, [bot, nav])
+                if SHOTS and w == 390: a.page.screenshot(path=os.path.join(SHOTS, f"{label.split()[0].lower()}_glide.png"))
+                a.ctx.close()
 
         print("\n[Reduced motion, test robots, the picture]")
         a = family(); ctx2 = a.ctx

@@ -152,3 +152,5 @@ body.hw.upd-on #hhSheet.hw-full .sheet-body { padding-bottom: calc(28px + var(--
   body.hw .hw-today { margin-top: 6px; } body.hw .hw-score b { font-size: 32px; } body.hw .hw-tile { min-height: 68px; } body.hw .hw-tile .hw-ic { width: 30px; height: 30px; }
 }
 @media (max-width: 359px) { body.hw .hw-today-in { grid-template-columns: minmax(0, 1fr); } }
+/* Scott 11/08 ("home hub open with house covered up", "go through all of them"): on a phone the picture shows first, this card sits below it, and the opening glide (shell.js) brings the card and the tiles up. Last in the file so it wins. */
+@media (max-width: 599px) { body.hw .hw-today { margin-top: calc(0.985 * max(100vw, 55.8vh) - 60px - env(safe-area-inset-top)); } }

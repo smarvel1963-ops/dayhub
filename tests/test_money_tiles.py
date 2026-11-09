@@ -112,9 +112,10 @@ def test_home(b, base):
     t = a.js("[...document.querySelectorAll('.mt-hero ~ .mt-grid .mt-tile b')].map(x => x.textContent)")
     check("his 12 tiles in his order", t == TILES, t)
     check("the vault picture fetched on this phone", any("home.webp" in u for u in a.art), a.art[:3])
+    a.js("window.scrollTo(0, hubPanY())"); a.page.wait_for_timeout(100)        # 11/08: the opening glide lands here
     bottom = a.js("Math.max(...[...document.querySelectorAll('.mt-grid .mt-tile')].map(e => e.getBoundingClientRect().bottom))")
     nav = a.js("document.getElementById('mvNav').getBoundingClientRect().top"); plus = a.js("document.querySelector('.mt-plus').getBoundingClientRect().top")
-    check("all twelve tiles on the first screen of a 390x844 phone, clear of the gold +", bottom <= plus + 1 and bottom <= nav, (bottom, plus, nav))
+    check("all twelve tiles on one screen of a 390x844 phone, once it has glided down, clear of the gold +", bottom <= plus + 1 and bottom <= nav, (bottom, plus, nav))
     below = a.page.inner_text(".mt-below").lower()
     check("one scroll down: what needs you, due soon, the quick log", all(x in below for x in ("needs you", "due soon", "phone", "quick log")), below[:160])
     tap(a, ".mt-round[data-mveye]")

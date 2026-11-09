@@ -234,3 +234,5 @@ body.tt .tt-hero, body.tt .tt-notices, body.tt .tt-grid, body.tt .tt-below, body
   body.tt .tt-hero > .tt-stage, body.tt .tt-hero > button.tt-stage { margin-top: 40px; }
   body.tt .tt-main .tt-tile { min-height: 76px; } body.tt .tt-main .tt-tile .tt-ic { width: 40px; height: 40px; } body.tt .tt-big b { font-size: 44px; }
 }
+/* Scott 11/08 ("home hub open with house covered up", "go through all of them"): on a phone the picture shows first, this card sits below it, and the opening glide (shell.js) brings the card and the tiles up. Last in the file so it wins. */
+@media (max-width: 599px) { body.tt .tt-hero > .tt-stage, body.tt .tt-hero > button.tt-stage { margin-top: calc(1.04 * max(100vw, 55.8vh) - 60px - env(safe-area-inset-top)); } }

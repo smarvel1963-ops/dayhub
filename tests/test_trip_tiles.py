@@ -106,9 +106,10 @@ def test_home(b, base):
     check("My Trip card: the name, the dates, 21 days to go, the Ready bar", all(x in s for x in ("My Trip", "Mountain Week", "Oct 12", "Oct 19", "21", "Days to go", "Ready to Go")), s)
     check("every tile has its painted icon (no emoji)", a.js("[...document.querySelectorAll('.tt-main .tt-tile img.tt-icimg')].length") == 12)
     check("the art and icons were fetched on this phone", any("home.webp" in u for u in a.art) and any("ic_backpack.webp" in u for u in a.art), a.art[:4])
+    a.js("window.scrollTo(0, hubPanY())"); a.page.wait_for_timeout(100)        # 11/08: the opening glide lands here
     bottom = a.js("Math.max(...[...document.querySelectorAll('.tt-main .tt-tile')].map(e => e.getBoundingClientRect().bottom))")
     bar = a.js("document.getElementById('tabbar').getBoundingClientRect().top")
-    check("all twelve tiles on the first screen of a 390x844 phone, above the tab bar", bottom <= bar + 1, (bottom, bar))
+    check("all twelve tiles on one screen of a 390x844 phone, once it has glided down, above the tab bar", bottom <= bar + 1, (bottom, bar))
     check("nothing runs off the side", not a.js("document.documentElement.scrollWidth > window.innerWidth + 1"))
     check("Needs you and the big button wait below the tiles", a.js("!!document.querySelector('.tt-below .tt-big-btn')") and "WHAT AM I FORGETTING" in a.page.inner_text(".tt-below").upper())
     tap(a, '.tt-ready')

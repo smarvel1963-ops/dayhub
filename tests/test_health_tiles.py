@@ -111,9 +111,10 @@ def test_home(b, base):
     t = a.js("[...document.querySelectorAll('.hw-hero ~ .hw-grid .hw-tile b')].map(x => x.textContent)")
     check("his 12 tiles in his order (Water for Nutrition, Emergency for Challenges)", t == TILES, t)
     check("the mountain picture fetched on this phone", any("home.webp" in u for u in a.art), a.art[:3])
+    a.js("window.scrollTo(0, hubPanY())"); a.page.wait_for_timeout(100)        # 11/08: the opening glide lands here
     bottom = a.js("Math.max(...[...document.querySelectorAll('.hw-grid .hw-tile')].map(e => e.getBoundingClientRect().bottom))")
     nav = a.js("document.getElementById('hhNav').getBoundingClientRect().top")
-    check("all twelve tiles on the first screen of a 390x844 phone", bottom <= nav + 1, (bottom, nav))
+    check("all twelve tiles on one screen of a 390x844 phone, once it has glided down", bottom <= nav + 1, (bottom, nav))
     below = a.page.inner_text(".hw-below").lower()
     check("one scroll down: needs you, quick log, the next visit, Show my health info", all(x in below for x in ("needs you", "quick log", "dr. lane", "show my health info")), below[:200])
     a.js("CLOUD_PENDING = { data: {} }; render()"); a.page.wait_for_timeout(150)
