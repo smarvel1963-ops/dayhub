@@ -61,7 +61,7 @@ def main():
         for name, make, sel, bar in [("day", lambda: D.phone(b, base, path="/"), "#cards", 0), ("day_new", lambda: D.phone(b, base), ".dt-home", 0),
                 ("cruise", lambda: C.cruise(b, base, look=None), "#cards", 0), ("cruise_new", lambda: C.cruise(b, base), ".ct-main", 0),
                 ("trip", lambda: R.trip(b, base, look=None), "#cards", 0), ("trip_new", lambda: R.trip(b, base), ".tt-main", 0),
-                ("home", lambda: H.home(b, base, look=None), "#cards", 0), ("home_new", lambda: H.home(b, base), ".ht-main", 0),
+                ("home", lambda: H.home(b, base, look=None), "#cards", 0), ("home_new", lambda: H.home(b, base), ".ht-house", 0),
                 ("auto", lambda: A.app(b, base, look=None), "#cards", 0), ("auto_new", lambda: A.app(b, base), ".at-next", 0),
                 ("money", lambda: M.money(b, base, look=None), "#cards", 0), ("money_new", lambda: M.money(b, base), ".mt-grid", 0),
                 ("health", lambda: W.health(b, base, look=None), "#cards", 0), ("health_new", lambda: W.health(b, base), ".hw-grid", 0),
@@ -119,6 +119,18 @@ def main():
         a.js("window.scrollTo(0, 0); 0")
         a.js("(() => { const b = document.createElement('button'); b.dataset.seen = '1'; document.getElementById('cards').prepend(b); b.click(); })(); 0")
         check("...and tapping Got it starts the glide", FS.until(a, "window.scrollY > 5", 4000), a.js("[window.scrollY, HP_LIVE]")); a.ctx.close()
+
+        for name, make in [("Home Hub's new look", lambda: H.home(b, base)), ("Family Hub", family), ("Day Hub", lambda: D.phone(b, base, path="/"))]:
+            a = make(); a.ctx.route("**/version.json*", lambda r: r.fulfill(status=200, content_type="application/json", body=json.dumps({"version": "9.9.9", "notes": {}})))
+            a.page.wait_for_timeout(100); a.js("UPD_ASKED = 0; UPDATE = null; document.dispatchEvent(new Event('visibilitychange')); 0")
+            check(f"{name}: coming back with a newer version out shows the green Update bar", FS.until(a, "(() => { const u = document.getElementById('updBar'); return !!u && u.getBoundingClientRect().height > 20; })()", 3000) or (a.js("tick(); 0") is None and FS.until(a, "!!document.getElementById('updBar')", 2000)), a.js("[!!UPDATE, !!document.getElementById('updBar')]"))
+            a.ctx.close()
+        for w, h in [(360, 740), (390, 844), (412, 915)]:
+            a = H.home(b, base, width=w, height=h); a.page.wait_for_timeout(250); a.js("window.scrollTo(0, 0); 0")
+            t = a.js("Math.round(document.querySelector('.ht-house').getBoundingClientRect().top)"); art = a.js("Math.max(innerWidth, innerHeight * .558) * 1.792")
+            check(f"Home Hub {w}x{h}: the card sits below the whole house", t >= art * .565, [t, round(art * .565)])
+            if SHOTS: a.page.screenshot(path=os.path.join(SHOTS, f"homeopen_{w}.png"))
+            a.ctx.close()
 
         print("\n[Reduced motion, test robots, the picture]")
         a = family(); ctx2 = a.ctx

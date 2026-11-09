@@ -104,15 +104,16 @@ def test_home(b, base):
     hc = a.page.inner_text(".ht-house")
     check("Your House: the home, its spaces, the next thing due (the late smoke alarm first)", "Your House" in hc and "My House" in hc and "12 spaces" in hc and "Test smoke alarm" in hc and "late" in hc, hc)
     check("the art fetched on this phone", any("home.webp" in u for u in a.art), a.art[:3])
+    a.js("window.scrollTo(0, hubPanY())"); a.page.wait_for_timeout(100)        # 11/08: the opening glide lands here
     bottom = a.js("Math.max(...[...document.querySelectorAll('.ht-main .ht-tile')].map(e => e.getBoundingClientRect().bottom))")
     bar = a.js("document.getElementById('tabbar').getBoundingClientRect().top")
-    check("all twelve tiles on the first screen of a 390x844 phone", bottom <= bar + 1, (bottom, bar))
+    check("all twelve tiles on one screen of a 390x844 phone, once it has glided down", bottom <= bar + 1, (bottom, bar))
     a.js("window.scrollTo(0, 0)"); a.page.wait_for_timeout(100)
     top = a.js("document.querySelector('.ht-house').getBoundingClientRect().top")
     bg = a.js("getComputedStyle(document.body, '::before').backgroundImage")
     pos = a.js("getComputedStyle(document.body, '::before').backgroundPosition.split(',').pop().trim()")   # the picture's layer is the last
-    check("the house shows under the title (Scott 11/07): the picture moves up, Your House starts on the lawn",
-          top >= 240 and "home.webp" in bg and pos.split()[-1].startswith("-"), (top, pos))
+    check("the whole house shows on opening (Scott 11/08 \"home hub open with house covered up\"): the picture from the top, Your House below it",
+          top >= 470 and "home.webp" in bg and pos.split()[-1] in ("0%", "0px"), (top, pos))
     below = a.page.inner_text(".ht-below")
     check("Coming up one scroll down, from the rooms and the Upkeep list", a.js("document.querySelectorAll('.ht-below .ht-row').length") == 4 and "Test smoke alarm" in below and "Trash day" in below, below[:200])
     a.js("WXDATA.here.days[1].lo = 27; render()"); a.page.wait_for_timeout(150)
@@ -261,9 +262,9 @@ def test_safety(b, base):
             if a.js("document.documentElement.scrollWidth > window.innerWidth + 1"): wide.append(sc)
         check(f"{w}x{h}: nothing runs off the side on any screen", not wide, wide)
         if w < 700 and h >= 740:                                   # a 320x640 phone scrolls for the last row, as it always has
-            a.js("HT_SCREEN = null; shellGo('home'); window.scrollTo(0, 0)"); a.page.wait_for_timeout(120)
+            a.js("HT_SCREEN = null; shellGo('home'); window.scrollTo(0, 0)"); a.page.wait_for_timeout(120); a.js("window.scrollTo(0, hubPanY())"); a.page.wait_for_timeout(80)
             bot = a.js("Math.max(...[...document.querySelectorAll('.ht-main .ht-tile')].map(e => e.getBoundingClientRect().bottom))")
-            check(f"{w}x{h}: all twelve tiles on the first screen", bot <= a.js("document.getElementById('tabbar').getBoundingClientRect().top") + 1, bot)
+            check(f"{w}x{h}: all twelve tiles on one screen, once it has glided down", bot <= a.js("document.getElementById('tabbar').getBoundingClientRect().top") + 1, bot)
         if w == 820:
             a.js("HT_SCREEN = null; shellGo('more')"); a.page.wait_for_timeout(120)
             lefts = a.js("[...document.querySelectorAll('.ht-more')].map(e => Math.round(e.getBoundingClientRect().left))")

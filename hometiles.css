@@ -144,12 +144,11 @@ body.ht .hos-ring b, body.ht .hpv b { color: var(--ht-ink); }
    compact layout; Real photo off keeps its plain green (:not(.ht-noart)). */
 @media (max-width: 599px) {
   body.ht:not(.ht-noart)[data-tab="home"][data-htscreen=""]::before { background: linear-gradient(180deg, rgba(20, 34, 26, .85) 0, rgba(20, 34, 26, .3) 8%, rgba(20, 34, 26, 0) 14%),
-    linear-gradient(180deg, rgba(21, 48, 30, 0) 0, rgba(21, 48, 30, 0) 67vh, #15301e 81vh), url("../homehub/art/home.webp") center -19vh / max(100vw, 55.8vh) auto no-repeat #15301e; }
-  body.ht .ht-house { margin-top: clamp(56px, calc(100vh - 646px), calc(31vh - 62px)); }
+    linear-gradient(180deg, rgba(21, 48, 30, 0) 0, rgba(21, 48, 30, 0) 67vh, #15301e 81vh), url("../homehub/art/home.webp") center top / max(100vw, 55.8vh) auto no-repeat #15301e; }
+  body.ht .ht-house { margin-top: calc(1.03 * max(100vw, 55.8vh) - 62px - env(safe-area-inset-top)); }   /* the whole house and the sky show first (Scott 11/08: "home hub open with house covered up"); the opening glide brings this card and the tiles up */
   body.ht .ht-house h3 { padding: 6px 14px; } body.ht .ht-housebody { padding: 7px 14px 8px; }
   body.ht .ht-main.ht-grid { gap: 8px; } body.ht .ht-main .ht-tile { min-height: 76px; } body.ht .ht-main .ht-tile .ht-ic { width: 36px; height: 36px; }
 }
-@media (max-width: 379px) { body.ht .ht-house { margin-top: clamp(56px, calc(100vh - 680px), calc(31vh - 62px)); } }   /* narrow: more lines wrap */
 @media (max-height: 760px) and (max-width: 599px) {
-  body.ht .ht-house { margin-top: 36px; } body.ht .ht-main .ht-tile { min-height: 72px; } body.ht .ht-main .ht-tile .ht-ic { width: 32px; height: 32px; }
+  body.ht .ht-main .ht-tile { min-height: 72px; } body.ht .ht-main .ht-tile .ht-ic { width: 32px; height: 32px; }
 }
