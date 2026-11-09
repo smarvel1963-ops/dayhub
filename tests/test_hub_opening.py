@@ -58,7 +58,7 @@ def main():
         print("\n[Every Hub, the look customers have and the new looks]")
         def family():
             a = FS.phone(b, base, FS.Fake(), "uidA"); a.js(FS.SEED); return a
-        for name, make, sel, bar in [("day", lambda: D.phone(b, base, path="/"), "#cards", 0), ("day_new", lambda: D.phone(b, base), ".dt-home", 0),
+        for name, make, sel, bar in [("day", lambda: D.phone(b, base, path="/"), "#cards", 0), ("day_new", lambda: D.phone(b, base), "#hero .chips", 0),
                 ("cruise", lambda: C.cruise(b, base, look=None), "#cards", 0), ("cruise_new", lambda: C.cruise(b, base), ".ct-main", 0),
                 ("trip", lambda: R.trip(b, base, look=None), "#cards", 0), ("trip_new", lambda: R.trip(b, base), ".tt-stage", 0),
                 ("home", lambda: H.home(b, base, look=None), "#cards", 0), ("home_new", lambda: H.home(b, base), ".ht-house", 0),
@@ -143,6 +143,19 @@ def main():
                 check(f"{label} {w}x{h}: after the glide, the card and all twelve tiles fit", bot <= nav + 1, [bot, nav])
                 if SHOTS and w == 390: a.page.screenshot(path=os.path.join(SHOTS, f"{label.split()[0].lower()}_glide.png"))
                 a.ctx.close()
+
+        print("\n[Day Hub's board and its art]")
+        for w, h in [(360, 740), (390, 844), (412, 915)]:
+            a = D.phone(b, base, width=w, height=h) if "width" in D.phone.__code__.co_varnames else D.phone(b, base)
+            a.page.set_viewport_size({"width": w, "height": h}); a.page.wait_for_timeout(250); a.js("window.scrollTo(0, 0); 0")
+            t, art = a.js("Math.round(document.querySelector('#hero .hero-wx').getBoundingClientRect().top)"), a.js("Math.max(innerWidth, innerHeight * .558) * 1.792")
+            check(f"Day Hub {w}x{h}: the sunset shows first, weather and Life Pulse below it", t >= art * .56 and a.js("document.body.classList.contains('dt-art')") and a.js("document.documentElement.scrollWidth <= innerWidth + 1"), [t, round(art * .56)])
+            check(f"Day Hub {w}x{h}: the art loads", a.js("(async () => (await fetch('art/home.webp')).ok && (await fetch('art/money.webp')).ok)()"))
+            a.ctx.close()
+        a = D.phone(b, base); a.js("S.photo = false; save(); render(); 0"); a.page.wait_for_timeout(150)
+        check("Day Hub: Real photo off in Settings goes back to the plain look", not a.js("document.body.classList.contains('dt-art')") and a.js("!!document.getElementById('clockNow') && document.getElementById('clockNow').offsetHeight > 20"), a.js("document.body.className")); a.ctx.close()
+        a = D.phone(b, base, path="/"); a.page.wait_for_timeout(150)
+        check("Day Hub customers' look is untouched", not a.js("document.body.classList.contains('dt-art')") and a.js("document.getElementById('clockNow').offsetHeight > 20")); a.ctx.close()
 
         print("\n[Reduced motion, test robots, the picture]")
         a = family(); ctx2 = a.ctx

@@ -147,7 +147,9 @@ function dtToolsHtml(skip, max, title, arrange = true) {
   return `<section class="dt-tools"><h4>${esc(title)}${arrange ? ` <button class="dt-arrange" data-arrange="1">↕ Arrange</button>` : ""}</h4><nav class="dt-grid" aria-label="${esc(title)}">${tiles.join("")}</nav></section>`;
 }
 
+const dtArt = () => { document.body.classList.toggle("dt-art", S.photo !== false); return S.photo !== false; };   // his art on Home, Today and Money; Settings > Real photo off = the plain look
 function dtHomeHtml() {
+  dtArt();
   const part = dtPart(), o = dtOrder(), t3 = o.includes("top3") && dtTop3Html();
   // the moment first, then Top 3 (Scott's two asks together), then the rest
   const m = part === "morning" ? dtMorning() : part === "afternoon" ? dtNext() : part === "night" ? dtComing(true) : null;
@@ -217,7 +219,7 @@ function dtMoneyHtml(cardHtml) {
   const body = v === "bills" ? cardHtml("bills") : v === "budget" ? cardHtml("budget") : v === "pay" ? pay.map(cardHtml).join("") : v === "goals" ? dtGoalsHtml()
     : (dtShown("budget") ? dtMoneyTopHtml() : "") + dtBillsNextHtml() + dtPaydayLineHtml()
       + `<div class="dt-bigs"><button class="dt-big green" data-qa="spend">＋ Add Expense</button>${dtShown("budget") ? `<button class="dt-big blue" data-dtseg="money:budget">View Budget</button>` : ""}</div>`;
-  return dtSegHtml("money", segs, v) + body;
+  return (dtArt() ? `<div class="dt-mbanner"><b>Money</b></div>` : "") + dtSegHtml("money", segs, v) + body;
 }
 
 // ---- TASKS: To-Do · Lists · Routines · Don't Forget
@@ -294,6 +296,7 @@ const dtScheduleHtml = cardHtml => cardHtml("schedule").replace(/<button class="
   (m, id) => `<button class="x" data-dtevedit="${esc(id)}" aria-label="Edit">✏️</button>${m}`);
 const dtResetLine = () => `<button class="dt-line" data-dtgo="today" data-dtcard="reset"><span aria-hidden="true">${CARDS.reset.icon}</span><span class="grow"><b>Nightly reset</b> · ${esc(dtMeta("reset"))}</span><span class="chev" aria-hidden="true">›</span></button>`;
 function dtTodayTabHtml(cardHtml) {
+  dtArt();
   const body = dtOrder().filter(k => dtTabFor(k) === "today" && k !== "weather").map(k => k === "reset" ? dtResetLine() : k !== "schedule" ? cardHtml(k)
     : dtScheduleHtml(cardHtml) + `<div class="dt-bigs two"><button class="dt-big blue" data-qa="event">＋ Add event</button><button class="dt-big green" data-qa="todo">＋ Add task</button></div>`).join("");
   return dtHourStripHtml() + (body || `<div class="dt-empty">Nothing here right now — ⚙ → Arrange shows hidden cards again.</div>`);

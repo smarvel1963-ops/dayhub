@@ -370,12 +370,12 @@ function hosOrbit(center, items) {
 // screen to show then pan to bottom half of screen you use", "that first page look makes or breaks the app", "all our apps"). The Hub opens at the top on its art,
 // holds, then glides down to the part you use. Never under someone's fingers: any touch, scroll or key stops it, and it waits while something is open on top.
 const HUB_PAN_HOLD = 1800, HUB_PAN_GLIDE = 1100, HUB_PAN_AWAY = 10 * 60000;
-const HUB_PAN_TO = [".fh-faces2", ".ct-main", ".tt-stage", ".ht-house", ".mt-cash", ".hw-today", ".at-next", ".dt-home"];   // where the useful part starts in each new look; the classic look = the first card
+const HUB_PAN_TO = [".fh-faces2", ".ct-main", ".tt-stage", ".ht-house", ".mt-cash", ".hw-today", ".at-next", "body.dt-art[data-tab=home] #hero .chips", ".dt-home"];   // where the useful part starts in each new look; the classic look = the first card
 let HP_T = 0, HP_RAF = 0, HP_LIVE = false, HP_AWAY = 0;
 function hubPanY() {                                                          // 0 = stay put (a setup screen, an update note to read, a page too short to move)
   const cards = document.getElementById("cards"), hero = document.getElementById("hero"); if (!cards || (typeof TAB !== "undefined" && TAB !== "home")) return 0;
   if (cards.querySelector(".welcome, .hh-hello, form[data-setup], form[data-fhsetup]")) return 0;
-  const el = HUB_PAN_TO.map(s => cards.querySelector(s)).find(Boolean) || (hero && hero.offsetHeight > 40 ? cards : null); const nt = cards.querySelector(".whatsnew"); if (!el || (nt && el !== cards && nt.getBoundingClientRect().top < el.getBoundingClientRect().top)) return 0;   // an update note above where it would land: stay and let it be read
+  const el = HUB_PAN_TO.map(s => document.querySelector(s)).find(Boolean) || (hero && hero.offsetHeight > 40 ? cards : null); const nt = cards.querySelector(".whatsnew"); if (!el || (nt && el !== cards && nt.getBoundingClientRect().top < el.getBoundingClientRect().top)) return 0;   // an update note above where it would land: stay and let it be read
   const bar = cards.querySelector(".fh-topbar"), probe = document.createElement("div");
   probe.style.cssText = "position:fixed;top:0;height:env(safe-area-inset-top,0px);visibility:hidden"; document.body.appendChild(probe); const safe = probe.offsetHeight; probe.remove();
   const y = el.getBoundingClientRect().top + window.scrollY - (bar ? bar.offsetHeight : safe) - 12, y2 = Math.min(y, document.documentElement.scrollHeight - window.innerHeight);
