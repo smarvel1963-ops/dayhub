@@ -86,7 +86,23 @@ const HW_TILES = [["score", "heart", "My Health", "t-my", ""], ["appts", "cal", 
   ["meds", "bottle", "Refills", "t-ref", ""], ["vitals", "pulse", "Vitals", "t-vit", ' data-hhvk="bp"'], ["water", "drop", "Water", "t-wat", ""],
   ["move", "shoe", "Activity", "t-act", ""], ["sleep", "moon", "Sleep", "t-slp", ""], ["vitals", "scale", "Weight", "t-wt", ' data-hhvk="weight"'],
   ["goals", "target", "Daily Goals", "t-goal", ""], ["card", "shield", "Emergency", "t-sos", ""], ["checkin", "lotus", "Wellness", "t-well", ""]];
-const hwTile = ([k, ic, label, cls, extra]) => `<button class="hw-tile ${cls}" data-hhtab="${k}"${extra}>${wi(ic)}<b>${esc(label)}</b></button>`;
+// His board's icons: bold solid shapes in white with one accent colour, drawn here so they stay sharp and cost nothing to load (Scott 11/08: painted ones were "cheap and not appealing").
+const WF_LINE = 'fill="none" stroke-linecap="round" stroke-linejoin="round"';
+const WF = {
+  heart: `<path fill="#fff" d="M12 21.2s-8-4.9-10.2-9.7C.2 8 2.3 4 6.3 3.7c2.4-.2 4.3 1 5.7 3 1.4-2 3.3-3.2 5.7-3 4 .3 6.1 4.3 4.5 7.8C20 16.3 12 21.2 12 21.2z"/><path ${WF_LINE} stroke="#c0392b" stroke-width="1.9" d="M5.2 11.6h3.2l1.7-3 3 5.6 1.7-2.6h4"/>`,
+  cal: `<path fill="#fff" d="M9.2 2h5.6A1.2 1.2 0 0 1 16 3.2V4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2v-.8A1.2 1.2 0 0 1 9.2 2z"/><path ${WF_LINE} stroke="#1e8a43" stroke-width="1.9" d="M7.5 10.2l1.3 1.3 2.2-2.5M13.4 10.4h3.4M7.5 16l1.3 1.3 2.2-2.5M13.4 16.2h3.4"/>`,
+  pill: `<g transform="rotate(-42 12 12)"><rect x="1.5" y="7.2" width="21" height="9.6" rx="4.8" fill="#fff"/><path fill="#ffd166" d="M12 7.2h5.7a4.8 4.8 0 0 1 0 9.6H12z"/></g>`,
+  bottle: `<rect x="7" y="2" width="10" height="4.2" rx="1.2" fill="#ffd98a"/><path fill="#fff" d="M7.6 7.4h8.8A2.6 2.6 0 0 1 19 10v9.4a2.6 2.6 0 0 1-2.6 2.6H7.6A2.6 2.6 0 0 1 5 19.4V10a2.6 2.6 0 0 1 2.6-2.6z"/><path ${WF_LINE} stroke="#1e8a43" stroke-width="2.2" d="M12 11.4v6.4M8.8 14.6h6.4"/>`,
+  pulse: `<rect x="3.5" y="13" width="4.6" height="8" rx="1.3" fill="#fff"/><rect x="9.7" y="8.5" width="4.6" height="12.5" rx="1.3" fill="#fff"/><rect x="15.9" y="3.5" width="4.6" height="17.5" rx="1.3" fill="#ffd98a"/>`,
+  drop: `<path fill="#fff" d="M12 2.2s7.2 7.4 7.2 12.4a7.2 7.2 0 0 1-14.4 0C4.8 9.6 12 2.2 12 2.2z"/><path ${WF_LINE} stroke="#5fb4dc" stroke-width="2" d="M8.4 15a3.7 3.7 0 0 0 3.3 3.5"/>`,
+  shoe: `<circle cx="14.6" cy="4.1" r="2.5" fill="#fff"/><path ${WF_LINE} stroke="#fff" stroke-width="3" d="M12.8 8.4 9.4 12l3.8 2.6-1.6 6M12.8 8.4l3 3.4 3.6.6M9.4 12l-3.8.6L4 15.6"/>`,
+  moon: `<path ${WF_LINE} stroke="#fff" stroke-width="2.8" d="M3 6.5v13M3 16h18v3.5M21 16v-2.4a3.4 3.4 0 0 0-3.4-3.4h-7.2V16"/><circle cx="6.6" cy="12" r="2.2" fill="#fff"/><path fill="#ffd98a" d="M17.8 2.3a3.7 3.7 0 1 0 3.9 5.2 3.2 3.2 0 0 1-3.9-5.2z"/>`,
+  scale: `<rect x="2.8" y="2.8" width="18.4" height="18.4" rx="5" fill="#fff"/><path fill="#cf9017" d="M12 5.4a6.6 6.6 0 0 1 5.6 3.1l-3.6 2.2a2.4 2.4 0 0 0-4 0L6.4 8.5A6.6 6.6 0 0 1 12 5.4z"/>`,
+  target: `<circle cx="11.5" cy="12.5" r="9" fill="#fff"/><circle cx="11.5" cy="12.5" r="5.9" fill="#6d8c1c"/><circle cx="11.5" cy="12.5" r="3" fill="#fff"/><path ${WF_LINE} stroke="#ffd98a" stroke-width="2.2" d="M11.5 12.5 21 3"/>`,
+  shield: `<path fill="#fff" d="M12 1.8 3.8 5v6.4c0 5.3 3.5 9.2 8.2 10.8 4.7-1.6 8.2-5.5 8.2-10.8V5z"/><path fill="#c0392b" d="M12 16.6s-4.6-2.9-4.6-6a2.5 2.5 0 0 1 4.6-1.3 2.5 2.5 0 0 1 4.6 1.3c0 3.1-4.6 6-4.6 6z"/>`,
+  lotus: `<g fill="#fff"><path d="M12 3.2c2.7 2.5 3.9 5.4 3.9 8.1 0 3-1.6 5.7-3.9 7.5-2.3-1.8-3.9-4.5-3.9-7.5 0-2.7 1.2-5.6 3.9-8.1z"/><path opacity=".9" d="M4.6 7.4c2 .2 3.4 1 4.4 1.9-.5 1.2-.8 2.5-.8 3.8 0 1.9.6 3.7 1.5 5.2-3.5-.9-6-4-6-8.2 0-1 .3-1.9.9-2.7z"/><path opacity=".9" d="M19.4 7.4c-2 .2-3.4 1-4.4 1.9.5 1.2.8 2.5.8 3.8 0 1.9-.6 3.7-1.5 5.2 3.5-.9 6-4 6-8.2 0-1-.3-1.9-.9-2.7z"/></g><path fill="#ffd98a" d="M6 20.2h12a1 1 0 0 1 0 2H6a1 1 0 0 1 0-2z"/>`,
+};
+const hwTile = ([k, ic, label, cls, extra]) => `<button class="hw-tile ${cls}" data-hhtab="${k}"${extra}><span class="hw-ic" aria-hidden="true"><svg viewBox="0 0 24 24">${WF[ic] || ""}</svg></span><b>${esc(label)}</b></button>`;
 function hwTop(title) {
   return `<div class="hw-top"><span class="hw-logo">${HW_LOGO}</span><b class="hw-brand">${esc(title || "Health Hub")}</b>${navigator.onLine === false ? `<span class="offline-pill hw-off">🟠 Offline</span>` : ""}
     <button class="hw-round" data-hhask="1" aria-label="Ask ${esc(APP_NAME)}">${wi("spark")}</button>

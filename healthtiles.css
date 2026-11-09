@@ -154,3 +154,12 @@ body.hw.upd-on #hhSheet.hw-full .sheet-body { padding-bottom: calc(28px + var(--
 @media (max-width: 359px) { body.hw .hw-today-in { grid-template-columns: minmax(0, 1fr); } }
 /* Scott 11/08 ("home hub open with house covered up", "go through all of them"): on a phone the picture shows first, this card sits below it, and the opening glide (shell.js) brings the card and the tiles up. Last in the file so it wins. */
 @media (max-width: 599px) { body.hw .hw-today { margin-top: calc(0.985 * max(100vw, 55.8vh) - 60px - env(safe-area-inset-top)); } }
+
+/* His board's tiles (Scott 11/08): rich glossy colour, a bright gold rim, big bold icons. */
+body.hw .t-my, body.hw .t-sos { --tc: #a82716; } body.hw .t-vis, body.hw .t-ref, body.hw .t-well { --tc: #12713a; } body.hw .t-med, body.hw .t-wt { --tc: #b57a0c; }
+body.hw .t-vit { --tc: #7c3414; } body.hw .t-wat { --tc: #0e6b7c; } body.hw .t-act, body.hw .t-goal { --tc: #5b7a12; } body.hw .t-slp { --tc: #0a6a66; }
+body.hw .hw-tile { min-height: 86px; border: 2px solid rgba(250, 214, 130, .88); border-radius: 18px;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, .2) 0, rgba(255, 255, 255, .03) 38%, rgba(0, 0, 0, .38) 100%);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, .5), inset 0 2px 1px rgba(255, 255, 255, .6), inset 0 -3px 7px rgba(0, 0, 0, .28); }
+body.hw .hw-tile .hw-ic { width: 42px; height: 42px; } body.hw .hw-tile svg { filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .45)); }
+body.hw .hw-tile b { font-size: 16px; }
