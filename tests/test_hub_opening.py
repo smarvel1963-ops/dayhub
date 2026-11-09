@@ -157,6 +157,17 @@ def main():
         a = D.phone(b, base, path="/"); a.page.wait_for_timeout(150)
         check("Day Hub customers' look is untouched", not a.js("document.body.classList.contains('dt-art')") and a.js("document.getElementById('clockNow').offsetHeight > 20")); a.ctx.close()
 
+        print("\n[Opening again after it has glided: an update or a restart]")
+        def again(name, make):
+            a = arm(make()); a.page.wait_for_timeout(250)
+            if a.js("typeof briefOpen === 'function' && briefOpen()"): a.page.click('[data-brief="go"]')
+            a.js("window.scrollTo(0, 0); hubPanStart(200); 0"); a.page.wait_for_timeout(2200); y = a.js(TOP)
+            a.page.reload(); a.page.wait_for_function("typeof hubPanOpen === 'function'"); a.page.wait_for_load_state("load"); a.page.wait_for_timeout(600); y2 = a.js(TOP)
+            a.page.wait_for_timeout(3200); y3 = a.js(TOP)
+            check(f"{name}: back at the top on the picture, then glides again", y > 5 and y2 == 0 and y3 > 5, [y, y2, y3]); a.ctx.close()
+        for name, make in [("Trip Hub new look", lambda: R.trip(b, base)), ("Trip Hub", lambda: R.trip(b, base, look=None)), ("Home Hub new look", lambda: H.home(b, base)), ("Day Hub new look", lambda: D.phone(b, base)), ("Day Hub", lambda: D.phone(b, base, path="/")), ("Family Hub", family)]:
+            again(name, make)
+
         print("\n[Reduced motion, test robots, the picture]")
         a = family(); ctx2 = a.ctx
         check("a test robot doesn't get it unless it asks (the other checks stay still)", True if a.js("navigator.webdriver") and not a.js("window.__HUB_PAN") and a.js("(hubPanStart(10), HP_LIVE)") is False else False); a.ctx.close()

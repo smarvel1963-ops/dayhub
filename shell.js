@@ -396,6 +396,12 @@ function hubPanGlide(y) {
     window.scrollTo(0, from + (y - from) * e); if (k < 1) HP_RAF = requestAnimationFrame(step); else { HP_RAF = 0; hubPanStop(); } };
   HP_RAF = requestAnimationFrame(step);
 }
+// Every real opening starts at the top. The browser otherwise puts a reloaded page back where it was, so after "Update now" or a phone restart the Hub came back already glided down and the picture never showed (Scott 11/08: "trip hub still not showing top half"; 13 of 15 looks).
+function hubPanTop() {
+  if (!switchOn("HUB_PAN") || (navigator.webdriver && !window.__HUB_PAN)) return;
+  try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch (e) { /* older browser */ }
+  if (typeof TAB === "undefined" || TAB === "home") window.scrollTo(0, 0);
+}
 function hubPanStart(hold) {
   hubPanStop();
   if (!switchOn("HUB_PAN") || (navigator.webdriver && !window.__HUB_PAN) || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) return;
@@ -410,7 +416,8 @@ function hubPanStart(hold) {
   HP_T = setTimeout(fire, hold);
 }
 function hubPanOpen() {
-  const go = () => hubPanStart(HUB_PAN_HOLD);
+  hubPanTop();
+  const go = () => { hubPanTop(); hubPanStart(HUB_PAN_HOLD); };
   if (document.readyState === "complete") go(); else window.addEventListener("load", go, { once: true });   // after the art has loaded
   document.addEventListener("visibilitychange", () => {                       // coming back to the app after a while counts as opening it
     if (document.hidden) { HP_AWAY = Date.now(); hubPanStop(); return; }
