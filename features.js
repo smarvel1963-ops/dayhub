@@ -25,7 +25,7 @@ const SWITCHES = Object.freeze({
   CRUISE_PASS: true,  // ON 2026-10-07 (Scott: "go"). Whop prod_D1Rb57NYoYxR5 + relay v5 (deploy v10) live; unlock tested OK with the 10/7 test buy.
   TRIP_PASS: true,    // ON 2026-10-11 (Scott: "get it completed and listed today"). Whop prod_xFJeMtq6FYVgk + relay v6 (deploy v11) + TRIP_PRODUCT_ID live.
   AI_CREDITS: true,   // ON 2026-10-11 (Scott "ok"). Whop packs visible, relay v8 (deploy 13) counts PAYMENTS; marvelcalls test buy = 200 questions.
-  AUTO_PASS: true,    // ON 2026-10-14 (Scott "yes do 1-5"). Whop "Auto Hub Pro" prod_JZvlJLr71aVz4 $2.99/mo, 30-day trial; relay v14 (deploy 19). Free = 1 car.
+  AUTO_PASS: true,    // ON 2026-10-14 (Scott "yes do 1-5"). Whop "Auto Hub Pro" prod_JZvlJLr71aVz4 $2.99/mo, 30-day trial; relay v14 (deploy 19). Free = 2 cars since 11/09 (Scott "Free keeps 2 cars"; 1 before).
   UNIVERSE_PASS: false, // Hub Universe Pro - one membership, Pro in every hub (Scott 10/17 "yes to hub universe pro"). OFF until Scott sets the price + Whop product.
   CHALLENGES: false,  // Health Hub friend step challenges (Scott 10/17: "step competitions against friends"). OFF until the relay has a "challenge" task.
   FAMILY_SYNC: true,  // Family Hub sharing between phones (Scott 10/25: "A - use Firebase free plan"; 11/07 "Phase B: all phones"). Needs the Firestore rules published.
@@ -69,7 +69,7 @@ const PLAN = Object.freeze({
   AI_CREDITS_NAME: "Hub AI Credits",
   // Whop one-time products (Marvel Corp, visible 10/11), each access auto-expires after
   // 1 day so a buyer can top up again; the relay still counts expired packs. Relay v7 Script Property AI_CREDIT_PRODUCTS.
-  // AUTO HUB PRO (Scott 10/14: "2.99 month"). Auto Hub only; free = 1 car. Shown while AUTO_PASS is on.
+  // AUTO HUB PRO (Scott 10/14: "2.99 month"). Auto Hub only; free = 2 cars (11/09). Shown while AUTO_PASS is on.
   AUTO_NAME: "Auto Hub Pro",
   AUTO_MONTHLY: "$2.99/month",
   AUTO_CHECKOUT_URL: "https://whop.com/commander-marvel-por-picks/auto-hub-pro",   // prod_JZvlJLr71aVz4

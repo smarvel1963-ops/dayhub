@@ -3791,17 +3791,20 @@ def t_v135_auto_hub(b, base):
     check("tick a recall as fixed = 1 open left", a.js(f"openRecalls(carById('{cid}')).length") == 1)
     a.page.click('#autoSheet [data-aclose]')
     check("dashboard shows the overdue service and the open recall", "Brake check" in a.page.inner_text("#cards") and "1 recall" in a.page.inner_text("#cards"))
-    a.js("setOwnerSwitch('OWNER', true)")                     # Pro (owner phone) - free keeps 1 car since AUTO_PASS went on
-    a.page.click('[data-aaddcar]')
+    a.page.click('[data-aaddcar]')                           # free phone, 1 car: free keeps 2 cars since Scott's 11/09 "Free keeps 2 cars"
+    check("free phone with 1 car: the Add a car form opens (free keeps 2 cars, 11/09)", a.js("!!document.querySelector('#autoSheet form[data-anewcar]')"))
     a.page.fill('#autoSheet form[data-anewcar] [name=year]', "2018"); a.page.fill('#autoSheet form[data-anewcar] [name=make]', "toyota"); a.page.fill('#autoSheet form[data-anewcar] [name=model]', "Camry")
     a.page.click('#autoSheet form[data-anewcar] button'); a.page.wait_for_function("S.garage.cars.length === 2")
-    check("2nd car typed by hand on a Pro phone, make tidied; blank miles = not set (never 0)", a.js("S.garage.cars[1].make + ' ' + S.garage.cars[1].model") == "Toyota Camry" and a.js("S.garage.cars[1].miles") is None and a.js("toMiles('')") is None and a.js("toMiles('0')") == 0)
+    check("2nd car typed by hand on a free phone, make tidied; blank miles = not set (never 0)", a.js("S.garage.cars[1].make + ' ' + S.garage.cars[1].model") == "Toyota Camry" and a.js("S.garage.cars[1].miles") is None and a.js("toMiles('')") is None and a.js("toMiles('0')") == 0)
     a.page.click('#autoSheet [data-aclose]')
-    a.js("setOwnerSwitch('OWNER', false)"); a.page.click('[data-aaddcar]')
+    a.page.click('[data-aaddcar]')
     t = a.page.inner_text("#autoSheet")
-    check("not Pro: free keeps 1 car, offers Auto Hub Pro $2.99/month with 30 days free + the Whop link", "1 car" in t and "$2.99/month" in t and "30 days free" in t and not a.js("!!document.querySelector('form[data-anewcar]')")
+    check("not Pro, 2 cars: free keeps 2 cars, offers Auto Hub Pro $2.99/month with 30 days free + the Whop link", "2 cars" in t and "$2.99/month" in t and "30 days free" in t and not a.js("!!document.querySelector('form[data-anewcar]')")
           and a.js("!!document.querySelector('#autoSheet a[href*=\"auto-hub-pro\"]')"), t[:300])
     a.page.click('#autoSheet [data-aclose]')
+    a.js("setOwnerSwitch('OWNER', true)"); a.page.click('[data-aaddcar]')   # Pro (owner phone) keeps every car
+    check("Pro (owner phone) with 2 cars: the Add a car form still opens", a.js("!!document.querySelector('#autoSheet form[data-anewcar]')"))
+    a.page.click('#autoSheet [data-aclose]'); a.js("setOwnerSwitch('OWNER', false)")
     check("its own data only - Day Hub's storage untouched", a.js("!!localStorage.getItem('autohub.v1') && !localStorage.getItem('dayhub.v1')"))
     a.page.reload(); a.page.wait_for_function("typeof render === 'function' && document.querySelector('#hero .greet')")
     check("survives a reload: same garage", a.js("S.garage.cars.length") == 2 and "My Garage" in a.page.inner_text("#cards"))
@@ -4626,7 +4629,7 @@ def t_v157_play_review(b, base):
     w.close()
     # 1. Auto Hub in the Play app: the car limit and the AI-missing line carry no Pro wording
     au = App(b, base, path=AUTOP + "?src=play")
-    check("Play Auto Hub: AI-missing line and car limit have no Pro wording", "Pro" not in au.js("aiMissing('Smart Scan')") and "Pro" not in au.js("storeLock('More than 1 car')"))
+    check("Play Auto Hub: AI-missing line and car limit have no Pro wording", "Pro" not in au.js("aiMissing('Smart Scan')") and "Pro" not in au.js("storeLock('More than 2 cars')"))
     au.close()
     # 2 + 3. Trip Hub Settings name Trip Hub; Privacy opens Trip Hub's own page, Terms stay Day Hub's
     t = App(b, base, path=TRIP + "?src=play")

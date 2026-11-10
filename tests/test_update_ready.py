@@ -239,7 +239,10 @@ def main():
             lines = a.js("[...document.querySelectorAll('.whatsnew .today-line')].map(el => el.textContent)")
             check(f"{nm}: no 'groundwork, nothing changes yet' line left over from 1.58.10", not any("groundwork" in ln for ln in lines), lines[:3])
             if nm == "Trip Hub":
-                check("Trip Hub: the card has its Use my car note (1.58.11)", any("Use my car" in ln for ln in lines), lines[:3])
+                # 1.58.11's note has rolled off the newest-8 card (later Trip releases), so check the filter keeps it for Trip Hub
+                t11 = a.js("(NOTES['1.58.11'] || []).filter(noteForMe).filter(playOk).join(' | ')")
+                check("Trip Hub: its Use my car note (1.58.11) is one of Trip Hub's notes", "Use my car" in t11, t11[:200])
+            check(f"{nm}: the card never shows the same line twice (11/09)", len(lines) == len(set(lines)), lines)
             a.close()
         b.close()
     srv.shutdown()

@@ -345,3 +345,12 @@ body.dt.dt-art .dt-pic.brain { background-image: url("art/brain.webp"); backgrou
 body.dt.dt-art .dt-pic.pack { background-image: url("art/pack.webp"); background-position: center 48%; }
 body.dt.dt-art .brief-body::before { content: ""; display: block; height: 196px; margin: 0 0 16px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, .24);
   box-shadow: 0 8px 22px rgba(0, 0, 0, .3); background: #0b2545 url("art/morning.webp") center 50% / cover no-repeat; }
+
+/* Scott's board, 11/09 pass: Life Pulse as a big dial sitting on the lake, no box (drawn by dtPulseDial in daytiles.js). Phones with the art on only; everywhere else the small ring stays. */
+body.dt .pulse .pdial { display: none; }
+@media (max-width: 599px) {
+  body.dt.dt-art[data-tab="home"] #hero .verdict-row { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0 0 2px; gap: 3px; }
+  body.dt.dt-art[data-tab="home"] #hero .pulse > svg:not(.pdial), body.dt.dt-art[data-tab="home"] #hero .pulse .pw, body.dt.dt-art[data-tab="home"] #hero .pulse::after { display: none; }
+  body.dt.dt-art[data-tab="home"] #hero .pulse .pdial { display: block; width: min(100%, 162px); height: auto; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, .35)); }
+  body.dt.dt-art[data-tab="home"] #hero .verdict { font-weight: 700; text-shadow: 0 1px 8px rgba(0, 0, 0, .75); }
+}

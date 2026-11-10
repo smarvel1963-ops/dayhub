@@ -1,5 +1,5 @@
 {
- "version": "1.59.10",
+ "version": "1.59.11",
  "notes": {
   "1.58.17": [
    "💰 Money Hub: behind-the-scenes work on a fresh new look, not switched on yet.",
@@ -27,6 +27,12 @@
    "🚗 Auto Hub: Day Hub and Trip Hub on this phone (Android) can now show your car records. They only read them, nothing is copied. See Settings → Hub family → Hub Connections."
   ],
   "1.58.10": [],
+  "1.59.11": [
+   "\ud83d\ude97 Auto Hub: the free app now keeps 2 cars, each with everything in it.",
+   "\ud83e\udded Trip Hub: behind-the-scenes work on a fresh new look, not switched on yet.",
+   "\ud83d\udcb0 Money Hub: behind-the-scenes work on a fresh new look, not switched on yet.",
+   "\u2600\ufe0f Day Hub: behind-the-scenes work on a fresh new look, not switched on yet."
+  ],
   "1.59.10": [
    "☀️ Day Hub: behind-the-scenes work on a fresh new look, not switched on yet."
   ],

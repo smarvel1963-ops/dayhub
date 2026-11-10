@@ -174,7 +174,7 @@ function atFirstOpen() {
     <p class="at-seclabel">Had Auto Hub Before?</p>${atRow("cloud", "Restore From My Google Drive", "Brings back your cars and records", 'data-atset="syncBox"')}${atRow("upload", "Load a Backup File", "From a file you saved", 'data-atset="dataBox"')}</div>`;
 }
 function atAddCar() {
-  if (!autoCanAdd()) return atHead("Add a Car", "car") + `<section class="at-card">${STORE_MODE ? `<p>${esc(storeLock("More than 1 car"))}</p>` : `<p>Auto Hub free keeps <b>1 car</b>. ${esc(PLAN.AUTO_NAME)} (${esc(PLAN.AUTO_MONTHLY)}, 30 days free) keeps every car you own.</p>${PLAN.AUTO_CHECKOUT_URL ? `<a class="at-big" href="${esc(PLAN.AUTO_CHECKOUT_URL)}" target="_blank" rel="noopener">Start 30 days free</a>` : ""}`}</section>`;
+  if (!autoCanAdd()) return atHead("Add a Car", "car") + `<section class="at-card">${STORE_MODE ? `<p>${esc(storeLock(`More than ${AUTO_FREE_CARS} cars`))}</p>` : `<p>Auto Hub free keeps <b>${AUTO_FREE_CARS} cars</b>. ${esc(PLAN.AUTO_NAME)} (${esc(PLAN.AUTO_MONTHLY)}, 30 days free) keeps every car you own.</p>${PLAN.AUTO_CHECKOUT_URL ? `<a class="at-big" href="${esc(PLAN.AUTO_CHECKOUT_URL)}" target="_blank" rel="noopener">Start 30 days free</a>` : ""}`}</section>`;
   return atHead("Add a Car", "car") + `<form class="at-card at-form" data-by="${esc(AT.add)}" data-anewcar="1">${atAddFields()}<button class="at-big">Add This Car</button>${atMsg()}</form>`;
 }
 
@@ -577,7 +577,7 @@ function atSettings() {
 function atPro() {                  // AUTO HUB PRO (his board). Only what Pro really includes, at the price it already has. Never in the Play app.
   if (!atProOffered()) return atSettings();
   const c = atHero(), B = [["car", "Unlimited Cars", "Track every vehicle you own."], ["cloud", "Google Drive Backup & Sync", "Keep your data safe in your own Drive and sync it across your phones."], ["history", "Google Calendar Sync", "Bills and your day on your phone's calendar."]];
-  return `<div class="at-bandpage">${atBandHead(atBodyArt(c), PLAN.AUTO_NAME)}<p class="at-note">${autoPro() ? "You're on Pro on this phone." : "Everything for your first car stays free."}</p>
+  return `<div class="at-bandpage">${atBandHead(atBodyArt(c), PLAN.AUTO_NAME)}<p class="at-note">${autoPro() ? "You're on Pro on this phone." : "Everything for your first two cars stays free."}</p>
     <section class="at-list">${B.map(([ic, l, s]) => `<div class="at-svc"><span class="at-ric">${AI[ic]}</span><span class="grow"><b>${esc(l)}</b><small>${esc(s)}</small></span></div>`).join("")}</section>
     <p class="at-note">Smart Scan, the AI Mechanic and Ask come with Day Hub Pro or Hub AI Credits, not with ${esc(PLAN.AUTO_NAME)}.</p>
     ${autoPro() ? "" : PLAN.AUTO_CHECKOUT_URL ? `<a class="at-big" href="${esc(PLAN.AUTO_CHECKOUT_URL)}" target="_blank" rel="noopener">${AI.crown}Start 30 Days Free</a><p class="at-note center">${esc(PLAN.AUTO_MONTHLY)} after that. Cancel any time.</p>` : ""}

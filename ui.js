@@ -1827,9 +1827,9 @@ function drawProBox() {
        <ul class="pro-list"><li>🏦 Unlimited accounts</li><li>📥 Import your bank's CSV - duplicates skipped</li><li>📊 Reports - this month vs the last 3</li><li>☁️ Backup to your own Google Drive</li></ul>
        <p class="fine" style="margin-top:4px">No ads, ever. Money Hub never asks for a bank password.</p>`
     : autoPass()
-    ? `<p class="fine" style="margin-top:0"><b>Every car you own, looked after.</b> Free Auto Hub keeps 1 car with everything in it. Already have ${PLAN.NAME}? It includes Auto Hub: enter that email below.</p>
+    ? `<p class="fine" style="margin-top:0"><b>Every car you own, looked after.</b> Free Auto Hub keeps 2 cars with everything in them. Already have ${PLAN.NAME}? It includes Auto Hub: enter that email below.</p>
        <ul class="pro-list"><li>🚗 Unlimited cars - the whole family's, plus the truck and the boat trailer</li><li>☁️ Backup to your own Google Drive</li></ul>
-       <p class="fine" style="margin-top:4px">Service, fuel, recalls, papers, extras, journal and the build sheet are free on your first car. No ads, ever.</p>`
+       <p class="fine" style="margin-top:4px">Service, fuel, recalls, papers, extras, journal and the build sheet are free on your first two cars. No ads, ever.</p>`
     : tripPass()
     ? `<p class="fine" style="margin-top:0"><b>One price for the whole year — plan as many trips as you like.</b> Already have ${PLAN.NAME}? It includes Trip Hub: enter that email below.</p>
        <ul class="pro-list"><li>🗓️ Your trip, flights, hotels and plans on your phone's calendar</li><li>☁️ Backup to your own Google Drive</li></ul>

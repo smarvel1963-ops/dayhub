@@ -383,7 +383,7 @@ document.addEventListener("click", e => {
   if (ds.atrecords) { const c = carById(ds.atrecords); if (c) atOpenRecords(c); return; }
   if (ds.atsellchk && AUTO_OPEN) { const c = carById(AUTO_OPEN); if (!c) return; c.sellCheck = c.sellCheck && typeof c.sellCheck === "object" ? c.sellCheck : {}; c.sellCheck[ds.atsellchk] = !c.sellCheck[ds.atsellchk]; save(); redraw(); return; }
   if (ds.atunsold) { const c = atSoldById(ds.atunsold); if (!c) return;
-    if (!autoCanAdd()) { toast(STORE_MODE ? storeLock("More than 1 car") : `Auto Hub free keeps 1 car. ${PLAN.AUTO_NAME} keeps every car you own.`); return; }
+    if (!autoCanAdd()) { toast(STORE_MODE ? storeLock(`More than ${AUTO_FREE_CARS} cars`) : `Auto Hub free keeps ${AUTO_FREE_CARS} cars. ${PLAN.AUTO_NAME} keeps every car you own.`); return; }
     garage().sold = garage().sold.filter(x => x.id !== c.id); delete c.sold; garage().cars.push(c); save(); atReset(); TAB = "garage"; redraw(); window.scrollTo({ top: 0 }); toast(`${carName(c)} is back in your garage`);
     photoTx("readonly", st => st.getAllKeys()).then(ids => { const have = new Set(ids), keep = c.photos.filter(p => have.has(p.id)); if (keep.length === c.photos.length) return; c.photos = keep; if (c.cover && !have.has(c.cover)) c.cover = ""; save(); if (atOn()) render(); }).catch(() => { /* couldn't read the store: leave the rows alone */ });
     return; }

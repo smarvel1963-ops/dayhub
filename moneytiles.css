@@ -46,6 +46,8 @@ body.mt .mt-cash-main { display: flex; align-items: center; gap: 12px; width: 10
 body.mt .mt-coin { width: 52px; height: 52px; flex: none; display: grid; place-items: center; border-radius: 50%; color: #3d2706;
   background: radial-gradient(circle at 35% 30%, #fbe7a6, #d9a843 60%, #9c6d1c); box-shadow: 0 3px 10px rgba(0, 0, 0, .4); }
 body.mt .mt-coin svg { width: 30px; height: 30px; }
+body.mt .mt-coinstack { width: 60px; height: 56px; border-radius: 0; background: none; box-shadow: none; }   /* the drawn stack of three coins (Scott's board, 11/09 pass) */
+body.mt .mt-coinstack svg { width: 60px; height: 56px; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .45)); }
 body.mt .mt-cash-main small { display: block; font-size: 15px; font-weight: 800; color: var(--mt-dim); }
 body.mt .mt-big { display: block; font-size: clamp(34px, 11vw, 44px); font-weight: 800; line-height: 1.02; color: #fffaf0; letter-spacing: -.02em; }
 body.mt .mt-cash-main em { display: block; font-style: normal; font-size: 13.5px; font-weight: 700; color: var(--mt-dim); }
@@ -56,6 +58,7 @@ body.mt .mt-cash-row b { display: block; font-size: 19px; font-weight: 800; colo
 body.mt .mt-payday { display: flex !important; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 10px; padding: 9px 12px !important;
   border-radius: 12px !important; background: linear-gradient(180deg, #f6d77e, #d7a33c) !important; color: #2a1c05 !important; font-weight: 800; font-size: 16px; text-align: center !important; }
 body.mt .mt-payday .mt-ic, body.mt .mt-payday svg { width: 20px; height: 20px; }
+body.mt .mt-cash .mt-payday { font-weight: 800; font-size: 16.5px; } body.mt .mt-cash .mt-payday svg { stroke-width: 2.4; }   /* bold dark words like the board; ".mt-cash button { font: inherit }" had been resetting them (11/09 pass) */
 body.mt .mt-fresh { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin: 8px 0 0; padding: 8px 12px; border-radius: 14px;
   border: 1px solid var(--mt-edge); background: rgba(8, 34, 22, .8); color: var(--mt-ink); font: inherit; font-size: 14.5px; font-weight: 800; cursor: pointer; }
 body.mt .mt-fresh .mt-ic, body.mt .mt-fresh svg { width: 20px; height: 20px; color: #8ef0b8; }

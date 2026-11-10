@@ -147,6 +147,19 @@ function dtToolsHtml(skip, max, title, arrange = true) {
   return `<section class="dt-tools"><h4>${esc(title)}${arrange ? ` <button class="dt-arrange" data-arrange="1">↕ Arrange</button>` : ""}</h4><nav class="dt-grid" aria-label="${esc(title)}">${tiles.join("")}</nav></section>`;
 }
 
+// Scott's board (11/09 pass): Day Hub's new look shows Life Pulse as a big dial on the lake - an orange-to-green arc, the score in the middle.
+// Drawn here, so only Day Hub has it; daytiles.css shows it on a phone with the art on and keeps the small ring everywhere else.
+function dtPulseDial(n) {
+  const L = 48 * 4 * Math.PI / 3, arc = "M18.4 84A48 48 0 1 1 101.6 84";   // 240 degrees of a radius-48 circle, open at the bottom
+  return `<svg class="pdial" viewBox="0 0 120 120" aria-hidden="true">
+    <defs><linearGradient id="dtpd-g" gradientUnits="userSpaceOnUse" x1="12" y1="0" x2="108" y2="0"><stop offset="0" stop-color="#f97316"/><stop offset=".38" stop-color="#facc15"/><stop offset=".56" stop-color="#2dd4bf"/><stop offset="1" stop-color="#22c55e"/></linearGradient></defs>
+    <circle cx="60" cy="60" r="58" fill="rgba(9, 28, 62, .62)" stroke="rgba(255, 255, 255, .16)"/>
+    <path d="${arc}" fill="none" stroke="rgba(255, 255, 255, .16)" stroke-width="9" stroke-linecap="round"/>
+    <path d="${arc}" fill="none" stroke="url(#dtpd-g)" stroke-width="9" stroke-linecap="round" stroke-dasharray="${(L * n / 100).toFixed(1)} 999"/>
+    <text x="60" y="67" text-anchor="middle" font-size="35" font-weight="800" fill="#fff">${n}</text>
+    <text x="60" y="84" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">Life Pulse</text>
+    <text x="60" y="102" text-anchor="middle" font-size="10.5" font-weight="700" fill="rgba(255, 255, 255, .9)">${esc(pulseWord(n))}</text></svg>`;
+}
 const dtArt = () => { document.body.classList.toggle("dt-art", S.photo !== false); return S.photo !== false; };   // his art on Home, Today and Money; Settings > Real photo off = the plain look
 function dtHomeHtml() {
   dtArt();

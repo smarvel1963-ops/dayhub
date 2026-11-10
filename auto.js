@@ -17,7 +17,7 @@
  * (gas cost + a before-you-go checklist that checks the car's own log + Log the trip), Share & sell (a picture card,
  * listing text with an asking price - the owner posts it; no posting into Marketplace / Craigslist, they have no API).
  * Pro (Scott 10/14: $2.99/month) is the AUTO_PASS switch (features.js, OFF): while off everything is free. When on,
- * free = 1 car. Everything lives in S.garage on this phone. Intervals are typical ones, labelled as such - never a
+ * free = 2 cars (Scott 11/09 "Free keeps 2 cars"; it was 1 from 10/14). Everything lives in S.garage on this phone. Intervals are typical ones, labelled as such - never a
  * promise about a particular car.
  */
 "use strict";
@@ -56,7 +56,8 @@ const carById = id => garage().cars.find(c => c.id === id);
 const carName = c => c.nick || [c.year, c.make, c.model].filter(Boolean).join(" ") || "My car";
 const titleCase = s => String(s || "").toLowerCase().replace(/\b[a-z]/g, m => m.toUpperCase());
 const autoPro = () => typeof isPro === "function" && isPro();
-const autoCanAdd = () => !switchOn("AUTO_PASS") || autoPro() || garage().cars.length < 1;
+const AUTO_FREE_CARS = 2;   // Scott 11/09: "Free keeps 2 cars" (was 1). Pro keeps every car.
+const autoCanAdd = () => !switchOn("AUTO_PASS") || autoPro() || garage().cars.length < AUTO_FREE_CARS;
 const miles = n => Math.round(Number(n) || 0).toLocaleString("en-US");
 const carPic = c => /^data:image\/[a-z]+;base64,[A-Za-z0-9+/=]+$/.test(c.thumb || "") ? String(c.thumb) : "";   // 11/04: like a goal's picture, only a real picture goes in the page
 const toMiles = v => { const t = String(v == null ? "" : v).replace(/[^\d.]/g, ""); if (!t) return null; const n = Number(t); return n >= 0 && n < 2000000 ? Math.round(n) : null; };   // blank = not set, never 0
@@ -659,8 +660,8 @@ function showAddCar() {
   el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
     <div class="sheet-head"><h2>＋ Add a car</h2><button class="icon-btn" data-aclose="1" aria-label="Close">✕</button></div>
     ${autoCanAdd() ? `<form class="qa-form" data-anewcar="1">${carFormFields()}<button class="btn">Add car</button></form>`
-      : STORE_MODE ? `<p>${esc(storeLock("More than 1 car"))}</p>`   // v1.57 Play app: no Pro wording
-      : `<p>Auto Hub free keeps <b>1 car</b>. ${esc(PLAN.AUTO_NAME)} (${esc(PLAN.AUTO_MONTHLY)}, 30 days free) keeps every car you own.</p>
+      : STORE_MODE ? `<p>${esc(storeLock(`More than ${AUTO_FREE_CARS} cars`))}</p>`   // v1.57 Play app: no Pro wording
+      : `<p>Auto Hub free keeps <b>${AUTO_FREE_CARS} cars</b>. ${esc(PLAN.AUTO_NAME)} (${esc(PLAN.AUTO_MONTHLY)}, 30 days free) keeps every car you own.</p>
          ${PLAN.AUTO_CHECKOUT_URL ? `<a class="btn" href="${esc(PLAN.AUTO_CHECKOUT_URL)}" target="_blank" rel="noopener">Start 30 days free</a>` : `<p class="fine">Coming soon.</p>`}`}
     <p class="fine" id="autoMsg">${AUTO_MSG ? "⚠️ " + esc(AUTO_MSG) : ""}</p></div>`;
   el.classList.remove("hidden");

@@ -43,7 +43,9 @@ body.tt .tt-hero { margin: 0; padding: 0; }
 body.tt .tt-hero > .tt-stage, body.tt .tt-hero > button.tt-stage { margin-top: max(64px, calc(19vh - 62px)); }   /* the scene shows, and all twelve tiles still clear the tab bar */
 body.tt .tt-stage { display: block; width: 100%; border-radius: 18px; overflow: hidden; border: 2px solid var(--tt-brass); box-shadow: 0 10px 26px rgba(0, 0, 0, .35); background: var(--tt-parch); font: inherit; text-align: left; padding: 0; }
 body.tt .tt-card { display: flex; align-items: stretch; gap: 10px; width: 100%; padding: 14px 16px 12px; border: 0; cursor: pointer; font: inherit; text-align: left; color: var(--tt-ink);
-  background: linear-gradient(90deg, rgba(248, 239, 216, .93) 0, rgba(248, 239, 216, .82) 52%, rgba(248, 239, 216, .55) 100%), url("../triphub/art/card.webp") center / cover no-repeat var(--tt-parch); }
+  background: radial-gradient(ellipse 58% 50% at 30% 30%, rgba(248, 239, 216, .72), rgba(248, 239, 216, 0) 100%), radial-gradient(ellipse 26% 46% at 87% 30%, rgba(248, 239, 216, .68), rgba(248, 239, 216, 0) 100%),
+    url("../triphub/art/mytrip.webp") center bottom / cover no-repeat var(--tt-parch); }   /* Scott's board (11/09 pass): the scene shows plainly, the words sit on pale sky; mytrip.webp is made from Trip's own screen.webp */
+body.tt .tt-k, body.tt .tt-name, body.tt .tt-sub, body.tt .tt-next, body.tt .tt-big b, body.tt .tt-big small { text-shadow: 0 0 6px rgba(250, 243, 225, .95), 0 0 2px rgba(250, 243, 225, .9); }
 body.tt button.tt-stage.tt-card { border: 2px solid var(--tt-brass); }
 body.tt.tt-noart .tt-card { background: var(--tt-parch); }
 body.tt .tt-cardtext { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
@@ -236,3 +238,8 @@ body.tt .tt-hero, body.tt .tt-notices, body.tt .tt-grid, body.tt .tt-below, body
 }
 /* Scott 11/08 ("home hub open with house covered up", "go through all of them"): on a phone the picture shows first, this card sits below it, and the opening glide (shell.js) brings the card and the tiles up. Last in the file so it wins. */
 @media (max-width: 599px) { body.tt .tt-hero > .tt-stage, body.tt .tt-hero > button.tt-stage { margin-top: calc(1.04 * max(100vw, 55.8vh) - 60px - env(safe-area-inset-top)); } }
+/* Scott's board, 11/09 pass: the My Trip card is a picture card - tall enough to show the whole valley, the words on the sky at the top. Shorter phones keep it a little shorter so the tiles still fit. */
+body.tt .tt-card { min-height: clamp(132px, calc((min(100vw, 520px) - 32px) * .44), 210px); align-items: flex-start; }
+body.tt .tt-card .tt-cardtext { justify-content: flex-start; } body.tt .tt-card .tt-big { align-self: flex-start; margin-top: 2px; }
+@media (max-height: 760px) and (max-width: 599px) { body.tt .tt-card { min-height: calc((100vw - 32px) * .36); } }
+body.tt.tt-noart .tt-card { min-height: 0; align-items: stretch; } body.tt.tt-noart .tt-card .tt-cardtext { justify-content: center; } body.tt.tt-noart .tt-card .tt-big { align-self: auto; margin-top: 0; }

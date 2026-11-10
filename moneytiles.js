@@ -109,12 +109,23 @@ function mtTop() {
     <button class="mt-round" data-mveye="1" aria-pressed="${mvHidden()}" aria-label="${mvHidden() ? "Show amounts" : "Hide amounts"}">${mi(mvHidden() ? "eyeoff" : "eye")}</button>
     <button class="mt-round" data-mtgo="settings" aria-label="Settings">${mi("gear")}</button></div>`;
 }
+// Scott's board (11/09 pass): a stack of three gold coins beside the Cash number, drawn here (no picture file), so it stays sharp on any phone.
+function mtCoinStack() {
+  const coin = (cx, cy) => `<path d="M${cx - 21} ${cy}v7a21 7.6 0 0 0 42 0v-7" fill="url(#mtcs-side)" stroke="#5c3a08" stroke-opacity=".55" stroke-width=".9"/>
+    <ellipse cx="${cx}" cy="${cy}" rx="21" ry="7.6" fill="url(#mtcs-top)" stroke="#7a5310" stroke-opacity=".6" stroke-width=".9"/>
+    <ellipse cx="${cx}" cy="${cy}" rx="14.5" ry="5" fill="none" stroke="#a87418" stroke-opacity=".55" stroke-width="1.2"/>
+    <path d="M${cx - 12} ${cy - 3.2}q6-2.6 13-1.8" fill="none" stroke="#fff6cf" stroke-opacity=".85" stroke-width="1.4" stroke-linecap="round"/>`;
+  return `<span class="mt-coin mt-coinstack" aria-hidden="true"><svg viewBox="0 0 60 56">
+    <defs><linearGradient id="mtcs-side" x1="0" x2="1"><stop offset="0" stop-color="#7a4d0e"/><stop offset=".38" stop-color="#f0c75e"/><stop offset=".62" stop-color="#c48d26"/><stop offset="1" stop-color="#6b430c"/></linearGradient>
+      <radialGradient id="mtcs-top" cx=".36" cy=".3" r=".8"><stop offset="0" stop-color="#fff3c2"/><stop offset=".45" stop-color="#f1c650"/><stop offset="1" stop-color="#b98219"/></radialGradient></defs>
+    ${coin(30, 41)}${coin(28, 31)}${coin(31, 21)}</svg></span>`;
+}
 function mtCashHtml() {
   const t = today(), T = monthTotals(ym(t)), nx = payNext(t), net = T.inc - T.out;
   const owed = mh().accounts.filter(a => ["credit", "loan"].includes(a.kind)).reduce((n, a) => n + (+a.bal || 0), 0);
   const old = mh().accounts.filter(a => (mvAgeN(a) ?? 99) > 7).length;
   return `<section class="mt-cash" aria-label="Cash">
-      <button class="mt-cash-main" data-mhtab="accounts">${mi("coin", "mt-coin")}<span><small>Cash</small><b class="mt-big">${mv$(cashNow())}</b><em>Cash available</em></span></button>
+      <button class="mt-cash-main" data-mhtab="accounts">${mtCoinStack()}<span><small>Cash</small><b class="mt-big">${mv$(cashNow())}</b><em>Cash available</em></span></button>
       <div class="mt-cash-row"><button data-mhtab="debt"><small>Owed</small><b>${mv$(owed)}</b></button>
         <button data-mhtab="flow"><small>Net this month</small><b class="${net < 0 ? "neg" : "pos"}">${mvHidden() ? "•••" : (net < 0 ? "−" : "+") + usd(Math.abs(Math.round(net)))}</b></button></div>
       <button class="mt-payday" data-mhtab="payday">${mi("cal")}${nx ? `Next payday ${esc(mDate(nx))}` : "Set your payday"}</button>

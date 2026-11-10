@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.59.10";
+const VERSION = "1.59.11";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -1758,7 +1758,7 @@ function whatsNewHtml() {
   const vers = Object.keys(NOTES).filter(v => v.localeCompare(S.seenVersion, undefined, { numeric: true }) > 0 &&
                                               v.localeCompare(VERSION, undefined, { numeric: true }) <= 0)
     .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
-  const items = vers.flatMap(v => NOTES[v]).filter(noteForMe).filter(playOk).slice(0, 8);
+  const items = [...new Set(vers.flatMap(v => NOTES[v]).filter(noteForMe).filter(playOk))].slice(0, 8);   // a line two releases share shows once (11/09)
   if (!items.length) { S.seenVersion = VERSION; saveLocal(); return ""; }
   return `<section class="card whatsnew"><h3><span class="ci">✨</span>What's new in ${APP_NAME} ${VERSION}</h3>
     <div class="body">${items.map(x => `<div class="today-line">• ${esc(x)}</div>`).join("")}
@@ -2789,7 +2789,7 @@ function pulseRing() {
   return `<button class="pulse" data-pulse="1" aria-label="Life pulse ${n} — ${pulseWord(n)}">
     <svg viewBox="0 0 36 36" width="40" height="40"><circle cx="18" cy="18" r="${r}" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="4"/>
       <circle cx="18" cy="18" r="${r}" fill="none" stroke="${c}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${(L * n / 100).toFixed(1)} ${L.toFixed(1)}" transform="rotate(-90 18 18)"/>
-      <text x="18" y="22" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">${n}</text></svg>
+      <text x="18" y="22" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">${n}</text></svg>${typeof dtPulseDial === "function" ? dtPulseDial(n) : ""}
     <span class="pw">${pulseWord(n)}</span></button>`;
 }
 function showPulse() {
