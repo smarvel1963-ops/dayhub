@@ -345,7 +345,7 @@ function dtTripHeadHtml(tr) {
 }
 function dtTripsHtml(cardHtml) {
   const tr = curTrip(); dtForceOpen("trips");
-  return dtBackHtml("Trips & Cruises") + (tr ? dtTripHeadHtml(tr) : "") + cardHtml("trips")
+  return dtBackHtml("Trips & Cruises") + (dtArt() ? `<div class="dt-pic pack" aria-hidden="true"></div>` : "") + (tr ? dtTripHeadHtml(tr) : "") + cardHtml("trips")
     + `<div class="dt-bigs two"><button class="dt-big green" data-qa="trip">＋ Add a trip</button>${dtHubLink(tr && !isCruise(tr) ? TRIP_URL : CRUISE_URL, "dt-big blue", tr && !isCruise(tr) ? "✈️ More in Trip Hub" : "🛳️ More in Cruise Hub")}</div>`;
 }
 
@@ -363,7 +363,7 @@ function dtUpkeepHtml(cardHtml) {
 // ---- NIGHTLY RESET (board: brain dump, completed today, still open, move to tomorrow, remember for tomorrow). resetHtml() is all of it.
 function dtResetHtml() {
   const { done, open } = resetData(), closed = S.resetDay === today();
-  return dtBackHtml("Nightly Reset") + `<section class="dt-resethero"><span class="dt-k">${esc(longDate(today()))}</span>
+  return dtBackHtml("Nightly Reset") + (dtArt() ? `<div class="dt-pic night" aria-hidden="true"></div>` : "") + `<section class="dt-resethero"><span class="dt-k">${esc(longDate(today()))}</span>
       <b>${closed ? "Day closed ✓" : open.length ? `${dtPlural(open.length, "thing")} to wrap up` : "All wrapped up"}</b><small>${dtPlural(done.length, "thing")} done${open.length ? ` · ${open.length} still open` : ""}</small></section>`
     + (closed ? "" : `<button class="dt-line" data-dump="1"><span aria-hidden="true">🧠</span><span class="grow"><b>Brain dump</b><small>Get it out of your head before bed</small></span><span class="chev" aria-hidden="true">›</span></button>`)
     + `<section class="card dt-resetcard" data-card="reset"><div class="body">${resetHtml()}</div></section>`;
@@ -434,7 +434,7 @@ function dtDumpDress() {
   const f = document.getElementById("qaForm"), ta = f && f.querySelector('textarea[name="dump"]');
   if (!ta || f.querySelector(".dt-dumphero")) return;
   const hero = document.createElement("div"); hero.className = "dt-dumphero";
-  hero.innerHTML = `<div class="dt-brain" aria-hidden="true">🧠</div><h2>Brain Dump</h2><p>Get it out of your head. I'll sort it for you.</p>`;
+  hero.innerHTML = `${document.body.classList.contains("dt-art") ? `<div class="dt-pic brain" aria-hidden="true"></div>` : `<div class="dt-brain" aria-hidden="true">🧠</div>`}<h2>Brain Dump</h2><p>Get it out of your head. I'll sort it for you.</p>`;
   const mic = f.querySelector("[data-mic]");
   if (mic) { mic.classList.remove("sm", "ghost"); mic.classList.add("dt-mic"); hero.appendChild(mic); }
   f.prepend(hero);

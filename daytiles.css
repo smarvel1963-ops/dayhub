@@ -334,3 +334,14 @@ body.dt .dt-famfine { color: #dbeafe; font-size: 13.5px; margin: 12px 2px 0; }
     background: linear-gradient(180deg, rgba(9, 28, 62, .35), rgba(9, 28, 62, 0) 55%), url("art/money.webp") center 62% / cover no-repeat #0b2545; box-shadow: 0 8px 22px rgba(0, 0, 0, .28); }
   body.dt .dt-mbanner b { color: #fff; font-size: 27px; font-weight: 800; text-shadow: 0 2px 10px rgba(0, 0, 0, .7); }
 }
+
+/* Scott's own pictures for Morning Brief, Nightly Reset, Brain Dump and Pack & Prep (11/09, made by him; placed as a picture card at the top of each screen,
+   the words below on the screen's own colour so they stay easy to read). Real photo off in Settings = no pictures. */
+body.dt .dt-pic { display: none; }
+body.dt.dt-art .dt-pic { display: block; height: 196px; margin: 0 0 12px; border-radius: 20px; overflow: hidden; border: 1px solid var(--dt-line); box-shadow: 0 8px 22px rgba(0, 0, 0, .3);
+  background: #0b2545 center 50% / cover no-repeat; column-span: all; -webkit-column-span: all; }
+body.dt.dt-art .dt-pic.night { background-image: url("art/night.webp"); background-position: center 42%; }
+body.dt.dt-art .dt-pic.brain { background-image: url("art/brain.webp"); background-position: center 38%; height: 210px; margin-bottom: 14px; }
+body.dt.dt-art .dt-pic.pack { background-image: url("art/pack.webp"); background-position: center 48%; }
+body.dt.dt-art .brief-body::before { content: ""; display: block; height: 196px; margin: 0 0 16px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, .24);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .3); background: #0b2545 url("art/morning.webp") center 50% / cover no-repeat; }
