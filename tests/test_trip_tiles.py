@@ -33,7 +33,7 @@ BOOKINGS = """(() => { const tr = curTrip(); tr.bookings = [
 
 
 def trip(b, base, at="2026-09-21T09:00:00", look="tiles", owner=False, width=390, height=844, path=None, bookings=True, dates=True):
-    a = T.App(b, base, path=path or T.TRIP, at=at, width=width, height=height)
+    a = T.App(b, base, path=path or T.TRIP, at=at, width=width, height=height, look=None if look is None else "classic")
     a.art = []
     a.page.on("request", lambda r: a.art.append(r.url) if "/triphub/art/" in r.url else None)
     a.js("localStorage.setItem('triphub.startTab', 'home')")
@@ -60,10 +60,21 @@ def tile(a, label): return f'.tt-main .tt-tile:has(b:text-is("{label}"))'
 
 
 def test_switch(b, base):
-    print("\n-- The switch: OFF, a customer keeps the old look and downloads none of the art")
+    print("\n-- The switch: ON for every customer (Scott 11/10: \"Yes, all of them\"); More -> Classic Look keeps the old one")
     a = trip(b, base, look=None)
-    check("the switch in the code is OFF", a.js("TT_ON === false"))
-    check("a customer: old look, old tab names", not a.js("ttOn()") and not a.js("document.body.classList.contains('tt')") and tabs(a) == ["Home", "Plan", "Explore", "Wallet", "AI"], tabs(a))
+    check("the switch in the code is ON", a.js("TT_ON === true"))
+    check("a customer, nothing picked: the new look, and its art comes down", a.js("ttOn()") and a.js("localStorage.getItem('triphub.look')") is None and a.js("!!document.querySelector('.tt-main')") and len(a.art) > 0, (a.js("ttOn()"), a.art[:2]))
+    a.js("openSettings(); 0"); a.page.wait_for_timeout(150)
+    for _ in range(5): a.page.locator("#sheet p.fine > b", has_text="Marvel Corp app").first.click()
+    a.page.wait_for_timeout(200)
+    check("a customer's five taps on the app's name change nothing", a.js("ttOn()") and a.js("localStorage.getItem('triphub.look')") is None)
+    a.js("closeSettings(); 0"); a.page.wait_for_timeout(100)
+    a.js("shellGo('ai')"); tap(a, '[data-ttgo="classic"]')
+    a.page.reload(); a.page.wait_for_function("typeof render === 'function'"); a.page.wait_for_timeout(300)
+    check("a customer's More -> Classic Look: the old Trip Hub, and it sticks after a reload", not a.js("ttOn()") and a.js("localStorage.getItem('triphub.look')") == "classic")
+    a.ctx.close()
+    a = trip(b, base, look="classic")
+    check("Classic Look picked: old look, old tab names", not a.js("ttOn()") and not a.js("document.body.classList.contains('tt')") and tabs(a) == ["Home", "Plan", "Explore", "Wallet", "AI"], tabs(a))
     check("...the old Home (What's going on + bubbles)", "What's going on" in cards(a) and not a.js("!!document.querySelector('.tt-main')"))
     check("...and none of the new art fetched", not a.art, a.art[:3])
     h0 = a.js("history.length")
@@ -71,11 +82,6 @@ def test_switch(b, base):
     a.js("showHelp()"); a.page.wait_for_timeout(150); a.page.click("#helpSheet .sheet-head h2"); a.page.wait_for_timeout(150)
     check("...and tapping round the tabs and a sheet adds no history (the back button is the browser's own)", a.js("history.length") == h0 and a.js("TT_DEPTH") == 0, (h0, a.js("history.length"), a.js("TT_DEPTH")))
     close_sheets(a)
-    a.js("openSettings(); 0"); a.page.wait_for_timeout(150)
-    for _ in range(5): a.page.locator("#sheet p.fine > b", has_text="Marvel Corp app").first.click()
-    a.page.wait_for_timeout(200)
-    check("a customer's five taps on the app's name do nothing (Home Hub's review, 11/06)", not a.js("ttOn()") and a.js("localStorage.getItem('triphub.look')") is None)
-    a.js("closeSettings(); 0")
     a.page.goto(base + T.TRIP + "?look=tiles"); a.page.wait_for_function("typeof render === 'function'"); a.page.wait_for_timeout(300)
     check("?look=tiles turns it on for this phone", a.js("ttOn()") and a.js("document.body.classList.contains('tt')"))
     check("...and leaves the address clean", "look=" not in a.js("location.href"))

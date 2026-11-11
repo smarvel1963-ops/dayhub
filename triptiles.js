@@ -10,7 +10,7 @@
  *           Things to Do, Trip Money. The pop-ups (a booking, a day, the hotel, the wrap-up, Fix my trip, Help) keep their own content in the look.
  * Every tile opens what Trip Hub already has (trip.js, shell.js, ui.js); nothing new is decided or stored here, it is only laid out.
  * Where his board's words would say more than the app does, the app's own words stay (Things to Do needs the AI; the map is the real map).
- * SWITCH: TT_ON = false - customers keep the classic look. One phone previews it with ?look=tiles (kept on that phone, triphub.look);
+ * SWITCH: TT_ON is ON for everyone since 2026-11-10 (Scott "Yes, all of them"); it was false - customers keep the classic look. One phone previews it with ?look=tiles (kept on that phone, triphub.look);
  * the owner's phone (Scott Hub or the owner's OK on it) turns it on by itself, once. More -> Classic Look or ?look=classic turns it back.
  * Trip Hub only (MODE "trip"); Simple mode always wins. Loaded by ../triphub/index.html after shell.js (+ triptiles.css).
  * Hooks: shell.js homeHtml / shellHtml / paintTabs. #hero is hidden in this look, so ttNoticesHtml brings over the chips people must
@@ -19,7 +19,7 @@
  */
 "use strict";
 
-const TT_ON = false;                 // THE SWITCH: true = everyone on Trip Hub gets the new look (Scott's go only)
+const TT_ON = true;                  // THE SWITCH: ON 2026-11-10 (Scott: "Yes, all of them") - everyone on Trip Hub gets the new look; More -> Classic Look (or ?look=classic) keeps the old one on that phone
 const TT_KEY = "triphub.look";
 (function ttFromLink() {             // ?look=tiles|classic sets this phone's look, then leaves the address as it was
   try {

@@ -59,12 +59,12 @@ def main():
         def family():
             a = FS.phone(b, base, FS.Fake(), "uidA"); a.js(FS.SEED); return a
         for name, make, sel, bar in [("day", lambda: D.phone(b, base, path="/"), "#cards", 0), ("day_new", lambda: D.phone(b, base), "#hero .chips", 0),
-                ("cruise", lambda: C.cruise(b, base, look=None), "#cards", 0), ("cruise_new", lambda: C.cruise(b, base), ".ct-main", 0),
-                ("trip", lambda: R.trip(b, base, look=None), "#cards", 0), ("trip_new", lambda: R.trip(b, base), ".tt-stage", 0),
-                ("home", lambda: H.home(b, base, look=None), "#cards", 0), ("home_new", lambda: H.home(b, base), ".ht-house", 0),
-                ("auto", lambda: A.app(b, base, look=None), "#cards", 0), ("auto_new", lambda: A.app(b, base), ".at-next", 0),
-                ("money", lambda: M.money(b, base, look=None), "#cards", 0), ("money_new", lambda: M.money(b, base), ".mt-cash", 0),
-                ("health", lambda: W.health(b, base, look=None), "#cards", 0), ("health_new", lambda: W.health(b, base), ".hw-today", 0),
+                ("cruise", lambda: C.cruise(b, base, look="classic"), "#cards", 0), ("cruise_new", lambda: C.cruise(b, base), ".ct-main", 0),
+                ("trip", lambda: R.trip(b, base, look="classic"), "#cards", 0), ("trip_new", lambda: R.trip(b, base), ".tt-stage", 0),
+                ("home", lambda: H.home(b, base, look="classic"), "#cards", 0), ("home_new", lambda: H.home(b, base), ".ht-house", 0),
+                ("auto", lambda: A.app(b, base, look="classic"), "#cards", 0), ("auto_new", lambda: A.app(b, base), ".at-next", 0),
+                ("money", lambda: M.money(b, base, look="classic"), "#cards", 0), ("money_new", lambda: M.money(b, base), ".mt-cash", 0),
+                ("health", lambda: W.health(b, base, look="classic"), "#cards", 0), ("health_new", lambda: W.health(b, base), ".hw-today", 0),
                 ("family", family, ".fh-faces2", 62)]:
             try: opens(b, name, make, sel, bar)
             except Exception as e: check(f"{name}: ran", False, str(e)[:300])
@@ -165,7 +165,7 @@ def main():
             a.page.reload(); a.page.wait_for_function("typeof hubPanOpen === 'function'"); a.page.wait_for_load_state("load"); a.page.wait_for_timeout(600); y2 = a.js(TOP)
             a.page.wait_for_timeout(3200); y3 = a.js(TOP)
             check(f"{name}: back at the top on the picture, then glides again", y > 5 and y2 == 0 and y3 > 5, [y, y2, y3]); a.ctx.close()
-        for name, make in [("Trip Hub new look", lambda: R.trip(b, base)), ("Trip Hub", lambda: R.trip(b, base, look=None)), ("Home Hub new look", lambda: H.home(b, base)), ("Day Hub new look", lambda: D.phone(b, base)), ("Day Hub", lambda: D.phone(b, base, path="/")), ("Family Hub", family)]:
+        for name, make in [("Trip Hub new look", lambda: R.trip(b, base)), ("Trip Hub", lambda: R.trip(b, base, look="classic")), ("Home Hub new look", lambda: H.home(b, base)), ("Day Hub new look", lambda: D.phone(b, base)), ("Day Hub", lambda: D.phone(b, base, path="/")), ("Family Hub", family)]:
             again(name, make)
 
         print("\n[Reduced motion, test robots, the picture]")

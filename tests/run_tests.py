@@ -212,7 +212,7 @@ def route(ctx):
 
 # ------------------------------------------------------------------ helpers
 class App:
-    def __init__(self, browser, base, path="/", width=390, height=844, at="2026-10-01T08:00:00"):
+    def __init__(self, browser, base, path="/", width=390, height=844, at="2026-10-01T08:00:00", look="classic"):
         # Safari's engine sends a page's requests through its offline worker, past the fake network in route(); block the
         # worker there so the fixtures apply. The worker itself is tested on Chrome's engine.
         wk = browser.browser_type.name == "webkit"
@@ -221,6 +221,11 @@ class App:
         route(self.ctx)
         # v0.58: Cruise Hub opens on HOME; the older tests expect the cards, so they start on PLAN.
         self.ctx.add_init_script("try { if (!localStorage.getItem('cruisehub.startTab')) localStorage.setItem('cruisehub.startTab', 'plan'); } catch (e) {}")
+        # 11/10 (Scott "Yes, all of them"): every Hub's new look is ON for customers. The older checks in here are about the classic look,
+        # which any customer can still pick (More -> Classic Look), so a test phone has picked it unless a test passes look=None (a brand-new
+        # customer phone) or another look. Only sets a Hub that has no pick yet, so ?look=tiles and a test's own pick still win.
+        if look: self.ctx.add_init_script("try { for (const h of ['dayhub', 'cruisehub', 'triphub', 'homehub', 'autohub', 'moneyhub', 'healthhub']) "
+                                          "if (!localStorage.getItem(h + '.look')) localStorage.setItem(h + '.look', '" + look + "'); } catch (e) {}")
         self.page = self.ctx.new_page()
         self.page.on("pageerror", lambda e: ERRORS.append(f"pageerror: {e}"))
         self.page.on("console", lambda m: ERRORS.append(f"console: {m.text}") if m.type == "error" and "favicon" not in m.text else None)

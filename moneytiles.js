@@ -11,7 +11,7 @@
  *           picture across the top, no tab bar (his boards). The page sheet is dressed after it is drawn; nothing inside it changes.
  * Everything opens what Money Hub already has. Nothing new is stored; nothing is worked out a new way. His boards' new-feature screens (debt
  * payoff comparison, what-if, bill details, account details) are not built: they wait for his call.
- * SWITCH: MT_ON = false - customers keep the classic look and fetch none of the art. A phone gets it with ?look=tiles (kept in moneyhub.look),
+ * SWITCH: MT_ON is ON for everyone since 2026-11-10 (Scott "Yes, all of them"); it was false - customers keep the classic look and fetch none of the art. A phone gets it with ?look=tiles (kept in moneyhub.look),
  * by holding Scott Hub or the owner's OK (once), or with five quick taps on the app's name at the bottom of Settings (only a phone that already
  * picked a look or holds one of those keys). More -> Classic Look turns it back. Money Hub only, and only once it is set up.
  * Loaded by ../moneyhub/index.html after moneyviz.js, before ui.js (+ moneytiles.css). Wraps paintHero, mvHomeHtml, mvNavHtml and showMh; each
@@ -20,7 +20,7 @@
  */
 "use strict";
 
-const MT_ON = false;                 // THE SWITCH: true = everyone on Money Hub gets the new look (Scott's go only)
+const MT_ON = true;                  // THE SWITCH: ON 2026-11-10 (Scott: "Yes, all of them") - everyone on Money Hub gets the new look; More -> Classic Look (or ?look=classic) keeps the old one on that phone
 const MT_KEY = "moneyhub.look";
 (function mtFromLink() {             // ?look=tiles|classic sets this phone's look, then leaves the address as it was
   try {

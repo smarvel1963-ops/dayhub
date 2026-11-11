@@ -21,7 +21,7 @@ def check(name, cond, extra=""):
 
 
 def cruise(b, base, at="2026-11-01T10:24:00", look="tiles", ports=True):
-    a = T.App(b, base, path=T.CRUISE, at=at)
+    a = T.App(b, base, path=T.CRUISE, at=at, look=None if look is None else "classic")
     a.js("localStorage.setItem('cruisehub.startTab', 'home')")
     if look: a.js(f"localStorage.setItem('cruisehub.look', '{look}')")
     a.page.fill('form[data-setup] [name=name]', "Scott"); a.page.fill('form[data-setup] [name=city]', "83702")
@@ -58,9 +58,12 @@ def main():
     with sync_playwright() as p:
         b = p.chromium.launch()
 
-        print("\n[1. switch OFF by default - Cruise Hub looks exactly as before]")
+        print("\n[1. on for everyone (Scott 11/10: \"Yes, all of them\"); Classic Look keeps Cruise Hub exactly as before]")
         a = cruise(b, base, look=None)
-        check("no new look without the preview", not a.js("document.body.classList.contains('ct')") and not a.js("!!document.querySelector('.ct-grid')"))
+        check("a customer, nothing picked: the new look (the switch is ON)", a.js("CT_ON === true && ctOn()") and a.js("document.body.classList.contains('ct')") and a.js("localStorage.getItem('cruisehub.look')") is None)
+        a.close()
+        a = cruise(b, base, look="classic")
+        check("Classic Look picked: no new look", not a.js("document.body.classList.contains('ct')") and not a.js("!!document.querySelector('.ct-grid')"))
         check("old tab names kept", tabs(a) == ["🏠Home", "📅Plan", "🌎Explore", "👛Wallet", "✨AI"], tabs(a))
         check("old home kept (bubbles + hero)", a.js("!!document.querySelector('#cards .bubbles') && getComputedStyle(document.getElementById('hero')).display !== 'none'"))
         a.close()
@@ -628,12 +631,12 @@ def main():
         a.close()
 
         print("\n[13. nobody else pays for the art]")
-        a = cruise(b, base, look=None)
+        a = cruise(b, base, look="classic")
         art = []
         a.page.on("request", lambda r: art.append(r.url.split("/art/")[1]) if "/art/" in r.url else None)
         for t in ("wallet", "plan", "explore", "ai", "home"):
             a.js(f"shellGo('{t}')"); a.page.wait_for_timeout(120)
-        check("a phone without the new look downloads none of it", art == [], art)
+        check("a phone on Classic Look downloads none of it", art == [], art)
         a.js("localStorage.setItem('cruisehub.look', 'tiles'); render()"); a.page.wait_for_timeout(500)
         check("turn it on and all of it comes down, for the ship", set(art) >= {n + ".webp" for n in a.js("CT_ART")}, art)
         a.close()
@@ -901,8 +904,8 @@ def main():
         check("tab to tab adds no steps", depth() == 1)
         a.page.click("#tabbar button[data-shellgo=home]"); a.page.wait_for_timeout(300); check("tapping Home takes the step away", depth() == 0)
         a.js("CT_SCREEN = null"); a.close()
-        a = cruise(b, base, look=None); n0 = a.js("history.length"); a.js("shellGo('wallet')"); a.page.wait_for_timeout(150); FAB_OLD = a.js("getComputedStyle(document.getElementById('fab')).display"); check("(the old look's + on Money)", FAB_OLD in ("block", "grid", "flex", "inline-flex", "inline-block"), FAB_OLD); a.js("shellGo('home')"); a.page.wait_for_timeout(150); a.js("shellGo('wallet')"); a.page.wait_for_timeout(200); a.js("openSettings()"); a.page.wait_for_timeout(250); a.js("closeSettings()"); a.page.wait_for_timeout(200)
-        check("a customer on the old look: no history steps at all", a.js("history.length") == n0 and a.js("CT_DEPTH") == 0 and a.js("history.state") is None, (n0, a.js("history.length"), a.js("history.state")))
+        a = cruise(b, base, look="classic"); n0 = a.js("history.length"); a.js("shellGo('wallet')"); a.page.wait_for_timeout(150); FAB_OLD = a.js("getComputedStyle(document.getElementById('fab')).display"); check("(the old look's + on Money)", FAB_OLD in ("block", "grid", "flex", "inline-flex", "inline-block"), FAB_OLD); a.js("shellGo('home')"); a.page.wait_for_timeout(150); a.js("shellGo('wallet')"); a.page.wait_for_timeout(200); a.js("openSettings()"); a.page.wait_for_timeout(250); a.js("closeSettings()"); a.page.wait_for_timeout(200)
+        check("a phone on Classic Look: no history steps at all", a.js("history.length") == n0 and a.js("CT_DEPTH") == 0 and a.js("history.state") is None, (n0, a.js("history.length"), a.js("history.state")))
         a.js("shellGo('wallet')"); a.page.wait_for_timeout(150)
         check("a customer's Money has no title-bar +", not a.js("!!document.querySelector('.ct-title .ct-plus')"))
         check("a customer's floating + is exactly as it was", a.js("getComputedStyle(document.getElementById('fab')).display") == FAB_OLD, a.js("getComputedStyle(document.getElementById('fab')).display"))

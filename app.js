@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.59.11";
+const VERSION = "1.59.12";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -1758,7 +1758,7 @@ function whatsNewHtml() {
   const vers = Object.keys(NOTES).filter(v => v.localeCompare(S.seenVersion, undefined, { numeric: true }) > 0 &&
                                               v.localeCompare(VERSION, undefined, { numeric: true }) <= 0)
     .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
-  const items = [...new Set(vers.flatMap(v => NOTES[v]).filter(noteForMe).filter(playOk))].slice(0, 8);   // a line two releases share shows once (11/09)
+  const items = [...new Set(vers.flatMap(v => NOTES[v]).filter(noteForMe).filter(playOk).filter(x => !/not switched on yet/.test(x)))].slice(0, 8);   // a line two releases share shows once (11/09); since every new look went on (1.59.12) the old "not switched on yet" lines would contradict it
   if (!items.length) { S.seenVersion = VERSION; saveLocal(); return ""; }
   return `<section class="card whatsnew"><h3><span class="ci">✨</span>What's new in ${APP_NAME} ${VERSION}</h3>
     <div class="body">${items.map(x => `<div class="today-line">• ${esc(x)}</div>`).join("")}

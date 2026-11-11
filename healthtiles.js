@@ -11,7 +11,7 @@
  * Everything opens what Health Hub already has. Nothing new is stored; nothing is worked out a new way. Where his board draws something
  * Health Hub doesn't have, the tile opens the nearest real page: Nutrition -> Water, Challenges -> Emergency card (Challenges are switched
  * off), "How you're doing 7.8/10" -> the Health Score from routines (not a medical measure), calories -> doses taken.
- * SWITCH: HW_ON = false - customers keep the classic look and fetch none of the art. A phone gets it with ?look=tiles (kept in healthhub.look),
+ * SWITCH: HW_ON is ON for everyone since 2026-11-10 (Scott "Yes, all of them"); it was false - customers keep the classic look and fetch none of the art. A phone gets it with ?look=tiles (kept in healthhub.look),
  * by holding Scott Hub or the owner's OK (once), or with five quick taps on the app's name at the bottom of Settings (only a phone that already
  * picked a look or holds one of those keys). More -> Classic Look turns it back. Health Hub only, and only once it is set up.
  * Loaded by ../healthhub/index.html after health.js, before ui.js (+ healthtiles.css). Wraps paintHero, hhDashHtml, hhNavHtml and showHh; each
@@ -20,7 +20,7 @@
  */
 "use strict";
 
-const HW_ON = false;                 // THE SWITCH: true = everyone on Health Hub gets the new look (Scott's go only)
+const HW_ON = true;                  // THE SWITCH: ON 2026-11-10 (Scott: "Yes, all of them") - everyone on Health Hub gets the new look; More -> Classic Look (or ?look=classic) keeps the old one on that phone
 const HW_KEY = "healthhub.look";
 (function hwFromLink() {             // ?look=tiles|classic sets this phone's look, then leaves the address as it was
   try {

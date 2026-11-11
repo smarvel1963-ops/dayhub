@@ -7,13 +7,13 @@
  * New here: Roadside Help (its numbers live in c.help), the Log screen, Update Miles with an odometer check, the MPG and monthly charts.
  * Not drawn on purpose: live car readings (the app doesn't read the car). The screens his boards didn't draw are in autotiles2.js.
  * MASTER LOOK (Scott 11/04): "dark garage atmosphere, realistic cars, glowing turquoise controls, chrome accents, and beautiful instrument panels".
- * SWITCH: AT_ON = false - customers never see it. A phone gets it with ?look=tiles (kept in autohub.look), by holding Scott Hub or the owner's OK
+ * SWITCH: AT_ON is ON for everyone since 2026-11-10 (Scott "Yes, all of them"); it was false - customers never see it. A phone gets it with ?look=tiles (kept in autohub.look), by holding Scott Hub or the owner's OK
  * (once), or with five quick taps on the app's name at the bottom of Settings. More -> Classic Look turns it back. Auto Hub only.
  * Loaded by autohub/index.html after auto.js, before ui.js (+ autotiles.css). Hooks: shell.js shellOn / shellGo / shellHtml / paintTabs, each guarded.
  */
 "use strict";
 
-const AT_ON = false;                 // THE SWITCH: true = everyone on Auto Hub gets the new look (Scott's go only)
+const AT_ON = true;                  // THE SWITCH: ON 2026-11-10 (Scott: "Yes, all of them") - everyone on Auto Hub gets the new look; More -> Classic Look (or ?look=classic) keeps the old one on that phone
 const AT_KEY = "autohub.look";
 (function atFromLink() {             // ?look=tiles|classic sets this phone's look, then leaves the address as it was
   try {

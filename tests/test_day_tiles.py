@@ -53,10 +53,12 @@ def main():
     with sync_playwright() as p:
         b = p.chromium.launch()
 
-        print("\n[1. off by default]")
-        a = T.App(b, base); T.setup(a)
-        check("the file loads, the switch is OFF", a.js("typeof dtOn === 'function' && DT_ON === false && !dtOn()"))
-        check("Day Hub looks exactly as before: no tab bar, no new-look class, classic home + Arrange link",
+        print("\n[1. on for everyone (Scott 11/10: \"Yes, all of them\"); Classic Look keeps the old screen]")
+        a = T.App(b, base, look=None); T.setup(a)
+        check("the file loads, the switch is ON: a customer gets the new look once set up", a.js("typeof dtOn === 'function' && DT_ON === true && dtOn()") and a.js("document.body.classList.contains('dt')") and a.js("localStorage.getItem('dayhub.look')") is None)
+        a.close()
+        a = T.App(b, base); T.setup(a)                  # run_tests' phone has picked Classic Look
+        check("Classic Look picked: Day Hub looks exactly as before: no tab bar, no new-look class, classic home + Arrange link",
               a.js("!document.getElementById('tabbar') && !document.body.classList.contains('dt') && !document.body.classList.contains('shell')")
               and a.js("!!document.querySelector('.arrange-link') && !document.querySelector('.dt-home')"))
         ph = a.js("document.getElementById('setCity').placeholder")

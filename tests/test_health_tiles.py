@@ -38,7 +38,7 @@ HEALTH_BAD = r"\b(diagnos\w*|treat(s|ment|ing)?|cure[sd]?|prevent\w*|improve you
 
 
 def health(b, base, look="tiles", owner=False, width=390, height=844, path=None, setup=True, demo=True):
-    a = T.App(b, base, path=path or T.HEALTHP, at="2026-11-12T14:00:00", width=width, height=height)
+    a = T.App(b, base, path=path or T.HEALTHP, at="2026-11-12T14:00:00", width=width, height=height, look=None if look is None else "classic")
     a.art = []
     a.page.on("request", lambda r: a.art.append(r.url) if "/healthhub/art/" in r.url else None)
     if look: a.js(f"localStorage.setItem('healthhub.look', '{look}')")
@@ -59,10 +59,21 @@ def tile_sel(label, where=".hw-grid"): return f'{where} .hw-tile:has(b:text-is("
 
 
 def test_switch(b, base):
-    print("\n-- The switch: OFF, a customer keeps the old look, downloads none of the art, gets no history steps")
+    print("\n-- The switch: ON for every customer (Scott 11/10: \"Yes, all of them\"); More -> Classic Look keeps the old one")
     a = health(b, base, look=None)
-    check("the switch in the code is OFF", a.js("HW_ON === false"))
-    check("a customer: the old Health Hub (its clock band, its old bar)", not a.js("hwOn()") and not a.js("document.body.classList.contains('hw')") and shown(a, "#hero")
+    check("the switch in the code is ON", a.js("HW_ON === true"))
+    check("a customer, nothing picked: the new look, and its art comes down", a.js("hwOn()") and a.js("localStorage.getItem('healthhub.look')") is None and a.js("!!document.querySelector('.hw-today')") and len(a.art) > 0, (a.js("hwOn()"), a.art[:2]))
+    a.js("openSettings(); 0"); a.page.wait_for_timeout(150)
+    for _ in range(5): a.page.locator("#sheet p.fine > b", has_text="Marvel Corp app").first.click()
+    a.page.wait_for_timeout(200)
+    check("a customer's five taps on the app's name change nothing", a.js("hwOn()") and a.js("localStorage.getItem('healthhub.look')") is None)
+    a.js("closeSettings(); 0"); a.page.wait_for_timeout(100)
+    tap(a, "#hhNav [data-hwgo=more]"); tap(a, '.hw-mrow:has(b:text-is("Classic Look"))')
+    a.page.reload(); a.page.wait_for_function("typeof render === 'function'"); a.page.wait_for_timeout(300)
+    check("a customer's More -> Classic Look: the old Health Hub, and it sticks after a reload", not a.js("hwOn()") and a.js("localStorage.getItem('healthhub.look')") == "classic")
+    a.ctx.close()
+    a = health(b, base, look="classic")
+    check("Classic Look picked: the old Health Hub (its clock band, its old bar)", not a.js("hwOn()") and not a.js("document.body.classList.contains('hw')") and shown(a, "#hero")
           and a.js("[...document.querySelectorAll('#hhNav button')].map(b => b.getAttribute('aria-label')).join()") == "Home,Meds,Add,Vitals,More")
     check("...none of the new art fetched, and no trace of the look", not a.art and a.js("!('hwtab' in document.body.dataset)"), a.art[:3])
     h0 = a.js("history.length")
@@ -70,11 +81,7 @@ def test_switch(b, base):
     check("...a page opens as the old sheet", shown(a, "#hhSheet") and not a.js("!!document.querySelector('#hhSheet .hw-head')"))
     tap(a, "#hhSheet [data-hhclose]")
     check("...and no history added", a.js("history.length") == h0 and a.js("HW_DEPTH") == 0, (h0, a.js("history.length")))
-    a.js("openSettings(); 0"); a.page.wait_for_timeout(150)
-    for _ in range(5): a.page.locator("#sheet p.fine > b", has_text="Marvel Corp app").first.click()
-    a.page.wait_for_timeout(200)
-    check("a customer's five taps on the app's name do nothing", not a.js("hwOn()") and a.js("localStorage.getItem('healthhub.look')") is None)
-    a.js("closeSettings(); 0"); a.ctx.close()
+    a.ctx.close()
     a = health(b, base, setup=False)
     check("the welcome stays the classic screen, even with the look picked", not a.js("hwOn()") and a.js("!!document.querySelector('form[data-hhsetup]')"))
     a.page.fill("form[data-hhsetup] [name=name]", "Sam"); a.page.click("form[data-hhsetup] button"); a.page.wait_for_timeout(300)

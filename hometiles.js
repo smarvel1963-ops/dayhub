@@ -9,7 +9,7 @@
  *   FULL SCREENS (back arrow, no tab bar, a picture across the top, as on his board): a room (Overview / Items / Tasks / Notes, home.js's own
  *           pane and forms), Coming Up, Home Value, Bills Due, To-Do, Lists, Weather.
  * Everything opens what Home Hub already has (home.js, homevalue.js, the shared cards). Nothing new is stored; nothing is worked out a new way.
- * SWITCH: HT_ON = false - customers keep the classic look and fetch none of the art. A phone gets it with ?look=tiles (kept in homehub.look),
+ * SWITCH: HT_ON is ON for everyone since 2026-11-10 (Scott "Yes, all of them"); it was false - customers keep the classic look and fetch none of the art. A phone gets it with ?look=tiles (kept in homehub.look),
  * by holding Scott Hub or the owner's OK (once), or with five quick taps on the app's name at the bottom of Settings. More -> Classic Look turns
  * it back. Home Hub only, and only once the home is set up (the first-run screen stays the classic one).
  * Loaded by ../homehub/index.html after home.js (+ hometiles.css). Hooks: shell.js shellOn / shellGo / shellHtml / paintTabs, each guarded;
@@ -18,7 +18,7 @@
  */
 "use strict";
 
-const HT_ON = false;                 // THE SWITCH: true = everyone on Home Hub gets the new look (Scott's go only)
+const HT_ON = true;                  // THE SWITCH: ON 2026-11-10 (Scott: "Yes, all of them") - everyone on Home Hub gets the new look; More -> Classic Look (or ?look=classic) keeps the old one on that phone
 const HT_KEY = "homehub.look";
 (function htFromLink() {             // ?look=tiles|classic sets this phone's look, then leaves the address as it was
   try {

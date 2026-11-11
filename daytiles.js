@@ -14,14 +14,14 @@
  * Phase 3 (Scott 11/03: "finish what you can on hubs") = the rest of his board: the Today timeline with Add event / Add task,
  * Trips & Cruises (Pack & Prep is its Lists tab), Upkeep, Nightly Reset and Hub Family as full screens, Top 3 in the morning
  * brief, and ✏️ on a plan (the classic app can only delete and re-add one).
- * SWITCH: DT_ON = false - nobody sees it. One phone previews it with the link ?look=tiles (kept on that phone,
+ * SWITCH: DT_ON is ON for everyone since 2026-11-10 (Scott "Yes, all of them"); it was false - nobody sees it. One phone previews it with the link ?look=tiles (kept on that phone,
  * dayhub.look); ?look=classic or More -> Classic look turns it back. Day Hub only, after set-up.
  * Loaded by index.html after shell.js (+ daytiles.css). Hooks: shell.js shellOn / shellGo / shellTabFor / shellHtml /
  * paintTabs - each guarded, so without this file Day Hub is exactly as before. sw.js keeps both files for offline.
  */
 "use strict";
 
-const DT_ON = false;                 // THE SWITCH: true = everyone on Day Hub gets the new look (Scott's go only)
+const DT_ON = true;                  // THE SWITCH: ON 2026-11-10 (Scott: "Yes, all of them") - everyone on Day Hub gets the new look; More -> Classic Look (or ?look=classic) keeps the old one on that phone
 const DT_KEY = "dayhub.look";
 (function dtFromLink() {             // ?look=tiles|classic sets this phone's look, then leaves the address as it was
   try {

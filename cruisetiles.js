@@ -8,7 +8,7 @@
  * More tab. Every tile opens a screen that already exists; the inner screens get the new look in Phase 2.
  * The stage logic is the hero's own (ui.js cruiseCountdown / guardHtml, cruise.js goHomeHtml / phaseCardHtml) - nothing
  * new is decided here, it is only laid out.
- * SWITCH: CT_ON = false - nobody sees it. One phone can preview it with the link ?look=tiles (kept on that phone,
+ * SWITCH: CT_ON is ON for everyone since 2026-11-10 (Scott "Yes, all of them"); it was false - nobody sees it. One phone can preview it with the link ?look=tiles (kept on that phone,
  * cruisehub.look); ?look=classic or More -> Classic look turns it back. Cruise Hub only; Simple mode always wins.
  * Loaded by ../cruisehub/index.html after shell.js (+ cruisetiles.css). Hooks: shell.js homeHtml / shellHtml / paintTabs.
  * #hero is hidden in this look, so ctNoticesHtml brings over the chips people must not miss (new version, Install, Pro
@@ -26,7 +26,7 @@
  */
 "use strict";
 
-const CT_ON = false;                 // THE SWITCH: true = everyone on Cruise Hub gets the new look (Scott's go only)
+const CT_ON = true;                  // THE SWITCH: ON 2026-11-10 (Scott: "Yes, all of them") - everyone on Cruise Hub gets the new look; More -> Classic Look (or ?look=classic) keeps the old one on that phone
 const CT_KEY = "cruisehub.look";
 (function ctFromLink() {             // ?look=tiles|classic sets this phone's look, then leaves the address as it was
   try {

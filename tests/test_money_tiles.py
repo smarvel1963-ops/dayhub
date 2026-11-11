@@ -39,7 +39,7 @@ TILE_TABS = ["accounts", "spend", "bills", "budget", "subs", "debt", "payday", "
 
 
 def money(b, base, look="tiles", owner=False, width=390, height=844, path=None, setup=True, demo=True):
-    a = T.App(b, base, path=path or T.MONEYP, at="2026-11-12T14:00:00", width=width, height=height)
+    a = T.App(b, base, path=path or T.MONEYP, at="2026-11-12T14:00:00", width=width, height=height, look=None if look is None else "classic")
     a.art = []
     a.page.on("request", lambda r: a.art.append(r.url) if "/moneyhub/art/" in r.url else None)
     if look: a.js(f"localStorage.setItem('moneyhub.look', '{look}')")
@@ -60,10 +60,21 @@ def tile_sel(label, where=".mt-grid"): return f'{where} .mt-tile:has(b:text-is("
 
 
 def test_switch(b, base):
-    print("\n-- The switch: OFF, a customer keeps the old look, downloads none of the art, gets no history steps")
+    print("\n-- The switch: ON for every customer (Scott 11/10: \"Yes, all of them\"); More -> Classic Look keeps the old one")
     a = money(b, base, look=None)
-    check("the switch in the code is OFF", a.js("MT_ON === false"))
-    check("a customer: the old Money Hub (its own clock band, its old bar)", not a.js("mtOn()") and not a.js("document.body.classList.contains('mt')") and shown(a, "#hero")
+    check("the switch in the code is ON", a.js("MT_ON === true"))
+    check("a customer, nothing picked: the new look, and its art comes down", a.js("mtOn()") and a.js("localStorage.getItem('moneyhub.look')") is None and a.js("!!document.querySelector('.mt-cash')") and len(a.art) > 0, (a.js("mtOn()"), a.art[:2]))
+    a.js("openSettings(); 0"); a.page.wait_for_timeout(150)
+    for _ in range(5): a.page.locator("#sheet p.fine > b", has_text="Marvel Corp app").first.click()
+    a.page.wait_for_timeout(200)
+    check("a customer's five taps on the app's name change nothing", a.js("mtOn()") and a.js("localStorage.getItem('moneyhub.look')") is None)
+    a.js("closeSettings(); 0"); a.page.wait_for_timeout(100)
+    tap(a, "#mvNav [data-mtgo=more]"); tap(a, '.mt-mrow:has(b:text-is("Classic Look"))')
+    a.page.reload(); a.page.wait_for_function("typeof render === 'function'"); a.page.wait_for_timeout(300)
+    check("a customer's More -> Classic Look: the old Money Hub, and it sticks after a reload", not a.js("mtOn()") and a.js("localStorage.getItem('moneyhub.look')") == "classic")
+    a.ctx.close()
+    a = money(b, base, look="classic")
+    check("Classic Look picked: the old Money Hub (its own clock band, its old bar)", not a.js("mtOn()") and not a.js("document.body.classList.contains('mt')") and shown(a, "#hero")
           and "Payments" in a.page.inner_text("#mvNav"))
     check("...none of the new art fetched", not a.art, a.art[:3])
     check("...and no trace of the look on the page (no class, no data-mttab)", a.js("!('mttab' in document.body.dataset)"))
@@ -72,11 +83,7 @@ def test_switch(b, base):
     check("...a page opens as the old sheet (no back arrow, its own bar)", shown(a, "#mhSheet") and not a.js("!!document.querySelector('#mhSheet .mt-head')") and not a.js("document.getElementById('mhSheet').classList.contains('mt-full')"))
     tap(a, "#mhSheet [data-mhclose]")
     check("...and no history added (the back button is the browser's own)", a.js("history.length") == h0 and a.js("MT_DEPTH") == 0, (h0, a.js("history.length")))
-    a.js("openSettings(); 0"); a.page.wait_for_timeout(150)
-    for _ in range(5): a.page.locator("#sheet p.fine > b", has_text="Marvel Corp app").first.click()
-    a.page.wait_for_timeout(200)
-    check("a customer's five taps on the app's name do nothing", not a.js("mtOn()") and a.js("localStorage.getItem('moneyhub.look')") is None)
-    a.js("closeSettings(); 0"); a.ctx.close()
+    a.ctx.close()
     a = money(b, base, setup=False)
     check("the welcome stays the classic screen, even with the look picked", not a.js("mtOn()") and a.js("!!document.querySelector('form[data-mhsetup]')"))
     a.page.fill("form[data-mhsetup] [name=name]", "Sam"); a.page.click("form[data-mhsetup] button"); a.page.wait_for_timeout(300)

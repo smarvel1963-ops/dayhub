@@ -35,7 +35,7 @@ TABS = ["overview", "service", "fuel", "papers", "extras", "photos", "mech", "re
 
 
 def app(b, base, look="tiles", sample=True, width=390, query="", at="2026-10-01T08:00:00"):
-    a = T.App(b, base, path=T.AUTOP + query, at=at, width=width)
+    a = T.App(b, base, path=T.AUTOP + query, at=at, width=width, look=None if look is None else "classic")
     if look: a.js(f"localStorage.setItem('autohub.look', '{look}')")
     if sample: a.js(SAMPLE)
     a.js("render(); 0"); a.page.wait_for_timeout(120)
@@ -52,18 +52,26 @@ def c1(a, expr): return a.js(f"(c => {expr})(garage().cars.find(x => x.id === 'c
 
 
 def test_switch(b, base):
-    print("\n-- The switch: customers never see it")
-    a = T.App(b, base, path=T.AUTOP)
-    check("the switch in the code is OFF", a.js("AT_ON === false"))
-    check("a new phone is on the old look", a.js("atOn()") is False and not a.js("document.body.classList.contains('at')"))
-    check("the old welcome is what a customer sees", a.js("!!document.querySelector('form[data-autosetup] [name=city]')"))
-    a.js(SAMPLE); a.page.wait_for_timeout(200)
-    check("with a car, still the old screen and no tab bar", not a.js("document.body.classList.contains('at')") and a.js("!document.getElementById('tabbar')"))
-    seen = a.js("performance.getEntriesByType('resource').map(r => r.name).filter(n => n.includes('/art/'))")
-    check("no new-look art is downloaded", not seen, seen[:2])
+    print("\n-- The switch: ON for every customer (Scott 11/10: \"Yes, all of them\"); More -> Classic Look keeps the old one")
+    a = T.App(b, base, path=T.AUTOP, look=None); seen = []
+    a.page.on("request", lambda r: seen.append(r.url) if "/autohub/art/" in r.url else None)   # watch the downloads: files served through the offline worker miss the timing list
+    check("the switch in the code is ON", a.js("AT_ON === true"))
+    a.js(SAMPLE); a.page.wait_for_timeout(300)
+    check("a customer with a car, nothing picked: the new look, its tab bar, and its art comes down", a.js("atOn()") is True and a.js("document.body.classList.contains('at')") and a.js("!!document.getElementById('tabbar')") and a.js("localStorage.getItem('autohub.look')") is None and len(seen) > 0, seen[:2])
     a.js("openSettings(); 0"); a.page.wait_for_timeout(120)
     for _ in range(5): a.page.locator("#sheet p.fine > b", has_text="Marvel Corp app").first.click()
-    check("a customer's five taps do nothing", a.js("atOn()") is False and a.js("localStorage.getItem('autohub.look')") is None); a.js("closeSettings(); 0")
+    check("a customer's five taps change nothing", a.js("atOn()") is True and a.js("localStorage.getItem('autohub.look')") is None); a.js("closeSettings(); 0")
+    a.js("shellGo('more'); 0"); a.page.wait_for_timeout(80); tap(a, '[data-atgo="classic"]')
+    a.page.reload(); a.page.wait_for_function("typeof render === 'function'")
+    check("a customer's More -> Classic Look: the old Auto Hub, and it sticks after a reload", a.js("atOn()") is False and a.js("localStorage.getItem('autohub.look')") == "classic")
+    a.close()
+    a = T.App(b, base, path=T.AUTOP); seen = []      # run_tests' phone has picked Classic Look
+    a.page.on("request", lambda r: seen.append(r.url) if "/autohub/art/" in r.url else None)
+    check("Classic Look picked: the old look", a.js("atOn()") is False and not a.js("document.body.classList.contains('at')"))
+    check("...the old welcome", a.js("!!document.querySelector('form[data-autosetup] [name=city]')"))
+    a.js(SAMPLE); a.page.wait_for_timeout(200)
+    check("with a car, still the old screen and no tab bar", not a.js("document.body.classList.contains('at')") and a.js("!document.getElementById('tabbar')"))
+    check("no new-look art is downloaded", not seen, seen[:2])
     check("no car alerts from the new look", a.js("(on => { S.remind.on = true; const r = reminderList().filter(x => x.key.startsWith('car:')); S.remind.on = on; return r.length; })(S.remind.on)") == 0)
     a.close()
     a = T.App(b, base, path=T.AUTOP + "?look=tiles")
@@ -72,7 +80,7 @@ def test_switch(b, base):
     a.page.goto(base + T.AUTOP + "?look=classic"); a.page.wait_for_function("typeof render === 'function'")
     check("?look=classic turns it back", a.js("atOn()") is False)
     a.close()
-    a = T.App(b, base, path=T.AUTOP); a.js("localStorage.setItem('dayhub.ownerok', '1')"); a.page.reload(); a.page.wait_for_function("typeof render === 'function'")
+    a = T.App(b, base, path=T.AUTOP, look=None); a.js("localStorage.setItem('dayhub.ownerok', '1')"); a.page.reload(); a.page.wait_for_function("typeof render === 'function'")
     check("the owner's phone gets it by itself", a.js("atOn()") is True)
     a.js(SAMPLE); a.js("shellGo('more'); 0"); a.page.wait_for_timeout(80)
     tap(a, '[data-atgo="classic"]')
