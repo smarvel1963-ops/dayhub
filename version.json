@@ -1,6 +1,14 @@
 {
- "version": "1.59.12",
+ "version": "1.60",
  "notes": {
+  "1.60": [
+   "☀️ Day Hub: in the Google Play app, reminders will ring even when the app is closed, starting with its next update from Google Play.",
+   "🚢 Cruise Hub: in the Google Play app, reminders will ring even when the app is closed, starting with its next update from Google Play.",
+   "🧭 Trip Hub: in the Google Play app, reminders will ring even when the app is closed, starting with its next update from Google Play.",
+   "🏡 Home Hub: in the Google Play app, reminders will ring even when the app is closed, starting with its next update from Google Play.",
+   "🚗 Auto Hub: in the Google Play app, reminders will ring even when the app is closed, starting with its next update from Google Play.",
+   "💰 Money Hub: in the Google Play app, reminders will ring even when the app is closed, starting with its next update from Google Play."
+  ],
   "1.58.17": [
    "💰 Money Hub: behind-the-scenes work on a fresh new look, not switched on yet.",
    "💚 Health Hub: behind-the-scenes work on a fresh new look, not switched on yet."

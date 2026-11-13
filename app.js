@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.59.12";
+const VERSION = "1.60";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -240,7 +240,7 @@ const blank = () => ({
   bills: [], countdowns: [], lists: [{ id: "grocery", name: "Grocery", items: [] }], listSel: "grocery",
   gcal: { connected: false, events: [], fetched: null },
   sync: { on: false, last: null, dirty: false },
-  remind: { on: false, lead: 15, billDays: 1, billHour: "09:00", morning: 420, night: 1260, fired: {} },
+  remind: { on: false, lead: 15, billDays: 1, billHour: "09:00", morning: 420, night: 1260, fired: {}, handed: {} },   // handed: v1.60 the Play app's own alarms
   remember: [], resetDay: null, resetAt: null,
   people: [],
   upkeep: [],
@@ -1030,7 +1030,7 @@ function restoreFrom(cloud, file, quiet) {
   snap();
   const keepCal = S.gcal, keepSync = S.sync, keepFired = S.remind.fired, keepUI = { collapsed: S.collapsed, briefDay: S.briefDay, briefAuto: S.briefAuto };
   // 11/04: these belong to THIS phone too. Reminders can only ring with this phone's permission, and the AI reading notes is this phone's privacy choice.
-  const was = S, wasPending = CLOUD_PENDING, keepRemind = S.remind.on, keepAi = S.aiNotes, keepPics = phonePhotos();
+  const was = S, wasPending = CLOUD_PENDING, keepRemind = S.remind.on, keepAi = S.aiNotes, keepPics = phonePhotos(), keepHanded = S.remind.handed || {};   // v1.60 the Play app's alarms are this phone's
   let remindOffHere = false, listed = null;
   try {
   S = normalize(cloud.data);
@@ -1045,6 +1045,7 @@ function restoreFrom(cloud, file, quiet) {
   S.gcal = keepCal; S.sync = file ? { ...keepSync, dirty: !!keepSync.on } : { on: true, last: cloud.savedAt, dirty: false };
   remindOffHere = S.remind.on && !keepRemind; listed = putPhonePhotos(keepPics);
   S.remind.on = keepRemind;
+  S.remind.handed = keepHanded;   // another phone's backup must not silence reminders this phone's alarms never had
   if (keepAi === undefined) delete S.aiNotes; else S.aiNotes = keepAi;
   // 11/04: draw BEFORE saving. A file that can't be drawn must not replace what's saved here.
   CLOUD_PENDING = null; render();
@@ -1194,15 +1195,20 @@ async function notify(title, body, tag) {
 // Fires anything due in the last 6 hours that has not fired yet (a phone that
 // slept through 2:45 still says so at 3:10). Old marks are pruned after 4 days.
 async function checkReminders() {
-  if (!S.remind.on || !can("reminders")) return;
-  const now = Date.now(), F = S.remind.fired; let changed = false;
+  if (!S.remind.on || !can("reminders")) { alarmSync(); return; }   // v1.60 off: the Play app's alarms are cleared too
+  const now = Date.now(), F = S.remind.fired, H = S.remind.handed || {}; let changed = false;
   for (const r of reminderList()) {
     if (F[r.key] || r.at > now || r.at < now - 6 * 3600000 || r.start < now - 15 * 60000) continue;   // long started = too late to help
     F[r.key] = now; changed = true;
+    // v1.60 the Google Play app's own alarm has this one: never ring it twice. One exception: the page is open and on screen right
+    // now and the phone's alarm may run late (no "Alarms & reminders" permission) - then the page rings it on time, and the
+    // alarmSync below takes it off the phone's list.
+    if (H[r.key] === r.at && !(ALARM.live && ALARM.info && ALARM.info.exact === false && !document.hidden && now - r.at < 120000)) continue;
     await notify(r.title, r.start > now && !r.key.startsWith("car:") ? `${r.body} · in ${Math.max(1, Math.round((r.start - now) / 60000))} min` : r.body, r.key);
   }
   for (const [k, v] of Object.entries(F)) if (now - v > 4 * 86400000) { delete F[k]; changed = true; }
   if (changed) saveLocal();
+  alarmSync();                                                  // v1.60 keeps the Play app's alarms current (does nothing elsewhere)
 }
 async function remindOn() {
   if (!can("reminders")) { toast(`Reminders are part of ${proName()}`); return; }
@@ -1234,8 +1240,81 @@ function drawRemindBox() {
          <select data-rset="billDays">${opt(-1, "Off", R.billDays)}${opt(0, "Morning of the due day", R.billDays)}${opt(1, "Morning, 1 day before", R.billDays)}${opt(3, "Morning, 3 days before", R.billDays)}</select></label>
        <div class="foot-actions" style="margin-top:10px"><button class="btn sm" data-remind="test">Send a test</button><button class="btn sm ghost" data-remind="off">Turn off</button></div>`
     : `<button class="btn sm" data-remind="on">Turn on reminders</button>`) +
-    `<p class="fine" style="margin-top:8px">${APP_NAME}'s reminders arrive while it's open or used recently. For a can't-miss item, tap 📲 on it — that puts it in your phone's own calendar, which alerts you even when ${APP_NAME} is closed.</p>`;
+    (ALARM.live
+      ? `<p class="fine" style="margin-top:8px">${APP_NAME}'s reminders ring even when it's closed: this app sets your phone's own alarm for each one. Open ${APP_NAME} every couple of days to keep the next ones set.` +
+        (ALARM.info.notif === false ? ` <b>Notifications are off for ${APP_NAME} in your phone's settings, so nothing can ring until you turn them on.</b>` : "") +
+        (ALARM.info.exact === false ? `</p><p class="fine" style="margin-top:6px">Right now your phone may ring one late, sometimes up to an hour, to save battery. To make them ring on time, allow ${APP_NAME} to set alarms: <button class="btn sm ghost" data-alarmexact="1">⏰ Ring on time</button> or phone Settings → Apps → ${APP_NAME} → Alarms &amp; reminders → Allow.` : "") + `</p>`
+      : `<p class="fine" style="margin-top:8px">${APP_NAME}'s reminders arrive while it's open or used recently. For a can't-miss item, tap 📲 on it — that puts it in your phone's own calendar, which alerts you even when ${APP_NAME} is closed.</p>`);
 }
+
+// ------------------------------------------------- reminders that ring when the app is closed (v1.60)
+// Scott 11/12: "build the closed-app reminders" -> "Yes, build it". The Google Play app is this page inside a small Android
+// wrapper (C:/MarvelApps/android/hub_alarms). Chrome hands the page a message port ("PostMessage for TWA": a window message with
+// EMPTY data and the port), and the wrapper then says {t: "hubalarms-hello", app: <its package>} on that port. The page hands it
+// every reminder coming up from reminderList(), and the wrapper sets Android's own alarm for each, so they ring with the app
+// closed. Nothing leaves the phone. In a browser or on an iPhone no port ever arrives and none of this runs. The whole list goes
+// every time (the wrapper replaces its alarms with it), only when it changed. A reminder the wrapper confirmed is kept in
+// S.remind.handed (key -> time) so checkReminders never rings it a second time. Another Hub opened inside this app (the Hub links)
+// gets the hello too, but it isn't this app's package, so it stays quiet and this app's alarms are left alone.
+const ALARM = { port: null, live: false, info: null, sent: "", seq: 0, pending: {}, askTimer: 0 };
+const ALARM_APP = "com.marvelcorp." + (location.pathname.split("/").filter(Boolean)[0] || "");   // /dayhub/ -> com.marvelcorp.dayhub
+function alarmItems() {
+  const R = S.remind, now = Date.now();
+  if (!R.on || !can("reminders")) return [];                    // reminders off: an empty list clears every alarm
+  return reminderList().filter(r => r.at > now + 5000 && r.at < now + 3 * 86400000 && !R.fired[r.key])
+    .sort((x, y) => x.at - y.at).slice(0, 60)
+    .map(r => ({ k: r.key, at: r.at, t: r.title,
+      b: r.start > r.at && !r.key.startsWith("car:") ? `${r.body} · in ${Math.max(1, Math.round((r.start - r.at) / 60000))} min` : r.body }));
+}
+function alarmPost(o) {
+  try { ALARM.port.postMessage(JSON.stringify(o)); return true; } catch (e) { ALARM.port = null; ALARM.live = false; return false; }
+}
+function alarmSync(force) {
+  if (!ALARM.port || !ALARM.live) return;
+  const items = alarmItems(), same = JSON.stringify(items);
+  if (!force && same === ALARM.sent) return;
+  const n = ++ALARM.seq;
+  if (!alarmPost({ t: "hubalarms", v: 1, n, items })) return;
+  ALARM.sent = same; ALARM.pending[n] = items;
+}
+function alarmMsg(ev) {                                          // what the wrapper says on the port
+  let a = ev.data; try { if (typeof a === "string") a = JSON.parse(a); } catch (e) { return; }
+  if (!a || typeof a !== "object") return;
+  if (a.t === "hubalarms-hello") {
+    if (a.app !== ALARM_APP) return;                             // another Hub's page inside this app: not its alarms
+    clearTimeout(ALARM.askTimer);
+    if (!ALARM.live) { ALARM.sent = ""; ALARM.pending = {}; }
+    ALARM.info = a; ALARM.live = true;
+    alarmSync(true); drawRemindBox();
+    return;
+  }
+  if (a.t !== "hubalarms-ok" || !ALARM.pending[a.n]) return;
+  const items = ALARM.pending[a.n], now = Date.now(), H = {};
+  Object.keys(ALARM.pending).forEach(k => { if (Number(k) <= a.n) delete ALARM.pending[k]; });
+  for (const [k, at] of Object.entries(S.remind.handed || {})) if (at <= now && at > now - 4 * 86400000) H[k] = at;   // already rang on the phone
+  items.forEach(i => { H[i.k] = i.at; });
+  S.remind.handed = H; saveLocal();
+}
+window.addEventListener("message", e => {
+  const port = e.ports && e.ports[0];
+  if (!port || String(e.origin || "").replace(/\/$/, "") !== location.origin) return;   // only the app's own channel (the site lists the app as "use_as_origin")
+  ALARM.port = port; ALARM.live = false; ALARM.info = null; ALARM.sent = ""; ALARM.pending = {};
+  port.onmessage = alarmMsg;                                     // the hello comes next, on the port
+  let m = e.data; try { if (typeof m === "string" && m) m = JSON.parse(m); } catch (x) { m = null; }
+  if (m && typeof m === "object" && m.t === "hubalarms-hello") alarmMsg({ data: m });   // (in case a hello ever rides along with the port)
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { alarmSync(); return; }                  // leaving the app: hand over the latest
+  // back on screen: ask the wrapper how things stand (on-time alarms may have just been allowed). No answer = the line is gone
+  // (Android closed the wrapper while Chrome kept the page); Settings then stops promising, and the page rings its own reminders.
+  if (ALARM.live && alarmPost({ t: "hubalarms-ask" })) {
+    clearTimeout(ALARM.askTimer);
+    ALARM.askTimer = setTimeout(() => { ALARM.live = false; drawRemindBox(); }, 8000);
+  }
+});
+document.addEventListener("click", e => {                        // Settings' "Ring on time": the wrapper opens the phone's Alarms & reminders page
+  if (ALARM.live && e.target && e.target.closest && e.target.closest("[data-alarmexact]")) alarmPost({ t: "hubalarms-exact" });
+});
 
 // ------------------------------------------------- add to phone calendar (.ics)
 function icsFor(ref) {
