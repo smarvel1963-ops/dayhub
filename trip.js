@@ -1094,7 +1094,7 @@ function refundsHtml(tr) {
       <b>${money(r.amt)}</b><button class="pill ${r.got ? "" : refundLate(r) ? "late" : "soon"}" data-refundgot="${tr.id}|${r.id}" style="border:0;cursor:pointer">${r.got ? "got it ✓" : "not back"}</button>
       <button class="x" data-refunddel="${tr.id}|${r.id}" aria-label="Remove">✕</button></div>`).join("")
       : `<div class="today-line sub">Canceled something or waiting on money back? Track it here so it doesn't slip.</div>`}
-    <form class="inline-add refund-add" data-refund="${tr.id}"><input name="what" placeholder="What (e.g. Boma dinner deposit)" required autocomplete="off">
+    <form class="inline-add refund-add" data-refund="${tr.id}"><input name="what" placeholder="What (e.g. dinner reservation deposit)" required autocomplete="off">
       <input name="amt" type="number" step="0.01" min="0" inputmode="decimal" placeholder="$" required><input name="from" placeholder="From (company)" autocomplete="off">
       <label class="field" style="margin:0">Expected by<input name="expect" type="date"></label><button class="btn sm">Add</button></form>`;
 }
