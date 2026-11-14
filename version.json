@@ -1,6 +1,9 @@
 {
- "version": "1.60.1",
+ "version": "1.61",
  "notes": {
+  "1.61": [
+   "🐾 Pet Hub: welcome! Every pet's care and life story in one place - ages and birthday countdowns, a daily care checklist, vet visits, shots and medicine reminders, weight and growth, a pet passport, and every memory from the first day home."
+  ],
   "1.60.1": [
    "🧭 Trip Hub: a small wording fix. The refund box's example now reads \"dinner reservation deposit\"."
   ],

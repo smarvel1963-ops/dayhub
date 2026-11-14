@@ -1,0 +1,292 @@
+/* SAVE AS: pettiles.css · LOCATION: C:/MarvelApps/dayhub/pettiles.css
+ * PET HUB look (app #10, Scott 11/13, board 1 "PET HUB · NEW PAGE DESIGNS": docs/hub_improvement/pethub/boards/board1_four_screens_2026-11-13.png).
+ * Warm cream page, cartoon-bright pet cards on their own pastel colour, coral pill buttons, navy rounded titles, little flower sprigs.
+ * Loaded only by /pethub/ (pethub/index.html). Every class is pt-; nothing here touches another Hub. Built in code: no image files. */
+body.ptapp { --pt-cream: #fff6ea; --pt-cream2: #fdeedd; --pt-navy: #1f2b5e; --pt-ink: #3a3a52; --pt-soft: #8a8aa3; --pt-coral: #ff5d4f; --pt-coral2: #ff7d5c;
+  --pt-line: #f1e4d4; --pt-tone: #ff6b57;
+  background: radial-gradient(120% 60% at 50% 0%, #fffaf2 0%, var(--pt-cream) 55%, var(--pt-cream2) 100%) fixed; color: var(--pt-ink);
+  font-family: "Nunito", "Inter", system-ui, sans-serif; }
+body.ptapp #hero { display: none !important; }
+body.ptapp .fab { display: none !important; }
+body.pt #cards { padding-bottom: 104px; }
+body.pt .toast { bottom: 104px; }
+body.ptapp #cards { max-width: 640px; margin: 0 auto; }
+body.ptapp .card.pt-home { background: transparent; box-shadow: none; border: 0; padding: 14px 14px 6px; position: relative; overflow: visible; }
+
+/* titles + brand */
+.pt-brand { font-family: "Fredoka", "Nunito", sans-serif; font-weight: 700; font-size: 21px; color: var(--pt-navy); letter-spacing: .2px; display: inline-flex; align-items: center; gap: 6px; }
+.pt-brand span { font-size: 18px; filter: saturate(1.3); }
+.pt-top { display: flex; align-items: center; justify-content: space-between; margin: 2px 0 4px; }
+.pt-round { width: 40px; height: 40px; border-radius: 50%; border: 0; background: #fff; box-shadow: 0 3px 10px rgba(31, 43, 94, .12); font-size: 19px; display: grid; place-items: center; position: relative; cursor: pointer; }
+.pt-bell em { position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; border-radius: 9px; background: var(--pt-coral); color: #fff; font: 800 11px/18px "Nunito", sans-serif; font-style: normal; padding: 0 4px; }
+.pt-title { font-family: "Fredoka", "Nunito", sans-serif; font-weight: 700; color: var(--pt-navy); text-align: center; font-size: 30px; line-height: 1.12; margin: 10px 0 2px; position: relative; }
+.pt-title b { color: var(--pt-coral); font-weight: 700; }
+.pt-title.pt-dash::before, .pt-title.pt-dash::after { content: ""; display: inline-block; width: 16px; height: 10px; margin: 0 10px 6px;
+  background: linear-gradient(var(--pt-coral), var(--pt-coral)) 0 0 / 100% 3px no-repeat, linear-gradient(var(--pt-coral), var(--pt-coral)) 0 100% / 70% 3px no-repeat; border-radius: 2px; }
+.pt-title.pt-dash::after { transform: scaleX(-1); }
+.pt-kicker { text-align: center; color: var(--pt-navy); font-weight: 800; font-size: 17px; margin: 0 0 14px; }
+.pt-sub { color: var(--pt-ink); text-align: center; margin: 4px 0 10px; font-size: 15px; }
+.pt-deco { position: absolute; top: 6px; font-size: 22px; opacity: .95; pointer-events: none; }
+.pt-deco b { font-size: 26px; font-weight: 400; display: inline-block; transform: rotate(-20deg); }
+.pt-deco.l { left: 2px; } .pt-deco.r { right: 2px; }
+.pt-promise { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 10px 0 14px; }
+.pt-promise span { background: #fff; border-radius: 999px; padding: 6px 11px; font-weight: 700; font-size: 13px; color: var(--pt-navy); box-shadow: 0 2px 8px rgba(31, 43, 94, .08); }
+
+/* a pet's face: photo over its species emoji on its own colour */
+.pt-pic { position: relative; display: inline-grid; place-items: center; overflow: hidden; flex: none; border-radius: 50%; width: 44px; height: 44px;
+  background: radial-gradient(circle at 35% 30%, #fff 0%, color-mix(in srgb, var(--tone, #ffb27d) 55%, #fff) 60%, var(--tone, #ffb27d) 100%); }
+.pt-pic i { font-style: normal; font-size: 24px; line-height: 1; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .12)); }
+.pt-pic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pt-pic img:not([src]) { display: none; }
+.pt-pic.xs { width: 32px; height: 32px; } .pt-pic.xs i { font-size: 18px; }
+.pt-pic.sm { width: 46px; height: 46px; box-shadow: 0 2px 8px rgba(31, 43, 94, .12); } .pt-pic.sm i { font-size: 25px; }
+.pt-pic.big { width: 100%; height: 132px; border-radius: 0; } .pt-pic.big i { font-size: 74px; }
+.pt-pic.hero { width: 132px; height: 132px; border: 5px solid #fff; box-shadow: 0 8px 22px rgba(31, 43, 94, .18); } .pt-pic.hero i { font-size: 72px; }
+.pt-pic.party { width: 128px; height: 128px; border: 4px solid #fff; } .pt-pic.party i { font-size: 70px; }
+.pt-pic.pass { width: 92px; height: 108px; border-radius: 14px; border: 3px solid #fff; } .pt-pic.pass i { font-size: 52px; }
+.pt-pic.pt-mempic { width: 104px; height: 70px; border-radius: 14px; --tone: var(--pt-tone); } .pt-pic.pt-mempic i { font-size: 30px; }
+.pt-rb { position: absolute; right: 2px; bottom: 0; font-style: normal; font-size: 14px; }
+
+/* All My Pets */
+.pt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pt-card { --tone: #ffb27d; border: 0; padding: 0; border-radius: 22px; overflow: hidden; text-align: left; cursor: pointer; display: flex; flex-direction: column;
+  background: color-mix(in srgb, var(--tone) 32%, #fff); box-shadow: 0 6px 16px rgba(31, 43, 94, .12); transition: transform .15s; }
+.pt-card:active { transform: scale(.97); }
+.pt-cardfoot { display: flex; align-items: center; gap: 6px; padding: 9px 10px 10px; background: color-mix(in srgb, var(--tone) 22%, #fff); }
+.pt-cardfoot b { display: block; color: var(--pt-navy); font-family: "Fredoka", "Nunito", sans-serif; font-size: 17px; font-weight: 700; }
+.pt-cardfoot b i { font-style: normal; font-size: 13px; }
+.pt-cardfoot small { color: var(--pt-ink); font-size: 12px; font-weight: 600; }
+.pt-cardfoot em, .pt-row > em { font-style: normal; width: 28px; height: 28px; border-radius: 50%; background: #fff; display: grid; place-items: center; color: var(--pt-navy); font-weight: 900; font-size: 18px; box-shadow: 0 2px 6px rgba(31, 43, 94, .12); flex: none; }
+.grow { flex: 1; min-width: 0; }
+.pt-cta { display: flex; align-items: center; justify-content: center; gap: 8px; width: min(100%, 300px); margin: 16px auto 4px; border: 0; border-radius: 999px; padding: 13px 22px;
+  background: linear-gradient(180deg, var(--pt-coral2), var(--pt-coral)); color: #fff; font: 800 17px/1.1 "Nunito", sans-serif; box-shadow: 0 7px 16px rgba(255, 93, 79, .34); cursor: pointer; }
+.pt-cta span { font-size: 20px; }
+.pt-cta small { font-weight: 700; opacity: .9; font-size: 12px; }
+.pt-cta:active { transform: translateY(1px); }
+.pt-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 2px solid var(--pt-line); background: #fff; color: var(--pt-navy); border-radius: 999px; padding: 9px 16px;
+  font: 800 14px "Nunito", sans-serif; cursor: pointer; margin: 8px auto 0; }
+.pt-ghost.warn { color: #c0392b; border-color: #f6c9c1; }
+.pt-link { border: 0; background: none; color: var(--pt-coral); font: 800 13px "Nunito", sans-serif; cursor: pointer; padding: 2px 4px; }
+.pt-more { border: 0; background: none; color: var(--pt-soft); font-weight: 800; cursor: pointer; padding: 6px 0 0; }
+
+/* white boxes (Household Tasks, Birthday Alerts...) */
+.pt-box { background: #fff; border-radius: 20px; padding: 12px 14px; margin: 14px 0; box-shadow: 0 5px 16px rgba(31, 43, 94, .08); border: 1px solid #fbefe2; }
+.pt-box h3 { margin: 0 0 6px; color: var(--pt-navy); font-family: "Fredoka", "Nunito", sans-serif; font-weight: 700; font-size: 18px; }
+.pt-box h3 small { font-family: "Nunito", sans-serif; font-weight: 700; font-size: 12px; color: var(--pt-soft); }
+.pt-boxhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pt-boxhead span { color: var(--pt-soft); font-weight: 800; font-size: 13px; }
+.pt-tasks { background: linear-gradient(180deg, #eefaf3, #fff 70%); }
+.pt-alerts { background: linear-gradient(180deg, #fff3ea, #fff 70%); }
+.pt-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border: 0; border-top: 1px dashed var(--pt-line); background: none; width: 100%; text-align: left; color: inherit; font: inherit; text-decoration: none; }
+.pt-box > .pt-row:first-of-type, .pt-boxhead + .pt-row { border-top: 0; }
+button.pt-row { cursor: pointer; }
+.pt-row b { display: block; color: var(--pt-navy); font-weight: 800; font-size: 14.5px; }
+.pt-row small { display: block; color: var(--pt-soft); font-weight: 700; font-size: 12.5px; }
+.pt-note { display: block; color: var(--pt-ink); font-size: 13px; margin-top: 2px; white-space: pre-wrap; }
+.pt-chip { background: #ffe4d6; color: #e2483c; font-weight: 900; font-size: 12.5px; border-radius: 999px; padding: 4px 10px; flex: none; }
+.pt-hint { color: var(--pt-soft); font-weight: 700; font-size: 14px; margin: 6px 0; }
+.pt-check { width: 26px; height: 26px; flex: none; border-radius: 8px; border: 2.5px solid #c9cbe0; background: #fff; color: #fff; font-weight: 900; cursor: pointer; display: grid; place-items: center; padding: 0; }
+.pt-check.on { background: var(--pt-coral); border-color: var(--pt-coral); }
+.pt-task.done b { color: var(--pt-soft); text-decoration: line-through; }
+.pt-mini { border: 2px solid var(--pt-line); background: #fff; color: var(--pt-navy); border-radius: 999px; padding: 5px 11px; font: 800 12.5px "Nunito", sans-serif; cursor: pointer; flex: none; }
+.pt-mini.ok { background: var(--pt-coral); border-color: var(--pt-coral); color: #fff; }
+.pt-dosetime { font-weight: 900; color: var(--pt-navy); font-size: 13px; min-width: 56px; }
+.pt-x { border: 0; background: #f6f2ec; color: #9a8f86; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; flex: none; font-weight: 900; }
+.pt-careic { width: 36px; height: 36px; border-radius: 12px; background: #fff3ea; display: grid; place-items: center; font-size: 19px; flex: none; }
+.pt-late { color: #e2483c; font-weight: 900; }
+.pt-gonerow { display: flex; gap: 12px; flex-wrap: wrap; }
+.pt-gonerow button { border: 0; background: none; display: grid; justify-items: center; gap: 2px; cursor: pointer; }
+.pt-gonerow b { color: var(--pt-navy); font-size: 13px; }
+.pt-gone { background: linear-gradient(135deg, #f3ecff, #fff4fb); }
+.pt-adv { text-align: center; color: var(--pt-soft) !important; }
+
+/* the bottom bar (home) + the one inside each page */
+.pt-nav, .pt-tabs { display: grid; grid-template-columns: repeat(4, 1fr); background: #fff; box-shadow: 0 -4px 18px rgba(31, 43, 94, .1); border-radius: 22px 22px 0 0; padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); }
+.pt-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; max-width: 640px; margin: 0 auto; }
+.pt-nav button, .pt-tabs button { border: 0; background: none; display: grid; justify-items: center; gap: 2px; padding: 6px 2px; color: var(--pt-soft); font: 800 12px "Nunito", sans-serif; cursor: pointer; border-radius: 14px; }
+.pt-nav button span, .pt-tabs button span { font-size: 22px; line-height: 1; filter: grayscale(.5); }
+.pt-nav button.on, .pt-tabs button.on { color: var(--pt-coral); background: #fff1ec; }
+.pt-nav button.on span, .pt-tabs button.on span { filter: none; }
+body.ptapp .sheet .sheet-body.pt-sheet { background: radial-gradient(130% 50% at 50% 0%, #fffaf3, var(--pt-cream)); padding-bottom: 0; }
+/* Pet Hub's pages are full screens like the board (no faded home peeking above a bottom sheet) */
+body.ptapp #ptSheet { background: var(--pt-cream); }
+body.ptapp #ptSheet .sheet-body.pt-sheet { position: absolute; inset: 0; max-height: none; height: 100%; width: 100%; max-width: 640px; margin: 0 auto; border-radius: 0;
+  box-sizing: border-box; overflow-y: auto; padding-top: calc(10px + env(safe-area-inset-top)); display: flex; flex-direction: column; }
+body.ptapp #ptSheet .pt-pane { flex: 1; position: relative; }
+.pt-sheet .pt-head .pt-brand { flex: 1; justify-content: center; }
+.pt-pagetitle { font-size: 27px; margin: 6px 0 12px; }
+.pt-sheet > .pt-deco { top: 52px; }
+.pt-sheet .pt-tabs { position: sticky; bottom: 0; margin: 10px -16px 0; border-radius: 22px 22px 0 0; z-index: 2; }
+.pt-head h2 { font-family: "Fredoka", "Nunito", sans-serif; color: var(--pt-navy); font-weight: 700; font-size: 21px; flex: 1; text-align: center; margin: 0; }
+.pt-head { display: flex; align-items: center; gap: 8px; }
+.pt-msg { text-align: center; color: #c0392b; min-height: 0; }
+
+/* the pet picker (switch pets: the app turns to that pet's colour) */
+.pt-picker { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 10px; scrollbar-width: none; }
+.pt-picker button { flex: none; border: 2px solid transparent; background: #fff; border-radius: 18px; padding: 6px 10px 6px 6px; display: flex; align-items: center; gap: 6px; cursor: pointer; box-shadow: 0 2px 8px rgba(31, 43, 94, .08); }
+.pt-picker button b { color: var(--pt-navy); font-size: 13px; }
+.pt-picker button.on { border-color: var(--pt-tone); background: color-mix(in srgb, var(--pt-tone) 18%, #fff); }
+
+/* one pet's page: the storybook */
+.pt-story { --tone: var(--pt-tone); text-align: center; border-radius: 26px; padding: 18px 14px 16px; background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 42%, #fff), #fff 78%); box-shadow: 0 8px 20px rgba(31, 43, 94, .1); }
+.pt-story h3 { font-family: "Fredoka", "Nunito", sans-serif; font-weight: 700; color: var(--pt-navy); font-size: 30px; margin: 8px 0 0; }
+.pt-story > p { margin: 2px 0 6px; font-weight: 700; color: var(--pt-ink); }
+.pt-agebig b { display: block; color: var(--pt-navy); font-weight: 900; font-size: 18px; }
+.pt-agebig small { color: var(--pt-soft); font-weight: 800; }
+.pt-counts { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin: 12px 0 4px; }
+.pt-counts span { background: #fff; border-radius: 16px; padding: 7px 12px; min-width: 84px; box-shadow: 0 2px 8px rgba(31, 43, 94, .08); }
+.pt-counts b { display: block; color: var(--pt-coral); font-family: "Fredoka", "Nunito", sans-serif; font-size: 20px; }
+.pt-counts small { color: var(--pt-soft); font-weight: 800; font-size: 11.5px; }
+.pt-mile { margin: 8px 0 0; color: var(--pt-navy); font-weight: 700; font-size: 14px; }
+.pt-memories { flex-direction: column; gap: 2px; padding: 14px 22px; font-size: 19px; }
+.pt-quick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0; }
+.pt-quick button { --q: #ff8a7a; border: 0; border-radius: 18px; background: #fff; box-shadow: 0 4px 12px rgba(31, 43, 94, .08); padding: 12px; text-align: left; display: grid; gap: 2px; font-size: 22px; cursor: pointer;
+  border-top: 5px solid var(--q); }
+.pt-quick b { color: var(--pt-navy); font-size: 14.5px; }
+.pt-quick small { color: var(--pt-soft); font-weight: 700; font-size: 12px; }
+.pt-tip { background: #fffbe9; border-radius: 16px; padding: 10px 12px; color: var(--pt-ink); font-size: 14px; }
+.pt-tip small { display: block; color: var(--pt-soft); }
+
+/* Birthdays & Ages */
+.pt-party { --tone: var(--pt-tone); position: relative; display: flex; align-items: center; gap: 10px; border-radius: 24px; padding: 18px 12px 18px 14px; overflow: hidden;
+  background: linear-gradient(135deg, #ffe0e6, #fff1d8); box-shadow: 0 8px 20px rgba(31, 43, 94, .1); }
+.pt-hat { position: absolute; left: 70px; top: 4px; font-size: 34px; transform: rotate(-12deg); }
+.pt-bubble { flex: 1; background: #fff; border-radius: 22px; padding: 12px 14px; box-shadow: 0 4px 12px rgba(255, 93, 79, .15); }
+.pt-bubble b { display: block; color: #e2483c; font-family: "Fredoka", "Nunito", sans-serif; font-size: 22px; font-weight: 700; line-height: 1.1; }
+.pt-bubble span { color: #e2483c; font-family: "Fredoka", "Nunito", sans-serif; font-weight: 700; font-size: 20px; }
+.pt-cake { position: absolute; right: 10px; bottom: 6px; font-size: 38px; }
+.pt-cal { padding: 10px 10px 12px; }
+.pt-calhead { display: flex; align-items: center; justify-content: space-between; padding: 2px 6px 8px; }
+.pt-calhead b { color: var(--pt-navy); font-family: "Fredoka", "Nunito", sans-serif; font-size: 20px; font-weight: 700; }
+.pt-calhead button { border: 0; background: none; font-size: 22px; color: var(--pt-navy); cursor: pointer; padding: 2px 8px; }
+.pt-calgrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+.pt-calgrid span { height: 34px; display: grid; place-items: center; font-weight: 800; color: var(--pt-navy); font-size: 14px; border-radius: 50%; }
+.pt-calgrid .dow { height: 20px; font-size: 11px; color: var(--pt-soft); }
+.pt-calgrid .now { box-shadow: inset 0 0 0 2px var(--pt-tone); }
+.pt-calgrid .mark { background: linear-gradient(180deg, var(--pt-coral2), var(--pt-coral)); box-shadow: 0 3px 8px rgba(255, 93, 79, .35); }
+.pt-calgrid .mark em { font-style: normal; font-size: 17px; }
+.pt-slidebtn { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; border-radius: 20px; padding: 10px 12px; margin: 14px 0; cursor: pointer; text-align: left;
+  background: linear-gradient(135deg, #ffe3ea, #fff0e6); box-shadow: 0 5px 14px rgba(31, 43, 94, .08); }
+.pt-slidebtn b { display: block; color: var(--pt-navy); font-weight: 900; font-size: 15px; }
+.pt-slidebtn small { color: var(--pt-ink); font-weight: 700; font-size: 12.5px; }
+.pt-play { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(180deg, var(--pt-coral2), var(--pt-coral)); color: #fff; display: grid; place-items: center; font-size: 18px; flex: none; box-shadow: 0 4px 10px rgba(255, 93, 79, .35); }
+.pt-ages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.pt-ages button { --tone: #ffb27d; border: 0; border-radius: 16px; padding: 8px 4px 9px; display: grid; justify-items: center; gap: 3px; cursor: pointer; background: color-mix(in srgb, var(--tone) 28%, #fff); }
+.pt-ages b { color: var(--pt-navy); font-size: 13px; }
+.pt-ages small { color: var(--pt-ink); font-weight: 800; font-size: 11.5px; text-align: center; }
+
+/* Memory Moments */
+.pt-journeyhead { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 4px 0 8px; }
+.pt-journeyhead b { color: var(--pt-navy); font-weight: 900; font-size: 16px; }
+.pt-timeline { list-style: none; margin: 12px 0; padding: 0 0 0 26px; position: relative; }
+.pt-timeline::before { content: ""; position: absolute; left: 9px; top: 10px; bottom: 10px; width: 3px; border-radius: 2px; background: #ffb3a8; }
+.pt-timeline li { position: relative; display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 18px; padding: 8px 10px 8px 8px; margin: 0 0 10px; box-shadow: 0 4px 12px rgba(31, 43, 94, .07); }
+.pt-timeline li::before { content: ""; position: absolute; left: -23px; top: 50%; width: 11px; height: 11px; margin-top: -8px; border-radius: 50%; background: #fff; border: 3px solid var(--pt-coral); }
+.pt-timeline li b { display: block; color: var(--pt-navy); font-weight: 900; font-size: 15px; }
+.pt-timeline li small { color: var(--pt-soft); font-weight: 700; font-size: 12.5px; }
+.pt-timeline .pt-empty { color: var(--pt-soft); font-weight: 700; padding: 14px; }
+.pt-heart { color: var(--pt-coral); font-size: 20px; flex: none; }
+.pt-timeline .pt-x { width: 22px; height: 22px; font-size: 10px; opacity: .5; background: transparent; }
+.pt-timeline .pt-x:hover, .pt-timeline .pt-x:focus-visible { opacity: 1; background: #f6f2ec; }
+.pt-scrap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 4px; }
+.pt-scrap figure { margin: 0; background: #fff; padding: 6px 6px 4px; border-radius: 8px; box-shadow: 0 4px 10px rgba(31, 43, 94, .14); transform: rotate(var(--r, 0deg)); }
+.pt-scrap .pt-pic.pt-mempic { width: 100%; height: 76px; border-radius: 4px; }
+.pt-scrap figcaption { font-size: 11px; font-weight: 800; color: var(--pt-navy); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-top: 3px; }
+.pt-thennow { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.pt-thennow figure { margin: 0; text-align: center; flex: 1; }
+.pt-thennow .pt-pic.pt-mempic { width: 100%; height: 110px; border-radius: 18px; }
+.pt-thennow figcaption b { display: block; color: var(--pt-navy); font-weight: 900; }
+.pt-thennow figcaption small { color: var(--pt-soft); font-weight: 700; font-size: 12px; }
+.pt-arrow { color: #38a3d9; font-size: 26px; font-weight: 900; }
+.pt-memkinds { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 4px 0 8px; }
+.pt-memkinds label, .pt-species label, .pt-tones label { cursor: pointer; position: relative; }
+.pt-memkinds input, .pt-species input, .pt-tones input { position: absolute; opacity: 0; pointer-events: none; }
+.pt-memkinds span { display: grid; justify-items: center; gap: 1px; background: #fff7ef; border: 2px solid var(--pt-line); border-radius: 14px; padding: 6px 2px; font-size: 20px; }
+.pt-memkinds small { font-size: 10.5px; font-weight: 800; color: var(--pt-navy); text-align: center; line-height: 1.1; }
+.pt-memkinds input:checked + span { border-color: var(--pt-coral); background: #fff0ec; }
+
+/* Add Your Pet */
+.pt-addform h3, .pt-form h3 { display: flex; align-items: center; gap: 8px; color: var(--pt-navy); font-family: "Fredoka", "Nunito", sans-serif; font-weight: 700; font-size: 18px; margin: 14px 0 8px; }
+.pt-step { width: 26px; height: 26px; border-radius: 50%; background: var(--pt-coral); color: #fff; display: grid; place-items: center; font: 900 14px "Nunito", sans-serif; }
+.pt-species { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.pt-species span { position: relative; display: grid; justify-items: center; gap: 2px; background: #fff; border: 2.5px solid #f3e7da; border-radius: 18px; padding: 10px 2px 8px; font-size: 34px; box-shadow: 0 3px 10px rgba(31, 43, 94, .06); }
+.pt-species b { font-size: 13px; color: var(--pt-navy); }
+.pt-species input:checked + span { border-color: var(--pt-coral); background: #fff4f0; }
+.pt-species input:checked + span::after { content: "✓"; position: absolute; top: -8px; right: -6px; width: 22px; height: 22px; border-radius: 50%; background: var(--pt-coral); color: #fff; font: 900 13px/22px "Nunito", sans-serif; text-align: center; }
+.pt-species input:focus-visible + span, .pt-memkinds input:focus-visible + span, .pt-tones input:focus-visible + span { outline: 3px solid #86bdf5; outline-offset: 2px; }
+body.ptapp .pt-form .field { display: grid; gap: 4px; color: var(--pt-navy); font-weight: 800; font-size: 13.5px; margin: 8px 0; }
+body.ptapp .pt-form .field small { color: var(--pt-soft); font-weight: 700; }
+body.ptapp .pt-form input:not([type=radio]):not([type=checkbox]), body.ptapp .pt-form select, body.ptapp .pt-form textarea {
+  width: 100%; box-sizing: border-box; border: 2px solid #efe3d5; border-radius: 14px; background: #fff; padding: 10px 12px; font: 700 15px "Nunito", sans-serif; color: var(--pt-ink); }
+body.ptapp .pt-form input:focus, body.ptapp .pt-form select:focus, body.ptapp .pt-form textarea:focus { outline: none; border-color: var(--pt-tone); }
+.pt-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pt-agechoice { display: flex; gap: 14px; flex-wrap: wrap; font-weight: 800; color: var(--pt-navy); font-size: 13.5px; margin: 6px 0 0; }
+.pt-agein { position: relative; }
+.pt-estf { display: none; grid-template-columns: 1fr 1fr; gap: 10px; }
+form:has(input[name=agehow][value=est]:checked) .pt-estf, form.pt-est .pt-estf { display: grid; }
+form.pt-est .pt-bdayf { display: none !important; }
+form:has(input[name=agehow][value=est]:checked) .pt-bdayf { display: none !important; }
+.pt-tones { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0 2px; }
+.pt-tones span { display: block; width: 30px; height: 30px; border-radius: 50%; background: var(--tone); border: 3px solid #fff; box-shadow: 0 2px 6px rgba(31, 43, 94, .18); cursor: pointer; }
+.pt-tones input:checked + span { box-shadow: 0 0 0 3px var(--pt-navy); }
+.pt-photoin { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 6px 0; }
+.pt-photoin .pt-pic.pt-hero { width: 104px; height: 104px; }
+label.pt-dash { flex: 1; min-width: 150px; border: 2px dashed #e6d6c3; border-radius: 18px; padding: 18px 12px; text-align: center; color: var(--pt-ink); font-weight: 800; font-size: 14px; cursor: pointer; background: #fffdf9; }
+.pt-check2 { display: flex; gap: 8px; align-items: flex-start; font-weight: 700; font-size: 14px; color: var(--pt-ink); margin: 10px 0 0; }
+.pt-formbtns { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.pt-formbtns .pt-cta { margin: 8px 0 0; width: auto; }
+.pt-danger { display: grid; justify-items: center; gap: 6px; margin: 18px 0 6px; padding-top: 10px; border-top: 1px dashed var(--pt-line); }
+.pt-inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pt-inline select { border: 2px solid #efe3d5; border-radius: 12px; padding: 8px; font: 700 14px "Nunito", sans-serif; background: #fff; }
+.pt-papers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 0 8px; }
+.pt-papers figure { margin: 0; position: relative; text-align: center; }
+.pt-papers .pt-pic.pt-mempic { width: 100%; height: 80px; }
+.pt-papers figcaption { font-size: 11px; font-weight: 800; color: var(--pt-navy); }
+.pt-papers .pt-x { position: absolute; top: -6px; right: -6px; width: 24px; height: 24px; font-size: 11px; }
+
+/* Pet Passport */
+.pt-passport { --tone: var(--pt-tone); border-radius: 22px; overflow: hidden; box-shadow: 0 8px 20px rgba(31, 43, 94, .12); background: #fff; }
+.pt-passtop { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--pt-navy); color: #fff; letter-spacing: 1px; }
+.pt-passtop small { opacity: .75; font-weight: 700; letter-spacing: 0; }
+.pt-passbody { display: flex; gap: 14px; padding: 14px; background: linear-gradient(135deg, color-mix(in srgb, var(--tone) 25%, #fff), #fff 70%); }
+.pt-passbody dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 0; font-size: 13.5px; }
+.pt-passbody dt { color: var(--pt-soft); font-weight: 800; }
+.pt-passbody dd { margin: 0; color: var(--pt-navy); font-weight: 800; }
+.pt-call em { background: #eaf7ee !important; }
+
+/* Rainbow Bridge */
+.pt-bridge { text-align: center; border-radius: 26px; padding: 22px 14px; background: linear-gradient(180deg, #f6efff 0%, #fff4f8 45%, #fffaf0 100%); box-shadow: 0 8px 20px rgba(31, 43, 94, .08); }
+.pt-bridge h3 { font-family: "Fredoka", "Nunito", sans-serif; font-weight: 700; color: var(--pt-navy); font-size: 28px; margin: 8px 0 0; }
+.pt-bridge p { margin: 2px 0; color: var(--pt-ink); font-weight: 700; }
+.pt-forever { font-family: "Fredoka", "Nunito", sans-serif; color: #8e6bd8 !important; font-size: 20px; margin-top: 8px !important; }
+.pt-bridge::before { content: "🌈"; display: block; font-size: 34px; }
+
+/* the slideshow */
+.pt-show { position: fixed; inset: 0; z-index: 90; background: #140f1f; display: grid; place-items: center; }
+.pt-show.hidden { display: none; }
+.pt-slides { position: relative; width: min(94vw, 560px); height: min(80vh, 640px); }
+.pt-slides figure { position: absolute; inset: 0; margin: 0; opacity: 0; transition: opacity .9s ease, transform 3.2s ease; transform: scale(1.04); display: grid; place-items: center; }
+.pt-slides figure.on { opacity: 1; transform: scale(1); }
+.pt-slides img { max-width: 100%; max-height: 82%; border-radius: 18px; box-shadow: 0 10px 40px rgba(0, 0, 0, .5); }
+.pt-slides figcaption { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; color: #fff; }
+.pt-slides figcaption b { display: block; font-family: "Fredoka", "Nunito", sans-serif; font-size: 22px; }
+.pt-slides figcaption small { opacity: .85; font-weight: 700; }
+.pt-showend div { text-align: center; color: #fff; }
+.pt-showend b { display: block; font-family: "Fredoka", "Nunito", sans-serif; font-size: 30px; line-height: 1.2; padding: 0 20px; }
+.pt-showend small { opacity: .8; font-weight: 700; }
+.pt-showx { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 14px; z-index: 2; width: 42px; height: 42px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .15); color: #fff; font-size: 18px; cursor: pointer; }
+.pt-dots { position: absolute; bottom: calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 6px; }
+.pt-dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, .3); }
+.pt-dots i.on { background: #fff; }
+
+/* More tiles keep the engine's tile grid, in Pet Hub colours */
+.pt-tiles .tile { background: #fff !important; border-radius: 18px !important; box-shadow: 0 4px 12px rgba(31, 43, 94, .08); color: var(--pt-navy) !important; }
+
+@media (min-width: 560px) {
+  .pt-grid { grid-template-columns: repeat(3, 1fr); }
+  .pt-pic.big { height: 150px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pt-slides figure { transition: none; transform: none; }
+  .pt-card { transition: none; }
+}
