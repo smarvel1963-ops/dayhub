@@ -1,6 +1,13 @@
 {
- "version": "1.63.1",
+ "version": "1.64",
  "notes": {
+  "1.64": [
+   "🍳 Cooking Hub: welcome! What's for dinner, sorted - recipes with a step-by-step Cook Along, a Dinner Finder that works from what you have, your pantry with use-by reminders, this week's table and a grocery list, and your family's own cookbook. Share your family's recipes with other cooks, vote for the Recipe of the Week, and pick a storybook kitchen or Grandma's Recipe Box.",
+   "🍳 Meet Cooking Hub, the newest app in the Hub family - recipes, the week's dinners and your family's own cookbook. Find it in the Hub family list."
+  ],
+  "1.63.2": [
+   "✏️ Adding something is easier: a Save button now sits at the top of the Add sheet, always in view above the keyboard. A plan no longer needs a time - leave it empty for all day. And a tap outside the sheet no longer throws away what you typed."
+  ],
   "1.63.1": [
    "☀️ Day Hub: Words of the Day now sits right under the top of your Home screen."
   ],

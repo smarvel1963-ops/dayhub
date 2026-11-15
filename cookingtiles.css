@@ -1,0 +1,346 @@
+/* SAVE AS: cookingtiles.css · LOCATION: C:/MarvelApps/dayhub/cookingtiles.css
+ * COOKING HUB look (app #11, Scott 11/15). Two looks the cook picks (body.ck-kitchen / body.ck-vintage):
+ *  kitchen = the storybook kitchen board (docs/recipehub_design_2026-11-15/RecipeHub_Storybook_6_Screen_Board.png): warm cream and
+ *            honey, tomato-red buttons, basil green, brown script titles, a chef fox drawn in code (cooking.js ckFox).
+ *  vintage = Grandma's Recipe Box + Write My Recipe + Blue Ribbon boards (same folder): red-and-white gingham, aged paper, binder rings,
+ *            index tabs, red script titles, a handwritten tip, green Blue Ribbon buttons.
+ * Loaded only by /cookinghub/ (cookinghub/index.html). Every class is ck-; nothing here touches another Hub. Built in code: no image files. */
+body.ckapp { --ck-cream: #fff4e3; --ck-cream2: #fbe6c8; --ck-paper: #fffaf1; --ck-ink: #4a2c1a; --ck-soft: #8c6a52; --ck-title: #7a2e16; --ck-red: #d9442e; --ck-red2: #b8321f;
+  --ck-green: #4f8a2e; --ck-green2: #3c6f20; --ck-gold: #f2b84b; --ck-line: #ecd6b4; --ck-chip: #e6efcf;
+  background: radial-gradient(120% 60% at 50% 0%, #fff9ee 0%, var(--ck-cream) 50%, var(--ck-cream2) 100%) fixed; color: var(--ck-ink);
+  font-family: "Nunito", "Inter", system-ui, sans-serif; }
+body.ckapp.ck-vintage { --ck-paper: #f8ecd3; --ck-ink: #4a1d14; --ck-soft: #7d5a44; --ck-title: #b3151f; --ck-red: #c01b2a; --ck-red2: #9c1421; --ck-green: #2f6b3a; --ck-green2: #23532c;
+  --ck-line: #e2cba2; --ck-chip: #efe2c4;
+  background-color: #fbf6f0; background-image: linear-gradient(90deg, rgba(196, 24, 40, .62) 50%, transparent 50%), linear-gradient(rgba(196, 24, 40, .62) 50%, transparent 50%);
+  background-size: 30px 30px; background-attachment: fixed; }
+body.ckapp #hero { display: none !important; }
+body.ckapp .fab { display: none !important; }
+body.ck #cards { padding-bottom: 96px; }
+body.ck .toast { bottom: 100px; }
+body.ckapp #cards { max-width: 640px; margin: 0 auto; }
+body.ckapp .card.ck-home { background: transparent; box-shadow: none; border: 0; padding: 12px 14px 6px; position: relative; overflow: visible; }
+
+/* ---- shared bits */
+.ck-round { width: 42px; height: 42px; border-radius: 50%; border: 0; background: var(--ck-paper); box-shadow: 0 3px 10px rgba(122, 46, 22, .18); color: var(--ck-title);
+  font: 900 18px "Nunito", sans-serif; display: grid; place-items: center; cursor: pointer; position: relative; flex: none; }
+.ck-bell em { position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; border-radius: 9px; background: var(--ck-red); color: #fff; font: 900 11px/18px "Nunito", sans-serif; font-style: normal; }
+.ck-top, .ck-vtop, .ck-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ck-brand { display: grid; justify-items: center; line-height: 1; color: var(--ck-title); }
+.ck-brand b { font: 400 30px "Lobster", "Georgia", serif; letter-spacing: .3px; text-shadow: 0 2px 0 rgba(255, 255, 255, .7); }
+.ck-brand small { font: 800 11px "Nunito", sans-serif; color: var(--ck-green2); margin-top: 3px; }
+.ck-brand.v { font: 400 26px "Lobster", serif; color: var(--ck-title); }
+.ck-brand.v small { font: italic 700 12px "Playfair Display", serif; color: var(--ck-ink); margin: 0 0 2px; }
+.ck-title { font: 400 38px/1.05 "Lobster", "Georgia", serif; color: var(--ck-title); margin: 0; text-shadow: 0 2px 0 rgba(255, 255, 255, .8); }
+.ck-sub { color: var(--ck-soft); font-weight: 700; margin: 6px 0 0; }
+body.ckapp .ck-ptitle { font: 400 32px/1.1 "Lobster", "Georgia", serif; color: var(--ck-title); margin: 6px 0 4px; text-align: center; }
+body.ckapp .ck-h3 { font: 900 15px "Nunito", sans-serif; color: var(--ck-title); margin: 16px 0 8px; }
+body.ckapp .ck-script { font: italic 700 20px "Playfair Display", "Georgia", serif; color: var(--ck-title); margin: 4px 0 8px; }
+.ck-hand { font: 600 22px "Caveat", cursive; color: #1d3f8c; margin: 4px 0 10px; }
+.ck-hint { color: var(--ck-soft); font-weight: 700; text-align: center; padding: 14px 8px; margin: 0; }
+.ck-fox { width: 128px; height: auto; flex: none; filter: drop-shadow(0 6px 8px rgba(122, 46, 22, .2)); }
+.ck-fox.sm { width: 72px; } .ck-fox.big { width: 170px; }
+.ck-bowl { width: 96px; height: auto; flex: none; } .ck-bowl.sm { width: 70px; }
+.ck-hero { display: flex; align-items: center; gap: 6px; margin: 8px 0 12px; }
+.ck-cta { display: block; width: 100%; border: 0; border-radius: 999px; padding: 14px 18px; margin: 12px 0 6px; cursor: pointer; color: #fff; text-align: center;
+  font: 900 17px "Nunito", sans-serif; background: linear-gradient(180deg, #ef6a4f, var(--ck-red) 55%, var(--ck-red2)); box-shadow: 0 5px 0 rgba(122, 46, 22, .22), 0 8px 16px rgba(217, 68, 46, .3); }
+.ck-cta:disabled { opacity: .5; }
+.ck-cta.red { background: linear-gradient(180deg, #d83a45, var(--ck-red) 55%, var(--ck-red2)); font-family: "Playfair Display", serif; font-style: italic; font-weight: 700; }
+.ck-cta.green { background: linear-gradient(180deg, #3f8a4c, var(--ck-green) 55%, var(--ck-green2)); }
+.ck-cta.sm { width: auto; display: inline-block; padding: 9px 22px; font-size: 15px; margin: 8px auto; }
+.ck-cta.big { font-size: 19px; padding: 16px; }
+.ck-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 2px solid var(--ck-line); background: var(--ck-paper); color: var(--ck-title); border-radius: 999px;
+  padding: 9px 14px; font: 800 14px "Nunito", sans-serif; cursor: pointer; text-decoration: none; margin: 4px 0; }
+.ck-ghost.danger { color: #b3261e; border-color: #f0c4bd; }
+.ck-link { border: 0; background: none; color: var(--ck-red2); font: 900 14px "Nunito", sans-serif; cursor: pointer; padding: 6px; }
+.ck-mini { border: 0; background: var(--ck-paper); border: 2px solid var(--ck-line); color: var(--ck-title); border-radius: 12px; padding: 7px 12px; font: 900 14px "Nunito", sans-serif; cursor: pointer; }
+.ck-mini.green { background: var(--ck-green); color: #fff; border-color: var(--ck-green2); border-radius: 999px; margin-top: 6px; }
+.ck-chip { font: 900 12.5px "Nunito", sans-serif; background: var(--ck-chip); color: var(--ck-green2); padding: 4px 12px; border-radius: 999px; white-space: nowrap; }
+.ck-chip.red { background: #fde0dc; color: #b3261e; }
+.ck-ic { font-size: 24px; width: 34px; text-align: center; flex: none; } .ck-ic.big { font-size: 32px; width: 46px; }
+.grow { flex: 1; min-width: 0; }
+.chev { color: var(--ck-soft); font-size: 22px; font-weight: 900; }
+.ck-chips { display: flex; gap: 8px; overflow-x: auto; padding: 6px 2px 10px; scrollbar-width: none; }
+.ck-chips::-webkit-scrollbar { display: none; }
+.ck-chips button { flex: none; border: 2px solid var(--ck-line); background: var(--ck-paper); color: var(--ck-title); border-radius: 999px; padding: 7px 14px; font: 800 14px "Nunito", sans-serif; cursor: pointer; }
+.ck-chips button.on { background: var(--ck-green); border-color: var(--ck-green2); color: #fff; }
+.ck-foot { text-align: center; margin: 14px 8px 4px; color: var(--ck-soft); }
+
+/* ---- plates (a recipe's picture: the cook's photo, else a plate drawn here with the dish's emoji) */
+.ck-plate { --s: 92px; width: var(--s); height: var(--s); border-radius: 50%; display: grid; place-items: center; position: relative; flex: none; overflow: hidden;
+  background: radial-gradient(circle, #fffdf8 0 50%, #f1e2cc 51% 57%, #fffaf2 58% 69%, #e7d2b2 70% 73%, #fffaf2 74%); box-shadow: 0 5px 12px rgba(90, 45, 20, .22); }
+.ck-plate i { font-style: normal; font-size: calc(var(--s) * .46); line-height: 1; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .15)); }
+.ck-plate img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; opacity: 0; }
+.ck-plate.has img { opacity: 1; } .ck-plate.has i { opacity: 0; }
+.ck-plate.xs { --s: 40px; } .ck-plate.sm { --s: 56px; } .ck-plate.md { --s: 72px; } .ck-plate.lg { --s: 200px; }
+body.ck-vintage .ck-plate { background: radial-gradient(circle, #fffaf0 0 52%, #c01b2a 53% 55%, #fffaf0 56% 66%, #e9d3ad 67% 70%, #fffaf0 71%); }
+
+/* ---- kitchen home */
+.ck-search { display: flex; align-items: center; gap: 8px; background: var(--ck-paper); border: 2px solid var(--ck-line); border-radius: 999px; padding: 4px 16px; margin: 6px 0 12px; box-shadow: 0 3px 10px rgba(122, 46, 22, .08); }
+.ck-search input { flex: 1; border: 0; background: none; font: 700 15px "Nunito", sans-serif; color: var(--ck-ink); padding: 10px 0; outline: none; min-width: 0; }
+.ck-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+.ck-tile { display: grid; justify-items: center; gap: 4px; border: 2px solid var(--ck-line); background: var(--ck-paper); border-radius: 18px; padding: 12px 4px; cursor: pointer;
+  font: 800 13px "Nunito", sans-serif; color: var(--ck-title); box-shadow: 0 3px 8px rgba(122, 46, 22, .1); }
+.ck-tile span { font-size: 28px; }
+.ck-tile.on { background: linear-gradient(180deg, #5f9b3c, var(--ck-green2)); color: #fff; border-color: var(--ck-green2); }
+.ck-box { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 2px solid var(--ck-line); background: var(--ck-paper); border-radius: 20px; padding: 12px 14px;
+  margin: 10px 0; cursor: pointer; color: var(--ck-ink); box-shadow: 0 4px 12px rgba(122, 46, 22, .1); font-family: inherit; }
+.ck-box small { display: block; font: 900 11.5px "Nunito", sans-serif; color: var(--ck-red2); text-transform: uppercase; letter-spacing: .6px; }
+.ck-box b { display: block; font: 900 17px "Nunito", sans-serif; color: var(--ck-title); }
+.ck-box em { display: block; font: 700 13px "Nunito", sans-serif; color: var(--ck-soft); font-style: normal; margin-top: 2px; }
+body.ckapp .ck-box h3 { margin: 0 0 6px; font: 900 15px "Nunito", sans-serif; color: var(--ck-title); }
+.ck-box.ck-soon { display: block; cursor: default; }
+.ck-magic { background: radial-gradient(120% 140% at 0% 0%, #fff6dc, var(--ck-paper) 60%); border-color: #f2d48e; }
+.ck-sparkle { font-size: 30px; animation: ck-tw 2.4s ease-in-out infinite; }
+@keyframes ck-tw { 50% { transform: scale(1.15) rotate(8deg); filter: drop-shadow(0 0 8px #ffd56b); } }
+.ck-row, .ck-prow { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--ck-line); background: none; padding: 10px 4px; cursor: pointer; color: var(--ck-ink); font: 700 15px "Nunito", sans-serif; }
+.ck-row b, .ck-prow b { color: var(--ck-title); font-weight: 900; } .ck-row small { display: block; color: var(--ck-soft); font-weight: 700; font-size: 12.5px; }
+.ck-sec { display: flex; align-items: baseline; justify-content: space-between; margin: 14px 2px 4px; }
+body.ckapp .ck-sec h3 { margin: 0; font: 400 22px "Lobster", serif; color: var(--ck-title); }
+.ck-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.ck-card { display: grid; justify-items: center; gap: 6px; border: 2px solid var(--ck-line); background: var(--ck-paper); border-radius: 20px; padding: 12px 8px; cursor: pointer; text-align: center;
+  color: var(--ck-title); box-shadow: 0 4px 10px rgba(122, 46, 22, .1); font-family: inherit; }
+.ck-card b { font: 900 14.5px/1.2 "Nunito", sans-serif; } .ck-card small { color: var(--ck-soft); font: 700 12px "Nunito", sans-serif; }
+
+/* ---- vintage home: plaque, banner, binder page, side tabs */
+.ck-plaque { display: grid; justify-items: center; background: var(--ck-paper); border: 3px double #c9a36b; border-radius: 40px 40px 30px 30px; padding: 6px 18px 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, .18); line-height: 1; }
+.ck-plaque small { font: italic 700 13px "Playfair Display", serif; color: var(--ck-ink); }
+.ck-plaque b { font: 400 34px "Lobster", serif; color: var(--ck-title); }
+.ck-plaque em { font: 700 10.5px "Playfair Display", serif; letter-spacing: 1.5px; color: var(--ck-ink); font-style: normal; text-transform: uppercase; margin-top: 2px; }
+.ck-banner { margin: 12px auto 10px; width: fit-content; max-width: 100%; text-align: center; background: linear-gradient(180deg, #d02a37, var(--ck-red2)); color: #fff6e0; border-radius: 8px;
+  padding: 7px 26px; font: italic 700 22px "Playfair Display", serif; box-shadow: 0 4px 10px rgba(0, 0, 0, .25); }
+.ck-banner.green { background: linear-gradient(180deg, #3d8048, var(--ck-green2)); font-size: 17px; padding: 6px 20px; }
+.ck-binder { display: grid; grid-template-columns: 1fr 60px; position: relative; }
+.ck-page { position: relative; background: radial-gradient(ellipse at 50% 40%, #fbf1dc 55%, #efdcb4 100%); border-radius: 6px 0 0 6px; padding: 14px 12px 16px 30px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .3), inset 0 0 30px rgba(160, 110, 50, .18); min-height: 420px; }
+.ck-page::before { content: ""; position: absolute; left: -10px; top: 14px; bottom: 14px; width: 30px;
+  background: radial-gradient(circle at 15px 50%, transparent 6px, #9a7330 6.5px, #f0d27e 8.5px, #9a7330 10px, transparent 10.5px) 0 0 / 30px 62px repeat-y; }
+body.ckapp .ck-vh2 { font: 400 32px "Lobster", serif; color: var(--ck-title); margin: 4px 0 6px; }
+.ck-vrow { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; border-bottom: 1.5px dashed #d8bf94; background: none; padding: 9px 2px; cursor: pointer; color: var(--ck-ink); font-family: inherit; }
+.ck-vrow b { display: block; font: 700 17px "Playfair Display", serif; color: var(--ck-title); } .ck-vrow small { color: var(--ck-soft); font: italic 600 13px "Playfair Display", serif; }
+.ck-vfam { margin-top: 16px; padding-top: 6px; border-top: 2px solid #c01b2a33; }
+.ck-sidetabs { display: grid; align-content: start; gap: 6px; padding-top: 30px; }
+.ck-sidetabs button { display: grid; justify-items: center; gap: 2px; border: 0; cursor: pointer; padding: 12px 2px; border-radius: 0 14px 14px 0; background: linear-gradient(90deg, #ead8b4, #f6ead0);
+  box-shadow: 3px 3px 8px rgba(0, 0, 0, .2); color: var(--ck-title); margin-left: -4px; }
+.ck-sidetabs button:nth-child(even) { background: linear-gradient(90deg, #cfd9de, #e3eaed); color: #234a6b; }
+.ck-sidetabs button b { font: 400 15px "Lobster", serif; } .ck-sidetabs button span { font-size: 22px; }
+.ck-sidetabs button.on { margin-left: -10px; padding-left: 8px; box-shadow: 4px 4px 10px rgba(0, 0, 0, .3); outline: 2px solid #fff8; }
+
+/* ---- the full-screen sheet + the bottom bar */
+body.ckapp #ckSheet { background: var(--ck-cream); }
+body.ckapp.ck-vintage #ckSheet { backdrop-filter: none; -webkit-backdrop-filter: none; background-color: #fbf6f0;
+  background-image: linear-gradient(90deg, rgba(196, 24, 40, .62) 50%, transparent 50%), linear-gradient(rgba(196, 24, 40, .62) 50%, transparent 50%); background-size: 30px 30px; }   /* Grandma's pages sit on the gingham */
+body.ckapp #ckSheet .sheet-body.ck-sheet { position: absolute; inset: 0; max-height: none; height: 100%; width: 100%; max-width: 640px; margin: 0 auto; border-radius: 0; border: 0;
+  background: radial-gradient(130% 50% at 50% 0%, #fff9ee, var(--ck-cream)); color: var(--ck-ink); padding: 10px 16px 0; display: flex; flex-direction: column; animation: none; }
+body.ckapp.ck-vintage #ckSheet .sheet-body.ck-sheet { inset: 10px 8px 0 16px; width: auto; border-radius: 10px 10px 0 0; padding-left: 26px;
+  background: radial-gradient(ellipse at 50% 30%, #fbf1dc 50%, #ecd6aa 100%); box-shadow: 0 6px 20px rgba(0, 0, 0, .35), inset 0 0 40px rgba(160, 110, 50, .2); }
+body.ckapp.ck-vintage #ckSheet .sheet-body.ck-sheet::before { content: ""; position: fixed; left: 4px; top: 30px; bottom: 90px; width: 30px; pointer-events: none; z-index: 3;
+  background: radial-gradient(circle at 15px 50%, transparent 6px, #9a7330 6.5px, #f0d27e 8.5px, #9a7330 10px, transparent 10.5px) 0 0 / 30px 70px repeat-y; }   /* binder rings */
+body.ckapp.ck-vintage #ckSheet .ck-tabs { margin: 0 -8px 0 -26px; }
+.ck-pane { flex: 1; padding-bottom: 12px; }
+.ck-msg { text-align: center; color: #b3261e; font-weight: 800; margin: 0; min-height: 0; }
+.ck-nav, .ck-tabs { display: grid; grid-template-columns: repeat(5, 1fr); background: var(--ck-paper); box-shadow: 0 -4px 18px rgba(122, 46, 22, .14); border-radius: 22px 22px 0 0; padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+.ck-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; max-width: 640px; margin: 0 auto; }
+.ck-tabs { position: sticky; bottom: 0; margin: 0 -16px; z-index: 2; }
+.ck-nav button, .ck-tabs button { border: 0; background: none; display: grid; justify-items: center; gap: 2px; padding: 6px 2px; color: var(--ck-soft); font: 800 11.5px "Nunito", sans-serif; cursor: pointer; border-radius: 14px; }
+.ck-nav button span, .ck-tabs button span { font-size: 21px; }
+.ck-nav button.on, .ck-tabs button.on { color: #fff; background: linear-gradient(180deg, #5f9b3c, var(--ck-green2)); }
+body.ck-vintage .ck-nav button.on, body.ck-vintage .ck-tabs button.on { background: linear-gradient(180deg, #3d8048, var(--ck-green2)); outline: 2px solid #d9b85f; }
+
+/* ---- recipe page */
+.ck-rhero { position: relative; display: grid; place-items: center; margin: 4px 0 -36px; z-index: 1; }
+.ck-heart { position: absolute; right: 8px; top: 6px; width: 48px; height: 48px; border-radius: 50%; border: 0; background: var(--ck-paper); color: var(--ck-red); font-size: 26px; cursor: pointer; box-shadow: 0 3px 10px rgba(0, 0, 0, .18); }
+.ck-heart.on { background: var(--ck-red); color: #fff; }
+.ck-rcard { background: var(--ck-paper); border: 2px solid var(--ck-line); border-radius: 22px; padding: 44px 14px 14px; box-shadow: 0 6px 16px rgba(122, 46, 22, .14); }
+body.ck-vintage .ck-rcard { background: transparent; border: 0; box-shadow: none; padding-top: 40px; }
+body.ckapp .ck-rtitle { font: 400 34px/1.1 "Lobster", serif; color: var(--ck-title); text-align: center; margin: 4px 0; }
+.ck-blurb { text-align: center; color: var(--ck-soft); font-weight: 700; margin: 0 0 10px; }
+body.ck-vintage .ck-blurb { font: italic 600 15px "Playfair Display", serif; }
+.ck-meta { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 10px; }
+.ck-pill { display: inline-flex; align-items: center; gap: 6px; background: #fdf0c9; border: 2px solid #f2d48e; color: var(--ck-title); border-radius: 999px; padding: 5px 12px; font: 900 13.5px "Nunito", sans-serif; }
+.ck-serv button { width: 26px; height: 26px; border-radius: 50%; border: 0; background: var(--ck-paper); color: var(--ck-title); font: 900 16px "Nunito", sans-serif; cursor: pointer; }
+.ck-rtabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 8px 0; }
+.ck-rtabs button { border: 2px solid var(--ck-line); background: var(--ck-cream); color: var(--ck-title); border-radius: 12px 12px 4px 4px; padding: 9px 4px; font: 900 14px "Nunito", sans-serif; cursor: pointer; }
+.ck-rtabs button.on { background: linear-gradient(180deg, #e8604a, var(--ck-red2)); color: #fff; border-color: var(--ck-red2); }
+body.ckapp .ck-vsec { display: flex; align-items: center; gap: 10px; font: italic 700 24px "Playfair Display", serif; color: var(--ck-title); margin: 16px 0 8px; }
+.ck-vsec::before, .ck-vsec::after { content: ""; flex: 1; height: 2px; background: currentColor; opacity: .4; }
+.ck-ing { list-style: none; padding: 0; margin: 0; }
+.ck-tick { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left; border: 0; background: none; padding: 7px 2px; cursor: pointer; color: var(--ck-ink); font: 700 15.5px/1.35 "Nunito", sans-serif; }
+body.ck-vintage .ck-tick { font: 500 16px/1.35 "Playfair Display", serif; }
+.ck-tick .box { width: 22px; height: 22px; border-radius: 6px; border: 2.5px solid #b89a73; flex: none; margin-top: 1px; display: grid; place-items: center; background: #fff; }
+.ck-tick.on .box { background: var(--ck-green); border-color: var(--ck-green2); } .ck-tick.on .box::after { content: "✓"; color: #fff; font: 900 14px "Nunito", sans-serif; }
+.ck-tick.on > span:last-child { text-decoration: line-through; opacity: .55; }
+.ck-tick small { display: block; color: var(--ck-soft); font-size: 12px; font-weight: 700; }
+.ck-steps { margin: 0; padding-left: 26px; } .ck-steps li { margin: 8px 0; line-height: 1.45; font-weight: 600; }
+body.ck-vintage .ck-steps li { font: 500 16px/1.45 "Playfair Display", serif; }
+.ck-tip { background: #fff8e6; border: 2px dashed #e7c98e; border-radius: 16px; padding: 10px 14px; margin: 12px 0; }
+body.ckapp .ck-tip h3 { margin: 0 0 4px; font: 900 15px "Nunito", sans-serif; color: var(--ck-title); }
+.ck-tip.hand { background: transparent; border: 2px solid #c01b2a55; border-radius: 22px; }
+body.ckapp .ck-tip.hand h3 { font: italic 700 21px "Playfair Display", serif; color: var(--ck-title); text-align: center; }
+.ck-tip.hand p { font: 600 25px/1.2 "Caveat", cursive; color: #1d3f8c; text-align: center; margin: 4px 0; }
+.ck-story small { display: block; text-align: center; font: italic 700 14px "Playfair Display", serif; color: var(--ck-soft); }
+.ck-video { display: grid; gap: 4px; justify-items: center; text-align: center; margin: 10px 0; } .ck-video small { color: var(--ck-soft); font-weight: 700; font-size: 12px; }
+.ck-cardpic { margin: 10px 0; text-align: center; } .ck-cardpic small { display: block; font: italic 700 14px "Playfair Display", serif; color: var(--ck-soft); }
+.ck-cardpic img { max-width: 100%; border-radius: 10px; box-shadow: 0 4px 14px rgba(0, 0, 0, .25); transform: rotate(-1.2deg); margin-top: 6px; }
+.ck-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.ck-daypick { margin-top: 10px; background: #fff8e6; border-radius: 16px; padding: 10px; text-align: center; }
+.ck-daypick > div { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 6px; }
+.ck-daypick button { border: 2px solid var(--ck-line); background: var(--ck-paper); border-radius: 12px; padding: 6px 10px; font: 900 13px "Nunito", sans-serif; color: var(--ck-title); cursor: pointer; display: grid; }
+.ck-daypick small { font-weight: 700; color: var(--ck-soft); }
+
+/* ---- cook along */
+.ck-badge { margin: 2px auto 10px; width: fit-content; max-width: 100%; text-align: center; background: linear-gradient(180deg, #ffd978, var(--ck-gold)); color: #6b3a10; border-radius: 8px; padding: 5px 16px; font: italic 800 14px "Playfair Display", serif; box-shadow: 0 3px 8px rgba(122, 46, 22, .2); }
+.ck-dots { display: flex; align-items: center; justify-content: center; gap: 4px; margin: 10px 0 14px; flex-wrap: wrap; }
+.ck-dots span { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--ck-paper); border: 2px solid var(--ck-line); font: 900 15px "Nunito", sans-serif; color: var(--ck-soft); }
+.ck-dots span.past { background: #e6efcf; color: var(--ck-green2); } .ck-dots span.on { background: var(--ck-green2); color: #fff; border-color: var(--ck-green2); }
+.ck-dots i { width: 14px; height: 3px; background: var(--ck-line); } .ck-dots em { font: 800 14px "Nunito", sans-serif; color: var(--ck-soft); font-style: normal; }
+.ck-step { display: flex; gap: 14px; align-items: flex-start; background: var(--ck-paper); border: 2px solid var(--ck-line); border-radius: 22px; padding: 16px; box-shadow: 0 5px 14px rgba(122, 46, 22, .12); }
+.ck-stepno { width: 74px; height: 74px; border-radius: 50%; flex: none; display: grid; place-items: center; align-content: center; color: #fff; background: radial-gradient(circle at 35% 30%, #e8604a, var(--ck-red2)); box-shadow: 0 4px 10px rgba(184, 50, 31, .35); line-height: 1; }
+.ck-stepno small { font: italic 700 15px "Playfair Display", serif; } .ck-stepno b { font: 400 34px "Lobster", serif; }
+.ck-step p { margin: 4px 0 0; font: 800 19px/1.45 "Nunito", sans-serif; color: var(--ck-ink); }
+.ck-timer { width: 100%; margin-top: 12px; font-size: 16px; }
+.ck-peek { margin: 12px 0; background: var(--ck-paper); border-radius: 14px; padding: 8px 12px; border: 2px solid var(--ck-line); }
+.ck-peek summary { font: 900 15px "Nunito", sans-serif; color: var(--ck-title); cursor: pointer; } .ck-peek div { padding: 3px 0; font-weight: 600; }
+.ck-cookbar { display: flex; align-items: center; gap: 8px; margin-top: 12px; } .ck-cookbar .ck-cta { margin: 0; flex: 1; } .ck-cookbar .ck-ghost { margin: 0; }
+.ck-voice { display: flex; align-items: center; gap: 6px; background: var(--ck-paper); border: 2px solid var(--ck-line); border-radius: 18px; padding: 8px 10px; cursor: pointer; }
+.ck-voice span { display: grid; font: 900 13px "Nunito", sans-serif; color: var(--ck-title); } .ck-voice small { color: var(--ck-soft); font-weight: 800; }
+.ck-voice input { width: 20px; height: 20px; accent-color: var(--ck-green); }
+.ck-done { text-align: center; display: grid; justify-items: center; gap: 4px; padding-top: 10px; }
+
+/* ---- magic meal finder */
+.ck-magichead { display: flex; align-items: center; gap: 10px; background: radial-gradient(120% 120% at 30% 0%, #fff3cf, #fbe1b0); border-radius: 22px; padding: 10px 12px; box-shadow: inset 0 0 30px rgba(255, 210, 120, .5); }
+.ck-magichead .ck-ptitle { text-align: left; margin: 0; } .ck-magichead .ck-badge { margin: 4px 0 0; }
+.ck-have { display: flex; flex-wrap: wrap; gap: 8px; }
+.ck-hchip { border: 2px solid var(--ck-line); background: var(--ck-paper); border-radius: 999px; padding: 6px 12px; font: 800 14px "Nunito", sans-serif; color: var(--ck-ink); cursor: pointer; box-shadow: 0 2px 6px rgba(122, 46, 22, .1); }
+.ck-hchip b { color: var(--ck-soft); margin-left: 2px; } .ck-hchip.pan { background: var(--ck-chip); cursor: default; }
+.ck-addhave { display: flex; gap: 8px; margin: 10px 0; } .ck-addhave input { flex: 1; min-width: 0; border: 2px solid var(--ck-line); background: var(--ck-paper); border-radius: 14px; padding: 10px 12px; font: 700 15px "Nunito", sans-serif; color: var(--ck-ink); }
+.ck-sugg { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+.ck-sugg button { border: 1.5px dashed #d9b98a; background: transparent; color: var(--ck-title); border-radius: 999px; padding: 5px 11px; font: 800 13px "Nunito", sans-serif; cursor: pointer; }
+.ck-match { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 2px solid var(--ck-line); background: var(--ck-paper); border-radius: 18px; padding: 10px 12px; margin: 8px 0; cursor: pointer; color: var(--ck-ink); font-family: inherit; }
+.ck-match small { display: block; font: 900 11.5px "Nunito", sans-serif; color: var(--ck-red2); text-transform: uppercase; } .ck-match b { display: block; font: 400 21px "Lobster", serif; color: var(--ck-title); }
+.ck-match em { display: block; font: 700 13px "Nunito", sans-serif; color: var(--ck-soft); font-style: normal; }
+.ck-pct { width: 52px; height: 52px; border-radius: 50%; flex: none; display: grid; place-items: center; font: 900 13px "Nunito", sans-serif; color: var(--ck-green2);
+  background: radial-gradient(closest-side, var(--ck-paper) 76%, transparent 78% 100%), conic-gradient(var(--ck-green) calc(var(--p) * 1%), #ead9bd 0); }
+
+/* ---- pantry */
+.ck-shelf { position: relative; background: linear-gradient(180deg, #8a5a2e, #6b4220); border-radius: 22px 22px 10px 10px; padding: 50px 10px 6px; margin-bottom: 8px; box-shadow: inset 0 0 0 4px #9c6a38, 0 6px 14px rgba(0, 0, 0, .2); }
+.ck-sign { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); display: grid; justify-items: center; background: linear-gradient(180deg, #a06a38, #7a4b22); color: #fff3d8; border-radius: 10px; padding: 4px 22px 6px; box-shadow: 0 4px 8px rgba(0, 0, 0, .3); border: 2px solid #c9935a; line-height: 1; }
+.ck-sign b { font: 400 30px "Lobster", serif; } .ck-sign span { font: italic 700 13px "Playfair Display", serif; background: #f2d48e; color: #6b3a10; border-radius: 6px; padding: 2px 12px; margin-top: 3px; }
+.ck-jars { width: 100%; height: auto; display: block; margin-top: 14px; }
+.ck-plist { background: var(--ck-paper); border: 2px solid var(--ck-line); border-radius: 18px; padding: 2px 10px; margin-top: 10px; }
+.ck-prow:last-child { border-bottom: 0; }
+.ck-form .field { display: grid; gap: 4px; color: var(--ck-title); font-weight: 900; font-size: 13.5px; margin: 8px 0; }
+.ck-form .field > span { color: var(--ck-title); }
+.ck-form input:not([type=radio]):not([type=checkbox]):not([type=file]), .ck-form select, .ck-form textarea { width: 100%; box-sizing: border-box; border: 2px solid var(--ck-line); background: #fffdf8; border-radius: 12px; padding: 10px 12px;
+  font: 700 15px "Nunito", sans-serif; color: var(--ck-ink); }
+body.ck-vintage .ck-form input:not([type=radio]):not([type=checkbox]):not([type=file]), body.ck-vintage .ck-form textarea { font: italic 500 16px "Playfair Display", serif; background: #fffaf0; }
+.ck-form .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ck-formbtns { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; } .ck-formbtns .ck-cta { flex: 1; margin: 8px 0; }
+.ck-pform { background: var(--ck-paper); border: 2px solid var(--ck-line); border-radius: 18px; padding: 4px 12px 8px; }
+
+/* ---- week + grocery */
+.ck-weekhead { text-align: center; } .ck-weekhead > span { font-size: 30px; }
+.ck-wknav { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: 4px 0 8px; font: 800 13.5px "Nunito", sans-serif; color: var(--ck-title); text-align: center; }
+.ck-week { background: var(--ck-paper); border: 2px solid var(--ck-line); border-radius: 18px; padding: 4px 8px; box-shadow: 0 4px 12px rgba(122, 46, 22, .1); }
+.ck-wkrow { display: flex; align-items: center; gap: 6px; padding: 7px 0; border-bottom: 1px solid var(--ck-line); } .ck-wkrow:last-child { border-bottom: 0; }
+.ck-wkrow.today .ck-day { outline: 3px solid var(--ck-gold); }
+.ck-day { width: 44px; flex: none; text-align: center; border-radius: 10px; padding: 6px 0; font: 900 14px "Nunito", sans-serif; color: #fff; background: var(--ck-green); }
+.ck-day.d2, .ck-day.d4, .ck-day.d6 { background: var(--ck-red); } .ck-day.d3, .ck-day.d0 { background: #c98a22; }
+.ck-wkrec { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; border: 0; background: none; text-align: left; cursor: pointer; padding: 0; color: var(--ck-ink); font-family: inherit; }
+.ck-wkrec b { font: 800 14px/1.2 "Nunito", sans-serif; color: var(--ck-title); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ck-wkrec.empty b { color: var(--ck-soft); }
+.ck-wkrow.done .ck-wkrec b { text-decoration: line-through; opacity: .6; }
+.ck-wkic { width: 28px; height: 28px; flex: none; border-radius: 50%; border: 0; background: var(--ck-cream); color: var(--ck-soft); font: 900 15px "Nunito", sans-serif; cursor: pointer; }
+.ck-wkic.on { background: var(--ck-green); color: #fff; } .ck-wkic.fav { color: var(--ck-red); }
+.ck-grocbtn { margin-top: 14px; }
+.ck-glist { background: var(--ck-paper); border: 2px solid var(--ck-line); border-radius: 18px; padding: 4px 10px; }
+
+/* ---- my cookbook + write my recipe */
+.ck-bookbtns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; } .ck-bookbtns .ck-cta { flex: 1; min-width: 180px; margin: 8px 0; }
+.ck-write { position: relative; }
+body.ck-vintage .ck-write { padding-left: 14px; }
+body.ck-vintage .ck-write::before { content: ""; position: absolute; left: -16px; top: 0; bottom: 0; width: 30px;
+  background: radial-gradient(circle at 15px 50%, transparent 6px, #9a7330 6.5px, #f0d27e 8.5px, #9a7330 10px, transparent 10.5px) 0 0 / 30px 74px repeat-y; }
+.ck-writehead { display: flex; align-items: center; gap: 10px; } .ck-writehead .ck-ptitle { text-align: left; margin: 0; } .ck-writehead .ck-sub { margin: 0; }
+.ck-photos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0; }
+.ck-drop, .ck-scan { position: relative; display: grid; place-items: center; text-align: center; min-height: 110px; border-radius: 16px; cursor: pointer; overflow: hidden; color: var(--ck-title); }
+.ck-drop { border: 2.5px dashed #b89a73; background: #fffaf0; } .ck-scan { border: 2px solid var(--ck-line); background: var(--ck-paper); box-shadow: 0 4px 10px rgba(0, 0, 0, .12); }
+.ck-scan.glow { outline: 3px solid var(--ck-gold); }
+.ck-drop span, .ck-scan span { display: grid; gap: 2px; font-size: 28px; z-index: 1; } .ck-drop b, .ck-scan b { font: italic 700 15px "Playfair Display", serif; } .ck-drop small, .ck-scan small { font: 700 11.5px "Nunito", sans-serif; color: var(--ck-soft); }
+.ck-drop img, .ck-scan img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; }
+.ck-drop img[src], .ck-scan img[src] { opacity: 1; } .ck-drop.has span, .ck-scan.has span { opacity: 0; }
+.ck-catpick { display: flex; flex-wrap: wrap; gap: 6px; }
+.ck-catpick label { cursor: pointer; } .ck-catpick input { position: absolute; opacity: 0; pointer-events: none; }
+.ck-catpick span { display: inline-block; border: 2px solid #c01b2a66; border-radius: 999px; padding: 6px 14px; font: italic 700 14px "Playfair Display", serif; color: var(--ck-title); background: #fffaf0; }
+.ck-catpick input:checked + span { background: var(--ck-red); color: #fff; border-color: var(--ck-red2); }
+.ck-catpick input:focus-visible + span { outline: 3px solid var(--ck-gold); }
+.ck-nums { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 8px; align-items: end; }
+.ck-stepper { display: grid; grid-template-columns: 36px 1fr 36px; border: 2px solid var(--ck-line); border-radius: 12px; overflow: hidden; background: #fffdf8; }
+.ck-stepper button { border: 0; background: var(--ck-cream); color: var(--ck-title); font: 900 20px "Nunito", sans-serif; cursor: pointer; }
+.ck-form .ck-stepper input { border: 0 !important; border-radius: 0 !important; text-align: center; padding: 8px 0 !important; }
+.ck-wlist { display: grid; gap: 6px; }
+.ck-wrow { display: flex; align-items: center; gap: 6px; } .ck-wrow input[name=amt] { flex: 0 0 34%; } .ck-wrow input[name=item], .ck-wrow textarea { flex: 1; }
+.ck-grip { color: #b89a73; font-size: 18px; } .ck-num { width: 30px; height: 30px; border-radius: 8px; background: #f7dcd3; color: var(--ck-title); display: grid; place-items: center; font: 900 15px "Nunito", sans-serif; flex: none; }
+.ck-x { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #c01b2a55; background: #fffaf0; color: var(--ck-red2); font: 900 17px/1 "Nunito", sans-serif; cursor: pointer; flex: none; }
+.ck-switch { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 12px 0; cursor: pointer; }
+.ck-switch span { display: grid; font: italic 700 16px "Playfair Display", serif; color: var(--ck-title); order: -1; } .ck-switch small { font: 700 12px "Nunito", sans-serif; color: var(--ck-soft); font-style: normal; }
+.ck-switch input { appearance: none; -webkit-appearance: none; width: 54px; height: 30px; border-radius: 15px; background: #ddd0bb; position: relative; cursor: pointer; flex: none; transition: background .2s; }
+.ck-switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px rgba(0, 0, 0, .25); transition: left .2s; }
+.ck-switch input:checked { background: var(--ck-green); } .ck-switch input:checked::after { left: 27px; }
+.ck-write .ck-link { display: block; margin: 0 auto; text-decoration: underline; font: italic 700 17px "Playfair Display", serif; }
+
+/* ---- rate + blue ribbon */
+.ck-stars { display: flex; flex-direction: row-reverse; justify-content: center; gap: 4px; margin: 6px 0; }
+.ck-stars input { position: absolute; opacity: 0; pointer-events: none; }
+.ck-stars label { font-size: 40px; color: #e3d3b8; cursor: pointer; line-height: 1; transition: transform .1s; }
+.ck-stars label:hover, .ck-stars label:hover ~ label, .ck-stars input:checked ~ label { color: #f2a91f; }
+.ck-stars input:focus-visible + label { outline: 2px solid var(--ck-gold); border-radius: 6px; }
+.ck-rateby { display: grid; gap: 4px; } .ck-rateby > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ck-rateby b { font: 800 14px "Nunito", sans-serif; color: var(--ck-title); } .ck-rateby .ck-stars label { font-size: 26px; } .ck-rateby .ck-stars { margin: 0; }
+.ck-ribhead { text-align: center; }
+.ck-rbnote { text-align: center; background: linear-gradient(180deg, #f6dd91, #e9c25e); color: #5a3a0e; border-radius: 999px; padding: 6px 14px; font: italic 700 14px "Playfair Display", serif; margin: 4px 0 10px; }
+.ck-ribrow { display: flex; align-items: center; gap: 10px; background: var(--ck-paper); border: 2px solid var(--ck-line); border-radius: 18px; padding: 10px; margin: 8px 0; position: relative; }
+.ck-ribrow b { display: block; font: 700 18px "Playfair Display", serif; color: var(--ck-title); } .ck-ribrow small { display: block; color: var(--ck-soft); font: 700 13px "Nunito", sans-serif; }
+.ck-ribbon { position: absolute; left: -6px; top: -8px; z-index: 2; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font: 900 14px "Nunito", sans-serif; color: #5a3a0e;
+  background: radial-gradient(circle at 35% 30%, #fff1b8, #e7b53c 60%, #b8861b); box-shadow: 0 3px 8px rgba(0, 0, 0, .3); }
+.ck-ribbon.r1 { background: radial-gradient(circle at 35% 30%, #ffffff, #c8ccd2 60%, #8d939c); color: #33383f; }
+.ck-ribbon.r2 { background: radial-gradient(circle at 35% 30%, #ffd9b8, #cd7f3a 60%, #8f501d); color: #fff; }
+.ck-ribbon.r3 { background: radial-gradient(circle at 35% 30%, #d9e6ff, #2f5aa8 60%, #1d3a73); color: #fff; }
+.ck-score { flex: none; display: grid; justify-items: center; background: linear-gradient(180deg, #3d8048, var(--ck-green2)); color: #fff; border-radius: 999px; padding: 6px 10px; font: 900 18px "Nunito", sans-serif; line-height: 1; }
+.ck-score small { font-size: 11px; opacity: .85; }
+.ck-rateit { display: block; cursor: default; text-align: center; } .ck-rateit summary { font: italic 700 15px "Playfair Display", serif; color: var(--ck-green2); cursor: pointer; text-decoration: underline; }
+
+/* ---- look picker + more */
+.ck-lookpick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ck-lookcard { position: relative; border: 3px solid var(--ck-line); border-radius: 20px; background: var(--ck-paper); padding: 10px 8px; cursor: pointer; text-align: center; color: var(--ck-title); font-family: inherit; }
+.ck-lookcard input { position: absolute; opacity: 0; pointer-events: none; }
+.ck-lookcard > span { display: grid; justify-items: center; gap: 4px; } .ck-lookcard b { font: 900 14.5px "Nunito", sans-serif; } .ck-lookcard small { font: 700 12px "Nunito", sans-serif; color: var(--ck-soft); }
+.ck-lookcard.v { background-color: #fbf6f0; background-image: linear-gradient(90deg, rgba(200, 32, 47, .12) 50%, transparent 50%), linear-gradient(rgba(200, 32, 47, .12) 50%, transparent 50%); background-size: 16px 16px; }
+.ck-lookcard.on, .ck-lookcard:has(input:checked) { border-color: var(--ck-green); box-shadow: 0 0 0 3px #4f8a2e44; }
+.ck-morelist { background: var(--ck-paper); border: 2px solid var(--ck-line); border-radius: 18px; padding: 2px 10px; margin: 14px 0; }
+.ck-hello .ck-hero { margin-top: 14px; }
+.ck-preview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+@media (max-width: 380px) { .ck-title { font-size: 32px; } .ck-fox { width: 104px; } .ck-tile { font-size: 12px; } .ck-binder { grid-template-columns: 1fr 52px; } }
+@media (prefers-reduced-motion: reduce) { .ck-sparkle { animation: none; } }
+.ck-trial { cursor: default; } .ck-trial.over { display: block; background: #fff4e6; border-color: #f2c38e; } .ck-trial.over .ck-cta { margin: 10px 0 4px; } .ck-trial.over .ck-link { display: block; margin: 0 auto; }
+/* ---- shared recipes, Recipe of the Week, the review page (11/15) */
+.ck-by { text-align: center; font: italic 700 15px "Playfair Display", serif; color: var(--ck-green2); margin: 2px 0 8px; }
+.ck-sharebox { margin-top: 12px; background: #fffaf0; border: 2px dashed #e2c38a; border-radius: 18px; padding: 6px 14px 10px; }
+.ck-agree { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0; font: 700 14px/1.4 "Nunito", sans-serif; color: var(--ck-ink); cursor: pointer; }
+.ck-agree input, .ck-radio input { width: 20px; height: 20px; flex: none; accent-color: var(--ck-green); margin-top: 1px; }
+.ck-radio { display: flex; gap: 10px; align-items: center; padding: 6px 0; font: 700 15px "Nunito", sans-serif; color: var(--ck-ink); cursor: pointer; }
+.ck-weekbox { background: radial-gradient(120% 140% at 0% 0%, #eef3ff, var(--ck-paper) 60%); border-color: #b9c8ec; }
+.ck-rosette { position: relative; display: grid; place-items: center; align-content: center; width: 92px; height: 92px; border-radius: 50%; color: #fff4c8; line-height: 1.05;
+  background: radial-gradient(circle, #2c4fa0 0 58%, #f2c94c 59% 63%, #2c4fa0 64% 100%); box-shadow: 0 6px 14px rgba(0, 0, 0, .3); font: 400 15px "Lobster", serif; transform: rotate(-8deg); }
+.ck-rosette::after { content: ""; position: absolute; bottom: -22px; left: 26px; width: 40px; height: 34px; background: linear-gradient(90deg, #2c4fa0 45%, transparent 45% 55%, #2c4fa0 55%); clip-path: polygon(0 0, 100% 0, 100% 100%, 75% 80%, 50% 100%, 25% 80%, 0 100%); z-index: -1; }
+.ck-rosette.sm { width: 44px; height: 44px; font-size: 20px; transform: none; } .ck-rosette.sm::after { display: none; }
+.ck-wkhead { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 4px 0 6px; } .ck-wkhead .ck-banner { margin: 0; font-size: 20px; }
+.ck-meet h3 { color: var(--ck-title); } .ck-two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .ck-two .ck-cta { margin: 10px 0 4px; font-size: 15px; padding: 12px 8px; }
+.ck-votebox { display: flex; cursor: default; background: #f3f6ff; border-color: #b9c8ec; } .ck-votebox .ck-script { margin: 0; font-size: 19px; }
+.ck-cta.blue { background: linear-gradient(180deg, #3d63b8, #284a91); }
+.ck-cal { display: grid; justify-items: center; background: #fff; border: 2px solid #e2d3b6; border-radius: 10px; padding: 4px 10px 6px; box-shadow: 0 3px 8px rgba(0, 0, 0, .15); flex: none; transform: rotate(4deg); }
+.ck-cal small { font: 900 12px "Nunito", sans-serif; color: var(--ck-red2); text-transform: uppercase; } .ck-cal b { font: 400 22px "Lobster", serif; color: var(--ck-title); }
+.ck-storytxt { font: 600 22px/1.25 "Caveat", cursive; color: #1d3f8c; }
+.ck-rv { background: var(--ck-paper); border: 2px solid var(--ck-line); border-radius: 16px; padding: 10px 12px; margin: 8px 0; display: block; }
+.ck-rv b { display: block; font: 900 16px "Nunito", sans-serif; color: var(--ck-title); } .ck-rv small { display: block; color: var(--ck-soft); font-weight: 700; margin-bottom: 4px; }
+.ck-rv ul, .ck-rv ol { margin: 4px 0; padding-left: 20px; font-size: 14px; } .ck-rvpic { max-width: 100%; border-radius: 10px; margin: 6px 0; }
+.ck-rv input { margin: 6px 0; }

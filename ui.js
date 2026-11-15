@@ -480,7 +480,8 @@ function welcomeHtml() {
   if (MODE === "auto" && typeof autoSetupHtml === "function") return autoSetupHtml();
   if (MODE === "health" && typeof hhSetupHtml === "function") return hhSetupHtml();     // v1.53 Health Hub
   if (MODE === "family" && typeof fhSetupHtml === "function") return fhSetupHtml();     // v1.59 Family Hub
-  if (MODE === "pet" && typeof ptSetupHtml === "function") return ptSetupHtml();     // v1.61 Pet Hub: add your first pet
+  if (MODE === "pet" && typeof ptSetupHtml === "function") return ptSetupHtml();
+  if (MODE === "cooking" && typeof ckSetupHtml === "function") return ckSetupHtml();     // v1.64 Cooking Hub: pick your kitchen     // v1.61 Pet Hub: add your first pet
   if (MODE === "money" && typeof mhSetupHtml === "function") return mhSetupHtml();     // v1.42 Money Hub   // v1.35 Auto Hub: add your first car
   // v0.45: Cruise Hub greets as itself and has no profession packs.
   return `<section class="card welcome"><h2>${TRAVEL ? `Welcome to ${APP_NAME} ${MODE === "cruise" ? "🚢" : "✈️"}` : "Welcome to Day Hub 👋"}</h2>
@@ -638,7 +639,8 @@ const HUBS = [
   { id: "hubuniverse", name: "Hub Universe", icon: "🌌", what: "Every Hub app on your phone in one place - what needs you across all of them.", url: UNIVERSE_URL },   // v1.52
   { id: "healthhub", name: "Health Hub", icon: "❤️", what: "Meds, appointments, blood pressure, sleep, water and steps - your wellness command center.", url: HEALTHHUB_URL },   // v1.53
   { id: "familyhub", name: "Family Hub", icon: "👨‍👩‍👧", what: "The family calendar, messages, chores, lists, photos and the family tree - on everyone's phone.", url: FAMILYHUB_URL },   // v1.59 app #9 (published with this release)
-  { id: "pethub", name: "Pet Hub", icon: "🐾", what: "Every pet's care and life story - birthdays and ages, daily care, the vet, shots, memories and a pet passport.", url: PETHUB_URL },   // v1.61 app #10 (Scott 11/13 "Pet Hub")
+  { id: "pethub", name: "Pet Hub", icon: "🐾", what: "Every pet's care and life story - birthdays and ages, daily care, the vet, shots, memories and a pet passport.", url: PETHUB_URL },
+  { id: "cookinghub", name: "Cooking Hub", icon: "🍳", what: "What's for dinner, sorted - recipes with a step-by-step Cook Along, your pantry, the week's meals and grocery list, and your family's own cookbook.", url: COOKINGHUB_URL },   // v1.64 app #11 (Scott 11/15)   // v1.61 app #10 (Scott 11/13 "Pet Hub")
 ];
 function hubRows() {
   const sd = sibData();
@@ -750,8 +752,8 @@ function render() {
     document.getElementById("cards").innerHTML = (TAB === "home" ? futureBanner() + whatsNewHtml() : "") + shellHtml(cardHtml);
     tick(); return;
   }
-  document.getElementById("cards").innerHTML = futureBanner() + whatsNewHtml() + (MODE === "home" ? (typeof homeSet === "function" && homeSet() ? homeDashHtml() : welcomeHtml()) : MODE === "auto" ? (typeof autoSet === "function" && autoSet() ? autoDashHtml() : welcomeHtml()) : MODE === "money" ? (typeof mhSet === "function" && mhSet() ? mhDashHtml() : welcomeHtml()) : MODE === "universe" ? (typeof uniHomeHtml === "function" ? uniHomeHtml() : "") : MODE === "health" ? (typeof hhSet === "function" && hhSet() ? hhDashHtml() : welcomeHtml()) : MODE === "family" ? (typeof fhSet === "function" && fhSet() ? fhDashHtml() : welcomeHtml()) : MODE === "pet" ? (typeof ptSet === "function" && ptSet() ? ptDashHtml() : welcomeHtml()) : !S.city && !S.name ? welcomeHtml() : dayHubHomeHtml(order)) + cards +
-    (MODE === "universe" || MODE === "health" || MODE === "family" || MODE === "pet" ? "" : `<button class="add-link arrange-link" data-arrange="1">↕ Arrange my screen</button>`);
+  document.getElementById("cards").innerHTML = futureBanner() + whatsNewHtml() + (MODE === "home" ? (typeof homeSet === "function" && homeSet() ? homeDashHtml() : welcomeHtml()) : MODE === "auto" ? (typeof autoSet === "function" && autoSet() ? autoDashHtml() : welcomeHtml()) : MODE === "money" ? (typeof mhSet === "function" && mhSet() ? mhDashHtml() : welcomeHtml()) : MODE === "universe" ? (typeof uniHomeHtml === "function" ? uniHomeHtml() : "") : MODE === "health" ? (typeof hhSet === "function" && hhSet() ? hhDashHtml() : welcomeHtml()) : MODE === "family" ? (typeof fhSet === "function" && fhSet() ? fhDashHtml() : welcomeHtml()) : MODE === "pet" ? (typeof ptSet === "function" && ptSet() ? ptDashHtml() : welcomeHtml()) : MODE === "cooking" ? (typeof ckSet === "function" && ckSet() ? ckDashHtml() : welcomeHtml()) : !S.city && !S.name ? welcomeHtml() : dayHubHomeHtml(order)) + cards +
+    (MODE === "universe" || MODE === "health" || MODE === "family" || MODE === "pet" || MODE === "cooking" ? "" : `<button class="add-link arrange-link" data-arrange="1">↕ Arrange my screen</button>`);
   tick();
 }
 
@@ -1087,8 +1089,9 @@ function qaFields(type) {
       <div class="hint">Separate things with a comma or a pause. Nothing is added until you tap Add all.</div>
       <div id="dumpOut"></div>`,
     event: `<input name="title" placeholder="What's happening?" required autocomplete="off">
-      <div class="two"><input name="date" type="date" value="${esc(d)}" required><input name="time" type="time" required></div>
-      <input name="where" placeholder="Where (optional)" autocomplete="off">${repSelect(true)}`,
+      <div class="two"><input name="date" type="date" value="${esc(d)}" required><input name="time" type="time" aria-label="Time (leave empty for all day)"></div>
+      <input name="where" placeholder="Where (optional)" autocomplete="off">${repSelect(true)}
+      <div class="hint">No set time? Leave it empty - it's an all-day plan.</div>`,
     todo: `<input name="title" placeholder="What needs doing?" required autocomplete="off">${repSelect(false)}
       <div class="hint">Repeating to-dos come back unchecked on their days — meds, trash night, workouts.</div>`,
     loads: `<input name="title" placeholder="Pickup / delivery (e.g. PU Little Rock)" required autocomplete="off">
@@ -1226,7 +1229,7 @@ function qaFields(type) {
       <label class="field" style="margin:0">A pay period started on (for every 2 weeks)<input name="pstart" type="date" value="${esc(S.work.periodStart || weekStart(today()))}"></label>
       <div class="hint">Not sure of your tax %? 15–25% covers most people. Check one real paycheck: take-home ÷ gross.</div>`,
   };
-  return (F[type] || F.todo) + `<button class="btn">${type === "forget" ? "Got it" : type === "pay" || (type === "trip" && TRIP_EDIT) ? "Save" : type === "dump" ? (DUMP.length ? `Add all (${DUMP.length})` : "Sort it") : "Add"}</button>`;
+  return (F[type] || F.todo) + `<button class="btn">${type === "forget" ? "Got it" : type === "pay" || type === "event" || (type === "trip" && TRIP_EDIT) ? "Save" : type === "dump" ? (DUMP.length ? `Add all (${DUMP.length})` : "Sort it") : "Add"}</button>`;
 }
 let NOTE_EDIT = null, ERASE_ARMED = 0;
 let TRIP_EDIT = null, PORT_EDIT = null, PORT_DAY = null, PERK_EDIT = null;
@@ -1240,10 +1243,30 @@ function openQA(type, keepEdit) {
   document.getElementById("qaTypes").innerHTML = qaTypes().map(([k, l]) => `<button class="${k === QA_TYPE ? "on" : ""}" data-qtype="${k}">${l}</button>`).join("");
   const f = document.getElementById("qaForm");
   f.innerHTML = qaFields(QA_TYPE);
+  QA_DIRTY = false; qaSaveBtn();
   document.getElementById("qa").classList.remove("hidden");
   setTimeout(() => { const i = f.querySelector("input"); if (i) i.focus(); }, 60);
 }
 const closeQA = () => document.getElementById("qa").classList.add("hidden");
+// v1.63.2 (Scott 11/15: "on day hub when you click you finishe event it doesnt safe and goway needs save button"): the form's own
+// button sits at the very bottom of the sheet - under the phone's keyboard while typing - and a tap on the dim backdrop closed the
+// sheet and lost what was typed. Now a Save button sits in the sheet's header, always in view (every Hub's Add sheet; it submits
+// the same form, so the same checks run), and a tap outside keeps a form you've typed in (✕ still throws it away).
+let QA_DIRTY = false;
+function qaSaveBtn() {
+  const head = document.querySelector("#qa .sheet-head"); if (!head) return;
+  let b = document.getElementById("qaSave");
+  if (!b) { b = document.createElement("button"); b.id = "qaSave"; b.type = "submit"; b.className = "btn sm qa-save"; b.setAttribute("form", "qaForm"); b.textContent = "Save";
+    head.insertBefore(b, head.querySelector("[data-close]")); }
+  b.hidden = QA_TYPE === "dump" || QA_TYPE === "forget";
+}
+// Keep an open sheet above the phone's keyboard: Chrome on Android lays the keyboard over the page, so a sheet pinned to the bottom
+// of the screen had its last fields and its button under the keys. --kb = how much of the screen the keyboard covers.
+if (typeof window !== "undefined" && window.visualViewport) {
+  const kb = () => { const v = window.visualViewport, h = v.scale > 1.01 ? 0 : Math.max(0, Math.round(window.innerHeight - v.height - v.offsetTop));   // pinch-zoom shrinks the view too: not a keyboard
+    document.documentElement.style.setProperty("--kb", (h > 80 ? h : 0) + "px"); };   // under 80 px = the address bar moving, not a keyboard
+  window.visualViewport.addEventListener("resize", kb); window.visualViewport.addEventListener("scroll", kb);
+}
 
 function submitQA(f) {
   const d = Object.fromEntries(new FormData(f));
@@ -1370,7 +1393,8 @@ document.addEventListener("submit", e => {
   if (typeof mhSubmit === "function" && mhSubmit(f, data)) return;         // v1.42 money.js
   if (typeof hhSubmit === "function" && hhSubmit(f, data)) return;         // v1.53 health.js
   if (typeof fhSubmit === "function" && fhSubmit(f, data)) return;         // v1.59 family.js
-  if (typeof ptSubmit === "function" && ptSubmit(f, data)) return;         // v1.61 pet.js
+  if (typeof ptSubmit === "function" && ptSubmit(f, data)) return;
+  if (typeof ckSubmit === "function" && ckSubmit(f, data)) return;         // v1.64 cooking.js         // v1.61 pet.js
   if (f.dataset.setup) {
     S.name = (data.name || "").trim(); S.city = (data.city || "").trim(); S.pack = data.pack || "general";
     save(); WXDATA = null; render(); loadWeather(); toast("You're all set ✓"); return;
@@ -1420,7 +1444,9 @@ document.addEventListener("click", e => {
   const ne = e.target.closest && e.target.closest("[data-noteedit]");
   if (ne) { NOTE_EDIT = ne.dataset.noteedit; openQA("note"); return; }
   if (e.target.classList && e.target.classList.contains("sheet")) {         // tap on the dim backdrop
-    if (e.target.id === "sheet") closeSettings(); else if (e.target.id === "pulseSheet" || e.target.id === "askSheet" || e.target.id === "forgetSheet") e.target.classList.add("hidden"); else closeQA(); return;
+    if (e.target.id === "sheet") closeSettings(); else if (e.target.id === "pulseSheet" || e.target.id === "askSheet" || e.target.id === "forgetSheet") e.target.classList.add("hidden");
+    else if (e.target.id === "qa" && QA_DIRTY) toast("Not saved yet - tap Save to keep it, or ✕ to throw it away");   // v1.63.2: a tap outside never loses what you typed
+    else closeQA(); return;
   }
   const t = e.target.closest("button, h3[data-collapse]");
   if (!t) return;
@@ -1564,7 +1590,8 @@ document.addEventListener("click", e => {
   if (typeof mhClick === "function" && mhClick(ds)) return;                  // v1.42 money.js
   if (typeof hhClick === "function" && hhClick(ds)) return;                  // v1.53 health.js
   if (typeof fhClick === "function" && fhClick(ds)) return;                  // v1.59 family.js
-  if (typeof ptClick === "function" && ptClick(ds)) return;                  // v1.61 pet.js
+  if (typeof ptClick === "function" && ptClick(ds)) return;
+  if (typeof ckClick === "function" && ckClick(ds)) return;                  // v1.64 cooking.js                  // v1.61 pet.js
   if (typeof cruiseClick === "function" && cruiseClick(ds)) return;          // v0.56 cruise.js
   if (ds.cd) { showReady(); return; }
   if (ds.rg) { showGuard(); return; }
@@ -1639,6 +1666,7 @@ document.addEventListener("click", e => {
 
 document.addEventListener("input", e => {
   const t = e.target;
+  if (t && t.closest && t.closest("#qaForm")) QA_DIRTY = true;               // v1.63.2: something typed in the Add sheet
   if (typeof homeInput === "function" && homeInput(t)) return;              // v1.25 Home Hub notes
   if (t.dataset && t.dataset.dtext !== undefined && DUMP[Number(t.dataset.dtext)]) DUMP[Number(t.dataset.dtext)].title = t.value;
   // v0.45: the trip's package list follows the cruise line as it's typed (presets only for their own line).
@@ -1854,11 +1882,12 @@ function drawProBox() {
     ${switchOn("GMAIL") ? "<li>📬 Plans found in your email</li>" : ""}<li>☁️ Backup to your own Google Drive</li></ul>
     <p class="fine" style="margin-top:4px">Everything else — every card, reminders, budget, lists, trips — is free forever. No ads, ever.</p>`;
   const price = familyPass() ? `<p class="fine"><b>${PLAN.FAMILY_PRICE}</b> — no subscription.</p>`
+    : cookingPass() ? `<p class="fine"><b>${PLAN.COOKING_MONTHLY}</b> or <b>${PLAN.COOKING_YEARLY}</b> after your 2 free weeks — cancel any time on Whop.</p>`
     : moneyPass() ? `<p class="fine"><b>${PLAN.MONEY_MONTHLY}</b> — 30 days free, cancel any time on Whop.</p>`
     : autoPass() ? `<p class="fine"><b>${PLAN.AUTO_MONTHLY}</b> — 30 days free, cancel any time on Whop.</p>`
     : cruisePass() ? `<p class="fine"><b>${PLAN.CRUISE_YEARLY}</b> — every cruise you take that year.</p>`
     : tripPass() ? `<p class="fine"><b>${PLAN.TRIP_YEARLY}</b> — every trip you take that year.</p>` : `<p class="fine"><b>${PLAN.MONTHLY}</b> or <b>${PLAN.YEARLY}</b>.</p>`;
-  const buyUrl = STORE_MODE ? "" : familyPass() ? PLAN.FAMILY_CHECKOUT_URL : moneyPass() ? PLAN.MONEY_CHECKOUT_URL : autoPass() ? PLAN.AUTO_CHECKOUT_URL : cruisePass() ? PLAN.CRUISE_CHECKOUT_URL : tripPass() ? PLAN.TRIP_CHECKOUT_URL : PLAN.WHOP_CHECKOUT_URL;
+  const buyUrl = STORE_MODE ? "" : familyPass() ? PLAN.FAMILY_CHECKOUT_URL : cookingPass() ? PLAN.COOKING_CHECKOUT_URL : moneyPass() ? PLAN.MONEY_CHECKOUT_URL : autoPass() ? PLAN.AUTO_CHECKOUT_URL : cruisePass() ? PLAN.CRUISE_CHECKOUT_URL : tripPass() ? PLAN.TRIP_CHECKOUT_URL : PLAN.WHOP_CHECKOUT_URL;
   // v1.58b: where Calendar sync / backup stand - paused (this phone isn't Pro now) or ending soon (plan set not to renew)
   const ends = proEndsIn(), uses = S.gcal.connected || S.sync.on, r = lapsedRec();
   const syncLine = syncPaused() ? `<p class="fine" style="margin-top:0">⏸ <b>Calendar sync and backup are paused.</b> Your info is safe — on this phone and in your Google Drive, and restoring a backup still works. ${!STORE_MODE && r.buyer && !r.ok ? `Renew ${esc(lapsedName(r))}, then tap Unlock below` : "Tap Unlock below"} and they pick up where they left off.</p>`

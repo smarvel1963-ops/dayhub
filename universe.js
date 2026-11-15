@@ -29,7 +29,7 @@ const UNI_HUBS = [
   ["health", "healthhub.v1", "Health Hub", "❤️", "#2dd4bf", () => HEALTHHUB_URL, "Wellness", uniHealth],   // v1.53 app #8
   ["family", "familyhub.v1", "Family Hub", "👨‍👩‍👧", "#2e86de", () => FAMILYHUB_URL, "Everyday", uniFamily],   // v1.59 app #9
 ];
-const UNI_SOON = ["🐾 Pet Hub"];    // shown faint under the orbits: more planets coming
+const UNI_SOON = ["🐾 Pet Hub", "🍳 Cooking Hub"];    // shown faint under the orbits: more planets coming
 let UNI_OPEN = null, UNI_CACHE = null;
 if (typeof document !== "undefined" && typeof MODE !== "undefined" && MODE === "universe") document.body.classList.add("uniapp");   // hides the Day Hub ＋ button
 

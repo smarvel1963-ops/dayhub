@@ -172,7 +172,7 @@ let PT_DB = null;
 const ptDb = () => PT_DB || (PT_DB = new Promise((ok, no) => { const r = indexedDB.open("pethub.photos", 1);
   r.onupgradeneeded = () => r.result.createObjectStore("pics"); r.onsuccess = () => { r.result.onversionchange = () => { r.result.close(); PT_DB = null; }; ok(r.result); }; r.onerror = () => { PT_DB = null; no(r.error); }; }));
 const ptIdb = async (mode, fn) => { const db = await ptDb(); return new Promise((ok, no) => { const t = db.transaction("pics", mode), s = t.objectStore("pics"), r = fn(s);
-  t.oncomplete = () => ok(r && r.result); t.onerror = () => no(t.error); }); };
+  t.oncomplete = () => ok(r && r.result); t.onerror = () => no(t.error); t.onabort = () => no(t.error || new Error("not saved")); }); };   // abort = a full phone (review 11/15)
 async function ptShrink(file, max) {
   const url = URL.createObjectURL(file);
   try { const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error("not a photo")); i.src = url; });
