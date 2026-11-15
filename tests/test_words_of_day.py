@@ -4,8 +4,8 @@ SAVE AS: test_words_of_day.py   LOCATION: C:/MarvelApps/dayhub/tests/test_words_
 v1.63 WORDS OF THE DAY (Scott 11/15: "on day apps and self improvement apps we need words of the day like a wisdom statement" ->
 "Write a set"). wisdom.js: 368 sayings, one a day by day of the year.
   - the set: a whole leap year without a repeat, nothing empty, nothing too long for a phone card
-  - Day Hub, new look: the card on Home just below the home cards, morning and evening; the saying is the day's own
-  - Day Hub, classic look: the card under "what's going on"
+  - Day Hub, new look: the card right under the top screen (first on Home), morning and evening; the saying is the day's own
+  - Day Hub, classic look: right under the top screen, above what's going on + the bubbles
   - the morning brief carries the same saying
   - tomorrow brings a different saying; every phone shows the same one on the same date
   - Share it: the phone's share sheet with the saying and who said it; no share sheet = copied
@@ -46,8 +46,9 @@ def t_day(b, base):
     a = T.App(b, base, look=None); welcome(a); a.page.wait_for_timeout(200)
     want = a.js("wdFor(today())")
     check("new look, 8 AM: Words of the Day on Home", a.js(f"!!{CARD}") and "Words of the Day" in a.js(f"{CARD}.innerText"))
-    check("just below the home cards (their order untouched), above the round buttons",
-          a.js("(document.querySelector('.dt-home') || {}).nextElementSibling === document.querySelector('.wd-card') && !document.querySelector('.dt-home .wd-card')"))
+    check("right under the top screen: the first card on Home (Scott 11/15), the home cards' order untouched",
+          a.js("(document.querySelector('#cards .wd-card') || {}).previousElementSibling === null || !document.querySelector('#cards .wd-card').previousElementSibling.matches('section.card, .dt-home')")
+          and a.js("document.querySelector('.wd-card').compareDocumentPosition(document.querySelector('.dt-home')) & 4") and not a.js("!!document.querySelector('.dt-home .wd-card')"))
     check("the day's own saying, with who said it when known", want[0] in a.js(TEXT) and (not want[1] or want[1] in a.js(f"{CARD}.innerText")), [want, a.js(TEXT)])
     a.js("showBrief()"); a.page.wait_for_timeout(150)
     check("the morning brief carries the same saying", "words of the day" in a.page.inner_text("#brief").lower() and want[0] in a.page.inner_text("#brief"))
@@ -64,7 +65,7 @@ def t_day(b, base):
     a.close()
 
     a = T.App(b, base); T.setup(a); a.page.wait_for_timeout(200)
-    check("classic look: the card under what's going on", a.js(f"!!{CARD}") and a.js("wdFor(today())[0]") in a.js(TEXT))
+    check("classic look: right under the top screen, then what's going on + the bubbles", a.js("!!document.querySelector('#cards > .wd-card + .going-on + .bubbles')") and a.js("wdFor(today())[0]") in a.js(TEXT))
     b2 = T.App(b, base); T.setup(b2)
     check("every phone shows the same saying on the same date", a.js(TEXT) == b2.js(TEXT))
     b2.close()

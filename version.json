@@ -1,6 +1,9 @@
 {
- "version": "1.63",
+ "version": "1.63.1",
  "notes": {
+  "1.63.1": [
+   "☀️ Day Hub: Words of the Day now sits right under the top of your Home screen."
+  ],
   "1.63": [
    "☀️ Day Hub: Words of the Day - a wisdom saying each day on your Home screen and in your morning brief. Tap Share it to send it to someone."
   ],
