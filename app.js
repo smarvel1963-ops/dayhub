@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.62";
+const VERSION = "1.63";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -829,6 +829,7 @@ function showBrief() {
     <h1>☀️ Good morning${S.name ? ", " + esc(S.name) : ""}</h1>
     <p class="brief-say">${briefLines().map(esc).join(" ")}</p>
     <button class="btn sm ghost" data-brief="speak">🔊 Read it to me</button>
+    ${typeof wdBriefHtml === "function" ? wdBriefHtml() : ""}
     ${sec("Weather", w && w.cur ? `<div class="brief-wx"><span class="big">${wmo(w.cur.weather_code)[0]} ${Math.round(w.cur.temperature_2m)}°</span>
        <span>H ${Math.round(w.day.hi)}° · L ${Math.round(w.day.lo)}°${w.day.rainFrom ? `<br>Rain from ${esc(fmtTime(w.day.rainFrom))}` : w.day.rain >= 20 ? `<br>Rain ${w.day.rain}%` : "<br>No rain"}</span></div>
        ${tips.length ? `<div class="sub">${tips.join(" · ")}</div>` : ""}` : "")}

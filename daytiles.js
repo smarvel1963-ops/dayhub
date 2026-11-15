@@ -170,7 +170,9 @@ function dtHomeHtml() {
     ? [o.includes("reset") && dtReset().html, o.includes("tomorrow") && dtComing(false).html, dtLeft().length && dtTodayHtml(null), t3]   // tonight's plans still show
     : [m.html, t3, dtTodayHtml(m.shows)];
   if ((part === "evening" || part === "night") && typeof mfDayHtml === "function") seq.push(mfDayHtml("home"));   // v1.62 New on TV - from Marvel Magic (magicfeed.js)
-  return dtCruiseHtml() + `<div class="dt-home ${part}">${seq.filter(Boolean).join("")}</div>` + dtQuickHtml()
+  return dtCruiseHtml() + `<div class="dt-home ${part}">${seq.filter(Boolean).join("")}</div>`
+    + (typeof wdHtml === "function" ? wdHtml() : "")   // v1.63 Words of the Day (wisdom.js): just below the home cards, which keep Scott's order
+    + dtQuickHtml()
     + dtToolsHtml(part === "evening" ? ["top3", "reset", "tomorrow"] : ["top3"], 8, "Your tools");   // no tile for what the cards above show
 }
 

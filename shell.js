@@ -158,7 +158,8 @@ function dayHubHomeHtml(order) {
   for (let n = 1; n <= 30 && !nx; n++) { const d = addDays(t, n), x = dayItems(d).filter(isPlan)[0];
     if (x) nx = `${x.icon || "📅"} ${n === 1 ? "Tomorrow" : `${dayName(d)} ${prettyDate(d)}`}${x.t ? ` · ${hm(x.t)}` : ""} — ${esc(x.title)}`; }
   return goingOnHtml(rows, nx, "Nothing else on today's schedule.")
-    + bubblesHtml(order.filter(k => CARDS[k]).slice(0, 12).map(k => ({ icon: CARDS[k].icon, label: CARDS[k].title, attrs: `data-bubble="${k}"` })));
+    + bubblesHtml(order.filter(k => CARDS[k]).slice(0, 12).map(k => ({ icon: CARDS[k].icon, label: CARDS[k].title, attrs: `data-bubble="${k}"` })))
+    + (typeof wdHtml === "function" ? wdHtml() : "");   // v1.63 Words of the Day: below the three bands (hero / what's going on / bubbles stay together)
 }
 function exploreHtml(cardHtml) {
   if (!trCruise(curTrip())) return tripExploreHtml() + SHELL_CARDS.explore.map(k => cardHtml(k)).join("");   // v0.97 Trip Hub
