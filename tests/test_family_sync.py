@@ -26,6 +26,11 @@ def check(name, cond, extra=""):
     else: FAIL += 1; print(f"  FAIL  {name}  {extra}")
 
 AT = "2026-11-12T14:00:00"
+# The fake Firebase's clock = the phones' clock (each starts at AT and runs on), not today's date: with the real date the
+# 2-day invite codes ran out at 2 PM on 11/14 and the join checks failed every day after (found 11/14).
+_T0 = time.time()
+_AT_MS = int(__import__("datetime").datetime.fromisoformat(AT + "-05:00").timestamp() * 1000)
+def now_ms(): return _AT_MS + (time.time() - _T0) * 1000
 
 # ------------------------------------------------------------ the fake Firebase (one per test run), with the rules
 class Fake:
@@ -68,7 +73,7 @@ class Fake:
             if p[0] == "invites":
                 f = self._fam(a.get("fid"))
                 if not f or f.get("owner") != uid or a.get("role") not in ("adult", "guest") or a.get("by") != uid or len(p[1]) != 10: return {"err": "permission-denied"}
-                if a.get("exp", 0) > time.time() * 1000 + 8 * 864e5: return {"err": "permission-denied"}
+                if a.get("exp", 0) > now_ms() + 8 * 864e5: return {"err": "permission-denied"}
             elif not self._can(uid, path, True): return {"err": "permission-denied"}
             self.docs[path] = a; self._bump(path); return {"d": True}
         if op == "patch":
@@ -110,7 +115,7 @@ class Fake:
             owner_edit = old["owner"] == uid and new["members"].get(uid, {}).get("role") == "owner"
             inv = self.docs.get(f"invites/{new.get('join')}") if new.get("join") else None
             joining = (uid not in old["members"] and added == {uid} and not removed and not changed and inv is not None
-                       and inv["fid"] == p[1] and inv["exp"] > time.time() * 1000 and new["members"][uid].get("role") == inv["role"]
+                       and inv["fid"] == p[1] and inv["exp"] > now_ms() and new["members"][uid].get("role") == inv["role"]
                        and inv.get("by") == old["owner"] and f"invites/{new.get('join')}" in batch_dels
                        and new["members"][uid].get("m") == inv["m"] and set(k for k in a if not k.startswith("members.")) <= {"join"})
             leaving = uid in old["members"] and old["owner"] != uid and removed == {uid} and not added and not changed and all(k.startswith("members.") for k in a)
@@ -333,7 +338,7 @@ def main():
         B.js("showFh('share'); fhClick({ fhsleave: '1' })"); B.js("fhClick({ fhsleave: '1' })")
         check("Jen's phone leaves (two taps); the family no longer lists it", until(B, "!FHS") and "uidB" not in fake.docs[f"families/{fid}"]["members"])
         check("the owner can't leave their own family (no Stop button for Scott)", A.page.locator("#fhSheet [data-fhsleave]").count() == 0)
-        fake.docs["invites/ZZZZZZZZZZ"] = {"fid": fid, "m": "jen", "role": "adult", "by": "uidA", "exp": time.time() * 1000 - 1000, "name": "x", "who": "Jen"}
+        fake.docs["invites/ZZZZZZZZZZ"] = {"fid": fid, "m": "jen", "role": "adult", "by": "uidA", "exp": now_ms() - 1000, "name": "x", "who": "Jen"}
         E = phone(b, base, fake, "uidE", setup=False)
         E.page.fill('form[data-fhsjoin] [name=code]', "ZZZZZZZZZZ"); E.page.click('form[data-fhsjoin] button')
         check("an expired code doesn't work", until(E, "/didn't work/.test(document.getElementById('fhsJoinMsg').textContent)") and not E.js("!!FHS"))
