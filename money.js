@@ -321,6 +321,7 @@ function mhPane() {
       ${L.map(s => `<div class="row" style="${s.off ? "opacity:.55" : ""}"><span class="ci">🔁</span><div class="grow"><b>${esc(s.name)}</b><span class="sub">${usd(s.amt)} a ${esc(s.every || "month")}${s.off ? ` · cancelled ${mDate(s.off)}` : s.next ? ` · renews ${mDate(s.next)}` : ""}</span></div>
           ${s.off ? "" : `<button class="btn sm ghost" data-mhsubren="${s.id}">Renewed</button><button class="btn sm ghost" data-mhsuboff="${s.id}">Cancelled</button>`}<button class="icon-btn" data-mhdel="sub:${s.id}" aria-label="Remove">✕</button></div>`).join("")}
       ${!L.length ? `<p class="fine" style="margin-top:0">Streaming, apps, memberships, the gym. See what they add up to, and what you save by cancelling.</p>` : ""}
+      ${typeof mfSubsHtml === "function" ? mfSubsHtml(L) : ""}
       <form class="qa-form" data-mhsub="1"><input name="name" placeholder="e.g. Netflix" required aria-label="Subscription">
         <div class="hpv-row"><input name="amt" inputmode="decimal" placeholder="Cost $" required aria-label="Cost"><select name="every" aria-label="How often"><option value="month">Monthly</option><option value="year">Yearly</option><option value="week">Weekly</option></select>
           <input type="date" name="next" aria-label="Next renewal"></div><button class="btn sm">Add</button></form>`;

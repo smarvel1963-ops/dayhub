@@ -63,7 +63,7 @@ def hscroll(a): return a.js("document.documentElement.scrollWidth > innerWidth +
 def test_today(b, base):
     print("\n[Today, the parts, the tab bar]")
     a = fam(b, base)
-    check("the five parts register with family.js (sharing is the fifth)", a.js("FH_MODS.map(m => m.id).join()") == "msg,tree,photos,life,sync")
+    check("the five parts register with family.js (sharing is the fifth)", a.js("FH_MODS.map(m => m.id).filter(x => x !== 'tv').join()") == "msg,tree,photos,life,sync")   # v1.62: magicfeed.js's Family Night card ('tv') loads on its own
     check("the greeting over the house: 'Good afternoon, Marvel Family!' and the date", a.page.locator("#cards .fh-hello2").count() == 1
           and "Good afternoon" in a.page.inner_text("#cards .fh-hello2 h1") and "Marvel Family!" in a.page.inner_text("#cards .fh-hello2 h1"))
     check("everyone's face, then Add", a.js("[...document.querySelectorAll('#cards .fh-face b')].map(x => x.textContent).join()") == "Scott,Jen,Mia,Ryan,Grandma,Add")

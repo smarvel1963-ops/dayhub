@@ -68,7 +68,8 @@ const CARDS = {
       const left = S.todos.filter(t => todoShown(t) && !todoDone(t) && !isRep(t)).length;
       if (left) L.push(`<div class="today-line">✅ ${left} to-do${left === 1 ? "" : "s"} still open today — they carry over.</div>`);
       return L.join("") + `<div class="foot-actions" style="margin-top:10px"><button class="btn sm" data-plan="tomorrow">＋ Plan tomorrow</button>
-        <button class="btn sm ghost" data-day="1" data-goto="schedule">See tomorrow's schedule</button></div>`;
+        <button class="btn sm ghost" data-day="1" data-goto="schedule">See tomorrow's schedule</button></div>`
+        + (typeof mfDayHtml === "function" ? mfDayHtml() : "");   // v1.62 New on TV - from Marvel Magic (classic look; magicfeed.js)
     } },
 
   work: { icon: "💼", title: "Work hours", add: ["shift", "Add a shift"],
@@ -2000,6 +2001,15 @@ function hcLoad() {
   HC_LOAD = (typeof carDue === "function" ? Promise.resolve() : add("auto.js")).then(() => typeof carDue === "function" ? add("hubconnect.js") : null)
     .then(() => { if (typeof hcShow !== "function") HC_LOAD = null; try { render(); } catch (e) { /* the next draw shows it */ } });   // a failed load tries again next time
 }
+// v1.62 NEW ON TV - FROM MARVEL MAGIC (Scott 11/14: shows plugged in any of our apps come from Marvel Magic): magicfeed.js, fetched for
+// Day, Family and Money Hub only and never in the Google Play apps (store mode: Marvel Magic has its own membership).
+let MF_LOAD = null;
+function mfLoad() {
+  if (MF_LOAD || STORE_MODE || !["day", "family", "money"].includes(MODE)) return;
+  MF_LOAD = new Promise(ok => { const s = document.createElement("script"); s.src = new URL("magicfeed.js", BASE_URL).href; s.onload = s.onerror = () => ok(); document.head.appendChild(s); })
+    .then(() => { if (typeof mfShows !== "function") { MF_LOAD = null; return; }   // a failed load tries again on the next open
+      try { if (!mfTyping(document.getElementById("cards"))) render(); } catch (e) { /* the next draw shows it */ } });   // never empty a half-filled form
+}
 // If saved data still breaks the first draw, never leave a blank screen with
 // the Erase button out of reach: offer to save the raw data, then start fresh.
 try { render(); }
@@ -2014,6 +2024,7 @@ catch (e) {
   document.getElementById("bootReset").onclick = () => { S = blank(); saveLocal(); location.reload(); };
 }
 hcLoad();
+mfLoad();
 loadWeather();
 recheckPro();
 // v1.31 (store audit S6): the 7 taps open Owner switches only on the owner's phone - one that has checked the
@@ -2040,5 +2051,5 @@ setInterval(checkUpdate, 30 * 60000);
 setInterval(() => { if (S.mail.on && mReady()) scanMail(); }, 20 * 60000);
 checkReminders();
 if (!RENEWING) { syncOnOpen(true); maybeBrief(); hubPanOpen(); }     // v1.59.2 opens on the art, then glides to the useful part
-document.addEventListener("visibilitychange", () => { if (!document.hidden) { if (autoRenew()) return; recheckPro(); VIEW = today(); render(); checkReminders(); syncOnOpen(); maybeBrief(); hcLoad(); if (Date.now() - UPD_ASKED > 60000) checkUpdate(); } });   // v1.59.4 an app reopened from memory asks too (Scott 11/08: "dont see updates coming across all my apps")
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { if (autoRenew()) return; recheckPro(); VIEW = today(); render(); checkReminders(); syncOnOpen(); maybeBrief(); hcLoad(); mfLoad(); if (Date.now() - UPD_ASKED > 60000) checkUpdate(); } });   // v1.59.4 an app reopened from memory asks too (Scott 11/08: "dont see updates coming across all my apps")
 if ("serviceWorker" in navigator) navigator.serviceWorker.register(new URL("sw.js", HOME_URL)).catch(() => {});

@@ -516,6 +516,7 @@ function mvSubsHtml() {
           <div class="mv-ins-acts">${s.off ? "" : `<button data-mhsubren="${s.id}">Renewed</button><button data-mhsuboff="${s.id}">Cancelled</button>`}<button data-mhdel="sub:${s.id}" aria-label="Remove">✕</button></div></div>
         ${!s.off && d != null ? `<em class="mv-when ${d <= 3 ? "soon" : ""}">${d < 0 ? "due" : d === 0 ? "today" : `${d}d`}</em>` : ""}</article>`; }).join("")}
     ${!L.length ? `<p class="hos-hint">Streaming, apps, memberships, the gym. See what they add up to, and what you save by cancelling.</p>` : ""}
+    ${typeof mfSubsHtml === "function" ? mfSubsHtml(L) : ""}
     <h3 class="mv-h">＋ Add a subscription</h3>
     <form class="qa-form" data-mhsub="1"><input name="name" placeholder="e.g. Netflix" required aria-label="Subscription">
       <div class="hpv-row"><input name="amt" inputmode="decimal" placeholder="Cost $" required aria-label="Cost"><select name="every" aria-label="How often"><option value="month">Monthly</option><option value="year">Yearly</option><option value="week">Weekly</option></select>

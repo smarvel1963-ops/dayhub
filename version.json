@@ -1,6 +1,11 @@
 {
- "version": "1.61",
+ "version": "1.62",
  "notes": {
+  "1.62": [
+   "☀️ Day Hub: in the evening, a \"New on TV this week\" card shows the new shows and seasons coming up - from our new Marvel Magic app. Tap one to open Marvel Magic.",
+   "👨‍👩‍👧 Family Hub: a \"Family Night\" card on Home shows new kid-friendly shows coming up - from our new Marvel Magic app.",
+   "💰 Money Hub: under Subscriptions, see what's new on the streaming services you pay for - from our new Marvel Magic app."
+  ],
   "1.61": [
    "🐾 Pet Hub: welcome! Every pet's care and life story in one place - ages and birthday countdowns, a daily care checklist, vet visits, shots and medicine reminders, weight and growth, a pet passport, and every memory from the first day home."
   ],
