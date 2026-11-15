@@ -87,7 +87,7 @@ const PLAN = Object.freeze({
   COOKING_MONTHLY: "$2.99/month",
   COOKING_YEARLY: "$19.99/year",   // Scott 11/15: "or 1 year for 19.99" - both plans on the one Whop product (one link, one purchase check)
   COOKING_TRIAL_DAYS: 14,
-  COOKING_CHECKOUT_URL: "",       // the Whop link once Scott creates the "Cooking Hub" product ($2.99/month); empty = nothing pauses, no buy button
+  COOKING_CHECKOUT_URL: "https://whop.com/commander-marvel-por-picks/cooking-hub-44",   // prod_YbfZgnB1WQdgG, created 11/15 ($2.99/month + $19.99/year), relay v21
   UNIVERSE_NAME: "Hub Universe Pro",
   UNIVERSE_CHECKOUT_URL: "",         // the Whop link once Scott creates "Hub Universe Pro" (price not set yet)
   AI_PACKS: [{ n: 100, price: "$2.99", url: "https://whop.com/commander-marvel-por-picks/hub-ai-credits-100-questions" },   // prod_PZs1nowbQqbau

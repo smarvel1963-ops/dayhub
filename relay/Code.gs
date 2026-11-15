@@ -154,7 +154,7 @@
  *
  * v20 (Scott 11/08 "Yes, fix them"): the emailed code on a new phone also goes to someone who bought only Auto Hub Pro or Money Hub Pro.
  * v21 (Scott 11/15: "pricing free for 2 weeks then 2.99 month"): Cooking Hub accepts its own Cooking Hub plan ($2.99/mo) as well as Day Hub
- *   Pro. The Whop product id goes in Script Property COOKING_PRODUCT_ID (no default id until Scott creates the product). NOT deployed yet.
+ *   Pro. Whop product "Cooking Hub" prod_YbfZgnB1WQdgG (created 11/15, $2.99/month + $19.99/year); a Script Property COOKING_PRODUCT_ID overrides it.
  */
 const MODEL = "claude-haiku-4-5";
 const DAILY_CAP = 200;              // requests per day, all tasks together
@@ -351,7 +351,7 @@ function proLookup(P, b, isMem, app) {
   const PASSES = { cruisehub: ["CRUISE_PRODUCT_ID", "Cruise Hub Pass"], triphub: ["TRIP_PRODUCT_ID", "Trip Hub Pass"], autohub: ["AUTO_PRODUCT_ID", "Auto Hub Pro", "prod_JZvlJLr71aVz4"],
                    moneyhub: ["MONEY_PRODUCT_ID", "Money Hub Pro", "prod_xg2i3uygnEw5s"],
                    familyhub: ["FAMILY_PRODUCT_ID", "Family Hub", "prod_uPpRIheUlmL76", true],
-                   cookinghub: ["COOKING_PRODUCT_ID", "Cooking Hub"] };   // v21: Cooking Hub $2.99/mo - its Whop product id goes in Script Property COOKING_PRODUCT_ID   // 3rd = default id (public, on the checkout page); a Script Property overrides it. 4th = sold one time (v19).
+                   cookinghub: ["COOKING_PRODUCT_ID", "Cooking Hub", "prod_YbfZgnB1WQdgG"] };   // v21: Cooking Hub $2.99/mo or $19.99/yr, Whop prod_YbfZgnB1WQdgG (created 11/15)   // 3rd = default id (public, on the checkout page); a Script Property overrides it. 4th = sold one time (v19).
   const pass = PASSES[app] || null;
   const cpid = pass ? (prop(P, pass[0]) || pass[2] || null) : null;
   const pids = cpid ? [pid, cpid] : [pid], oneTime = !!(pass && pass[3]);

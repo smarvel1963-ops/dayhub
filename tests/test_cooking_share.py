@@ -172,7 +172,7 @@ def main():
 
         print("\n[5. the price: 2 weeks free, then $2.99/month]")
         a = phone(b, base)
-        check("no Whop link yet: nothing waits and no price shows", a.js("!ckSells() && !ckPaused()") and "$2.99" not in a.js("document.getElementById('cards').innerText"))
+        check("the Whop link is set: Cooking Hub sells (Whop product cooking-hub-44)", a.js("ckSells() && PLAN.COOKING_CHECKOUT_URL === 'https://whop.com/commander-marvel-por-picks/cooking-hub-44'"))
         a.close()
         withurl = lambda x: x.ctx.route("**/dayhub/features.js", lambda r: r.fulfill(body=open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "features.js"), encoding="utf-8").read()
                                            .replace('COOKING_CHECKOUT_URL: "",', 'COOKING_CHECKOUT_URL: "https://whop.com/commander-marvel-por-picks/cooking-hub-test",'), content_type="application/javascript"))

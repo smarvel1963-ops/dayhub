@@ -1,6 +1,9 @@
 {
- "version": "1.64",
+ "version": "1.64.1",
  "notes": {
+  "1.64.1": [
+   "🍳 Cooking Hub: small fixes behind the scenes."
+  ],
   "1.64": [
    "🍳 Cooking Hub: welcome! What's for dinner, sorted - recipes with a step-by-step Cook Along, a Dinner Finder that works from what you have, your pantry with use-by reminders, this week's table and a grocery list, and your family's own cookbook. Share your family's recipes with other cooks, vote for the Recipe of the Week, and pick a storybook kitchen or Grandma's Recipe Box.",
    "🍳 Meet Cooking Hub, the newest app in the Hub family - recipes, the week's dinners and your family's own cookbook. Find it in the Hub family list."
