@@ -153,6 +153,10 @@
  * about the family itself: the buyer's phone marks the family paid after this says yes.
  *
  * v20 (Scott 11/08 "Yes, fix them"): the emailed code on a new phone also goes to someone who bought only Auto Hub Pro or Money Hub Pro.
+ * v22 (Scott 11/15: "do we have programing on all apps to shut off and just show clickable link or payment windiow?" -> "All paid apps"):
+ *   Marvel Magic locks after its 30 free days and unlocks with the email bought with. It accepts ONLY its own Whop product
+ *   "Marvel Magic" prod_jXXGU9TnSIgHR ($4.99/mo for the household; Script Property MAGIC_PRODUCT_ID overrides) - Day Hub Pro doesn't
+ *   unlock it - and a household gets its own list of up to MAGIC_PHONES devices (TVs + phones), apart from the Hub phone list.
  * v21 (Scott 11/15: "pricing free for 2 weeks then 2.99 month"): Cooking Hub accepts its own Cooking Hub plan ($2.99/mo) as well as Day Hub
  *   Pro. Whop product "Cooking Hub" prod_YbfZgnB1WQdgG (created 11/15, $2.99/month + $19.99/year); a Script Property COOKING_PRODUCT_ID overrides it.
  */
@@ -160,6 +164,7 @@ const MODEL = "claude-haiku-4-5";
 const DAILY_CAP = 200;              // requests per day, all tasks together
 const BUYER_CAP = 30;               // per Pro buyer per day (inside DAILY_CAP)
 const MAX_PHONES = 3;
+const MAGIC_PHONES = 6;             // v22: Marvel Magic is one membership for the household - TVs + phones, its own list
 const LOOKUP_CAP = 500;             // v10: uncached Whop lookups a day (verify + credits) - flood guard
 const NOT_FOUND = "not found";      // v10: one answer for every "no purchase" reason
 const NEEDS_CODE = "needs code";    // v11: this phone hasn't confirmed the emailed code yet
@@ -330,12 +335,12 @@ function verifyBuyer(P, buyer, device, app) {
   if (res.error) return res;
   if (isMail && needsCode(P, b, dev)) {                          // v11
     // Grandfather: a phone unlocked before v11 is on the buyer's phone list - confirm it silently.
-    const was = res.valid && JSON.parse(P.getProperty("D_" + res.who) || "{}")[keyHash(dev)];
+    const was = res.valid && JSON.parse(P.getProperty(phoneKey(res, app)) || "{}")[keyHash(dev)];
     if (!was) return { valid: false, status: NEEDS_CODE };      // buyer or stranger: the same answer
     markConfirmed(P, b, dev);
   }
   if (!res.valid) return res;
-  return bindPhone(P, res, dev);
+  return bindPhone(P, res, dev, app);
 }
 
 // v11: is this buyer's Pro / Pass paid up? Cached Whop answer (6 h yes, 5 min no). -> res | {error}
@@ -351,10 +356,11 @@ function proLookup(P, b, isMem, app) {
   const PASSES = { cruisehub: ["CRUISE_PRODUCT_ID", "Cruise Hub Pass"], triphub: ["TRIP_PRODUCT_ID", "Trip Hub Pass"], autohub: ["AUTO_PRODUCT_ID", "Auto Hub Pro", "prod_JZvlJLr71aVz4"],
                    moneyhub: ["MONEY_PRODUCT_ID", "Money Hub Pro", "prod_xg2i3uygnEw5s"],
                    familyhub: ["FAMILY_PRODUCT_ID", "Family Hub", "prod_uPpRIheUlmL76", true],
-                   cookinghub: ["COOKING_PRODUCT_ID", "Cooking Hub", "prod_YbfZgnB1WQdgG"] };   // v21: Cooking Hub $2.99/mo or $19.99/yr, Whop prod_YbfZgnB1WQdgG (created 11/15)   // 3rd = default id (public, on the checkout page); a Script Property overrides it. 4th = sold one time (v19).
+                   cookinghub: ["COOKING_PRODUCT_ID", "Cooking Hub", "prod_YbfZgnB1WQdgG"],
+                   marvelmagic: ["MAGIC_PRODUCT_ID", "Marvel Magic", "prod_jXXGU9TnSIgHR", false, true] };   // v22: 5th = its own product only (Day Hub Pro doesn't unlock it)   // v21: Cooking Hub $2.99/mo or $19.99/yr, Whop prod_YbfZgnB1WQdgG (created 11/15)   // 3rd = default id (public, on the checkout page); a Script Property overrides it. 4th = sold one time (v19).
   const pass = PASSES[app] || null;
   const cpid = pass ? (prop(P, pass[0]) || pass[2] || null) : null;
-  const pids = cpid ? [pid, cpid] : [pid], oneTime = !!(pass && pass[3]);
+  const pids = cpid ? (pass[4] ? [cpid] : [pid, cpid]) : [pid], oneTime = !!(pass && pass[3]);
 
   // Whop answer cached 6 h (spares Whop's API); the phone list is checked every time.
   const cache = CacheService.getScriptCache(), ck = "B_" + keyHash(b.toLowerCase() + "|" + pids.join(",")), hit = cache.get(ck);
@@ -388,15 +394,19 @@ function isFriend(P, b) {
 }
 
 // Phone limit: at most MAX_PHONES per buyer; a phone unseen for PHONE_DAYS frees its spot.
-function bindPhone(P, res, dev) {
+// v22: Marvel Magic keeps its own household list (up to MAGIC_PHONES TVs + phones); every Hub shares the buyer's phone list.
+const phoneKey = (res, app) => "D_" + res.who + (app === "marvelmagic" ? "_mm" : "");
+function bindPhone(P, res, dev, app) {
   const lock = LockService.getScriptLock(); lock.waitLock(5000);
+  const max = app === "marvelmagic" ? MAGIC_PHONES : MAX_PHONES;
   try {
-    const pk = "D_" + res.who, today = Utilities.formatDate(new Date(), "America/Chicago", "yyyy-MM-dd");
+    const pk = phoneKey(res, app), today = Utilities.formatDate(new Date(), "America/Chicago", "yyyy-MM-dd");
     const cutoff = Utilities.formatDate(new Date(Date.now() - PHONE_DAYS * 86400000), "America/Chicago", "yyyy-MM-dd");
     const devs = JSON.parse(P.getProperty(pk) || "{}"), dh = keyHash(dev);
     for (const d in devs) if (devs[d] < cutoff) delete devs[d];
-    if (!devs[dh] && Object.keys(devs).length >= MAX_PHONES)
-      return { valid: false, status: "already on " + MAX_PHONES + " phones — remove it from one (⚙ → Day Hub Pro → Remove from this phone), or wait " + PHONE_DAYS + " days" };
+    if (!devs[dh] && Object.keys(devs).length >= max)
+      return { valid: false, status: app === "marvelmagic" ? "already on " + max + " TVs and phones - wait " + PHONE_DAYS + " days for an unused one to free up"
+        : "already on " + max + " phones — remove it from one (⚙ → Day Hub Pro → Remove from this phone), or wait " + PHONE_DAYS + " days" };
     devs[dh] = today; P.setProperty(pk, JSON.stringify(devs));
   } finally { lock.releaseLock(); }
   return { valid: true, status: res.status, until: res.until, who: res.who, product: res.product || "dayhub" };
@@ -530,7 +540,7 @@ function releasePhone(P, buyer, device, app) {
   if (!v.valid) return { ok: true };
   const lock = LockService.getScriptLock(); lock.waitLock(5000);
   try {
-    const pk = "D_" + v.who, devs = JSON.parse(P.getProperty(pk) || "{}");
+    const pk = phoneKey(v, app), devs = JSON.parse(P.getProperty(pk) || "{}");   // v22 Marvel Magic: its own list
     delete devs[keyHash(String(device))]; P.setProperty(pk, JSON.stringify(devs));
   } finally { lock.releaseLock(); }
   P.deleteProperty(confirmKey(buyer, device));                  // v11: a removed phone confirms again next time
@@ -545,7 +555,7 @@ function markConfirmed(P, b, dev) { P.setProperty(confirmKey(b, dev), Utilities.
 
 // Did this address buy any Hub product (Pro, a Pass or AI Credits)? Same cached lookups as verify / credits.
 function hubBuyer(P, b) {
-  for (const app of ["dayhub", "cruisehub", "triphub", "autohub", "moneyhub", "familyhub", "cookinghub"]) {
+  for (const app of ["dayhub", "cruisehub", "triphub", "autohub", "moneyhub", "familyhub", "cookinghub", "marvelmagic"]) {
     const r = proLookup(P, b, false, app);
     if (r.error) return r;
     if (r.valid) return { yes: true };

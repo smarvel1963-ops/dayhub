@@ -720,6 +720,19 @@ function miniHtml(k) {
     <button class="mini-info" data-miniopen="${k}" aria-label="About ${esc(c.title)}">ⓘ</button></section>`;
 }
 
+// v1.65 THE LOCK (Scott 11/15: "do we have programing on all apps to shut off and just show clickable link or payment windiow?" ->
+// "All paid apps"): a paid Hub whose free time is over and isn't bought shows ONLY this screen - the price, the buy link, "I already
+// bought it" (the ⚙ unlock box) and "Save a copy of my info" (the backup file). Nothing is deleted; buying opens everything again.
+// The pause checks already leave out the Play app (Google's billing rule) and the owner's own phone.
+function hubLockHtml() {
+  if (MODE === "family" && typeof fhPaused === "function" && fhPaused() && typeof fhLockHtml === "function") return fhLockHtml();
+  if (MODE === "cooking" && typeof ckPaused === "function" && ckPaused() && typeof ckLockHtml === "function") return ckLockHtml();
+  return "";
+}
+const hubLockFoot = () => `<button class="hl-link" data-open="sheet">I already bought it - enter my email</button>
+  <button class="hl-link" data-data="export">Save a copy of my info</button>
+  <p class="hl-fine">Everything you added is safe on this phone. It all opens again the moment you unlock.</p>`;
+
 function render() {
   const t = today();
   if (!VIEW || (VIEW < addDays(t, -60))) VIEW = t;
@@ -728,6 +741,9 @@ function render() {
   if (LAST_DAY && LAST_DAY !== t && VIEW === LAST_DAY) VIEW = t;
   LAST_DAY = t;
   paintHero();
+  const LOCK = hubLockHtml();                                                 // v1.65 the lock screen, and nothing else
+  document.body.classList.toggle("hub-locked", !!LOCK);
+  if (LOCK) { document.getElementById("cards").innerHTML = LOCK; return; }
   const hr = new Date().getHours();
   let order = cardOrder().filter(k => !S.hidden.includes(k) && !(k === "tomorrow" && hr < 15) && !(k === "reset" && hr < 18) && !(k === "errands" && !errandStops().length) && !(k === "inbox" && !S.mail.on && !S.mail.found.length));
   // Smart jumps only until the user arranges the screen (Scott 10/2: "order the

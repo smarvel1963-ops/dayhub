@@ -1,6 +1,10 @@
 {
- "version": "1.64.2",
+ "version": "1.65",
  "notes": {
+  "1.65": [
+   "👨‍👩‍👧 Family Hub: when the free days are over, one clear screen shows how to keep going - and how to save a copy of everything your family added.",
+   "🍳 Cooking Hub: when the free weeks are over, one clear screen shows how to keep cooking - and how to save a copy of your recipes."
+  ],
   "1.64.2": [
    "👨‍👩‍👧 Family Hub: turning on backup from a new phone now always keeps your family's Drive backup safe."
   ],
@@ -66,19 +70,19 @@
   ],
   "1.58.10": [],
   "1.59.12": [
-   "\u2600\ufe0f Day Hub: a brand-new look. Like the old one better? More, then Classic Look.",
-   "\ud83d\udea2 Cruise Hub: a brand-new look. Like the old one better? More, then Classic Look.",
-   "\ud83e\udded Trip Hub: a brand-new look. Like the old one better? More, then Classic Look.",
-   "\ud83c\udfe1 Home Hub: a brand-new look. Like the old one better? More, then Classic Look.",
-   "\ud83d\ude97 Auto Hub: a brand-new look. Like the old one better? More, then Classic Look.",
-   "\ud83d\udcb0 Money Hub: a brand-new look. Like the old one better? More, then Classic Look.",
-   "\ud83d\udc9a Health Hub: a brand-new look. Like the old one better? More, then Classic Look."
+   "☀️ Day Hub: a brand-new look. Like the old one better? More, then Classic Look.",
+   "🚢 Cruise Hub: a brand-new look. Like the old one better? More, then Classic Look.",
+   "🧭 Trip Hub: a brand-new look. Like the old one better? More, then Classic Look.",
+   "🏡 Home Hub: a brand-new look. Like the old one better? More, then Classic Look.",
+   "🚗 Auto Hub: a brand-new look. Like the old one better? More, then Classic Look.",
+   "💰 Money Hub: a brand-new look. Like the old one better? More, then Classic Look.",
+   "💚 Health Hub: a brand-new look. Like the old one better? More, then Classic Look."
   ],
   "1.59.11": [
-   "\ud83d\ude97 Auto Hub: the free app now keeps 2 cars, each with everything in it.",
-   "\ud83e\udded Trip Hub: behind-the-scenes work on a fresh new look, not switched on yet.",
-   "\ud83d\udcb0 Money Hub: behind-the-scenes work on a fresh new look, not switched on yet.",
-   "\u2600\ufe0f Day Hub: behind-the-scenes work on a fresh new look, not switched on yet."
+   "🚗 Auto Hub: the free app now keeps 2 cars, each with everything in it.",
+   "🧭 Trip Hub: behind-the-scenes work on a fresh new look, not switched on yet.",
+   "💰 Money Hub: behind-the-scenes work on a fresh new look, not switched on yet.",
+   "☀️ Day Hub: behind-the-scenes work on a fresh new look, not switched on yet."
   ],
   "1.59.10": [
    "☀️ Day Hub: behind-the-scenes work on a fresh new look, not switched on yet."

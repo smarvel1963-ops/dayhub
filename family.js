@@ -108,6 +108,16 @@ function fhProNote() {
   if (fhRole() !== "owner") return `<p class="fine" style="margin-top:0">One purchase covers the whole family, and it's ${esc(fhOwnerName())}'s to make. You don't need to buy anything.</p>`;
   return "";
 }
+// v1.65 the whole app locks after the free trial (Scott 11/15: "All paid apps"); ui.js render() shows only this.
+function fhLockHtml() {
+  const own = fhRole() === "owner";
+  return `<section class="hub-lock fh-lock" aria-label="Family Hub is locked"><div class="hl-art" aria-hidden="true">👨‍👩‍👧</div>
+    <h2>Your 30 free days are up</h2>
+    <p>${own ? `Keep your family together for <b>${esc(PLAN.FAMILY_PRICE)}</b> - one purchase covers everyone in the family, on every phone, for good.`
+      : `One purchase unlocks Family Hub for the whole family, and it's ${esc(fhOwnerName())}'s to make. You don't need to buy anything.`}</p>
+    ${own ? `<a class="hl-buy" href="${esc(PLAN.FAMILY_CHECKOUT_URL)}" target="_blank" rel="noopener">Get Family Hub - ${esc(PLAN.FAMILY_PRICE)}</a>` : ""}
+    ${hubLockFoot()}</section>`;
+}
 const fhPausedHtml = () => !fhPaused() ? "" : `<section class="fh-card fh-paused" aria-label="Free trial ended"><div class="fh-cardh"><h3>⏸ Your free trial has ended</h3></div><p class="hos-hint">Nothing is lost. You can still see everything and check things off. Adding new things and sharing wait until ${fhRole() === "owner" ? "you unlock" : `${esc(fhOwnerName())} unlocks`} Family Hub.</p>${fhRole() === "owner" ? `<div class="fh-btns"><button class="btn fh-go" data-fhnav="more">See how</button></div>` : ""}</section>`;
 const FH_ART = { home: "home", cal: "calendar", msg: "messages", family: "tree", tree: "tree", photos: "memories", meals: "meals", school: "school", pets: "pets", trips: "trips" };
 const fhArt = k => FH_ART[k] ? `../familyhub/art/${FH_ART[k]}.webp` : "";
@@ -272,6 +282,7 @@ function fhSheet() {
 function hideFh() { const el = document.getElementById("fhSheet"); if (el) el.classList.add("hidden"); FH_OPEN = false; FH_MSG = ""; FH_EDIT = null; FH_PIN_FOR = null; FH_STACK = []; FH_EVKIND = FH_EVTITLE = FH_EVPET = ""; }
 // back = true: going back (or a top-level tab), so the page we leave isn't remembered.
 function showFh(tab, back) {
+  if (fhPaused()) { hideFh(); if (typeof render === "function") render(); return; }   // v1.65 locked: the lock screen only
   const el = fhSheet(), was = FH_OPEN, old = el.querySelector(".sheet-body"), keep = was && old && (!tab || tab === FH_TAB) ? old.scrollTop : 0;
   if (!was) FH_STACK = [];
   else if (tab && tab !== FH_TAB && !back) { FH_STACK.push(FH_TAB); if (FH_STACK.length > 12) FH_STACK.shift(); }

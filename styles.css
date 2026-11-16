@@ -1528,3 +1528,17 @@ body.hh .toast { bottom: 100px; }
 body.upd-on #cards { margin-bottom: var(--upd-h, 80px); }
 body.upd-on .fab { translate: 0 calc(-1 * var(--upd-h, 80px)); }
 body.upd-on .toast { translate: 0 calc(-1 * var(--upd-h, 80px) + 40px); }
+
+/* v1.65 the lock screen of a paid Hub after its free time (Scott 11/15: "All paid apps") */
+body.hub-locked #fab, body.hub-locked #tabbar, body.hub-locked #fhNav, body.hub-locked #ckNav { display: none !important; }
+.hub-lock { max-width: 520px; margin: 24px auto; padding: 28px 22px 22px; text-align: center; border-radius: 22px; background: #fffdf9;
+  border: 1px solid var(--line, rgba(0,0,0,.08)); box-shadow: 0 18px 50px rgba(0,0,0,.14); color: #23201c; }
+.hub-lock .hl-art { font-size: 56px; line-height: 1; margin-bottom: 10px; }
+.hub-lock h2 { margin: 0 0 10px; font-size: 24px; }
+.hub-lock p { margin: 0 0 18px; line-height: 1.5; }
+.hub-lock .hl-buy { display: block; padding: 15px 18px; border-radius: 999px; background: var(--accent, #1f8a70); color: #fff; font-weight: 800; font-size: 17px; text-decoration: none; }
+.hub-lock .hl-link { display: block; width: 100%; margin: 12px 0 0; padding: 10px; border: 0; background: none; color: var(--accent, #1f8a70); font-weight: 700; font-size: 15px; cursor: pointer; text-decoration: underline; }
+.hub-lock .hl-fine { margin: 14px 0 0; font-size: 13px; opacity: .75; }
+.ck-lock .hl-buy { background: linear-gradient(180deg, #ef6a4f, var(--ck-red, #d9442e) 55%, var(--ck-red2, #b8361f)); font-family: "Nunito", sans-serif; }
+.ck-lock .hl-link { color: var(--ck-red2, #b8361f); } .ck-lock h2 { font-family: "Playfair Display", serif; }
+.fh-lock .hl-buy { background: linear-gradient(135deg, #8f55ff, #6a2fe0); } .fh-lock .hl-link { color: #6a2fe0; }

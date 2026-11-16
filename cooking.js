@@ -73,12 +73,20 @@ function ck() {
 }
 const ckSet = () => !!(S.ck && S.ck.setup);
 // THE PRICE (Scott 11/15: "pricing free for 2 weeks then 2.99 month"): 14 days free from setup, then $2.99/month (Whop; unlocked with the
-// email bought with, like every Hub). After the free weeks NOTHING is lost: everything reads, cooking works, ticking and fixing what's there
-// works; adding new things waits. Never in the Play app (Google's billing rule), and never before the Whop link exists (COOKING_CHECKOUT_URL).
+// email bought with, like every Hub). v1.65 (Scott 11/15: "All paid apps"): after the free weeks the whole app locks - only the lock screen
+// (ckLockHtml: subscribe, I already subscribed, save a copy). Nothing is deleted. Never in the Play app (Google's billing rule), and never
+// before the Whop link exists (COOKING_CHECKOUT_URL).
 const ckSells = () => typeof cookingPass === "function" && cookingPass() && !(typeof STORE_MODE !== "undefined" && STORE_MODE) && !!(typeof PLAN !== "undefined" && PLAN.COOKING_CHECKOUT_URL);
 function ckTrial() { const C = ck(), days = (typeof PLAN !== "undefined" && PLAN.COOKING_TRIAL_DAYS) || 14, used = ckIsD(C.setupDay) ? Math.max(0, -daysUntil(C.setupDay)) : 0;
   return { paid: typeof isPro === "function" && isPro(), left: Math.max(0, days - used) }; }
 const ckPaused = () => ckSells() && ckSet() && (t => !t.paid && !t.left)(ckTrial());
+function ckLockHtml() {
+  return `<section class="hub-lock ck-lock" aria-label="Cooking Hub is locked"><div class="hl-art" aria-hidden="true">🍳</div>
+    <h2>Your 2 free weeks are up</h2>
+    <p>Keep cooking for <b>${esc(PLAN.COOKING_MONTHLY)}</b> or <b>${esc(PLAN.COOKING_YEARLY)}</b> - every recipe, Cook Along, your pantry, the week's dinners and your family's cookbook. Cancel any time.</p>
+    <a class="hl-buy" href="${esc(PLAN.COOKING_CHECKOUT_URL)}" target="_blank" rel="noopener">Keep cooking - ${esc(PLAN.COOKING_MONTHLY)} or ${esc(PLAN.COOKING_YEARLY)}</a>
+    ${hubLockFoot()}</section>`;
+}
 function ckWaits() { if (!ckPaused()) return false; toast(`Your 2 free weeks are up - subscribe (${PLAN.COOKING_MONTHLY} or ${PLAN.COOKING_YEARLY}) to add new things. Everything you saved is still here.`); return true; }
 function ckTrialHtml() {
   if (!ckSells() || !ckSet()) return "";
@@ -253,6 +261,7 @@ function hideCk(fromPop) {
   if (!fromPop && CK_HPUSH) { CK_HPUSH = 0; CK_HSKIP++; try { history.back(); } catch (e) { CK_HSKIP = 0; } }
 }
 function showCk(tab, push) {
+  if (ckPaused() && (tab || CK_TAB) !== "review") { hideCk(true); if (typeof render === "function") render(); return ckSheet(); }   // v1.65 locked (Scott's review page stays open)
   const el = ckSheet(), old = el.querySelector(".sheet-body"), same = CK_OPEN && (!tab || tab === CK_TAB), keep = same && old ? old.scrollTop : 0;
   if (tab && tab !== CK_TAB && push !== false && CK_OPEN) CK_STACK.push(CK_TAB);
   if (tab) CK_TAB = tab; if (!CK_OPEN) ckHist(); CK_OPEN = true;
