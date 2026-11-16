@@ -1,6 +1,9 @@
 {
- "version": "1.64.1",
+ "version": "1.64.2",
  "notes": {
+  "1.64.2": [
+   "👨‍👩‍👧 Family Hub: turning on backup from a new phone now always keeps your family's Drive backup safe."
+  ],
   "1.64.1": [
    "🍳 Cooking Hub: small fixes behind the scenes."
   ],

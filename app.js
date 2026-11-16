@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.64.1";
+const VERSION = "1.64.2";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -896,6 +896,7 @@ function hubDataCount(d) {
     + ["meds", "workouts", "sleep", "vitals", "appts", "vault", "medlog"].reduce((c, k) => c + n(H[k]), 0)
     + ["doses", "water", "steps", "checkins"].reduce((c, k) => c + o(H[k]), 0) + Object.values(H.card || {}).filter(v => v && v.length).length
     + ["pets", "care", "meds", "shots", "visits", "weights", "mems", "papers"].reduce((c, k) => c + n((d.pt || {})[k]), 0)   // v1.61 Pet Hub: a Drive copy holding only pets is not "empty"
+    + Object.values(d.fh && typeof d.fh === "object" ? d.fh : {}).reduce((c, v) => c + n(v), 0) + n(((d.fh || {}).card || {}).contacts)   // v1.65 Family Hub (Scott 11/15 "fix it"; found by the Pet Hub review 11/13): every list it keeps - members, events, chores, lists, tree, photos... - so a Drive copy holding only family is not "empty"
     + ["mine", "pantry", "groc", "favs"].reduce((c, k) => c + n((d.ck || {})[k]), 0) + o((d.ck || {}).week) + o((d.ck || {}).rate);   // v1.64 Cooking Hub
 }
 

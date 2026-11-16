@@ -44,9 +44,10 @@ def main():
         a = open_hub(b, base, "")
         for label, d in [("cars", "{garage:{cars:[{id:'c'}]}}"), ("money accounts", "{mh:{accounts:[{id:'a'}]}}"), ("transactions", "{mh:{tx:[{id:'t'}]}}"), ("subscriptions", "{mh:{subs:[{id:'s'}]}}"),
                          ("a room with something in it", "{house:{spaces:[{items:[{id:'i'}]}]}}"), ("a room with a note", "{house:{spaces:[{items:[],tasks:[],notes:'paint'}]}}"), ("meds", "{hh:{meds:[{id:'m'}]}}"), ("upkeep", "{upkeep:[{id:'u'}]}"), ("birthdays", "{people:[{id:'p'}]}"), ("a payday", "{payday:{freq:'weekly'}}"), ("a budget", "{mh:{budgets:{food:100}}}"),
-                         ("the emergency card", "{hh:{card:{allergies:'peanuts',contacts:[]}}}"), ("water logged", "{hh:{water:{'2026-10-01':3}}}"), ("routines", "{routines:[{id:'r'}]}"), ("alarms", "{alarms:[{id:'a'}]}")]:
+                         ("the emergency card", "{hh:{card:{allergies:'peanuts',contacts:[]}}}"), ("water logged", "{hh:{water:{'2026-10-01':3}}}"), ("routines", "{routines:[{id:'r'}]}"), ("alarms", "{alarms:[{id:'a'}]}"),
+                         ("family members (v1.65)", "{fh:{setup:'2026-10-01',members:[{id:'m'}]}}"), ("a family event", "{fh:{events:[{id:'e'}]}}"), ("a family tree", "{fh:{tree:[{id:'t'}]}}"), ("emergency contacts", "{fh:{card:{contacts:[{n:'Mom'}]}}}")]:
             check(f"{label}: not empty to backup", a.js(f"backupHasData({d})") is True)
-        for label, d in [("nothing at all", "{}"), ("set-up rooms with nothing in them", "{house:{spaces:[{items:[],tasks:[],notes:''}]}}"), ("Hub set-up records", "{mh:{accounts:[],tx:[],subs:[],setup:'2026-10-01'},garage:{cars:[]},hh:{setup:true,meds:[]}}")]:
+        for label, d in [("nothing at all", "{}"), ("set-up rooms with nothing in them", "{house:{spaces:[{items:[],tasks:[],notes:''}]}}"), ("Hub set-up records", "{mh:{accounts:[],tx:[],subs:[],setup:'2026-10-01'},garage:{cars:[]},hh:{setup:true,meds:[]}}"), ("a set-up Family Hub with nothing in it", "{fh:{setup:'2026-10-01',name:'Our family',members:[],lists:[],card:{contacts:[]}}}")]:
             check(f"{label}: empty", a.js(f"backupHasData({d})") is False)
         check("the old kinds still count", a.js("backupHasData({todos:[{}]})") is True and a.js("backupHasData({lists:[{items:[{}]}]})") is True)
         check("the brief and the rest ask the old question, unchanged", a.js("hasData({garage:{cars:[{}]}})") is False and a.js("hasData({todos:[{}]})") is True)
