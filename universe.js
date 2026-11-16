@@ -30,6 +30,9 @@ const UNI_HUBS = [
   ["family", "familyhub.v1", "Family Hub", "👨‍👩‍👧", "#2e86de", () => FAMILYHUB_URL, "Everyday", uniFamily],   // v1.59 app #9
 ];
 const UNI_SOON = ["🐾 Pet Hub", "🍳 Cooking Hub"];    // shown faint under the orbits: more planets coming
+// v1.65.1 (Scott 11/15: "yes list usemart same as the other apps"): Marvel Corp apps at their own web address - Universe can't read
+// their phone storage, so they're a tap away under the planets instead of a planet. [icon, name, what it is, address]
+const UNI_MORE = [["🛒", "UseMart", "buy and sell near you", "https://usemart.net/#getapp"]];
 let UNI_OPEN = null, UNI_CACHE = null;
 if (typeof document !== "undefined" && typeof MODE !== "undefined" && MODE === "universe") document.body.classList.add("uniapp");   // hides the Day Hub ＋ button
 
@@ -161,6 +164,7 @@ function uniHomeHtml() {
     <div class="uni-top"><span class="uni-brand">🌌 HUB <b>UNIVERSE</b></span><small>${used} of ${H.length} hubs in use</small></div>
     ${groups.map((g, i) => uniOrbitHtml(g, H.filter(h => h.group === g), i === 0)).join("")}
     <div class="uni-soon">${UNI_SOON.map(x => `<span>${esc(x)}</span>`).join("")}<em>more planets coming</em></div>
+    <div class="uni-more"><em>Also from Marvel Corp:</em>${UNI_MORE.map(([ic, n, w, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener"><span aria-hidden="true">${ic}</span> <b>${esc(n)}</b> - ${esc(w)} ›</a>`).join("")}</div>
     <div class="mv-sec"><h3>Needs you</h3><small class="uni-sm">across every hub</small></div>
     ${uniNeedsHtml(N)}
     <div class="mv-sec"><h3>Today across everything</h3></div>

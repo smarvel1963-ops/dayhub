@@ -1258,6 +1258,9 @@ body.mvapp .fab { display: none; }
 .uni-count { flex-direction: column; background: radial-gradient(circle, rgba(255,107,107,.35), rgba(255,107,107,.05) 70%); border-radius: 50%; }
 .uni-count b { font-size: 2.2rem; color: #fff; line-height: 1; } .uni-count small { font-size: .7rem; color: #ffd0d0; }
 .uni-soon { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; margin: -4px 0 6px; }
+.uni-more { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; margin: 4px 0 10px; }   /* v1.65.1 UseMart */
+.uni-more em { font-size: .72rem; color: #7d87c4; font-style: normal; }
+.uni-more a { font-size: .8rem; padding: 6px 12px; border-radius: 999px; border: 1px solid #4b5394; color: #dfe4ff; text-decoration: none; background: rgba(75, 83, 148, .25); }
 .uni-soon span { font-size: .72rem; padding: 4px 10px; border-radius: 999px; border: 1px dashed #4b5394; color: #aab3e6; opacity: .8; } .uni-soon em { font-size: .7rem; color: #7d87c4; font-style: normal; width: 100%; text-align: center; }
 .uni-list { display: grid; gap: 6px; margin-bottom: 8px; }
 .uni-row { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 14px; background: rgba(20,26,80,.7); border: 1px solid #2a3380; border-left: 4px solid var(--tone); cursor: pointer; min-width: 0; }
