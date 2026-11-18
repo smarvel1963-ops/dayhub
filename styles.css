@@ -1533,7 +1533,7 @@ body.upd-on .fab { translate: 0 calc(-1 * var(--upd-h, 80px)); }
 body.upd-on .toast { translate: 0 calc(-1 * var(--upd-h, 80px) + 40px); }
 
 /* v1.65 the lock screen of a paid Hub after its free time (Scott 11/15: "All paid apps") */
-body.hub-locked #fab, body.hub-locked #tabbar, body.hub-locked #fhNav, body.hub-locked #ckNav { display: none !important; }
+body.hub-locked #fab, body.hub-locked #tabbar, body.hub-locked #fhNav, body.hub-locked #ckNav, body.hub-locked #jhNav { display: none !important; }
 .hub-lock { max-width: 520px; margin: 24px auto; padding: 28px 22px 22px; text-align: center; border-radius: 22px; background: #fffdf9;
   border: 1px solid var(--line, rgba(0,0,0,.08)); box-shadow: 0 18px 50px rgba(0,0,0,.14); color: #23201c; }
 .hub-lock .hl-art { font-size: 56px; line-height: 1; margin-bottom: 10px; }

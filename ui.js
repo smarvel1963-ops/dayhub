@@ -481,6 +481,7 @@ function welcomeHtml() {
   if (MODE === "health" && typeof hhSetupHtml === "function") return hhSetupHtml();     // v1.53 Health Hub
   if (MODE === "family" && typeof fhSetupHtml === "function") return fhSetupHtml();     // v1.59 Family Hub
   if (MODE === "pet" && typeof ptSetupHtml === "function") return ptSetupHtml();
+  if (MODE === "job" && typeof jhSetupHtml === "function") return jhSetupHtml();     // v1.66 Job Hub: what are you looking for?
   if (MODE === "cooking" && typeof ckSetupHtml === "function") return ckSetupHtml();     // v1.64 Cooking Hub: pick your kitchen     // v1.61 Pet Hub: add your first pet
   if (MODE === "money" && typeof mhSetupHtml === "function") return mhSetupHtml();     // v1.42 Money Hub   // v1.35 Auto Hub: add your first car
   // v0.45: Cruise Hub greets as itself and has no profession packs.
@@ -640,6 +641,7 @@ const HUBS = [
   { id: "healthhub", name: "Health Hub", icon: "❤️", what: "Meds, appointments, blood pressure, sleep, water and steps - your wellness command center.", url: HEALTHHUB_URL },   // v1.53
   { id: "familyhub", name: "Family Hub", icon: "👨‍👩‍👧", what: "The family calendar, messages, chores, lists, photos and the family tree - on everyone's phone.", url: FAMILYHUB_URL },   // v1.59 app #9 (published with this release)
   { id: "pethub", name: "Pet Hub", icon: "🐾", what: "Every pet's care and life story - birthdays and ages, daily care, the vet, shots, memories and a pet passport.", url: PETHUB_URL },
+  { id: "jobhub", name: "Job Hub", icon: "💼", what: "Your next job, found - today's openings matched to you with the reasons, a resume studio, your application pipeline and interview reminders.", url: JOBHUB_URL },   // v1.66 app #12 (Scott 11/17)
   { id: "cookinghub", name: "Cooking Hub", icon: "🍳", what: "What's for dinner, sorted - recipes with a step-by-step Cook Along, your pantry, the week's meals and grocery list, and your family's own cookbook.", url: COOKINGHUB_URL },   // v1.64 app #11 (Scott 11/15)   // v1.61 app #10 (Scott 11/13 "Pet Hub")
 ];
 function hubRows() {
@@ -768,8 +770,8 @@ function render() {
     document.getElementById("cards").innerHTML = (TAB === "home" ? futureBanner() + whatsNewHtml() : "") + shellHtml(cardHtml);
     tick(); return;
   }
-  document.getElementById("cards").innerHTML = futureBanner() + whatsNewHtml() + (MODE === "home" ? (typeof homeSet === "function" && homeSet() ? homeDashHtml() : welcomeHtml()) : MODE === "auto" ? (typeof autoSet === "function" && autoSet() ? autoDashHtml() : welcomeHtml()) : MODE === "money" ? (typeof mhSet === "function" && mhSet() ? mhDashHtml() : welcomeHtml()) : MODE === "universe" ? (typeof uniHomeHtml === "function" ? uniHomeHtml() : "") : MODE === "health" ? (typeof hhSet === "function" && hhSet() ? hhDashHtml() : welcomeHtml()) : MODE === "family" ? (typeof fhSet === "function" && fhSet() ? fhDashHtml() : welcomeHtml()) : MODE === "pet" ? (typeof ptSet === "function" && ptSet() ? ptDashHtml() : welcomeHtml()) : MODE === "cooking" ? (typeof ckSet === "function" && ckSet() ? ckDashHtml() : welcomeHtml()) : !S.city && !S.name ? welcomeHtml() : dayHubHomeHtml(order)) + cards +
-    (MODE === "universe" || MODE === "health" || MODE === "family" || MODE === "pet" || MODE === "cooking" ? "" : `<button class="add-link arrange-link" data-arrange="1">↕ Arrange my screen</button>`);
+  document.getElementById("cards").innerHTML = futureBanner() + whatsNewHtml() + (MODE === "home" ? (typeof homeSet === "function" && homeSet() ? homeDashHtml() : welcomeHtml()) : MODE === "auto" ? (typeof autoSet === "function" && autoSet() ? autoDashHtml() : welcomeHtml()) : MODE === "money" ? (typeof mhSet === "function" && mhSet() ? mhDashHtml() : welcomeHtml()) : MODE === "universe" ? (typeof uniHomeHtml === "function" ? uniHomeHtml() : "") : MODE === "health" ? (typeof hhSet === "function" && hhSet() ? hhDashHtml() : welcomeHtml()) : MODE === "family" ? (typeof fhSet === "function" && fhSet() ? fhDashHtml() : welcomeHtml()) : MODE === "pet" ? (typeof ptSet === "function" && ptSet() ? ptDashHtml() : welcomeHtml()) : MODE === "job" ? (typeof jhSet === "function" && jhSet() ? jhDashHtml() : welcomeHtml()) : MODE === "cooking" ? (typeof ckSet === "function" && ckSet() ? ckDashHtml() : welcomeHtml()) : !S.city && !S.name ? welcomeHtml() : dayHubHomeHtml(order)) + cards +
+    (MODE === "universe" || MODE === "health" || MODE === "family" || MODE === "pet" || MODE === "cooking" || MODE === "job" ? "" : `<button class="add-link arrange-link" data-arrange="1">↕ Arrange my screen</button>`);
   tick();
 }
 
@@ -1410,6 +1412,7 @@ document.addEventListener("submit", e => {
   if (typeof hhSubmit === "function" && hhSubmit(f, data)) return;         // v1.53 health.js
   if (typeof fhSubmit === "function" && fhSubmit(f, data)) return;         // v1.59 family.js
   if (typeof ptSubmit === "function" && ptSubmit(f, data)) return;
+  if (typeof jhSubmit === "function" && jhSubmit(f, data)) return;         // v1.66 job.js
   if (typeof ckSubmit === "function" && ckSubmit(f, data)) return;         // v1.64 cooking.js         // v1.61 pet.js
   if (f.dataset.setup) {
     S.name = (data.name || "").trim(); S.city = (data.city || "").trim(); S.pack = data.pack || "general";
@@ -1607,6 +1610,7 @@ document.addEventListener("click", e => {
   if (typeof hhClick === "function" && hhClick(ds)) return;                  // v1.53 health.js
   if (typeof fhClick === "function" && fhClick(ds)) return;                  // v1.59 family.js
   if (typeof ptClick === "function" && ptClick(ds)) return;
+  if (typeof jhClick === "function" && jhClick(ds)) return;                  // v1.66 job.js
   if (typeof ckClick === "function" && ckClick(ds)) return;                  // v1.64 cooking.js                  // v1.61 pet.js
   if (typeof cruiseClick === "function" && cruiseClick(ds)) return;          // v0.56 cruise.js
   if (ds.cd) { showReady(); return; }

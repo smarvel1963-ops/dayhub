@@ -233,7 +233,7 @@ def main():
         check("every Hub's family list now has Cooking Hub", a.js("HUBS.some(h => h.id === 'cookinghub' && /cookinghub\\/$/.test(h.url))"))
         check("Erase knows Cooking Hub's photo store", a.js("typeof ERASE_DBS !== 'undefined' ? ERASE_DBS.cooking === 'cookinghub.photos' : true"))
         notes = a.js("fetch('version.json').then(r => r.json())")
-        check("the update note for Cooking Hub goes only to Cooking Hub", any(x.startswith("🍳 Cooking Hub:") for x in notes["notes"][notes["version"]]) and not a.js("noteForMe('🍳 Cooking Hub: hello')"))
+        check("the update note for Cooking Hub goes only to Cooking Hub", any(x.startswith("🍳 Cooking Hub:") for v in notes["notes"].values() for x in v) and not a.js("noteForMe('🍳 Cooking Hub: hello')"))
         a.close()
         b.close()
     srv.shutdown()

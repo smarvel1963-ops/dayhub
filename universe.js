@@ -29,7 +29,7 @@ const UNI_HUBS = [
   ["health", "healthhub.v1", "Health Hub", "❤️", "#2dd4bf", () => HEALTHHUB_URL, "Wellness", uniHealth],   // v1.53 app #8
   ["family", "familyhub.v1", "Family Hub", "👨‍👩‍👧", "#2e86de", () => FAMILYHUB_URL, "Everyday", uniFamily],   // v1.59 app #9
 ];
-const UNI_SOON = ["🐾 Pet Hub", "🍳 Cooking Hub"];    // shown faint under the orbits: more planets coming
+const UNI_SOON = ["🐾 Pet Hub", "🍳 Cooking Hub", "💼 Job Hub"];    // shown faint under the orbits: more planets coming
 // v1.65.1 (Scott 11/15: "yes list usemart same as the other apps"): Marvel Corp apps at their own web address - Universe can't read
 // their phone storage, so they're a tap away under the planets instead of a planet. [icon, name, what it is, address]
 const UNI_MORE = [["🛒", "UseMart", "buy and sell near you", "https://usemart.net/#getapp"]];

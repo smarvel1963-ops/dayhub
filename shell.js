@@ -371,7 +371,7 @@ function hosOrbit(center, items) {
 // screen to show then pan to bottom half of screen you use", "that first page look makes or breaks the app", "all our apps"). The Hub opens at the top on its art,
 // holds, then glides down to the part you use. Never under someone's fingers: any touch, scroll or key stops it, and it waits while something is open on top.
 const HUB_PAN_HOLD = 1800, HUB_PAN_GLIDE = 1100, HUB_PAN_AWAY = 10 * 60000;
-const HUB_PAN_TO = [".ck-k .ck-search", ".ck-v .ck-banner", ".fh-faces2", ".ct-main", ".tt-stage", ".ht-house", ".mt-cash", ".hw-today", ".at-next", "body.dt-art[data-tab=home] #hero .chips", ".dt-home"];   // where the useful part starts in each new look; the classic look = the first card
+const HUB_PAN_TO = [".jh-home .jh-tiles", ".ck-k .ck-search", ".ck-v .ck-banner", ".fh-faces2", ".ct-main", ".tt-stage", ".ht-house", ".mt-cash", ".hw-today", ".at-next", "body.dt-art[data-tab=home] #hero .chips", ".dt-home"];   // where the useful part starts in each new look; the classic look = the first card
 let HP_T = 0, HP_RAF = 0, HP_LIVE = false, HP_AWAY = 0;
 function hubPanY() {                                                          // 0 = stay put (a setup screen, an update note to read, a page too short to move)
   const cards = document.getElementById("cards"), hero = document.getElementById("hero"); if (!cards || (typeof TAB !== "undefined" && TAB !== "home")) return 0;

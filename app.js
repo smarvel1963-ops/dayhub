@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.65.1";
+const VERSION = "1.66";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -34,12 +34,12 @@ const VERSION = "1.65.1";
 // HUB UNIVERSE (10/17, app #7): "universe" + universe.js - every hub on this phone in one place.
 // HEALTH HUB (10/17, app #8): "health" + health.js - meds, appointments, vitals, sleep, water, steps; data stays on the phone.
 // FAMILY HUB (10/25, app #9): "family" + family.js - calendar, chores + allowances, lists, roles; on this phone first, sharing behind FAMILY_SYNC.
-const MODE = ["cruise", "trip", "home", "auto", "money", "universe", "health", "family", "pet", "cooking"].includes(window.DH_MODE) ? window.DH_MODE : "day";
+const MODE = ["cruise", "trip", "home", "auto", "money", "universe", "health", "family", "pet", "cooking", "job"].includes(window.DH_MODE) ? window.DH_MODE : "day";
 const TRAVEL = MODE === "cruise" || MODE === "trip";
 const TW = MODE === "cruise" ? "cruise" : "trip";                // the word this hub uses for its trips
-const APP_NAME = { cruise: "Cruise Hub", trip: "Trip Hub", home: "Home Hub", auto: "Auto Hub", money: "Money Hub", universe: "Hub Universe", health: "Health Hub", family: "Family Hub", pet: "Pet Hub", cooking: "Cooking Hub" }[MODE] || "Day Hub";
+const APP_NAME = { cruise: "Cruise Hub", trip: "Trip Hub", home: "Home Hub", auto: "Auto Hub", money: "Money Hub", universe: "Hub Universe", health: "Health Hub", family: "Family Hub", pet: "Pet Hub", cooking: "Cooking Hub", job: "Job Hub" }[MODE] || "Day Hub";
 const BASE_URL = new URL(".", (document.currentScript && document.currentScript.src) || location.href).href;   // where app.js lives
-const APP_ID = { cruise: "cruisehub", trip: "triphub", home: "homehub", auto: "autohub", money: "moneyhub", universe: "hubuniverse", health: "healthhub", family: "familyhub", pet: "pethub", cooking: "cookinghub" }[MODE] || "dayhub";
+const APP_ID = { cruise: "cruisehub", trip: "triphub", home: "homehub", auto: "autohub", money: "moneyhub", universe: "hubuniverse", health: "healthhub", family: "familyhub", pet: "pethub", cooking: "cookinghub", job: "jobhub" }[MODE] || "dayhub";
 const CRUISE_URL = new URL("../cruisehub/", BASE_URL).href;    // Cruise Hub's own address (repo smarvel1963-ops/cruisehub)
 const TRIP_URL = new URL("../triphub/", BASE_URL).href;        // Trip Hub's own address (repo smarvel1963-ops/triphub)
 const HOMEHUB_URL = new URL("../homehub/", BASE_URL).href;    // Home Hub's own address (repo smarvel1963-ops/homehub)
@@ -49,8 +49,9 @@ const UNIVERSE_URL = new URL("../hubuniverse/", BASE_URL).href;  // Hub Universe
 const HEALTHHUB_URL = new URL("../healthhub/", BASE_URL).href;  // Health Hub's own address (repo smarvel1963-ops/healthhub)
 const FAMILYHUB_URL = new URL("../familyhub/", BASE_URL).href;  // Family Hub's own address (repo smarvel1963-ops/familyhub)
 const PETHUB_URL = new URL("../pethub/", BASE_URL).href;
+const JOBHUB_URL = new URL("../jobhub/", BASE_URL).href;   // Job Hub's own address (repo smarvel1963-ops/jobhub, app #12, 11/17)
 const COOKINGHUB_URL = new URL("../cookinghub/", BASE_URL).href;  // Cooking Hub's own address (repo smarvel1963-ops/cookinghub, app #11, 11/15)  // Pet Hub's own address (repo smarvel1963-ops/pethub, app #10, 11/13)
-const HOME_URL = { cruise: CRUISE_URL, trip: TRIP_URL, home: HOMEHUB_URL, auto: AUTOHUB_URL, money: MONEYHUB_URL, universe: UNIVERSE_URL, health: HEALTHHUB_URL, family: FAMILYHUB_URL, pet: PETHUB_URL, cooking: COOKINGHUB_URL }[MODE] || BASE_URL;     // this app's own folder (its sw.js lives here)
+const HOME_URL = { cruise: CRUISE_URL, trip: TRIP_URL, home: HOMEHUB_URL, auto: AUTOHUB_URL, money: MONEYHUB_URL, universe: UNIVERSE_URL, health: HEALTHHUB_URL, family: FAMILYHUB_URL, pet: PETHUB_URL, cooking: COOKINGHUB_URL, job: JOBHUB_URL }[MODE] || BASE_URL;     // this app's own folder (its sw.js lives here)
 
 const STORE = APP_ID + ".v1";
 const WX = "https://api.open-meteo.com/v1/forecast";
@@ -168,7 +169,7 @@ const gmailAllowed = () => switchOn("GMAIL") || S.mail.on || !!S.mail.found.leng
 // reminders and bills, and in the Trips card as a row with an Open button.
 // A cruise Cruise Hub took over from Day Hub (S.adopted) is shown from Cruise
 // Hub in both, so there is one live copy. Off: Settings -> Hub family.
-const SIB = TRAVEL || MODE === "home" || MODE === "auto" || MODE === "money" || MODE === "universe" || MODE === "health" || MODE === "family" || MODE === "pet" || MODE === "cooking"
+const SIB = TRAVEL || MODE === "home" || MODE === "auto" || MODE === "money" || MODE === "universe" || MODE === "health" || MODE === "family" || MODE === "pet" || MODE === "cooking" || MODE === "job"
   ? { id: "dayhub", name: "Day Hub", store: "dayhub.v1", file: "dayhub.json", url: BASE_URL, icon: "☀️" }
   : { id: "cruisehub", name: "Cruise Hub", store: "cruisehub.v1", file: "cruisehub.json", url: CRUISE_URL, icon: "🚢" };
 const FAM_KEY = APP_ID + ".family";              // the other hub's trips from its Drive backup (a cache)
@@ -227,7 +228,7 @@ async function famDriveRefresh() {
 }
 
 // ---------------------------------------------------------------- packs
-const BASE = TRAVEL ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : MODE === "home" ? ["weather", "home", "bills", "todos", "lists"] : MODE === "auto" ? ["weather", "bills", "todos", "lists"] : MODE === "money" ? ["todos", "lists"] : MODE === "universe" || MODE === "health" || MODE === "family" || MODE === "pet" || MODE === "cooking" ? [] : ["inbox", "trips", "top3", "schedule", "errands", "leave", "routines", "reset", "tomorrow", "work", "payday", "budget", "weather", "todos", "notes", "future", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
+const BASE = TRAVEL ? ["trips", "inbox", "schedule", "weather", "todos", "lists"] : MODE === "home" ? ["weather", "home", "bills", "todos", "lists"] : MODE === "auto" ? ["weather", "bills", "todos", "lists"] : MODE === "money" ? ["todos", "lists"] : MODE === "universe" || MODE === "health" || MODE === "family" || MODE === "pet" || MODE === "cooking" || MODE === "job" ? [] : ["inbox", "trips", "top3", "schedule", "errands", "leave", "routines", "reset", "tomorrow", "work", "payday", "budget", "weather", "todos", "notes", "future", "packages", "bills", "home", "auto", "people", "countdowns", "lists"];
 const PACKS = {
   general:  { label: "General",              cards: [] },
   trucker:  { label: "Trucker / Dispatcher", cards: ["route", "loads"] },
@@ -393,7 +394,7 @@ const money = n => "$" + Number(n || 0).toLocaleString("en-US", { minimumFractio
 const buzz = () => { try { navigator.vibrate && navigator.vibrate(8); } catch (e) { /* no haptics */ } };
 
 function cardOrder() {
-  const want = [...BASE, ...(TRAVEL || MODE === "home" || MODE === "auto" || MODE === "money" || MODE === "universe" || MODE === "health" || MODE === "family" || MODE === "pet" || MODE === "cooking" ? [] : PACKS[S.pack].cards), ...(MODE === "universe" ? [] : ["family"])];   // v1.52 Universe's orbits are the family   // v0.50 Hub family card: always last
+  const want = [...BASE, ...(TRAVEL || MODE === "home" || MODE === "auto" || MODE === "money" || MODE === "universe" || MODE === "health" || MODE === "family" || MODE === "pet" || MODE === "cooking" || MODE === "job" ? [] : PACKS[S.pack].cards), ...(MODE === "universe" ? [] : ["family"])];   // v1.52 Universe's orbits are the family   // v0.50 Hub family card: always last
   let order = (S.order || []).filter(k => want.includes(k));
   // A card new in this version goes to its DEFAULT place, not to the bottom
   // of someone's saved order.
@@ -897,7 +898,8 @@ function hubDataCount(d) {
     + ["doses", "water", "steps", "checkins"].reduce((c, k) => c + o(H[k]), 0) + Object.values(H.card || {}).filter(v => v && v.length).length
     + ["pets", "care", "meds", "shots", "visits", "weights", "mems", "papers"].reduce((c, k) => c + n((d.pt || {})[k]), 0)   // v1.61 Pet Hub: a Drive copy holding only pets is not "empty"
     + Object.values(d.fh && typeof d.fh === "object" ? d.fh : {}).reduce((c, v) => c + n(v), 0) + n(((d.fh || {}).card || {}).contacts)   // v1.65 Family Hub (Scott 11/15 "fix it"; found by the Pet Hub review 11/13): every list it keeps - members, events, chores, lists, tree, photos... - so a Drive copy holding only family is not "empty"
-    + ["mine", "pantry", "groc", "favs"].reduce((c, k) => c + n((d.ck || {})[k]), 0) + o((d.ck || {}).week) + o((d.ck || {}).rate);   // v1.64 Cooking Hub
+    + ["mine", "pantry", "groc", "favs"].reduce((c, k) => c + n((d.ck || {})[k]), 0) + o((d.ck || {}).week) + o((d.ck || {}).rate)   // v1.64 Cooking Hub
+    + o((d.jh || {}).jobs) + n((d.jh || {}).mine) + n(((d.jh || {}).cv || {}).bul) + (((d.jh || {}).cv || {}).sum ? 1 : 0);   // v1.66 Job Hub
 }
 
 function driveSignIn(prompt) {                                 // must run from a tap
@@ -1183,6 +1185,7 @@ function reminderList() {
   if (MODE === "health" && typeof hhReminders === "function") hhReminders(add, inWin);   // v1.53 Health Hub: doses, appointments, refills
   if (MODE === "family" && typeof fhReminders === "function") fhReminders(add, inWin);   // v1.59 Family Hub: events, chores still open, birthdays
   if (MODE === "pet" && typeof ptReminders === "function") ptReminders(add, inWin);
+  if (MODE === "job" && typeof jhReminders === "function") jhReminders(add, inWin);   // v1.66 Job Hub: interviews (evening before + 2 h before), follow-up cues
   if (MODE === "cooking" && typeof ckReminders === "function") ckReminders(add, inWin);   // v1.64 Cooking Hub: tonight's dinner, pantry use-by dates   // v1.61 Pet Hub: care, doses, shots, vet visits, birthdays, Gotcha Days
   if (MODE === "auto" && typeof atReminders === "function") atReminders(add);   // Auto Hub new look: service, papers, recalls (autotiles2.js)
   if (R.billDays >= 0) upcomingBills().forEach(b => { const d = addDays(b.due, -R.billDays);
@@ -1768,7 +1771,7 @@ function drawMailBox() {
 // skipped it, so no phone was told about any of them (Scott 11/03: "show on front screen update ready").
 let UPDATE = null, NOTES = null;
 // v1.41: one version.json serves every hub. A note that starts with another hub's name ("🚗 Auto Hub: ...") shows only in that hub.
-const noteForMe = x => { const m = String(x).match(/^[^A-Za-z]*((?:Day|Cruise|Trip|Home|Auto|Money|Health|Family|Pet|Cooking) Hub|Hub Universe):/); return !m || m[1] === APP_NAME; };   // v1.53 + Health Hub   // v1.52 + Hub Universe   // v1.45 + Money Hub (its notes were showing in every hub)
+const noteForMe = x => { const m = String(x).match(/^[^A-Za-z]*((?:Day|Cruise|Trip|Home|Auto|Money|Health|Family|Pet|Cooking|Job) Hub|Hub Universe):/); return !m || m[1] === APP_NAME; };   // v1.53 + Health Hub   // v1.52 + Hub Universe   // v1.45 + Money Hub (its notes were showing in every hub)
 let UPD_ASKED = 0;
 async function checkUpdate() {
   UPD_ASKED = Date.now();
@@ -1815,7 +1818,7 @@ function paintUpd() {
   // v1.58.16: above whichever bottom bar this Hub has - the shell's tab bar, Money / Health / Family Hub's own (.mv-nav), a routine's bar.
   // 1.58.15 measured #tabbar only, so in Money Hub and Health Hub the bar covered most of their bottom buttons.
   let top = innerHeight;
-  document.querySelectorAll("#tabbar, .mv-nav, .rg-bar, .pt-nav").forEach(n => { if (getComputedStyle(n).display === "none") return;
+  document.querySelectorAll("#tabbar, .mv-nav, .rg-bar, .pt-nav, .ck-nav, .jh-nav").forEach(n => { if (getComputedStyle(n).display === "none") return;
     const r = n.getBoundingClientRect(); if (r.height > 0 && r.top < innerHeight && r.bottom > innerHeight - 40) top = Math.min(top, r.top); });
   const lift = top < innerHeight ? Math.round(innerHeight - top) + 8 : 0;   // a full screen hides the tab bar: then the bottom
   el.style.bottom = lift ? lift + "px" : "";
@@ -2874,6 +2877,7 @@ function pulseItems() {
   if (typeof hhPulse === "function") hhPulse(add);                      // v1.53 Health Hub: doses due / missed, refills, appointment today
   if (typeof fhPulse === "function") fhPulse(add);                      // v1.59 Family Hub: chores to OK, events today, birthdays
   if (typeof ptPulse === "function") ptPulse(add);
+  if (typeof jhPulse === "function") jhPulse(add);                      // v1.66 Job Hub: interviews, follow-ups, new strong matches
   if (typeof ckPulse === "function") ckPulse(add);                      // v1.64 Cooking Hub: use-by dates, tonight's dinner                      // v1.61 Pet Hub: care overdue, doses, shots, vet, birthdays
   if (typeof mhPulse === "function") mhPulse(add);                      // v1.42 Money Hub: budget over, renewals, bills > cash                  // v1.37 Auto Hub: overdue service, papers running out, park-it recalls
   return out.sort((a, b) => b.pts - a.pts);
@@ -2937,7 +2941,8 @@ function aiContext() {
     : MODE === "health" && typeof hhContext === "function" ? { health: hhContext(), ...out }
     : MODE === "family" && typeof fhContext === "function" ? { family: fhContext(), ...out }
     : MODE === "pet" && typeof ptContext === "function" ? { pets: ptContext(), ...out }
-    : MODE === "cooking" && typeof ckContext === "function" ? { kitchen: ckContext(), ...out } : out);   // v1.64 Ask Cooking Hub   // v1.61 Ask Pet Hub   // v1.59 Ask Family Hub: first names, what this person may see   // v1.53 Ask Health Hub: only the person's own logged data   // v1.42 Ask Money Hub   // v1.39 Ask Auto Hub
+    : MODE === "cooking" && typeof ckContext === "function" ? { kitchen: ckContext(), ...out }
+    : MODE === "job" && typeof jhContext === "function" ? { jobHunt: jhContext(), ...out } : out);   // v1.66 Ask Job Hub (current pay never sent)   // v1.64 Ask Cooking Hub   // v1.61 Ask Pet Hub   // v1.59 Ask Family Hub: first names, what this person may see   // v1.53 Ask Health Hub: only the person's own logged data   // v1.42 Ask Money Hub   // v1.39 Ask Auto Hub
   let j = pack();
   if (j.length > 14000) { out.notes = out.notes.slice(-5); out.schedule = out.schedule.filter(x => x.day <= d(7)); j = pack(); }
   return j.slice(0, 15000);
@@ -2978,7 +2983,7 @@ function showAsk() {
   let el = document.getElementById("askSheet");
   if (!el) { el = document.createElement("div"); el.id = "askSheet"; el.className = "sheet"; el.setAttribute("role", "dialog"); document.body.appendChild(el); }
   const tr = TRAVEL ? curTrip() : null, away = tr && tr.start && daysUntil(tr.start) <= 0;
-  const ex = MODE === "money" && typeof MV_ASKS !== "undefined" ? MV_ASKS : MODE === "health" && typeof HH_ASKS !== "undefined" ? HH_ASKS : MODE === "family" && typeof FH_ASKS !== "undefined" ? FH_ASKS : MODE === "pet" && typeof PT_ASKS !== "undefined" ? PT_ASKS : MODE === "cooking" && typeof CK_ASKS !== "undefined" ? CK_ASKS : !TRAVEL ? ["What's happening tomorrow?", "When is my next oil change?", "What haven't I finished this week?", "What bills are due before payday?"]
+  const ex = MODE === "money" && typeof MV_ASKS !== "undefined" ? MV_ASKS : MODE === "health" && typeof HH_ASKS !== "undefined" ? HH_ASKS : MODE === "family" && typeof FH_ASKS !== "undefined" ? FH_ASKS : MODE === "pet" && typeof PT_ASKS !== "undefined" ? PT_ASKS : MODE === "cooking" && typeof CK_ASKS !== "undefined" ? CK_ASKS : MODE === "job" && typeof JH_ASKS !== "undefined" ? JH_ASKS : !TRAVEL ? ["What's happening tomorrow?", "When is my next oil change?", "What haven't I finished this week?", "What bills are due before payday?"]
     : away ? (MODE === "trip" ? ["What's the plan tomorrow?", "What should we do now?", "How much have we spent so far?"] : ["When do we need to be back on the ship?", "What's the plan tomorrow?", "What should I bring ashore tomorrow?", "Which perks haven't we used?"])
     : ["What am I forgetting?", "How much do I still owe, and when?", "What's left to pack?", `What should I do this week for my ${MODE === "trip" ? "trip" : "cruise"}?`];
   el.innerHTML = `<div class="sheet-body"><div class="grab"></div>
@@ -2990,6 +2995,7 @@ function showAsk() {
     : `<p class="fine" style="margin-top:4px">${TRAVEL ? `Ask in plain words — ${MODE === "cruise" ? `"When do we need to be back on the ship?"` : `"What time is our hotel check-in?"`} — and ${APP_NAME} answers from your own ${TW}.` : MODE === "money" ? `Ask in plain words — "Can I afford a $2,000 vacation in December?" — and Money Hub answers from your own numbers, with the math.`
        : MODE === "auto" ? `Ask in plain words — "When did I last change the oil?" — and Auto Hub answers from your own garage.`
        : MODE === "family" ? `Ask in plain words — "What's everyone doing tomorrow?" — and Family Hub answers from your own family calendar, chores and lists.`
+       : MODE === "job" ? `Ask in plain words — "How do I follow up after an interview?" — and Job Hub answers from your search, your resume and your pipeline. It never makes up experience.`
        : MODE === "cooking" ? `Ask in plain words — "What can I make with chicken and rice?" — and Cooking Hub answers from its recipes, your pantry and your week. Not nutrition or health advice.`
        : MODE === "pet" ? `Ask in plain words — "Which shots are due soon?" — and Pet Hub answers from your own pets' care, vet visits and memories. Never veterinary advice.`
        : MODE === "health" ? `Ask in plain words — "How has my blood pressure looked this month?" — and Health Hub answers from what you've logged. Never medical advice.`
@@ -3005,6 +3011,7 @@ async function askDayHub(q) {
   ASK_BUSY = true; ASK_LOG.unshift({ q, a: "…thinking" }); showAsk();
   // Cruise Hub: the relay's "ask" job answers only from the JSON; the trip block holds the cruise facts.
   const lead = TRAVEL ? `(Asked in ${APP_NAME} - answer about my ${TW}, using the "trip" section first.) ` : MODE === "auto" ? `(Asked in Auto Hub - answer about my cars, using the "garage" section first. Say plainly when something isn't logged.) `
+    : MODE === "job" ? `(Asked in Job Hub - answer from the "jobHunt" section first: what they're looking for, their resume lines and skills, and their pipeline of saved jobs. Help with interviews, follow-ups and resume wording. Never invent experience, qualifications or employers; say plainly when something isn't there.) `
     : MODE === "cooking" ? `(Asked in Cooking Hub - answer from the "kitchen" section first: its recipes, the cook's pantry, this week's dinners, favorites and ratings. Never give nutrition, diet or health advice; for food safety use USDA safe inside temperatures. Say plainly when something isn't there.) `
     : MODE === "pet" ? `(Asked in Pet Hub - answer from the "pets" section first: the owner's own pets, care, shots, vet visits and weights. Never give veterinary advice, a diagnosis or dosing - for health questions say to ask the vet. Say plainly when something isn't logged.) `
     : MODE === "family" ? `(Asked in Family Hub - answer from the "family" section first: this family's own calendar, chores, lists and to-do board, first names only. Say plainly when something isn't on it.) `
