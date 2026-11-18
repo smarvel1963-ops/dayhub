@@ -1,6 +1,9 @@
 {
- "version": "1.66",
+ "version": "1.66.1",
  "notes": {
+  "1.66.1": [
+   "🪐 Hub Universe: Job Hub joins your planets - interviews and follow-ups show up in Needs You and Today."
+  ],
   "1.66": [
    "💼 Job Hub: welcome! Your next job, found - today's openings from companies' own job boards, remote job boards and USAJOBS, matched to you with the reasons shown. A resume studio, your pipeline from Saved to Offer, and interview and follow-up reminders. Apply always opens the employer's own posting.",
    "💼 Meet Job Hub, the newest app in the Hub family - today's openings matched to you, your resume and your applications in one place. Find it in the Hub family list."

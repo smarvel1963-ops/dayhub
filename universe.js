@@ -28,8 +28,9 @@ const UNI_HUBS = [
   ["cruise", "cruisehub.v1", "Cruise Hub", "🚢", "#06b6d4", () => CRUISE_URL, "Travel", uniTrips],
   ["health", "healthhub.v1", "Health Hub", "❤️", "#2dd4bf", () => HEALTHHUB_URL, "Wellness", uniHealth],   // v1.53 app #8
   ["family", "familyhub.v1", "Family Hub", "👨‍👩‍👧", "#2e86de", () => FAMILYHUB_URL, "Everyday", uniFamily],   // v1.59 app #9
+  ["job", "jobhub.v1", "Job Hub", "💼", "#e2b04a", () => JOBHUB_URL, "Everyday", uniJob],   // v1.66.1 app #12 (Scott 11/17 via Desktop: "Yes, add it")
 ];
-const UNI_SOON = ["🐾 Pet Hub", "🍳 Cooking Hub", "💼 Job Hub"];    // shown faint under the orbits: more planets coming
+const UNI_SOON = ["🐾 Pet Hub", "🍳 Cooking Hub"];    // shown faint under the orbits: more planets coming
 // v1.65.1 (Scott 11/15: "yes list usemart same as the other apps"): Marvel Corp apps at their own web address - Universe can't read
 // their phone storage, so they're a tap away under the planets instead of a planet. [icon, name, what it is, address]
 const UNI_MORE = [["🛒", "UseMart", "buy and sell near you", "https://usemart.net/#getapp"]];
@@ -125,6 +126,23 @@ function uniFamily(t) {
   return { set: true, val: ev.length ? `${ev.length} today` : ch.length ? `${done}/${ch.length} chores` : "all clear", badge: wait.length || "", items,
     branches: [["📅", "Today", ev.length ? `${ev.length} on it` : "free"], ["✅", "Chores", ch.length ? `${done}/${ch.length}` : "none"], ["🛒", "Lists", open ? `${open} to get` : "all set"],
       ["👨‍👩‍👧", "Family", String(fhMembers().length)], ["🎂", "Birthday", nb ? (nb.days === 0 ? "today!" : `${nb.m.name} ${nb.days}d`) : "add"]] };
+}
+
+// Job Hub (v1.66.1): read straight from its saved data - job.js isn't loaded in Universe, and nothing here is written back.
+function uniJob(t) {
+  const J = S.jh && typeof S.jh === "object" && !Array.isArray(S.jh) ? S.jh : null;
+  if (!J || !J.setup) return { set: false };
+  const isD = v => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v), str = v => String(v == null ? "" : v).slice(0, 120);
+  const jobs = Object.values(J.jobs && typeof J.jobs === "object" && !Array.isArray(J.jobs) ? J.jobs : {}).filter(x => x && typeof x === "object");
+  const n = k => jobs.filter(x => x.st === k).length;
+  const ivs = jobs.filter(x => x.st === "interview" && typeof x.iv === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(x.iv) && x.iv.slice(0, 10) >= t).sort((a, b) => a.iv < b.iv ? -1 : 1);
+  const fus = jobs.filter(x => (x.st === "applied" || x.st === "interview") && x.fuDone !== true && isD(x.fu) && x.fu <= addDays(t, 2));
+  const items = ivs.filter(x => daysUntil(x.iv.slice(0, 10)) <= 7).slice(0, 3).map(x => uniItem("job", "👥", `Interview: ${str(x.t)}`, `${uniWhen(x.iv.slice(0, 10))} ${hm(x.iv.slice(11, 16))}`, x.iv.slice(0, 10), false, "#e2b04a"))
+    .concat(fus.slice(0, 3).map(x => uniItem("job", "✉️", `Follow up: ${str(x.t)}`, str(x.fuNote) || uniWhen(x.fu), x.fu, x.fu < t, "#2fe0c0")));
+  const cv = J.cv && typeof J.cv === "object" ? J.cv : {};
+  return { set: true, val: ivs.length ? `${ivs.length} interview${ivs.length === 1 ? "" : "s"}` : jobs.length ? `${jobs.length} saved` : "searching", badge: items.length || "", items,
+    branches: [["🔖", "Saved", String(n("saved"))], ["📨", "Applied", String(n("applied"))], ["👥", "Interviews", String(n("interview"))], ["🏆", "Offers", String(n("offer"))],
+      ["📄", "Resume", Array.isArray(cv.exp) && cv.exp.length ? "ready" : "add"]] };
 }
 
 // Every hub's summary, once per render.
