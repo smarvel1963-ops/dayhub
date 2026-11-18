@@ -344,3 +344,37 @@ body.ck-vintage .ck-write::before { content: ""; position: absolute; left: -16px
 .ck-rv b { display: block; font: 900 16px "Nunito", sans-serif; color: var(--ck-title); } .ck-rv small { display: block; color: var(--ck-soft); font-weight: 700; margin-bottom: 4px; }
 .ck-rv ul, .ck-rv ol { margin: 4px 0; padding-left: 20px; font-size: 14px; } .ck-rvpic { max-width: 100%; border-radius: 10px; margin: 6px 0; }
 .ck-rv input { margin: 6px 0; }
+
+/* ---- v1.66.3 Scott's lock screen design (11/18 "Keep the good food coming.") - warm, both plans, the year as best value */
+body .hub-lock.ck-lock { max-width: 460px; margin: 0 auto 30px; padding: 0; border-radius: 0 0 28px 28px; overflow: hidden; background: #fbf3e4; border: 0; color: #4a2c1a;
+  box-shadow: 0 18px 50px rgba(122, 46, 22, .22); text-align: center; }
+.ck-lhero { position: relative; height: 230px; }
+.ck-ltable { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.ck-lbrand { position: absolute; left: 0; right: 0; top: 14px; display: grid; justify-items: center; }
+.ck-lbrand b { font: 700 30px "Playfair Display", Georgia, serif; color: #8a2b14; text-shadow: 0 1px 0 rgba(255, 255, 255, .6); }
+.ck-lbrand small { display: flex; align-items: center; gap: 10px; font: 800 12px "Nunito", sans-serif; letter-spacing: 5px; color: #4a2c1a; }
+.ck-lbrand small::before, .ck-lbrand small::after { content: ""; width: 26px; height: 1.5px; background: #8a2b14; opacity: .6; }
+.ck-lcard { position: relative; margin: -44px 12px 0; padding: 30px 16px 18px; border-radius: 26px 26px 22px 22px; background: linear-gradient(180deg, #fffaf1, #fbefdc);
+  box-shadow: 0 -6px 18px rgba(122, 46, 22, .12); }
+.ck-lpan { position: absolute; left: 50%; top: -34px; transform: translateX(-50%); width: 68px; height: 68px; border-radius: 50%; display: grid; place-items: center; font-size: 40px;
+  background: #fffaf1; box-shadow: 0 4px 12px rgba(122, 46, 22, .18); }
+.ck-lock h2 { font: 800 29px/1.12 "Playfair Display", Georgia, serif !important; color: #3d1f12; margin: 6px 0 4px !important; }
+.ck-lsub { font: italic 500 18px "Playfair Display", Georgia, serif; color: #4a2c1a; margin: 0 !important; }
+.ck-lrule { display: flex; align-items: center; gap: 10px; margin: 10px 30px 12px; color: #c99a3a; }
+.ck-lrule span { flex: 1; height: 1.5px; background: #e2b65c; }
+.ck-lme { margin: 0 4px 12px !important; font: 600 15px/1.45 "Nunito", sans-serif; color: #6a3a22; }
+.ck-lfeats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.ck-lf { display: flex; align-items: center; gap: 8px; padding: 12px 10px; border-radius: 18px; background: #f7ead3; text-align: left; box-shadow: inset 0 0 0 1px rgba(201, 154, 58, .25); }
+.ck-lf i { font-style: normal; font-size: 32px; line-height: 1; flex: none; filter: drop-shadow(0 2px 3px rgba(122, 46, 22, .2)); }
+.ck-lf b { font: 700 15.5px/1.2 "Playfair Display", Georgia, serif; color: #3d1f12; }
+.ck-lplan { position: relative; display: grid; justify-items: start; gap: 2px; margin-top: 10px; padding: 14px 18px; border-radius: 18px; background: #fffaf1; border: 1.5px solid #e6d3b4; text-align: left; }
+.ck-lplan b { font: 800 28px "Playfair Display", Georgia, serif; color: #3d1f12; }
+.ck-lplan.best { margin-top: 16px; border: 2px solid #8e3a6e; background: linear-gradient(90deg, #fff1df, #fde4c4); }
+.ck-lplan.best em { position: absolute; top: -12px; left: 16px; padding: 3px 12px; border-radius: 999px; background: #8e3a6e; color: #fff; font: 800 12px "Nunito", sans-serif; letter-spacing: 1.5px; font-style: normal; }
+.ck-lplan.best small { font: italic 600 17px "Playfair Display", Georgia, serif; color: #b8361f; }
+body .ck-lock .hl-buy { margin-top: 18px; padding: 16px; border-radius: 999px; font: 700 26px "Playfair Display", Georgia, serif;
+  background: linear-gradient(180deg, #e8604a, #c8402a 55%, #9e2a18); box-shadow: 0 8px 20px rgba(158, 42, 24, .35), inset 0 1px 0 rgba(255, 255, 255, .3); }
+.ck-lcancel { margin: 10px 0 0 !important; font: italic 500 15px "Playfair Display", Georgia, serif; color: #4a2c1a; }
+body .ck-lock .hl-link { color: #a8321a; font: 600 16px "Playfair Display", Georgia, serif; margin-top: 8px; }
+.ck-lsafe { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 14px 0 0 !important; padding: 12px; border-radius: 16px; background: #f7ead3;
+  font: 500 14.5px "Nunito", sans-serif; color: #4a2c1a; }

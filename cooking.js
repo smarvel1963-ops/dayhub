@@ -80,12 +80,47 @@ const ckSells = () => typeof cookingPass === "function" && cookingPass() && !(ty
 function ckTrial() { const C = ck(), days = (typeof PLAN !== "undefined" && PLAN.COOKING_TRIAL_DAYS) || 14, used = ckIsD(C.setupDay) ? Math.max(0, -daysUntil(C.setupDay)) : 0;
   return { paid: typeof isPro === "function" && isPro(), left: Math.max(0, days - used) }; }
 const ckPaused = () => ckSells() && ckSet() && (t => !t.paid && !t.left)(ckTrial());
+// Scott's lock screen (11/18 design: "Keep the good food coming." - lead with the good, show what it's worth, both plans with the year as
+// best value, one button, restore access, export). The personal line shows only when this phone really built a cookbook.
+const CK_TABLE = `<svg class="ck-ltable" viewBox="0 0 400 210" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs>
+  <radialGradient id="ckLw" cx=".5" cy=".25" r=".8"><stop offset="0" stop-color="#fff4dc"/><stop offset=".55" stop-color="#f4d9a8"/><stop offset="1" stop-color="#d9a868"/></radialGradient>
+  <linearGradient id="ckLt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9824c"/><stop offset="1" stop-color="#7a4a24"/></linearGradient>
+  <radialGradient id="ckLb" cx=".45" cy=".35" r=".7"><stop offset="0" stop-color="#fbf4e8"/><stop offset="1" stop-color="#dcc9ad"/></radialGradient>
+  <radialGradient id="ckLm" cx=".35" cy=".3" r=".7"><stop offset="0" stop-color="#ff8a6e"/><stop offset=".6" stop-color="#e3361f"/><stop offset="1" stop-color="#a51d10"/></radialGradient></defs>
+  <rect width="400" height="210" fill="url(#ckLw)"/>
+  <path d="M0 150 400 136V210H0Z" fill="url(#ckLt)"/><path d="M0 150 400 136" stroke="#d9a76a" stroke-width="2" opacity=".6"/>
+  <g opacity=".9"><path d="M300 150 400 142V180L320 190Z" fill="#f3ece2"/><path d="M308 156 400 149M312 166 400 159M316 176 400 169" stroke="#c0392b" stroke-width="3" opacity=".7"/></g>
+  <g><rect x="22" y="62" width="34" height="84" rx="10" fill="#e8c56a" opacity=".55"/><rect x="31" y="44" width="16" height="22" rx="4" fill="#c9a050" opacity=".7"/><rect x="30" y="38" width="18" height="10" rx="3" fill="#9a6a3a"/>
+    <rect x="26" y="90" width="26" height="50" rx="8" fill="#d4a62c" opacity=".8"/></g>
+  <g><path d="M70 120q16-34 40-30" stroke="#3f7a2a" stroke-width="2.5" fill="none"/><circle cx="64" cy="138" r="14" fill="url(#ckLm)"/><circle cx="88" cy="142" r="12" fill="url(#ckLm)"/><circle cx="74" cy="122" r="11" fill="url(#ckLm)"/>
+    <path d="M60 126l4-4 4 3M84 130l4-4 4 3" stroke="#3f7a2a" stroke-width="2" fill="none"/></g>
+  <g><rect x="328" y="96" width="62" height="40" rx="6" fill="#f6dc8a"/><path d="M328 96l20-14h50l-8 14z" fill="#fbe9ad"/><circle cx="348" cy="114" r="3" fill="#e2c06a"/><circle cx="372" cy="122" r="2.5" fill="#e2c06a"/></g>
+  <ellipse cx="208" cy="152" rx="108" ry="26" fill="#6a3f1f" opacity=".35"/>
+  <path d="M100 112h216c-6 34-46 52-108 52S106 146 100 112z" fill="url(#ckLb)" stroke="#b8a084" stroke-width="2"/>
+  <ellipse cx="208" cy="112" rx="108" ry="24" fill="#efe3cf" stroke="#b8a084" stroke-width="2"/>
+  <g fill="none" stroke-linecap="round"><path d="M128 112c20-16 40 8 60-6s40 10 58-4 30 8 44-2" stroke="#f2c14e" stroke-width="9"/><path d="M134 104c20-12 38 10 58-2s42 8 60-6 26 6 40 0" stroke="#e8b23c" stroke-width="8"/>
+    <path d="M140 118c18-10 36 6 56-2s40 6 58-2 28 4 40 0" stroke="#f6d26a" stroke-width="7"/></g>
+  <g><circle cx="160" cy="104" r="9" fill="url(#ckLm)"/><circle cx="214" cy="100" r="10" fill="url(#ckLm)"/><circle cx="252" cy="110" r="9" fill="url(#ckLm)"/><circle cx="188" cy="116" r="8" fill="url(#ckLm)"/><circle cx="236" cy="96" r="7" fill="url(#ckLm)"/></g>
+  <g fill="#3f8a2e"><path d="M196 88c10-12 26-6 24 4-10 6-22 6-24-4z"/><path d="M222 86c4-14 20-14 22-4-6 8-18 10-22 4z"/><path d="M176 96c2-12 18-14 22-4-6 8-18 10-22 4z" fill="#4fa23a"/></g>
+  <g fill="#fff8e6" opacity=".95"><path d="M170 98l14-4-2 6z"/><path d="M226 104l12-6 0 7z"/><path d="M200 108l14 2-10 4z"/><path d="M244 100l10 4-9 3z"/></g></svg>`;
 function ckLockHtml() {
-  return `<section class="hub-lock ck-lock" aria-label="Cooking Hub is locked"><div class="hl-art" aria-hidden="true">🍳</div>
-    <h2>Your 2 free weeks are up</h2>
-    <p>Keep cooking for <b>${esc(PLAN.COOKING_MONTHLY)}</b> or <b>${esc(PLAN.COOKING_YEARLY)}</b> - every recipe, Cook Along, your pantry, the week's dinners and your family's cookbook. Cancel any time.</p>
-    <a class="hl-buy" href="${esc(PLAN.COOKING_CHECKOUT_URL)}" target="_blank" rel="noopener">Keep cooking - ${esc(PLAN.COOKING_MONTHLY)} or ${esc(PLAN.COOKING_YEARLY)}</a>
-    ${hubLockFoot()}</section>`;
+  const C = ck(), built = C.mine.length + C.favs.length, mo = PLAN.COOKING_MONTHLY.replace("/month", ""), yr = PLAN.COOKING_YEARLY.replace("/year", "");
+  const n = s => Number(String(s).replace(/[^0-9.]/g, "")), save = Math.round((1 - n(yr) / (n(mo) * 12)) * 100);
+  const feat = (i, l) => `<span class="ck-lf"><i aria-hidden="true">${i}</i><b>${l}</b></span>`;
+  return `<section class="hub-lock ck-lock" aria-label="Cooking Hub - keep the good food coming">
+    <div class="ck-lhero">${CK_TABLE}<div class="ck-lbrand"><b>Marvel Corp</b><small>COOKING HUB</small></div></div>
+    <div class="ck-lcard"><div class="ck-lpan" aria-hidden="true">🍳</div>
+      <h2>Keep the good food coming.</h2><p class="ck-lsub">Your 2-week free trial has ended.</p>
+      <div class="ck-lrule" aria-hidden="true"><span></span>🌿<span></span></div>
+      ${built ? `<p class="ck-lme">You've started building your family's cookbook. Keep your recipes, meal plans and kitchen tools working together.</p>` : ""}
+      <div class="ck-lfeats">${feat("📖", "Every recipe")}${feat("🍲", "Cook Along")}${feat("🫙", "Smart pantry")}${feat("📕", "Family cookbook")}</div>
+      <div class="ck-lplan best"><em>BEST VALUE</em><b>${esc(PLAN.COOKING_YEARLY)}</b>${save > 0 ? `<small>Save ${save}% vs monthly</small>` : ""}</div>
+      <div class="ck-lplan"><b>${esc(PLAN.COOKING_MONTHLY)}</b></div>
+      <a class="hl-buy" href="${esc(PLAN.COOKING_CHECKOUT_URL)}" target="_blank" rel="noopener">Keep Cooking</a>
+      <p class="ck-lcancel">Cancel anytime. Pick yearly or monthly on the next page.</p>
+      <button class="hl-link" data-open="sheet">Already subscribed? Restore access</button>
+      <button class="hl-link" data-data="export">Save or export my recipes</button>
+      <p class="ck-lsafe"><span aria-hidden="true">🔒</span>Your recipes and pantry stay on this device.</p></div></section>`;
 }
 function ckWaits() { if (!ckPaused()) return false; toast(`Your 2 free weeks are up - subscribe (${PLAN.COOKING_MONTHLY} or ${PLAN.COOKING_YEARLY}) to add new things. Everything you saved is still here.`); return true; }
 function ckTrialHtml() {

@@ -118,12 +118,46 @@ const jhSells = () => typeof jobPass === "function" && jobPass() && !(typeof STO
 function jhTrial() { const J = S.jh || {}, days = (typeof PLAN !== "undefined" && PLAN.JOB_TRIAL_DAYS) || 30, used = jhIsD(J.setupDay) ? Math.max(0, -daysUntil(J.setupDay)) : 0;
   return { paid: typeof isPro === "function" && isPro(), left: Math.max(0, days - used) }; }
 const jhPaused = () => jhSells() && jhSet() && (t => !t.paid && !t.left)(jhTrial());
+// Scott's lock screen (11/18 design: "Keep your career momentum." - lead with the benefit, show the person's own results, one buy button,
+// restore access, export). The numbers are this phone's real activity and show only when there is some; nothing is promised.
+function jhMonthStats() {
+  const J = S.jh || {}, jobs = Object.values(J.jobs && typeof J.jobs === "object" ? J.jobs : {}).filter(x => x && typeof x === "object");
+  let strong = null;
+  if (JH_FEED) { strong = 0; for (const j of jhMatches(0, true)) { if (jhScore(j) >= 70) strong++; else break; } }
+  return { strong, saved: jobs.length, applied: jobs.filter(x => x.appl || ["applied", "interview", "offer"].includes(x.st)).length };
+}
+const JH_SUMMIT = `<svg class="jh-summit" viewBox="0 0 320 150" aria-hidden="true"><defs>
+  <radialGradient id="jhSg" cx=".62" cy=".22" r=".55"><stop offset="0" stop-color="#ffd27a" stop-opacity=".75"/><stop offset=".45" stop-color="#f2a94e" stop-opacity=".25"/><stop offset="1" stop-color="#0a1736" stop-opacity="0"/></radialGradient>
+  <linearGradient id="jhSm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3f78"/><stop offset="1" stop-color="#0b1838"/></linearGradient>
+  <linearGradient id="jhSp" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#c48d22"/><stop offset="1" stop-color="#ffe08a"/></linearGradient>
+  <filter id="jhSb" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter></defs>
+  <rect width="320" height="150" fill="url(#jhSg)"/>
+  <path d="M0 112 52 78 92 96 138 62 176 88 214 40 248 70 286 54 320 76V150H0Z" fill="#1a2a58" opacity=".85"/>
+  <path d="M30 150 118 92 158 104 200 46 236 86 262 78 320 116V150Z" fill="url(#jhSm)"/>
+  <path d="M200 46 188 64 198 60 206 68 214 58Z" fill="#dfe6f7" opacity=".55"/>
+  <path d="M96 150C120 132 170 132 172 118S128 106 150 92 196 86 200 50" fill="none" stroke="#ffd27a" stroke-width="5" filter="url(#jhSb)" opacity=".85"/>
+  <path d="M96 150C120 132 170 132 172 118S128 106 150 92 196 86 200 50" fill="none" stroke="url(#jhSp)" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M200 50V18" stroke="#ffe08a" stroke-width="2"/><path d="M200 18h26l-7 6 7 6h-26z" fill="#f2c14e"/>
+  <circle cx="150" cy="92" r="4" fill="#2fe0c0"/><circle cx="150" cy="92" r="8" fill="#2fe0c0" opacity=".25"/>
+  <circle cx="171" cy="118" r="4" fill="#2fe0c0"/><circle cx="171" cy="118" r="8" fill="#2fe0c0" opacity=".25"/></svg>`;
 function jhLockHtml() {
-  return `<section class="hub-lock jh-lock" aria-label="Job Hub is locked"><div class="hl-art">${jhLogo()}</div>
-    <h2>Your free month is up</h2>
-    <p>Keep your job search going for <b>${esc(PLAN.JOB_MONTHLY)}</b> - today's matches, Career Fit, Resume Studio, your pipeline and reminders. Everything you saved is still here. Cancel any time.</p>
-    <a class="hl-buy" href="${esc(PLAN.JOB_CHECKOUT_URL)}" target="_blank" rel="noopener">Keep going - ${esc(PLAN.JOB_MONTHLY)}</a>
-    ${hubLockFoot()}</section>`;
+  jhLoad();   // today's list, for "Strong matches" (it re-draws this screen when it lands)
+  const N = jhMonthStats(), any = N.saved || N.applied || N.strong;
+  const stat = (n, l) => `<span><b>${n.toLocaleString()}</b><small>${l}</small></span>`;
+  const feat = (i, l) => `<span class="jh-lf">${jhIco(i)}<b>${l}</b></span>`;
+  return `<section class="hub-lock jh-lock" aria-label="Job Hub - keep your career momentum">
+    <div class="jh-lbrand">${jhLogo()}<b>JOB HUB</b><small>by Marvel Corp</small></div>
+    <h2>Keep your career <span class="g">momentum.</span></h2><p class="jh-lsub">Your free month has ended.</p>
+    ${JH_SUMMIT}
+    ${any ? `<div class="jh-lmonth"><small>YOUR FIRST MONTH WITH JOB HUB</small><div>${N.strong != null ? stat(N.strong, "Strong matches today") : ""}${stat(N.saved, N.saved === 1 ? "Role saved" : "Roles saved")}${stat(N.applied, N.applied === 1 ? "Application tracked" : "Applications tracked")}</div></div>
+      <p class="jh-lpitch">You've already started making moves. Keep Job Hub working for you for just <b>${esc(PLAN.JOB_MONTHLY.replace("/month", ""))}</b> a month.</p>`
+      : `<p class="jh-lpitch">Your personal career assistant for just <b>${esc(PLAN.JOB_MONTHLY.replace("/month", ""))}</b> a month.</p>`}
+    <div class="jh-lfeats">${feat("search", "Fresh job matches")}${feat("chart", "Career Fit insights")}${feat("doc", "Resume Studio")}${feat("cal", "Pipeline &amp; reminders")}</div>
+    <div class="jh-lprice"><b>${esc(PLAN.JOB_MONTHLY.replace("/month", ""))}</b><span>/month</span><small>Cancel anytime</small></div>
+    <a class="hl-buy" href="${esc(PLAN.JOB_CHECKOUT_URL)}" target="_blank" rel="noopener">Keep Job Hub working for me</a>
+    <button class="hl-link" data-open="sheet">Already subscribed? Restore access</button>
+    <button class="hl-link" data-data="export">Save or export my information</button>
+    <p class="jh-lsafe">${jhIco("lock")}<span>Your saved jobs and resume stay on this device.</span></p></section>`;
 }
 function jhTrialHtml() {           // a small line on Home while the free month runs
   if (!jhSells() || !jhSet()) return "";

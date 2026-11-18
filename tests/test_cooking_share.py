@@ -180,12 +180,13 @@ def main():
         check("day 1: 'Free for 14 more days', then $2.99/month or $19.99/year", a.js("ckSells() && ckTrial().left === 14") and "Free for 14 more days" in a.js("document.getElementById('cards').innerText") and "$2.99/month or $19.99/year" in a.js("document.getElementById('cards').innerText"))
         a.js("ck().setupDay = addDays(today(), -15); save(); render()"); a.page.wait_for_timeout(100)
         home = a.js("document.getElementById('cards').innerText")
-        check("v1.65 after 14 days the whole app shows only the lock: 2 free weeks are up, Keep cooking", a.js("ckPaused()") and "2 free weeks are up" in home and "Keep cooking" in home and a.js("!!document.querySelector('.ck-lock')"))
+        check("after 14 days the whole app shows only Scott's lock: Keep the good food coming, both plans, the year as best value (save 44%), Keep Cooking", a.js("ckPaused()") and "Keep the good food coming." in home
+              and "Your 2-week free trial has ended." in home and "BEST VALUE" in home and "$19.99/year" in home and "Save 44% vs monthly" in home and "$2.99/month" in home and "Keep Cooking" in home and a.js("!!document.querySelector('.ck-lock')"), home[:400])
         check("the Keep cooking button goes to Whop", (a.js("(document.querySelector('.ck-lock a.hl-buy') || {}).href") or "").startswith("https://whop.com/"))
-        check("I already subscribed + Save a copy are on the lock, nothing else (no + button)", "I already bought it" in home and "Save a copy of my info" in home and "Dinner Finder" not in home
+        check("Restore access + Save or export are on the lock, nothing else (no + button)", "Already subscribed? Restore access" in home and "Save or export my recipes" in home and "Your recipes and pantry stay on this device." in home and "Dinner Finder" not in home
               and a.js("getComputedStyle(document.getElementById('fab')).display") == "none")
         a.js("ckClick({ cktab: 'pantry', ckroot: '1' })"); a.page.wait_for_timeout(100)
-        check("the pantry doesn't open while locked", not a.js("CK_OPEN") and "2 free weeks are up" in a.js("document.getElementById('cards').innerText"))
+        check("the pantry doesn't open while locked", not a.js("CK_OPEN") and "Keep the good food coming." in a.js("document.getElementById('cards').innerText"))
         a.js("ckClick({ ckrec: 'sunday-pasta' })"); a.page.wait_for_timeout(100)
         check("a recipe doesn't open while locked", not a.js("CK_OPEN"))
         check("every saved recipe is still on the phone", a.js("ckAll().length") >= 33)

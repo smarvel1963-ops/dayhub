@@ -1,6 +1,10 @@
 {
- "version": "1.66.2",
+ "version": "1.66.3",
  "notes": {
+  "1.66.3": [
+   "💼 Job Hub: a friendlier screen when the free month ends - it shows what you've built so far.",
+   "🍳 Cooking Hub: a warmer screen when the free weeks end, with both ways to keep cooking side by side."
+  ],
   "1.66.2": [
    "💼 Job Hub: Home shows how many free days you have left, and one tap keeps your search going after that."
   ],

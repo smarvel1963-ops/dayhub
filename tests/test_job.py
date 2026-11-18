@@ -337,8 +337,9 @@ def main():
         a = T.App(b, base, look=None); T.setup(a)
         check("every Hub's family list has Job Hub", a.js("HUBS.some(h => h.id === 'jobhub' && /jobhub\\/$/.test(h.url))"))
         notes = a.js("fetch('version.json').then(r => r.json())")
-        check("engine 1.66.2 everywhere (app, offline worker, update notes)", a.js("VERSION") == "1.66.2" and notes["version"] == "1.66.2" and
-              'const CACHE = "dayhub-v1.66.2";' in open(os.path.join(T.ROOT, "sw.js"), encoding="utf-8").read())
+        check("engine 1.66.3 everywhere (app, offline worker, update notes)", a.js("VERSION") == "1.66.3" and notes["version"] == "1.66.3" and
+              'const CACHE = "dayhub-v1.66.3";' in open(os.path.join(T.ROOT, "sw.js"), encoding="utf-8").read())
+        check("1.66.3's note is Job Hub's, with no price words", notes["notes"]["1.66.3"][0].startswith("💼 Job Hub:") and "$" not in notes["notes"]["1.66.3"][0])
         check("1.66.1's note is Hub Universe's (Job Hub joins the planets)", notes["notes"]["1.66.1"][0].startswith("🪐 Hub Universe:") and "Job Hub" in notes["notes"]["1.66.1"][0])
         check("1.66.2's note is Job Hub's, with no price words (the same notes reach the Play apps' engine)", notes["notes"]["1.66.2"][0].startswith("💼 Job Hub:") and "$" not in notes["notes"]["1.66.2"][0])
         check("the update note for Job Hub goes only to Job Hub", any(x.startswith("💼 Job Hub:") for x in notes["notes"]["1.66"]) and not a.js("noteForMe('💼 Job Hub: hello')"))
@@ -357,8 +358,14 @@ def main():
         check("day 30: one free day left, still open", "Free for 1 more day" in a.js("(document.querySelector('.jh-trialbar') || {}).innerText || ''") and not a.js("jhPaused()"))
         a.js("S.jh.setupDay = addDays(today(), -30); save(); render()"); a.page.wait_for_timeout(150)
         t = a.js("document.getElementById('cards').innerText")
-        check("after 30 days: only the lock screen - the price, Keep going, I already bought it, save a copy", a.js("jhPaused()") and "Your free month is up" in t and "Keep going - $4.99/month" in t
-              and "I already bought it" in t and "Save a copy of my info" in t and "Command Center" not in t and a.js("document.body.classList.contains('hub-locked')"), t[:300])
+        check("after 30 days: only Scott's lock screen - Keep your career momentum, the price, one buy button, restore, export", a.js("jhPaused()") and "Keep your career" in t and "momentum." in t
+              and "Your free month has ended." in t and "Keep Job Hub working for me" in t and "Cancel anytime" in t and "Already subscribed? Restore access" in t and "Save or export my information" in t
+              and "Your saved jobs and resume stay on this device." in t and "Command Center" not in t and a.js("document.body.classList.contains('hub-locked')")
+              and a.js("document.querySelector('.jh-lock .hl-buy').getAttribute('href')") == "https://whop.com/commander-marvel-por-picks/job-hub-marvel", t[:400])
+        a.js("jhSaveJob(jhJob('gh:acme:1'), 'applied'); jhSaveJob(jhJob('lv:fleetco:2')); save(); render()"); a.page.wait_for_timeout(200)
+        t = a.js("document.getElementById('cards').innerText")
+        check("the first-month numbers are this phone's real ones (3 strong matches today, 2 roles saved, 1 application) with the 'started making moves' pitch",
+              "YOUR FIRST MONTH WITH JOB HUB" in t and "3\nStrong matches today" in t and "2\nRoles saved" in t and "1\nApplication tracked" in t and "already started making moves" in t, t[:700])
         check("the bottom bar is hidden, and no page opens while locked", a.js("getComputedStyle(document.getElementById('jhNav')).display") == "none" and (a.js("jhClick({ jhtab: 'radar', jhroot: '1' }), JH_OPEN") is False))
         check("nothing was deleted", a.js("S.jh.me.titles[0]") == "Operations Manager")
         a.js("localStorage.setItem('jobhub.pro', JSON.stringify({ buyer: 'sam@example.com', ok: true, checked: Date.now() })); render()"); a.page.wait_for_timeout(150)
