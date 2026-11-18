@@ -30,6 +30,7 @@ const SWITCHES = Object.freeze({
   CHALLENGES: false,  // Health Hub friend step challenges (Scott 10/17: "step competitions against friends"). OFF until the relay has a "challenge" task.
   FAMILY_SYNC: true,  // Family Hub sharing between phones (Scott 10/25: "A - use Firebase free plan"; 11/07 "Phase B: all phones"). Needs the Firestore rules published.
   COOKING_PASS: true, // ON 2026-11-15 (Scott: "pricing free for 2 weeks then 2.99 month", "or 1 year for 19.99"). Cooking Hub: 14 days free from setup, then $2.99/month or $19.99/year on Whop. Nothing pauses and nothing is sold until COOKING_CHECKOUT_URL is set (the Whop product); never in the Play app.
+  JOB_PASS: true,     // ON 2026-11-18 (Scott: "4.99 month"). Job Hub: 30 days free from setup, then $4.99/month on Whop (prod_FSHoDPP73YMO7); Day Hub Pro also unlocks it. Nothing locks and nothing is sold until JOB_CHECKOUT_URL is set; never in the Play app.
   FAMILY_PASS: true,  // ON 2026-11-08 (Scott "Yes, build it"). Family Hub: $25 once, Whop prod_uPpRIheUlmL76, relay v19. OFF = no Buy button and nothing pauses after the trial.
   HUB_PAN: true,      // ON 2026-11-08 (Scott: "all our apps"). Every Hub opens on its art, then glides down to the part you use (shell.js). OFF = opens at the top and stays.
   MONEY_PASS: true,   // ON 2026-10-18 (Scott "relay done"). Money Hub Pro $2.99/mo, 30-day trial, Whop prod_xg2i3uygnEw5s; relay v18 PASSES moneyhub; Day Hub Pro also unlocks it. Free = 3 accounts, no CSV / Reports.
@@ -88,6 +89,11 @@ const PLAN = Object.freeze({
   COOKING_YEARLY: "$19.99/year",   // Scott 11/15: "or 1 year for 19.99" - both plans on the one Whop product (one link, one purchase check)
   COOKING_TRIAL_DAYS: 14,
   COOKING_CHECKOUT_URL: "https://whop.com/commander-marvel-por-picks/cooking-hub-44",   // prod_YbfZgnB1WQdgG, created 11/15 ($2.99/month + $19.99/year), relay v21
+  // JOB HUB (Scott 11/18: "4.99 month"). Job Hub only; Day Hub Pro also unlocks it (the relay's pattern). 30 days free (the app gives them, not Whop).
+  JOB_NAME: "Job Hub",
+  JOB_MONTHLY: "$4.99/month",
+  JOB_TRIAL_DAYS: 30,
+  JOB_CHECKOUT_URL: "https://whop.com/commander-marvel-por-picks/job-hub-marvel",   // prod_FSHoDPP73YMO7, created 11/18 ($4.99/month, no Whop trial, no fake discount, no affiliate rate), relay v23
   UNIVERSE_NAME: "Hub Universe Pro",
   UNIVERSE_CHECKOUT_URL: "",         // the Whop link once Scott creates "Hub Universe Pro" (price not set yet)
   AI_PACKS: [{ n: 100, price: "$2.99", url: "https://whop.com/commander-marvel-por-picks/hub-ai-credits-100-questions" },   // prod_PZs1nowbQqbau

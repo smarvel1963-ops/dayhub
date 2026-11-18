@@ -1,6 +1,9 @@
 {
- "version": "1.66.1",
+ "version": "1.66.2",
  "notes": {
+  "1.66.2": [
+   "💼 Job Hub: Home shows how many free days you have left, and one tap keeps your search going after that."
+  ],
   "1.66.1": [
    "🪐 Hub Universe: Job Hub joins your planets - interviews and follow-ups show up in Needs You and Today."
   ],

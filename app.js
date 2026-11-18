@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.66.1";
+const VERSION = "1.66.2";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -116,8 +116,9 @@ const autoPass = () => MODE === "auto" && switchOn("AUTO_PASS");   // v1.38 Auto
 const moneyPass = () => MODE === "money" && switchOn("MONEY_PASS");   // v1.42 Money Hub Pro, $2.99/month (OFF until the Whop product)
 const familyPass = () => MODE === "family" && switchOn("FAMILY_PASS");
 const cookingPass = () => MODE === "cooking" && switchOn("COOKING_PASS");   // v1.64 Cooking Hub, 2 weeks free then $2.99/month   // v1.59.1 Family Hub, $25 once for the whole family
-const hubPass = () => cruisePass() || tripPass() || autoPass() || moneyPass() || familyPass() || cookingPass();
-const proName = () => cruisePass() ? PLAN.CRUISE_NAME : tripPass() ? PLAN.TRIP_NAME : autoPass() ? PLAN.AUTO_NAME : moneyPass() ? PLAN.MONEY_NAME : familyPass() ? PLAN.FAMILY_NAME : cookingPass() ? PLAN.COOKING_NAME : PLAN.NAME;
+const jobPass = () => MODE === "job" && switchOn("JOB_PASS");   // v1.66.2 Job Hub, 30 days free then $4.99/month (Scott 11/18 "4.99 month")
+const hubPass = () => cruisePass() || tripPass() || autoPass() || moneyPass() || familyPass() || cookingPass() || jobPass();
+const proName = () => cruisePass() ? PLAN.CRUISE_NAME : tripPass() ? PLAN.TRIP_NAME : autoPass() ? PLAN.AUTO_NAME : moneyPass() ? PLAN.MONEY_NAME : familyPass() ? PLAN.FAMILY_NAME : cookingPass() ? PLAN.COOKING_NAME : jobPass() ? PLAN.JOB_NAME : PLAN.NAME;
 // v1.57 (Play review, Scott 10/22 "yes"): in the Play app no "Pro" / price / trial wording anywhere outside the
 // ⚙ unlock box - a locked extra just says it isn't on for this phone and where to enter an email already unlocked.
 const storeLock = what => `${what}: not turned on for this phone. Already unlocked it? ⚙ → enter your email.`;

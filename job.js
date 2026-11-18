@@ -111,6 +111,25 @@ function jh() {
   return J;
 }
 const jhSet = () => !!(S.jh && S.jh.setup);
+// THE PRICE (Scott 11/18: "4.99 month"): 30 days free from setup, then $4.99/month on Whop (unlocked with the email bought with, like every
+// Hub; Day Hub Pro unlocks it too). After the free days the whole app locks (v1.65 rule, Scott 11/15 "All paid apps"): only jhLockHtml -
+// subscribe, "I already bought it", save a copy. Nothing is deleted. Never in the Play app, never before JOB_CHECKOUT_URL exists.
+const jhSells = () => typeof jobPass === "function" && jobPass() && !(typeof STORE_MODE !== "undefined" && STORE_MODE) && !!(typeof PLAN !== "undefined" && PLAN.JOB_CHECKOUT_URL);
+function jhTrial() { const J = S.jh || {}, days = (typeof PLAN !== "undefined" && PLAN.JOB_TRIAL_DAYS) || 30, used = jhIsD(J.setupDay) ? Math.max(0, -daysUntil(J.setupDay)) : 0;
+  return { paid: typeof isPro === "function" && isPro(), left: Math.max(0, days - used) }; }
+const jhPaused = () => jhSells() && jhSet() && (t => !t.paid && !t.left)(jhTrial());
+function jhLockHtml() {
+  return `<section class="hub-lock jh-lock" aria-label="Job Hub is locked"><div class="hl-art">${jhLogo()}</div>
+    <h2>Your free month is up</h2>
+    <p>Keep your job search going for <b>${esc(PLAN.JOB_MONTHLY)}</b> - today's matches, Career Fit, Resume Studio, your pipeline and reminders. Everything you saved is still here. Cancel any time.</p>
+    <a class="hl-buy" href="${esc(PLAN.JOB_CHECKOUT_URL)}" target="_blank" rel="noopener">Keep going - ${esc(PLAN.JOB_MONTHLY)}</a>
+    ${hubLockFoot()}</section>`;
+}
+function jhTrialHtml() {           // a small line on Home while the free month runs
+  if (!jhSells() || !jhSet()) return "";
+  const T = jhTrial(); if (T.paid || !T.left) return "";
+  return `<div class="jh-trialbar">${jhIco("star")}<span class="grow"><b>Free for ${T.left} more day${T.left === 1 ? "" : "s"}</b><small>Then ${esc(PLAN.JOB_MONTHLY)}, cancel any time.</small></span><button class="jh-all" data-open="sheet">Already subscribed?</button></div>`;
+}
 const jhQ = () => (S.jh && S.jh.me && S.jh.cv && S.jh.jobs && Array.isArray(S.jh.hide) && Array.isArray(S.jh.follow) ? S.jh : jh());   // already repaired: skip the full check (hot paths)
 const jhMoney = n => !n ? "" : n >= 1000 ? "$" + (n >= 100000 ? Math.round(n / 1000) : Math.round(n / 100) / 10) + "K" : "$" + n;
 const jhPayTxt = j => { const a = j.min || 0, b = j.max || 0; if (!a && !b) return "Pay not posted"; if (a && b && a !== b) return `${jhMoney(a)} – ${jhMoney(b)}`; return jhMoney(a || b); };
@@ -373,6 +392,7 @@ function hideJh(fromPop) {
   if (!fromPop && JH_HPUSH) { JH_HPUSH = 0; JH_HSKIP++; try { history.back(); } catch (e) { JH_HSKIP = 0; } }
 }
 function showJh(tab, push) {
+  if (jhPaused()) { if (JH_OPEN) hideJh(true); if (typeof render === "function") render(); return; }   // v1.66.2 locked: only the lock screen
   const el = jhSheet(), old = el.querySelector(".sheet-body"), same = JH_OPEN && (!tab || tab === JH_TAB), keep = same && old ? old.scrollTop : 0;
   if (tab && tab !== JH_TAB && push !== false && JH_OPEN) JH_STACK.push(JH_TAB);
   if (tab) JH_TAB = tab; if (!JH_OPEN) jhHist(); JH_OPEN = true;
@@ -460,6 +480,7 @@ function jhDashHtml() {
       <button class="jh-tile" data-jhtab="radar">${jhIco("target")}<b>${JH_FEED ? strong : "…"}</b><small>Matches</small>${nNew ? `<em class="up">+${nNew} new</em>` : `<em>for you</em>`}</button>
       <button class="jh-tile" data-jhtab="pipe">${jhIco("cal")}<b>${ivs.length}</b><small>Interviews</small><em>This week</em></button>
       <button class="jh-tile" ${best ? `data-jhjob="${esc(best.id)}"` : 'data-jhtab="prefs"'}>${jhIco("coins")}<b>${best ? jhMoney(best.max || best.min) : "—"}</b><small>Top Salary</small>${best ? (up > 0 ? `<em class="up">↑ +${up}%</em>` : `<em class="cl">${esc(best.t)}</em>`) : `<em>Set your pay</em>`}</button></div>
+    ${jhTrialHtml()}
     <div class="jh-sec"><h3 class="jh-h3">Top Job Matches for You</h3><button class="jh-all" data-jhtab="radar" data-jhroot="1">View All ›</button></div>
     ${top.length ? top.map(j => jhRowHtml(j, "Match")).join("") : `<p class="jh-empty">${JH_FEEDERR ? esc(JH_FEEDERR) : !JH_FEED ? "Loading today's openings…" : "No openings match yet - try another job title under What I'm Looking For."}</p>`}
     <div class="jh-sec"><h3 class="jh-h3">Top Jobs in the Market</h3><button class="jh-all" data-jhtab="radar" data-jhroot="1">View All ›</button></div>

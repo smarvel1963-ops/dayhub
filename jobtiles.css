@@ -391,3 +391,13 @@ body.jhapp .field { color: var(--jh-soft); }
   .jh-seg.four button { font-size: 12.5px; padding: 9px 3px; } .jh-fac { grid-template-columns: 20px 1fr 60px 60px; } .jh-slider { grid-template-columns: 20px 1fr 80px 40px; }
   .jh-ring { width: 186px; height: 186px; } .jh-etiles b { font-size: 13.5px; } .jh-dds { grid-template-columns: 1fr 1fr; } .jh-dds .jh-dd:first-child { grid-column: 1 / -1; }
 }
+
+/* ---- v1.66.2 the price: the lock screen after the free month, and the free-days line on Home */
+body.jhapp .hub-lock.jh-lock { background: linear-gradient(180deg, #10224c, #0a1736); color: #eef2fc; border: 1px solid rgba(242, 193, 78, .45); box-shadow: 0 18px 50px rgba(0, 0, 0, .5); }
+.jh-lock .hl-art .jh-logo { width: 84px; height: 62px; }
+.jh-lock h2 { font: 800 26px "Inter", sans-serif; }
+.jh-lock .hl-buy { background: linear-gradient(180deg, #ffe08a, #f2c14e 55%, #d39b2c); color: #1a1408; font-family: "Inter", sans-serif; }
+.jh-lock .hl-link { color: #ffe08a; }
+.jh-trialbar { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 10px 12px; border-radius: 14px; border: 1px solid rgba(242, 193, 78, .45); background: rgba(242, 193, 78, .07); }
+.jh-trialbar > .jh-i { color: #f2c14e; width: 22px; height: 22px; }
+.jh-trialbar b { display: block; color: #fff; font-size: 14px; } .jh-trialbar small { display: block; color: #9fb0d6; font-size: 12.5px; margin-top: 1px; }

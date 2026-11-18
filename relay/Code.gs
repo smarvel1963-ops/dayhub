@@ -159,6 +159,8 @@
  *   unlock it - and a household gets its own list of up to MAGIC_PHONES devices (TVs + phones), apart from the Hub phone list.
  * v21 (Scott 11/15: "pricing free for 2 weeks then 2.99 month"): Cooking Hub accepts its own Cooking Hub plan ($2.99/mo) as well as Day Hub
  *   Pro. Whop product "Cooking Hub" prod_YbfZgnB1WQdgG (created 11/15, $2.99/month + $19.99/year); a Script Property COOKING_PRODUCT_ID overrides it.
+ * v23 (Scott 11/18: "4.99 month"): Job Hub accepts its own Job Hub plan ($4.99/mo, 30 free days in the app) as well as Day Hub Pro. Whop product
+ *   "Job Hub" prod_FSHoDPP73YMO7 (created 11/18); a Script Property JOB_PRODUCT_ID overrides it. Job Hub buyers also get the emailed code (hubBuyer).
  */
 const MODEL = "claude-haiku-4-5";
 const DAILY_CAP = 200;              // requests per day, all tasks together
@@ -357,6 +359,7 @@ function proLookup(P, b, isMem, app) {
                    moneyhub: ["MONEY_PRODUCT_ID", "Money Hub Pro", "prod_xg2i3uygnEw5s"],
                    familyhub: ["FAMILY_PRODUCT_ID", "Family Hub", "prod_uPpRIheUlmL76", true],
                    cookinghub: ["COOKING_PRODUCT_ID", "Cooking Hub", "prod_YbfZgnB1WQdgG"],
+                   jobhub: ["JOB_PRODUCT_ID", "Job Hub", "prod_FSHoDPP73YMO7"],   // v23 Job Hub $4.99/mo (created 11/18)
                    marvelmagic: ["MAGIC_PRODUCT_ID", "Marvel Magic", "prod_jXXGU9TnSIgHR", false, true] };   // v22: 5th = its own product only (Day Hub Pro doesn't unlock it)   // v21: Cooking Hub $2.99/mo or $19.99/yr, Whop prod_YbfZgnB1WQdgG (created 11/15)   // 3rd = default id (public, on the checkout page); a Script Property overrides it. 4th = sold one time (v19).
   const pass = PASSES[app] || null;
   const cpid = pass ? (prop(P, pass[0]) || pass[2] || null) : null;
@@ -555,7 +558,7 @@ function markConfirmed(P, b, dev) { P.setProperty(confirmKey(b, dev), Utilities.
 
 // Did this address buy any Hub product (Pro, a Pass or AI Credits)? Same cached lookups as verify / credits.
 function hubBuyer(P, b) {
-  for (const app of ["dayhub", "cruisehub", "triphub", "autohub", "moneyhub", "familyhub", "cookinghub", "marvelmagic"]) {
+  for (const app of ["dayhub", "cruisehub", "triphub", "autohub", "moneyhub", "familyhub", "cookinghub", "jobhub", "marvelmagic"]) {
     const r = proLookup(P, b, false, app);
     if (r.error) return r;
     if (r.valid) return { yes: true };

@@ -729,6 +729,7 @@ function miniHtml(k) {
 function hubLockHtml() {
   if (MODE === "family" && typeof fhPaused === "function" && fhPaused() && typeof fhLockHtml === "function") return fhLockHtml();
   if (MODE === "cooking" && typeof ckPaused === "function" && ckPaused() && typeof ckLockHtml === "function") return ckLockHtml();
+  if (MODE === "job" && typeof jhPaused === "function" && jhPaused() && typeof jhLockHtml === "function") return jhLockHtml();   // v1.66.2
   return "";
 }
 const hubLockFoot = () => `<button class="hl-link" data-open="sheet">I already bought it - enter my email</button>
@@ -1875,6 +1876,10 @@ function drawProBox() {
   const what = familyPass()
     ? `<p class="fine" style="margin-top:0"><b>One purchase, your whole family.</b> Everyone you invite uses it free. Nothing to renew.</p>
        <p class="fine" style="margin-top:4px">No ads, ever. No location tracking.</p>`
+    : jobPass()
+    ? `<p class="fine" style="margin-top:0"><b>Your whole job search in one place.</b> Free for your first 30 days. Already have ${PLAN.NAME}? It includes Job Hub: enter that email below.</p>
+       <ul class="pro-list"><li>🔭 Today's openings matched to you, every morning</li><li>🎯 Career Fit, Resume Studio and Tailor To a Job</li><li>📊 Your pipeline with interview and follow-up reminders</li><li>☁️ Backup to your own Google Drive</li></ul>
+       <p class="fine" style="margin-top:4px">No ads, ever. Job Hub never applies for you or signs in to job sites.</p>`
     : moneyPass()
     ? `<p class="fine" style="margin-top:0"><b>All your money in one place.</b> Free Money Hub keeps 3 accounts with bills, budget, debt payoff, subscriptions and the payday planner. Already have ${PLAN.NAME}? It includes Money Hub: enter that email below.</p>
        <ul class="pro-list"><li>🏦 Unlimited accounts</li><li>📥 Import your bank's CSV - duplicates skipped</li><li>📊 Reports - this month vs the last 3</li><li>☁️ Backup to your own Google Drive</li></ul>
@@ -1903,11 +1908,12 @@ function drawProBox() {
     <p class="fine" style="margin-top:4px">Everything else — every card, reminders, budget, lists, trips — is free forever. No ads, ever.</p>`;
   const price = familyPass() ? `<p class="fine"><b>${PLAN.FAMILY_PRICE}</b> — no subscription.</p>`
     : cookingPass() ? `<p class="fine"><b>${PLAN.COOKING_MONTHLY}</b> or <b>${PLAN.COOKING_YEARLY}</b> after your 2 free weeks — cancel any time on Whop.</p>`
+    : jobPass() ? `<p class="fine"><b>${PLAN.JOB_MONTHLY}</b> after your free month — cancel any time on Whop.</p>`
     : moneyPass() ? `<p class="fine"><b>${PLAN.MONEY_MONTHLY}</b> — 30 days free, cancel any time on Whop.</p>`
     : autoPass() ? `<p class="fine"><b>${PLAN.AUTO_MONTHLY}</b> — 30 days free, cancel any time on Whop.</p>`
     : cruisePass() ? `<p class="fine"><b>${PLAN.CRUISE_YEARLY}</b> — every cruise you take that year.</p>`
     : tripPass() ? `<p class="fine"><b>${PLAN.TRIP_YEARLY}</b> — every trip you take that year.</p>` : `<p class="fine"><b>${PLAN.MONTHLY}</b> or <b>${PLAN.YEARLY}</b>.</p>`;
-  const buyUrl = STORE_MODE ? "" : familyPass() ? PLAN.FAMILY_CHECKOUT_URL : cookingPass() ? PLAN.COOKING_CHECKOUT_URL : moneyPass() ? PLAN.MONEY_CHECKOUT_URL : autoPass() ? PLAN.AUTO_CHECKOUT_URL : cruisePass() ? PLAN.CRUISE_CHECKOUT_URL : tripPass() ? PLAN.TRIP_CHECKOUT_URL : PLAN.WHOP_CHECKOUT_URL;
+  const buyUrl = STORE_MODE ? "" : familyPass() ? PLAN.FAMILY_CHECKOUT_URL : cookingPass() ? PLAN.COOKING_CHECKOUT_URL : jobPass() ? PLAN.JOB_CHECKOUT_URL : moneyPass() ? PLAN.MONEY_CHECKOUT_URL : autoPass() ? PLAN.AUTO_CHECKOUT_URL : cruisePass() ? PLAN.CRUISE_CHECKOUT_URL : tripPass() ? PLAN.TRIP_CHECKOUT_URL : PLAN.WHOP_CHECKOUT_URL;
   // v1.58b: where Calendar sync / backup stand - paused (this phone isn't Pro now) or ending soon (plan set not to renew)
   const ends = proEndsIn(), uses = S.gcal.connected || S.sync.on, r = lapsedRec();
   const syncLine = syncPaused() ? `<p class="fine" style="margin-top:0">⏸ <b>Calendar sync and backup are paused.</b> Your info is safe — on this phone and in your Google Drive, and restoring a backup still works. ${!STORE_MODE && r.buyer && !r.ok ? `Renew ${esc(lapsedName(r))}, then tap Unlock below` : "Tap Unlock below"} and they pick up where they left off.</p>`
