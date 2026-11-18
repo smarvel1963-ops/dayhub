@@ -96,7 +96,7 @@ const htYmd = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
 function htTopHtml(home) {
   return `<div class="ht-top"><span class="ht-logo" aria-hidden="true">${HT_LOGO}</span>
     <div class="ht-brand"><b>Home Hub</b>${home ? "" : `<small>${esc(HT_TAB_NAME[TAB] || "")}</small>`}${navigator.onLine === false ? ` <span class="offline-pill">🟠 Offline</span>` : ""}</div>
-    <button class="ht-gear" data-htgo="settings" aria-label="Settings">${HI.gear}</button></div>`;
+    <button class="ht-gear stm-hd" data-stm="1" aria-label="Share the Magic - share this app">✨</button><button class="ht-gear" data-htgo="settings" aria-label="Settings">${HI.gear}</button></div>`;
 }
 // The hidden hero's must-see chips (new version, Install, Pro paused / ending, backup waiting), all of them for this one read.
 function htNoticesHtml() {

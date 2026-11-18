@@ -637,6 +637,7 @@ function ckMoreHtml() {
     <div class="ck-lookpick"><button class="ck-lookcard k ${L === "kitchen" ? "on" : ""}" data-cklook="kitchen"><span>${ckFox("sm")}<b>✨ Magical Kitchen</b><small>Storybook kitchen + chef fox</small></span></button>
       <button class="ck-lookcard v ${L === "vintage" ? "on" : ""}" data-cklook="vintage"><span>${ckBowl("sm")}<b>📖 Grandma's Recipe Box</b><small>Classic family cookbook</small></span></button></div>
     <div class="ck-morelist">
+      <button class="ck-row ck-stm" data-stm="1"><span class="ck-ic">✨</span><span class="grow"><b>Share the Magic</b><small>Show friends what makes Cooking Hub special</small></span><span class="chev">›</span></button>
       <button class="ck-row" data-cktab="weekly"><span class="ck-ic">🏆</span><span class="grow"><b>Recipe of the Week</b><small>Our cooks' winner + vote for next week</small></span><span class="chev">›</span></button>
       ${ckReviewer() ? `<button class="ck-row" data-cktab="review"><span class="ck-ic">🛡️</span><span class="grow"><b>Review shared recipes</b><small>Marvel Corp only</small></span><span class="chev">›</span></button>` : ""}
       <button class="ck-row" data-cktab="ribbon"><span class="ck-ic">🎀</span><span class="grow"><b>Blue Ribbon Recipes</b><small>Your top-rated</small></span><span class="chev">›</span></button>

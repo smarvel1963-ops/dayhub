@@ -558,7 +558,7 @@ function ptNeedsHtml() {
 }
 function ptMoreHtml() {
   const gone = ptPets().filter(p => p.passed).length;
-  return tileNav([["＋", "Add a pet", 'data-ptnew="1"'], ["🦮", "Daily care", 'data-pttab="care"'], ["🩺", "Health & records", 'data-pttab="health"'], ["🛂", "Pet passport", 'data-pttab="pass"'],
+  return tileNav([["✨", "Share Pet Hub", 'data-stm="1"'], ["＋", "Add a pet", 'data-ptnew="1"'], ["🦮", "Daily care", 'data-pttab="care"'], ["🩺", "Health & records", 'data-pttab="health"'], ["🛂", "Pet passport", 'data-pttab="pass"'],
     ["🖼️", "Memories", 'data-pttab="mem"'], ["🎂", "Birthdays", 'data-pttab="bday"'], ["🐾", "All my pets", 'data-pttab="all"'], ...(gone ? [["🌈", "Rainbow Bridge", 'data-pttab="bridge"']] : []),
     ["💡", "Ask Pet Hub", 'data-ask="open" data-ptclose="1"'], ["⚙️", "Settings & backup", 'data-open="sheet" data-ptclose="1"']].map(([i, l, a]) => ({ icon: i, label: l, attrs: a })), 3, "pt-tiles")
     + `<p class="fine pt-adv">Pet Hub - a Marvel Corp app, part of the Hub family. ${PT_ADV} Everything you type stays on this phone unless you turn on backup; photos stay on this phone only.</p>`;

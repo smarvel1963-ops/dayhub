@@ -409,7 +409,7 @@ def test_review_fixes(b, base):
     use(a, scott); a.js("fhMem('mia').bday = '2016-02-29'; save()")
     check("a Feb 29 birthday shows on Feb 28 in other years", a.js("fhDay('2027-02-28').some(x => x.bday && x.bday.id === 'mia')") and a.js("fhBdays().find(x => x.m.id === 'mia').next") == "2027-02-28")
     a.js("S.fh.setup = addDays(today(), -40); save(); showFh('more')")
-    check("after 30 days the trial says it has ended (not 'ends today' forever)", "free trial has ended" in a.page.inner_text("#fhSheet"))
+    check("after 30 days the trial has ended: the app shows the lock (v1.65), not 'ends today' forever", "free trial has ended" in a.page.inner_text("#cards") and not a.js("FH_OPEN"))
     a.js("S.fh.members[1].color = '\"><img src=x onerror=window.__x=1>'; S.fh = JSON.parse(JSON.stringify(S.fh)); render()"); a.page.wait_for_timeout(150)
     check("colours and faces from storage are re-checked (no markup gets in)", a.js("window.__x") is None and a.js("S.fh.members[1].color") == "#c8d6e5")
     a.js("ERASE_ARMED = Date.now(); eraseAll()"); a.page.wait_for_timeout(300)

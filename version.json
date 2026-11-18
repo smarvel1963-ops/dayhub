@@ -1,6 +1,9 @@
 {
- "version": "1.66.3",
+ "version": "1.67",
  "notes": {
+  "1.67": [
+   "✨ Share the Magic: share this app with friends - pick a picture, add a message and send it to Text, Facebook, Messenger, X, Telegram and more. Tap ✨ or open Settings."
+  ],
   "1.66.3": [
    "💼 Job Hub: a friendlier screen when the free month ends - it shows what you've built so far.",
    "🍳 Cooking Hub: a warmer screen when the free weeks end, with both ways to keep cooking side by side."

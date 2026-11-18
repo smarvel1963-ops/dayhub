@@ -87,7 +87,7 @@ const ttYmd = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
 function ttTopHtml(home) {
   return `<div class="tt-top"><span class="tt-logo" aria-hidden="true">${TT_LOGO}</span>
     <div class="tt-brand"><b>Trip Hub</b>${home ? "" : `<small>${esc(TT_TAB_NAME[TAB] || "")}</small>`}${navigator.onLine === false ? ` <span class="offline-pill">🟠 Offline</span>` : ""}</div>
-    <button class="tt-gear" data-ttgo="settings" aria-label="Settings">${TT_GEAR}</button></div>`;
+    <button class="tt-gear stm-hd" data-stm="1" aria-label="Share the Magic - share this app">✨</button><button class="tt-gear" data-ttgo="settings" aria-label="Settings">${TT_GEAR}</button></div>`;
 }
 // The hidden hero's must-see chips (app.js heroHtml builds them; all of them for this one read, none folded behind "+N more").
 function ttNoticesHtml() {

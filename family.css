@@ -330,3 +330,49 @@ body.fh-big .fh-tabs button, body.fh-big .fh-nav button { font-size: .9rem; }
 .fh-hello .fhs-join { margin-top: 14px; padding: 4px 0 0; border-top: 1px dashed #c9daee; } .fh-hello .fhs-join input { text-transform: uppercase; letter-spacing: 2px; }
 .fhs-owner { text-align: center; }
 .fh-sheet .fh-share h3 { font-size: 1.2rem; font-weight: 900; color: var(--navy); margin: 6px 0; } .fh-share p { font-weight: 600; }
+
+/* ---- v1.67 the pay-to-stay page = Scott's design (11/18): the family photo, a warm cream card, serif headings, the $25 once price */
+body .hub-lock.fh-lock { max-width: 460px; min-width: 0; box-sizing: border-box; position: relative; margin: 0 auto 30px; padding: 0; border-radius: 0 0 30px 30px; overflow: hidden; border: 0; text-align: center; color: #3b2314;
+  background: linear-gradient(180deg, #fef6ed, #fdeee0 70%, #f6e3cf); box-shadow: 0 18px 50px rgba(120, 60, 20, .22); font-family: "Nunito", "Inter", sans-serif; }
+.fh-lhero { position: relative; height: 230px; overflow: hidden; }
+.fh-lhero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%; display: block; }
+.fh-lcard { position: relative; margin: -34px 10px 0; padding: 14px 14px 18px; border-radius: 34px 34px 24px 24px; background: linear-gradient(180deg, #fffaf3, #fef3e6);
+  box-shadow: 0 -8px 20px rgba(120, 60, 20, .18); }
+.fh-lbrand { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.fh-lbrand img { width: 92px; height: auto; display: block; mix-blend-mode: multiply; }
+.fh-lbrand span { display: grid; justify-items: center; }
+.fh-lbrand b { font: 700 27px/1 Georgia, "Times New Roman", serif; color: #3b2314; letter-spacing: .3px; }
+.fh-lbrand small { display: flex; align-items: center; gap: 8px; font: 500 14px Georgia, serif; color: #5a3a25; margin-top: 4px; }
+.fh-lbrand small::before, .fh-lbrand small::after { content: ""; width: 20px; height: 1.5px; background: #5a3a25; opacity: .6; }
+body .fh-lock h2 { font: 700 30px/1.12 Georgia, "Times New Roman", serif !important; color: #2e1a10; margin: 10px 0 4px !important; letter-spacing: -.3px; }
+.fh-lsub { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 2px 0 10px !important; font: italic 400 18px Georgia, serif; color: #3b2314; }
+.fh-lsub i { font-style: normal; font-size: 15px; }
+.fh-lstats { margin: 0 0 12px !important; font: 700 13px "Nunito", sans-serif; color: #6a4a35; } .fh-lstats b { color: #b8321f; font-weight: 900; }
+.fh-lfeats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.fh-lf { display: flex; align-items: center; gap: 4px; padding: 6px 6px 6px 3px; border-radius: 20px; text-align: left; min-height: 74px;
+  box-shadow: 0 4px 12px rgba(120, 60, 20, .12), inset 0 0 0 1px rgba(255, 255, 255, .6); }
+.fh-lf img { width: 52px; height: auto; flex: none; display: block; border-radius: 14px; mix-blend-mode: multiply; }
+.fh-lf b { min-width: 0; font: 700 15.5px/1.15 Georgia, serif; color: #2e1a10; }
+.fh-lf.t1 { background: linear-gradient(135deg, #fef7e5, #fdeccf); } .fh-lf.t2 { background: linear-gradient(135deg, #fde1cf, #fbd2bf); }
+.fh-lf.t3 { background: linear-gradient(135deg, #ebe8c2, #dfdcb0); } .fh-lf.t4 { background: linear-gradient(135deg, #fee6c0, #fdd9a8); }
+.fh-lstrip { display: block; width: calc(100% + 16px); margin: 10px -8px 4px; height: auto; mix-blend-mode: multiply; }
+.fh-lplan { position: relative; display: flex; min-width: 0; align-items: center; gap: 14px; margin-top: 12px; padding: 18px 16px 14px; border-radius: 20px; text-align: left;
+  background: linear-gradient(135deg, #fffaf2, #fdeede); border: 2px solid #e2a85a; box-shadow: 0 6px 18px rgba(200, 120, 40, .2); }
+.fh-lplan em { position: absolute; top: -12px; right: 14px; padding: 4px 12px; border-radius: 8px 8px 8px 2px; background: linear-gradient(180deg, #d9452f, #b8321f); color: #fff;
+  font: 800 11.5px "Nunito", sans-serif; letter-spacing: 1px; font-style: normal; white-space: nowrap; box-shadow: 0 3px 8px rgba(184, 50, 31, .35); }
+.fh-lamt { font: 700 42px/1 Georgia, serif; color: #2e1a10; flex: none; }
+.fh-lplan span { display: grid; gap: 2px; } .fh-lplan span b { font: 700 19px Georgia, serif; color: #2e1a10; } .fh-lplan span small { font: italic 400 14.5px/1.35 Georgia, serif; color: #5a3a25; }
+body .fh-lock .hl-buy { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 16px; padding: 15px 18px; border-radius: 999px; color: #fff;
+  font: 700 19px Georgia, serif; border: 3px solid #f0c27a; background: linear-gradient(180deg, #e9604a, #cc3f2a 55%, #a92b1a);
+  box-shadow: 0 8px 22px rgba(169, 43, 26, .38), inset 0 1px 0 rgba(255, 255, 255, .35); }
+body .fh-lock .hl-buy span { font-size: 30px; line-height: .8; }
+.fh-lonce { display: flex; align-items: center; gap: 12px; margin: 12px 18px 4px !important; font: italic 400 17px Georgia, serif; color: #3b2314; }
+.fh-lonce span { flex: 1; height: 1px; background: #8a6a55; opacity: .5; }
+.fh-lnote { margin: 12px 4px 6px !important; padding: 12px; border-radius: 16px; background: #fdeee0; font: 800 15px/1.45 "Nunito", sans-serif; color: #3b2314; }
+.fh-lrest { margin: 8px 0 0 !important; font: 400 16px Georgia, serif; color: #3b5a2e; }
+body .fh-lock .fh-lrest .hl-link { display: inline; width: auto; margin: 0; padding: 0; color: #2e5a2a; font: 400 16px Georgia, serif; text-decoration: underline; }
+body .fh-lock > .fh-lcard > .hl-link { color: #2e5a2a; font: 400 16px Georgia, serif; margin-top: 6px; text-decoration: underline; }
+.fh-lsafe { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 14px 0 0 !important; padding: 13px 14px; border-radius: 999px;
+  background: linear-gradient(180deg, #fffaf0, #fbefd9); border: 1.5px solid #ecc98e; font: 700 15px/1.35 Georgia, serif; color: #2e1a10; }
+.fh-lsafe span { font-size: 22px; padding-right: 12px; border-right: 1px solid #d8b98a; }
+@media (max-width: 500px) { body .hub-lock.fh-lock { margin: -18px -14px 30px; max-width: none; } body .fh-lock .hl-buy { padding: 15px 12px; } }   /* a phone: edge to edge, like his picture */

@@ -1473,6 +1473,7 @@ document.addEventListener("click", e => {
   const ds = t.dataset;
   if (t.id === "fab") { const T = qaTypes().map(x => x[0]); openQA(T.includes("event") ? "event" : T.find(k => k !== "dump") || "todo"); return; }
   if (ds.cloudask) { openSettings(); setTimeout(() => { const el = document.getElementById("syncBox"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); return; }   // the question, in view
+  if (ds.stm) { openShareMagic(); return; }                                  // v1.67 Share the Magic (every Hub)
   if (t.id === "settingsBtn" || ds.open === "sheet") { openSettings(); return; }
   if (ds.close === "qa") { closeQA(); return; }
   if (ds.close === "sheet") { closeSettings(); return; }
@@ -1741,7 +1742,7 @@ document.addEventListener("change", e => {
 function openSettings() {
   drawSettings();
   { let j = document.getElementById("setJump");                             // v0.63 tile menu at the top of ⚙
-    if (!j) { j = document.createElement("div"); j.id = "setJump"; const head = document.querySelector("#sheet .sheet-head"); head.after(j); }
+    if (!j) { j = document.createElement("div"); j.id = "setJump"; const head = document.querySelector("#sheet .sheet-head"); (document.getElementById("stmSetBtn") || head).after(j); }   // v1.67: under Share the Magic
     drawSetJump(); }
   document.getElementById("sheet").classList.remove("hidden");
 }
@@ -1763,6 +1764,9 @@ function drawSettings() {
   let db = document.getElementById("dataBox");
   if (!db) { db = document.createElement("div"); db.id = "dataBox"; document.getElementById("cardList").after(db); }
   drawDataBox();
+  let sm = document.getElementById("stmSetBtn");   // v1.67 Share the Magic, first thing in Settings in every Hub
+  if (!sm) { sm = document.createElement("button"); sm.id = "stmSetBtn"; sm.className = "stm-setbtn"; sm.dataset.stm = "1"; const hd = document.querySelector("#sheet .sheet-head"); if (hd) hd.after(sm); }
+  sm.innerHTML = `<span aria-hidden="true">✨</span><span><b>Share the Magic</b><small>Show friends what makes ${esc(APP_NAME)} special</small></span>`;
   let ib = document.getElementById("installBox");
   if (!ib) { ib = document.createElement("div"); ib.id = "installBox"; document.getElementById("cardList").before(ib); }
   drawInstallBox();
@@ -1885,9 +1889,9 @@ function drawProBox() {
        <ul class="pro-list"><li>🏦 Unlimited accounts</li><li>📥 Import your bank's CSV - duplicates skipped</li><li>📊 Reports - this month vs the last 3</li><li>☁️ Backup to your own Google Drive</li></ul>
        <p class="fine" style="margin-top:4px">No ads, ever. Money Hub never asks for a bank password.</p>`
     : autoPass()
-    ? `<p class="fine" style="margin-top:0"><b>Every car you own, looked after.</b> Free Auto Hub keeps 2 cars with everything in them. Already have ${PLAN.NAME}? It includes Auto Hub: enter that email below.</p>
+    ? `<p class="fine" style="margin-top:0"><b>Every car you own, looked after.</b> Free Auto Hub keeps 1 car with everything in it. Already have ${PLAN.NAME}? It includes Auto Hub: enter that email below.</p>
        <ul class="pro-list"><li>🚗 Unlimited cars - the whole family's, plus the truck and the boat trailer</li><li>☁️ Backup to your own Google Drive</li></ul>
-       <p class="fine" style="margin-top:4px">Service, fuel, recalls, papers, extras, journal and the build sheet are free on your first two cars. No ads, ever.</p>`
+       <p class="fine" style="margin-top:4px">Service, fuel, recalls, papers, extras, journal and the build sheet are free on your first car. No ads, ever.</p>`
     : tripPass()
     ? `<p class="fine" style="margin-top:0"><b>One price for the whole year — plan as many trips as you like.</b> Already have ${PLAN.NAME}? It includes Trip Hub: enter that email below.</p>
        <ul class="pro-list"><li>🗓️ Your trip, flights, hotels and plans on your phone's calendar</li><li>☁️ Backup to your own Google Drive</li></ul>

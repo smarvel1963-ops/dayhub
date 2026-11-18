@@ -11,7 +11,7 @@ html:has(body.dt) { background: #0b2545; }
 /* the hero keeps the classic dark-sky colours (the page below turns light) */
 body.dt #hero { --card: rgba(255, 255, 255, .055); --card-solid: #141a30; --line: rgba(255, 255, 255, .08); --text: #f2f4fb; --dim: #c3cbe6;
   --accent: #5eead4; --accent2: #818cf8; --gold: #fcd34d; --red: #fb7185; --green: #4ade80; --orange: #fb923c; color: var(--text); }
-body.dt #hero .hero-btns .icon-btn:not(#settingsBtn) { display: none; }      /* Ask / Don't forget / Brain dump are the quick buttons */
+body.dt #hero .hero-btns .icon-btn:not(#settingsBtn):not(.stm-hero) { display: none; }   /* v1.67: Share the Magic's ✨ stays */      /* Ask / Don't forget / Brain dump are the quick buttons */
 body.dt:not([data-tab="home"]) #hero .greet, body.dt:not([data-tab="home"]) #hero .verdict-row,
 body.dt:not([data-tab="home"]) #hero .chips { display: none; }               /* other tabs: just the name bar + ⚙ */
 body.dt:not([data-tab="home"]) #hero { padding-bottom: 12px; }

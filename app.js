@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.66.3";
+const VERSION = "1.67";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -87,6 +87,15 @@ const syncOk = f => !switchOn("PRO_LAPSE") || can(f);   // v1.58b: Calendar sync
 // v0.48: each hub keeps its own unlock ("cruisehub.pro" in Cruise Hub); Cruise
 // Hub ALSO counts a Day Hub Pro unlock on the same phone (Day Hub Pro covers both).
 const PRO_KEY = APP_ID + ".pro", DAY_PRO_KEY = "dayhub.pro", DAY_MS = 86400000;
+// v1.67 SHARE THE MAGIC (Scott 11/06 "Share this app" -> 11/18 his design + "Yes, build part 1"): share.js (the page, its look, the share
+// pictures) loads the first time someone taps ✨, so no Hub gets heavier; every Hub reaches it from ✨ / Settings / its More page.
+function openShareMagic() {
+  const sh = document.getElementById("sheet"); if (sh && !sh.classList.contains("hidden") && typeof closeSettings === "function") closeSettings();
+  if (typeof stmOpen === "function") return stmOpen();
+  const s = document.createElement("script"); s.src = new URL("share.js?v=" + VERSION, BASE_URL).href;
+  s.onload = () => { if (typeof stmOpen === "function") stmOpen(); }; s.onerror = () => { s.remove(); toast("Couldn't open sharing - check your connection"); };
+  document.head.appendChild(s);
+}
 const readPro = k => { try { return JSON.parse(localStorage.getItem(k) || "{}") || {}; } catch (e) { return {}; } };
 const proState = () => readPro(PRO_KEY);
 const setProState = p => { try { localStorage.setItem(PRO_KEY, JSON.stringify(p)); } catch (e) { /* private mode */ } };
@@ -3307,7 +3316,7 @@ function heroHtml() {
   // v0.54 (Scott 10/4: "across the top of the apps to signify app you're on - DAY HUB, CRUISE HUB"):
   // every hub shows its own name + icon at the top.
   return `<div class="hero-top"><div class="brand"><img src="icon-192.png" alt="" width="24" height="24"><span>${esc(APP_NAME.toUpperCase())}</span>${navigator.onLine === false ? `<span class="offline-pill" title="No connection - your plans still work; weather may be old">🟠 Offline</span>` : ""}</div>
-      <span class="hero-btns">${!TRAVEL ? `<button class="icon-btn" data-ask="open" aria-label="Ask ${APP_NAME}">💡</button>${MODE === "day" ? `<button class="icon-btn" data-leave="1" aria-label="Don't forget">🚪</button>` : ""}<button class="icon-btn" data-dump="1" aria-label="Brain dump">🧠</button>` : `<button class="icon-btn help-icon" data-help="home" aria-label="Need help">🛟</button><button class="icon-btn" data-ask="open" aria-label="Ask ${APP_NAME}">💡</button>`}<button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button></span></div>
+      <span class="hero-btns">${!TRAVEL ? `<button class="icon-btn" data-ask="open" aria-label="Ask ${APP_NAME}">💡</button>${MODE === "day" ? `<button class="icon-btn" data-leave="1" aria-label="Don't forget">🚪</button>` : ""}<button class="icon-btn" data-dump="1" aria-label="Brain dump">🧠</button>` : `<button class="icon-btn help-icon" data-help="home" aria-label="Need help">🛟</button><button class="icon-btn" data-ask="open" aria-label="Ask ${APP_NAME}">💡</button>`}<button class="icon-btn stm-hero" data-stm="1" aria-label="Share the Magic - share this app">✨</button><button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button></span></div>
     <div class="greet">${greet()}</div>
     <div class="hero-main"><div><div class="hero-clock" id="clockNow"></div><div class="hero-date">${longDate(today())}</div></div>${wx}</div>
     ${CD || `<div class="verdict-row">${!TRAVEL && (S.name || hasData(S)) ? pulseRing() : ""}<div class="verdict">${verdict}</div></div>`}

@@ -179,7 +179,7 @@ function uniHomeHtml() {
   const H = uniScan(), N = uniNeeds(H), t = today(), groups = [...new Set(UNI_HUBS.map(x => x[6]))];
   const used = H.filter(h => h.set).length, todayL = N.filter(x => x.day === t || x.late);
   return `<section class="card uni-home" aria-label="Hub Universe">
-    <div class="uni-top"><span class="uni-brand">🌌 HUB <b>UNIVERSE</b></span><small>${used} of ${H.length} hubs in use</small></div>
+    <div class="uni-top"><span class="uni-brand">🌌 HUB <b>UNIVERSE</b></span><small>${used} of ${H.length} hubs in use</small><button class="uni-share" data-stm="1" aria-label="Share the Magic - share Hub Universe">✨ Share</button></div>
     ${groups.map((g, i) => uniOrbitHtml(g, H.filter(h => h.group === g), i === 0)).join("")}
     <div class="uni-soon">${UNI_SOON.map(x => `<span>${esc(x)}</span>`).join("")}<em>more planets coming</em></div>
     <div class="uni-more"><em>Also from Marvel Corp:</em>${UNI_MORE.map(([ic, n, w, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener"><span aria-hidden="true">${ic}</span> <b>${esc(n)}</b> - ${esc(w)} ›</a>`).join("")}</div>

@@ -172,7 +172,7 @@ function mtMoreHtml() {
     grp("Up to date", [["refresh", "Update my accounts", 'data-mhtab="update"', "days since each was brought up to date"], ["link", "Bring in a bank file", 'data-mhtab="connect"', "never a password"]]) +
     grp("Records & help", [["lock", "Document Vault", 'data-mhtab="vault"', "on this phone only"], ["chat", `Ask ${APP_NAME}`, 'data-ask="open"', "answers from your own numbers"],
       ["plan", "Brain dump", 'data-dump="1"', "get it out of your head"]]) +
-    grp("App", [["gear", "Settings", 'data-mtgo="settings"', "reminders, backup, your data"], ["orbit", "Orbit view", 'data-mvview="orbit"', "the older home"],
+    grp("App", [["spark", "Share the Magic", 'data-stm="1"', "show friends what makes Money Hub special"], ["gear", "Settings", 'data-mtgo="settings"', "reminders, backup, your data"], ["orbit", "Orbit view", 'data-mvview="orbit"', "the older home"],
       ["palette", "Classic Look", 'data-mtgo="classic"', "the old screen"]]) +
     `<p class="mt-fine">An estimate from what you've typed. Your bank is the real number. Money Hub never asks for a bank password and never moves money.</p>`;
 }

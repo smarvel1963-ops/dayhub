@@ -861,6 +861,7 @@ function jhPasteHtml() {
 function jhMoreHtml() {
   const J = jh(), row = (attrs, i, t, s) => `<button class="jh-mrow" ${attrs}><span class="jh-mic">${jhIco(i)}</span><span class="grow"><b>${t}</b><small>${s}</small></span>${jhIco("right", "jh-go")}</button>`;
   return `${jhHero("building", "More", "", "Manage your job search, customize your experience, and unlock more powerful tools.")}
+    ${row('data-stm="1"', "spark", "Share the Magic", "Show friends what makes Job Hub special.")}
     ${row('data-jhtab="prefs"', "filter", "Preferences", "Update your goals, location, pay, and importance rates.")}
     ${row('data-jhtab="paste"', "search", "Check a Job I Found", "Analyze any job posting for fit, pay, and key insights.")}
     ${row('data-jhclose="1" data-ask="1"', "spark", "Ask AI", "Interview questions, follow-ups, resume wording, your saved jobs.")}

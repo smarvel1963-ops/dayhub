@@ -109,14 +109,32 @@ function fhProNote() {
   return "";
 }
 // v1.65 the whole app locks after the free trial (Scott 11/15: "All paid apps"); ui.js render() shows only this.
+// v1.67 the pay-to-stay page = Scott's own design (11/18 "Family Hub subscription renewal"): the family over the album, "Keep your
+// family connected.", what stays together, the memories line, then the REAL price - his picture had placeholder monthly / yearly plans;
+// Family Hub is $25 once ("give sample page we redue it with proper amounts"). A small line of what this family has built (real counts,
+// nothing made up). Kids and other grown-ups never see a price or a button - the purchase is the owner's to make.
+const FH_LOCK_ART = n => `../familyhub/art/lock_${n}.webp`;
 function fhLockHtml() {
-  const own = fhRole() === "owner";
-  return `<section class="hub-lock fh-lock" aria-label="Family Hub is locked"><div class="hl-art" aria-hidden="true">👨‍👩‍👧</div>
-    <h2>Your 30 free days are up</h2>
-    <p>${own ? `Keep your family together for <b>${esc(PLAN.FAMILY_PRICE)}</b> - one purchase covers everyone in the family, on every phone, for good.`
-      : `One purchase unlocks Family Hub for the whole family, and it's ${esc(fhOwnerName())}'s to make. You don't need to buy anything.`}</p>
-    ${own ? `<a class="hl-buy" href="${esc(PLAN.FAMILY_CHECKOUT_URL)}" target="_blank" rel="noopener">Get Family Hub - ${esc(PLAN.FAMILY_PRICE)}</a>` : ""}
-    ${hubLockFoot()}</section>`;
+  const own = fhRole() === "owner", F = fh(), pl = (n, w) => `<b>${n}</b> ${n === 1 ? w : w + "s"}`;
+  const items = F.lists.reduce((t, l) => t + l.items.length, 0), jobs = F.chores.length + F.todos.length;
+  const stats = [[F.members.length, "member"], [F.events.length, "event"], [jobs, "task"], [items, "list item"]].filter(x => x[0] > 0).slice(0, 3);
+  const feat = (k, l, tone) => `<span class="fh-lf ${tone}"><img src="${FH_LOCK_ART("ic_" + k)}" alt=""><b>${l}</b></span>`;
+  return `<section class="hub-lock fh-lock" aria-label="Family Hub - keep your family connected">
+    <div class="fh-lhero"><img src="${FH_LOCK_ART("family")}" alt=""></div>
+    <div class="fh-lcard">
+      <div class="fh-lbrand"><img src="${FH_LOCK_ART("logo")}" alt=""><span><b>FAMILY HUB</b><small>by Marvel Corp</small></span></div>
+      <h2>Keep your family connected.</h2>
+      <p class="fh-lsub"><i aria-hidden="true">🌿</i>Your free trial has ended.<i aria-hidden="true">🌿</i></p>
+      ${stats.length ? `<p class="fh-lstats">Your family so far: ${stats.map(([n, w]) => pl(n, w)).join(" · ")}</p>` : ""}
+      <div class="fh-lfeats">${feat("cal", "Shared calendar", "t1")}${feat("photos", "Family moments", "t2")}${feat("tasks", "Lists &amp; tasks", "t3")}${feat("cake", "Important dates", "t4")}</div>
+      <img class="fh-lstrip" src="${FH_LOCK_ART("strip")}" alt="">
+      ${own ? `<div class="fh-lplan"><em>ONE PRICE · YOURS FOR GOOD</em><b class="fh-lamt">${esc(PLAN.FAMILY_PRICE.replace(/\s*once$/i, ""))}</b><span><b>One-time purchase</b><small>Covers your whole family, on every phone.</small></span></div>
+      <a class="hl-buy" href="${esc(PLAN.FAMILY_CHECKOUT_URL)}" target="_blank" rel="noopener">Keep Family Hub Together <span aria-hidden="true">›</span></a>
+      <p class="fh-lonce"><span></span>Pay once · no subscription<span></span></p>`
+      : `<p class="fh-lnote">One purchase unlocks Family Hub for the whole family, and it's ${esc(fhOwnerName())}'s to make. You don't need to buy anything.</p>`}
+      <p class="fh-lrest">${own ? "Already bought it?" : "Unlocked on another phone?"} <button class="hl-link" data-open="sheet">${own ? "Restore access" : "Enter the email"}</button></p>
+      <button class="hl-link" data-data="export">Save or export family information</button>
+      <p class="fh-lsafe"><span aria-hidden="true">🔒</span>Your family information stays on this device.</p></div></section>`;
 }
 const fhPausedHtml = () => !fhPaused() ? "" : `<section class="fh-card fh-paused" aria-label="Free trial ended"><div class="fh-cardh"><h3>⏸ Your free trial has ended</h3></div><p class="hos-hint">Nothing is lost. You can still see everything and check things off. Adding new things and sharing wait until ${fhRole() === "owner" ? "you unlock" : `${esc(fhOwnerName())} unlocks`} Family Hub.</p>${fhRole() === "owner" ? `<div class="fh-btns"><button class="btn fh-go" data-fhnav="more">See how</button></div>` : ""}</section>`;
 const FH_ART = { home: "home", cal: "calendar", msg: "messages", family: "tree", tree: "tree", photos: "memories", meals: "meals", school: "school", pets: "pets", trips: "trips" };
@@ -498,6 +516,7 @@ const FH_MORE = [["tasks", "#22b04b", "Chores"], ["lists", "#ff9f43", "Shopping"
 function fhMoreHtml() {
   const items = FH_MORE.filter(([k]) => fhTabInfo(k) && (k !== "card" || fhCan("seeCard"))).map(([k, c, l]) => ({ icon: fhTabInfo(k)[1], label: l, attrs: `data-fhtab="${k}"`, tone: c }))
     .concat([{ icon: "⚙️", label: "Settings", attrs: 'data-fhgo="settings"', tone: "#576574" }, { icon: "💡", label: "Ask", attrs: 'data-fhask="1"', tone: "#f39c12" }]);
+  items.unshift({ icon: "✨", label: "Share the Magic", attrs: 'data-stm="1"', tone: "#c48d22" });   // v1.67
   return fhTrialHtml() + fhTiles(items, "fh-moretiles") + `<p class="fine">Family Hub keeps your family on this phone. No ads. No location tracking. Kids are profiles a parent manages.</p>`;
 }
 

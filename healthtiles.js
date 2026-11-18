@@ -162,7 +162,7 @@ function hwMoreHtml() {
       ["clip", "Visit summary", 'data-hhtab="visit"', "for your doctor"], ["folder", "Records vault", 'data-hhtab="vault"', "on this phone only"]]) +
     grp("If you need help", [["shield", "Emergency card", 'data-hhtab="card"', ""], ["sos", "Show my health info", 'data-hhsos="1"', "one big screen, works offline"]]) +
     grp("Goals", [["target", "Daily goals", 'data-hhtab="goals"', ""], ["heart", "Health Score", 'data-hhtab="score"', "made from your routines"], ["trophy", "Step challenges", 'data-hhtab="challenge"', ""]]) +
-    grp("App", [["spark", `Ask ${APP_NAME}`, 'data-hhask="1"', "answers from your own log"], ["clip", "Brain dump", 'data-dump="1"', "get it out of your head"], ["gear", "Settings", 'data-hwgo="settings"', "reminders, backup, your data"],
+    grp("App", [["heart", "Share the Magic", 'data-stm="1"', "show friends what makes Health Hub special"], ["spark", `Ask ${APP_NAME}`, 'data-hhask="1"', "answers from your own log"], ["clip", "Brain dump", 'data-dump="1"', "get it out of your head"], ["gear", "Settings", 'data-hwgo="settings"', "reminders, backup, your data"],
       ["palette", "Classic Look", 'data-hwgo="classic"', "the old screen"]]) +
     `<p class="hw-fine">${esc(HH_ADV)}</p>`;
 }

@@ -88,13 +88,18 @@ def main():
         check("day 30: paused", A.js("fhPaused()") and A.js("fhTrial().left") == 0)
         n0 = json.loads(A.js("JSON.stringify([S.fh.events.length, S.fh.members.length, S.fh.lists.length, S.fh.msgs.length, S.fh.chores.length])"))
         A.js("hideFh(); render()"); home = A.page.inner_text("#cards")
-        check("v1.65 the whole app shows only the lock screen: 30 free days are up, $25 once", "30 free days are up" in home and "$25 once" in home, home[:300])
-        check("the lock has the Get Family Hub link (Whop), I already bought it, and Save a copy",
+        check("v1.65 the whole app shows only the lock screen: the free trial has ended, $25 once", "free trial has ended" in home and "$25" in home and "One-time purchase" in home, home[:300])
+        check("v1.67 Scott's design (11/18): 'Keep your family connected.' over the family photo, the family's real counts, $25 once, Keep Family Hub Together",
+              "Keep your family connected." in home and A.js("(document.querySelector('.fh-lock .fh-lhero img') || {}).getAttribute('src') || ''").endswith("familyhub/art/lock_family.webp")
+              and "Family moments" in home and "Important dates" in home and "Monthly" not in home and "Annual" not in home
+              and A.js("[...document.querySelectorAll('.fh-lstats b')].map(b => b.textContent).join(',')") == f"{n0[1]},{n0[0]},{n0[4] + A.js('S.fh.todos.length')}"
+              and "ONE PRICE" in home and "no subscription" in home and "Shared calendar" in home, home[:500])
+        check("the lock has the Keep Family Hub link (Whop), Restore access, and Save a copy",
               A.js("(document.querySelector('.fh-lock a.hl-buy') || {}).href") == "https://whop.com/commander-marvel-por-picks/family-hub-a5"
-              and "I already bought it" in home and "Save a copy of my info" in home)
+              and "Keep Family Hub Together" in home and "Restore access" in home and "Save or export family information" in home)
         check("nothing else shows behind the lock (no family day, no + button)", "Soccer" not in home and A.js("getComputedStyle(document.getElementById('fab')).display") == "none")
         check("the family's data is all still there", json.loads(A.js("JSON.stringify([S.fh.events.length, S.fh.members.length, S.fh.lists.length, S.fh.msgs.length, S.fh.chores.length])")) == n0)
-        A.js("showFh('cal')"); check("the calendar doesn't open while locked", not A.js("FH_OPEN") and "30 free days are up" in A.page.inner_text("#cards"))
+        A.js("showFh('cal')"); check("the calendar doesn't open while locked", not A.js("FH_OPEN") and "free trial has ended" in A.page.inner_text("#cards"))
         A.js("document.querySelector('.fh-lock .hl-link').click()"); A.page.wait_for_timeout(150)
         check("I already bought it opens the unlock box", A.page.is_visible("#sheet") and A.page.is_visible("#proBox"))
         A.js("closeSettings()")
@@ -173,9 +178,9 @@ def main():
         FS.until(O, "fhPaused()");
         check("day 31: both phones paused", O.js("fhPaused()") and J.js("fhPaused()"), [O.js("fhTrial()"), J.js("fhTrial()")])
         O.js("showFh('share')"); t = O.page.inner_text("#cards")
-        check("the owner's phone: the Share page doesn't open, the lock screen with the Buy link does", not O.js("FH_OPEN") and "30 free days are up" in t and "Get Family Hub" in t, t[:300])
+        check("the owner's phone: the Share page doesn't open, the lock screen with the Buy link does", not O.js("FH_OPEN") and "free trial has ended" in t and "Keep Family Hub" in t, t[:300])
         tj = J.js("render(), document.getElementById('cards').innerText")
-        check("Jen's phone: locked too, told the owner unlocks it, no Buy link", "30 free days are up" in tj and "Get Family Hub" not in tj and "You don't need to buy anything" in tj, tj[:300])
+        check("Jen's phone: locked too, told the owner unlocks it, no Buy link", "free trial has ended" in tj and "Keep Family Hub" not in tj and "$25" not in tj and "You don't need to buy anything" in tj, tj[:300])
         O.js("hideFh(); render()")
         check("a new invite is refused", O.js("(async () => await fhsInvite('gma'))()") is None)
         w0 = fake2.writes
