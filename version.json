@@ -1,6 +1,9 @@
 {
- "version": "1.68",
+ "version": "1.69",
  "notes": {
+  "1.69": [
+   "🍳 Cooking Hub: the welcome screen fits the phone now - no more sliding sideways."
+  ],
   "1.68": [
    "👋 How it works: a quick tour of the app. Open it any time from Settings."
   ],

@@ -312,7 +312,7 @@ body.ck-vintage .ck-write::before { content: ""; position: absolute; left: -16px
 /* ---- look picker + more */
 .ck-lookpick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .ck-lookcard { position: relative; border: 3px solid var(--ck-line); border-radius: 20px; background: var(--ck-paper); padding: 10px 8px; cursor: pointer; text-align: center; color: var(--ck-title); font-family: inherit; }
-.ck-lookcard input { position: absolute; opacity: 0; pointer-events: none; }
+.ck-lookcard input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; pointer-events: none; }   /* 11/19: pinned inside its card - it sat past the right edge and made the first screen scroll sideways */
 .ck-lookcard > span { display: grid; justify-items: center; gap: 4px; } .ck-lookcard b { font: 900 14.5px "Nunito", sans-serif; } .ck-lookcard small { font: 700 12px "Nunito", sans-serif; color: var(--ck-soft); }
 .ck-lookcard.v { background-color: #fbf6f0; background-image: linear-gradient(90deg, rgba(200, 32, 47, .12) 50%, transparent 50%), linear-gradient(rgba(200, 32, 47, .12) 50%, transparent 50%); background-size: 16px 16px; }
 .ck-lookcard.on, .ck-lookcard:has(input:checked) { border-color: var(--ck-green); box-shadow: 0 0 0 3px #4f8a2e44; }
