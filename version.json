@@ -1,6 +1,9 @@
 {
- "version": "1.71",
+ "version": "1.72",
  "notes": {
+  "1.72": [
+   "👨‍👩‍👧 Family Hub: the Share page's \"haven't heard yet\" note now clears by itself once your family's phones have caught up."
+  ],
   "1.71": [
    "💰 Money Hub: on smaller phones the Quick log sits on two lines, so every box is wide enough to type in."
   ],

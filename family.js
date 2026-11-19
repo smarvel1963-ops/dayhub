@@ -25,6 +25,7 @@
  * one in turn for its panes, taps, forms, Today card, reminders and what Ask reads. Still one phone; Phase B = Firebase sync.
  * WHO SEES WHAT: fhAudOk / fhSees - one rule for profiles, birthdays on the calendar, photos and documents (nothing forced public).
  * PRICE (Scott 11/07): $25 once for the whole family after a 30-day free trial (fhTrial); the Play app never shows it (store wording rule).
+ * v1.72 (Scott 11/19 "$25 once per year"): $25 a year now (the family record's paidTo, familysync.js); old one-time buyers keep it for good.
  * v1.59.1 (Scott 11/08 "Yes, build it"): the Buy button, the unlock (the same email check as every Hub, ⚙) and what waits after the trial:
  * adding NEW things and sharing (fhPaused). Nothing is ever deleted, everything stays readable, and checking things off and fixing what's there still work.
  */
@@ -77,15 +78,22 @@ function fhAudOk(a, owner, viewer) {
 const fhShareOf = (mid, f) => { const x = (fh().share[mid] || {})[f]; return x && typeof x === "object" && FH_AUD.some(a => a[0] === x.to) ? x : { to: f === "phone" ? "parents" : "all", ids: [] }; };
 const fhSees = (m, f) => !!m && fhAudOk(fhShareOf(m.id, f), m.id);
 // THE PRICE (Scott 11/07): a 30-day free trial of everything for the whole family, from the day the family is made; then $25 once.
+// v1.72 (Scott 11/19 "$25 once per year"): then $25 a year (PLAN.FAMILY_PRICE). A family that bought the old one-time plan keeps it for good.
 const FH_TRIAL_DAYS = 30;
+const fhPriceWords = () => PLAN.FAMILY_PRICE.replace(/\s*\/\s*year$/i, " a year");                 // "$25 a year"
+// Did this family (or this phone) have a paid year that ran out? Then the words say "year", not "free trial", and "renew", not "unlock".
+const fhYearOver = () => !!(typeof FHS !== "undefined" && FHS && FHS.paidTo > 0) || (p => !!(p && p.buyer && p.product === "familyhub" && p.status !== "completed"))(proState());
+const fhOverTxt = own => fhYearOver() ? (own ? "Your Family Hub year has ended" : "Family Hub's year has ended") : (own ? "Your free trial has ended" : "The free trial has ended");
+const fhUnlockWord = () => fhYearOver() ? "renew" : "unlock";
 const fhStoreApp = () => typeof STORE_MODE !== "undefined" && STORE_MODE;
 const fhSells = () => typeof familyPass === "function" && familyPass() && !fhStoreApp();
 const fhOwnerName = () => (fhMembers().find(m => m.role === "owner") || {}).name || "The family's owner";
-// Did THIS phone buy it? The owner's own phone counts, and a friend on Scott's free list. Once the relay has said yes it stays yes until the relay says no (not a monthly plan).
+// Did THIS phone buy it? The owner's own phone counts, and a friend on Scott's free list. Once the relay has said yes it stays yes until the relay
+// says "not found" twice, a week apart (verifyPro) - for a yearly plan that is the year ending without a renewal.
 function fhBought() { if (typeof ownerPhone !== "function") return false; if (ownerPhone()) return true; const p = proState(); return !!(p.buyer && p.ok && (p.product === "familyhub" || p.status === "friend")); }
 function fhTrial() { const F = fh(), used = fhIsD(F.setup) ? Math.max(0, -daysUntil(F.setup)) : 0; return { paid: fhBought() || (typeof fhsPaid === "function" && fhsPaid()), left: Math.max(0, FH_TRIAL_DAYS - used) }; }
 const fhPaused = () => { if (!fhSells() || !fhSet()) return false; const T = fhTrial(); return !T.paid && !T.left; };
-const fhPauseWhy = () => fhRole() === "owner" ? "⏸ Your free trial has ended. Unlock Family Hub in More to add new things." : `⏸ The free trial has ended. ${fhOwnerName()} can unlock Family Hub to add new things.`;
+const fhPauseWhy = () => fhRole() === "owner" ? `⏸ ${fhOverTxt(true)}. ${fhYearOver() ? "Renew" : "Unlock"} Family Hub in More to add new things.` : `⏸ ${fhOverTxt(false)}. ${fhOwnerName()} can ${fhUnlockWord()} Family Hub to add new things.`;
 // What waits after the trial: forms that add something new (their "new" versions; fixing what's already there stays open). PIN, who sees what and the emergency card are never in this list.
 const FH_ADD_FORMS = new Set(["fhlistnew", "fhitemadd", "fhmsend", "fhpalnew", "fhlhwadd", "fhlgoaladd", "fhlcare", "fhlpick", "fhpay", "fhsinv"]), FH_NEW_FORMS = ["fhevent", "fhchore", "fhtodo", "fhmember", "fhlrecipe", "fhlpet", "fhtprof"];
 const FH_ADD_TAPS = new Set(["fhmchk", "fhlings", "fhlpack", "fhltrip", "fhson"]);   // taps that add, or send, with no form (the week's meals handle their own: days already planned can still change)
@@ -95,10 +103,10 @@ function fhTrialHtml() {
   if (fhStoreApp()) return "";        // the Play app: no price or trial words outside the unlock box
   const T = fhTrial(), own = fhRole() === "owner", buy = own && fhSells() ? fhBuyBtns() : "";
   if (T.paid) return `<p class="fh-trial paid">💛 Family Hub is yours, for your whole family.</p>`;
-  if (!T.left) return own ? `<div class="fh-trial"><b>🎁 Your free trial has ended</b><small>Everything your family added stays yours, and you can still read it all. $25 once opens adding and sharing again for everyone you invite - no subscription.</small>${buy}</div>`
-    : `<div class="fh-trial"><b>🎁 The free trial has ended</b><small>Everything stays safe and you can still read it all. ${esc(fhOwnerName())} can unlock Family Hub for the whole family.</small></div>`;
+  if (!T.left) return own ? `<div class="fh-trial"><b>🎁 ${fhOverTxt(true)}</b><small>Everything your family added stays yours, and you can still read it all. ${esc(fhPriceWords())} opens adding and sharing again for everyone you invite.</small>${buy}</div>`
+    : `<div class="fh-trial"><b>🎁 ${fhOverTxt(false)}</b><small>Everything stays safe and you can still read it all. ${esc(fhOwnerName())} can ${fhUnlockWord()} Family Hub for the whole family.</small></div>`;
   if (!own) return "";                 // kids and guests don't get a sales pitch
-  return `<div class="fh-trial"><b>🎁 Free trial: ${T.left} day${T.left === 1 ? "" : "s"} left</b><small>Everything, for your whole family. After that, $25 once keeps Family Hub for everyone you invite - no subscription.</small>${buy}</div>`;
+  return `<div class="fh-trial"><b>🎁 Free trial: ${T.left} day${T.left === 1 ? "" : "s"} left</b><small>Everything, for your whole family. After that, ${esc(fhPriceWords())} keeps Family Hub for everyone you invite.</small>${buy}</div>`;
 }
 // ⚙ box: a phone with nothing to buy (the family's covered, or the purchase is the owner's to make). "" = show the normal unlock box.
 function fhProNote() {
@@ -113,6 +121,7 @@ function fhProNote() {
 // family connected.", what stays together, the memories line, then the REAL price - his picture had placeholder monthly / yearly plans;
 // Family Hub is $25 once ("give sample page we redue it with proper amounts"). A small line of what this family has built (real counts,
 // nothing made up). Kids and other grown-ups never see a price or a button - the purchase is the owner's to make.
+// v1.72 (Scott 11/19 "$25 once per year"): the plan box says $25 a year; a family whose paid year ran out reads "year has ended", not "free trial".
 const FH_LOCK_ART = n => `../familyhub/art/lock_${n}.webp`;
 function fhLockHtml() {
   const own = fhRole() === "owner", F = fh(), pl = (n, w) => `<b>${n}</b> ${n === 1 ? w : w + "s"}`;
@@ -124,19 +133,19 @@ function fhLockHtml() {
     <div class="fh-lcard">
       <div class="fh-lbrand"><img src="${FH_LOCK_ART("logo")}" alt=""><span><b>FAMILY HUB</b><small>by Marvel Corp</small></span></div>
       <h2>Keep your family connected.</h2>
-      <p class="fh-lsub"><i aria-hidden="true">🌿</i>Your free trial has ended.<i aria-hidden="true">🌿</i></p>
+      <p class="fh-lsub"><i aria-hidden="true">🌿</i>${fhOverTxt(true)}.<i aria-hidden="true">🌿</i></p>
       ${stats.length ? `<p class="fh-lstats">Your family so far: ${stats.map(([n, w]) => pl(n, w)).join(" · ")}</p>` : ""}
       <div class="fh-lfeats">${feat("cal", "Shared calendar", "t1")}${feat("photos", "Family moments", "t2")}${feat("tasks", "Lists &amp; tasks", "t3")}${feat("cake", "Important dates", "t4")}</div>
       <img class="fh-lstrip" src="${FH_LOCK_ART("strip")}" alt="">
-      ${own ? `<div class="fh-lplan"><em>ONE PRICE · YOURS FOR GOOD</em><b class="fh-lamt">${esc(PLAN.FAMILY_PRICE.replace(/\s*once$/i, ""))}</b><span><b>One-time purchase</b><small>Covers your whole family, on every phone.</small></span></div>
+      ${own ? `<div class="fh-lplan"><em>ONE PLAN · YOUR WHOLE FAMILY</em><b class="fh-lamt">${esc(PLAN.FAMILY_PRICE.replace(/\s*\/\s*year$/i, ""))}</b><span><b>Per year</b><small>Covers your whole family, on every phone.</small></span></div>
       <a class="hl-buy" href="${esc(PLAN.FAMILY_CHECKOUT_URL)}" target="_blank" rel="noopener">Keep Family Hub Together <span aria-hidden="true">›</span></a>
-      <p class="fh-lonce"><span></span>Pay once · no subscription<span></span></p>`
+      <p class="fh-lonce"><span></span>Yearly · cancel any time<span></span></p>`
       : `<p class="fh-lnote">One purchase unlocks Family Hub for the whole family, and it's ${esc(fhOwnerName())}'s to make. You don't need to buy anything.</p>`}
       <p class="fh-lrest">${own ? "Already bought it?" : "Unlocked on another phone?"} <button class="hl-link" data-open="sheet">${own ? "Restore access" : "Enter the email"}</button></p>
       <button class="hl-link" data-data="export">Save or export family information</button>
       <p class="fh-lsafe"><span aria-hidden="true">🔒</span>Your family information stays on this device.</p></div></section>`;
 }
-const fhPausedHtml = () => !fhPaused() ? "" : `<section class="fh-card fh-paused" aria-label="Free trial ended"><div class="fh-cardh"><h3>⏸ Your free trial has ended</h3></div><p class="hos-hint">Nothing is lost. You can still see everything and check things off. Adding new things and sharing wait until ${fhRole() === "owner" ? "you unlock" : `${esc(fhOwnerName())} unlocks`} Family Hub.</p>${fhRole() === "owner" ? `<div class="fh-btns"><button class="btn fh-go" data-fhnav="more">See how</button></div>` : ""}</section>`;
+const fhPausedHtml = () => !fhPaused() ? "" : `<section class="fh-card fh-paused" aria-label="${fhYearOver() ? "Family Hub year ended" : "Free trial ended"}"><div class="fh-cardh"><h3>⏸ ${fhOverTxt(true)}</h3></div><p class="hos-hint">Nothing is lost. You can still see everything and check things off. Adding new things and sharing wait until ${fhRole() === "owner" ? `you ${fhUnlockWord()}` : `${esc(fhOwnerName())} ${fhUnlockWord()}s`} Family Hub.</p>${fhRole() === "owner" ? `<div class="fh-btns"><button class="btn fh-go" data-fhnav="more">See how</button></div>` : ""}</section>`;
 const FH_ART = { home: "home", cal: "calendar", msg: "messages", family: "tree", tree: "tree", photos: "memories", meals: "meals", school: "school", pets: "pets", trips: "trips" };
 const fhArt = k => FH_ART[k] ? `../familyhub/art/${FH_ART[k]}.webp` : "";
 const fhTiles = (items, cls = "") => `<div class="fh-qtiles ${cls}">${items.map(i => `<button class="fh-qt" ${i.attrs} style="--tone:${i.tone || "#2e86de"}"><span aria-hidden="true">${i.icon}</span><b>${esc(i.label)}</b></button>`).join("")}</div>`;

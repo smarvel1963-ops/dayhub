@@ -31,7 +31,7 @@ const SWITCHES = Object.freeze({
   FAMILY_SYNC: true,  // Family Hub sharing between phones (Scott 10/25: "A - use Firebase free plan"; 11/07 "Phase B: all phones"). Needs the Firestore rules published.
   COOKING_PASS: true, // ON 2026-11-15 (Scott: "pricing free for 2 weeks then 2.99 month", "or 1 year for 19.99"). Cooking Hub: 14 days free from setup, then $2.99/month or $19.99/year on Whop. Nothing pauses and nothing is sold until COOKING_CHECKOUT_URL is set (the Whop product); never in the Play app.
   JOB_PASS: true,     // ON 2026-11-18 (Scott: "4.99 month"). Job Hub: 30 days free from setup, then $4.99/month on Whop (prod_FSHoDPP73YMO7); Day Hub Pro also unlocks it. Nothing locks and nothing is sold until JOB_CHECKOUT_URL is set; never in the Play app.
-  FAMILY_PASS: true,  // ON 2026-11-08 (Scott "Yes, build it"). Family Hub: $25 once, Whop prod_uPpRIheUlmL76, relay v19. OFF = no Buy button and nothing pauses after the trial.
+  FAMILY_PASS: true,  // ON 2026-11-08 (Scott "Yes, build it"). Family Hub: $25 a year since v1.72 (was $25 once), Whop prod_uPpRIheUlmL76, relay v19. OFF = no Buy button and nothing pauses after the trial.
   HUB_PAN: true,      // ON 2026-11-08 (Scott: "all our apps"). Every Hub opens on its art, then glides down to the part you use (shell.js). OFF = opens at the top and stays.
   MONEY_PASS: true,   // ON 2026-10-18 (Scott "relay done"). Money Hub Pro $2.99/mo, 30-day trial, Whop prod_xg2i3uygnEw5s; relay v18 PASSES moneyhub; Day Hub Pro also unlocks it. Free = 3 accounts, no CSV / Reports.
   HOME_VALUE: true,   // ON 2026-10-14 (Scott: "get it done"). Home Hub "Hub Predicted Value" card (homevalue.js), Redfin ZIP data in hpv/.
@@ -81,7 +81,7 @@ const PLAN = Object.freeze({
   MONEY_CHECKOUT_URL: "https://whop.com/commander-marvel-por-picks/money-hub-pro",   // prod_xg2i3uygnEw5s, created 10/18, 30-day trial
   // FAMILY HUB (Scott 11/07: "1 time price of 25 ... invite all his family to it for free"; "Free trial first"). Family Hub only; Day Hub Pro doesn't include it.
   FAMILY_NAME: "Family Hub",
-  FAMILY_PRICE: "$25 once",
+  FAMILY_PRICE: "$25/year",       // v1.72 Scott 11/19: "$25 once per year" (was "$25 once"; families that bought it once keep it for good)
   FAMILY_CHECKOUT_URL: "https://whop.com/commander-marvel-por-picks/family-hub-a5",   // prod_uPpRIheUlmL76, created 11/08, hidden from the store page (the link works)
   // COOKING HUB (Scott 11/15: "pricing free for 2 weeks then 2.99 month"). Cooking Hub only; Day Hub Pro also unlocks it (the relay's pattern).
   COOKING_NAME: "Cooking Hub",

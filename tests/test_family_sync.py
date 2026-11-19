@@ -110,6 +110,11 @@ class Fake:
             me_m, boss_m = old["members"].get(uid, {}).get("m"), old["members"].get(old["owner"], {}).get("m")
             marking = set(a) == {"paid"} and old.get("paid") is False and new.get("paid") is True and uid in old["members"] and me_m == boss_m   # the owner's phone, or the owner's own second phone, once, false -> true (11/08)
             if new.get("paid") != old.get("paid") and not marking: return {"err": "permission-denied"}
+            # v1.72 (11/19 "$25 once per year"): paidTo, the end of the paid year - the same phones, on its own, only later, at most 400 days ahead
+            year = set(a) == {"paidTo"} and isinstance(new.get("paidTo"), (int, float)) and not isinstance(new.get("paidTo"), bool) \
+                and new["paidTo"] > (old.get("paidTo") or 0) and new["paidTo"] <= now_ms() + getattr(self, "ahead_ms", 0) + 400 * 864e5 and uid in old["members"] and me_m == boss_m
+            if new.get("paidTo", 0) != old.get("paidTo", 0) and not year: return {"err": "permission-denied"}
+            if year: self.docs[path] = new; self._bump(path); return {"d": True}
             added = set(new["members"]) - set(old["members"]); removed = set(old["members"]) - set(new["members"])
             changed = {u for u in set(new["members"]) & set(old["members"]) if new["members"][u] != old["members"][u]}
             owner_edit = old["owner"] == uid and new["members"].get(uid, {}).get("role") == "owner"

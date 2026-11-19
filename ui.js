@@ -1914,7 +1914,7 @@ function drawProBox() {
     : `<ul class="pro-list"><li>🤖 AI helper — Brain dump, Ask Day Hub, Top 3</li><li>🗓️ Two-way Google Calendar sync</li>
     ${switchOn("GMAIL") ? "<li>📬 Plans found in your email</li>" : ""}<li>☁️ Backup to your own Google Drive</li></ul>
     <p class="fine" style="margin-top:4px">Everything else — every card, reminders, budget, lists, trips — is free forever. No ads, ever.</p>`;
-  const price = familyPass() ? `<p class="fine"><b>${PLAN.FAMILY_PRICE}</b> — no subscription.</p>`
+  const price = familyPass() ? `<p class="fine"><b>${PLAN.FAMILY_PRICE}</b> for your whole family — renews once a year, cancel any time on Whop.</p>`
     : cookingPass() ? `<p class="fine"><b>${PLAN.COOKING_MONTHLY}</b> or <b>${PLAN.COOKING_YEARLY}</b> after your 2 free weeks — cancel any time on Whop.</p>`
     : jobPass() ? `<p class="fine"><b>${PLAN.JOB_MONTHLY}</b> after your free month — cancel any time on Whop.</p>`
     : moneyPass() ? `<p class="fine"><b>${PLAN.MONEY_MONTHLY}</b> — 30 days free, cancel any time on Whop.</p>`

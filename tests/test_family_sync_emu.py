@@ -79,6 +79,12 @@ def main():
         B.page.fill('form[data-fhsjoin] [name=code]', code); B.page.click('form[data-fhsjoin] button')
         check("Jen's phone joins in one step (family + code used up together)", until(B, "FHS && FHS_STATE === 'ok' && S.fh.members.length === 4", 30000), B.js("[FHS && FHS_STATE, FHS_ERR]"))
         check("...and the code is gone from the server", server(f"invites/{code}") is None)
+        # v1.72 (Scott 11/19 "$25 once per year"): the yearly plan puts the end of the paid year on the family, by the real rules
+        A.js("setProState({ buyer: 'year@example.com', ok: true, checked: Date.now(), status: 'active', until: Math.floor(Date.now() / 1000) + 365 * 86400, product: 'familyhub' }); fhsPaidNow()")
+        check("v1.72 the yearly buyer's phone puts the end of the year on the family, by the real rules", until(A, "FHS_FAM && FHS_FAM.paidTo > Date.now()", 30000), A.js("[FHS_STATE, FHS_ERR, FHS_PAIDBAD]"))
+        pt = fields(server(f"families/{fid}")).get("paidTo", {})
+        check("...the server has it as a number, and the family isn't paid for good", ("integerValue" in pt or "doubleValue" in pt) and fields(server(f"families/{fid}")).get("paid", {}).get("booleanValue") is False, pt)
+        check("...and a member's phone is covered by the year", until(B, "fhsPaid() && !fhBought() && FHS.paidTo > 0", 30000))
         A.js("setProState({ buyer: 'buyer@example.com', ok: true, checked: Date.now(), status: 'completed', product: 'familyhub' }); fhsPaidNow()")
         check("the buyer's phone marks the family paid, by the real rules", until(A, "FHS_FAM && FHS_FAM.paid === true", 30000), A.js("[FHS_STATE, FHS_ERR]"))
         check("...the server has it", fields(server(f"families/{fid}")).get("paid", {}).get("booleanValue") is True)

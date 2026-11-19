@@ -7,6 +7,9 @@ Checks: the Buy button and "I already bought it" (owner only, no price for kids 
 a Day Hub Pro answer; after 30 days nothing is lost, everything reads, adding waits, checking off and fixing what's there still work; unlocking opens it;
 sharing: every phone counts from the day the family was made, sharing pauses and catches up, the owner's phone marks the family paid and every phone follows,
 a member can't, a refused write hurts nothing, an offline phone remembers; the Play app never pauses or sells.
+v1.72 (Scott 11/19 "$25 once per year"): $25 a year. The family's record keeps the end of the paid year (paidTo); every phone is covered
+until then plus two weeks; the year runs out -> "year has ended" (not "free trial"), nothing lost; a renewal moves it on; an old one-time
+buyer (GOOD, Whop "completed") still marks the family paid for good.
 
 RUN:   python tests/test_family_buy.py      (from C:/MarvelApps/dayhub)   Exit 0 = all passed.
 """
@@ -23,6 +26,7 @@ def check(name, cond, extra=""):
     else: FAIL += 1; print(f"  FAIL  {name}  {extra}")
 
 GOOD, DAYPRO, CODE = "buyer@example.com", "daypro@example.com", "newphone@example.com"
+YEAR = "yearly@example.com"; YR = {"valid": True, "until": 0}      # v1.72 the yearly plan: its answer is set by the test (Whop gives seconds)
 def relay(route):
     try: q = json.loads(route.request.post_data or "{}")
     except Exception: q = {}
@@ -31,9 +35,13 @@ def relay(route):
         if b == GOOD: a = {"valid": True, "status": "completed", "until": None, "who": "h1", "product": "familyhub"}
         elif b == DAYPRO: a = {"valid": True, "status": "active", "until": None, "who": "h2", "product": "dayhub"}
         elif b == CODE: a = {"valid": False, "status": "needs code"}
+        elif b == YEAR and YR["valid"]: a = {"valid": True, "status": "active", "until": YR["until"], "who": "h3", "product": "familyhub"}
     route.fulfill(status=200, content_type="application/json", body=json.dumps(a))
 
 def wire(a): a.ctx.route("**/macros/s/**", relay); return a
+def ff(a, days):
+    """Moves a phone's clock on by whole days, 20 at a time: Playwright's fast_forward wraps around past ~24.8 days (a 32-bit number)."""
+    while days > 0: n = min(days, 20); a.page.clock.fast_forward(n * 86400000); days -= n
 def back_days(a, n): a.js(f"(() => {{ const d = new Date(); d.setDate(d.getDate() - {n}); fh().setup = ymd(d); save(); render(); }})()")
 def bought(a, who=GOOD, product="familyhub"): a.js(f"setProState({{ buyer: {json.dumps(who)}, ok: true, checked: Date.now(), status: 'completed', product: {json.dumps(product)} }})")
 def box(a): a.js("openSettings()"); return a.page.inner_text("#proBox")
@@ -56,12 +64,12 @@ def main():
         print("\n[Buying: the button]")
         A = wire(FS.phone(b, base, fake, "uidA")); A.js(FS.SEED); open_more(A)
         more = A.page.inner_text("#fhSheet")
-        check("the owner's More: 30 days left, $25 once, a Get Family Hub button", "Free trial: 30 days left" in more and "$25 once" in more and "Get Family Hub" in more, more[:200])
+        check("the owner's More: 30 days left, $25 a year, a Get Family Hub button", "Free trial: 30 days left" in more and "$25 a year" in more and "$25 once" not in more and "Get Family Hub" in more, more[:200])
         check("the button goes to the Whop checkout, in a new tab", A.js("(() => { const x = document.querySelector('#fhSheet a.btn.fh-go'); return x.href === PLAN.FAMILY_CHECKOUT_URL && x.target === '_blank' && /noopener/.test(x.rel); })()"))
         A.page.click('#fhSheet [data-fhgo="unlock"]')
         check("'I already bought it' opens Settings at the unlock box", A.js("!document.getElementById('sheet').classList.contains('hidden') && !FH_OPEN && !!document.getElementById('proBox').querySelector('form[data-proform]')"))
         t = A.page.inner_text("#proBox")
-        check("the unlock box sells Family Hub at $25 once, not Day Hub Pro", "Family Hub" in t and "$25 once" in t and "Day Hub Pro" not in t and "Get Family Hub" in t, t[:300])
+        check("the unlock box sells Family Hub at $25/year (renews once a year), not Day Hub Pro", "Family Hub" in t and "$25/year" in t and "renews once a year" in t and "no subscription" not in t and "Day Hub Pro" not in t and "Get Family Hub" in t, t[:300])
         close_settings(A)
         A.js("fh().me = 'mia'; save(); render()");
         check("a child on the phone: no button, no price, no trial pitch", "$25" not in A.js("fhMoreHtml()") and "Get Family Hub" not in A.js("fhMoreHtml()"))
@@ -88,12 +96,12 @@ def main():
         check("day 30: paused", A.js("fhPaused()") and A.js("fhTrial().left") == 0)
         n0 = json.loads(A.js("JSON.stringify([S.fh.events.length, S.fh.members.length, S.fh.lists.length, S.fh.msgs.length, S.fh.chores.length])"))
         A.js("hideFh(); render()"); home = A.page.inner_text("#cards")
-        check("v1.65 the whole app shows only the lock screen: the free trial has ended, $25 once", "free trial has ended" in home and "$25" in home and "One-time purchase" in home, home[:300])
-        check("v1.67 Scott's design (11/18): 'Keep your family connected.' over the family photo, the family's real counts, $25 once, Keep Family Hub Together",
+        check("v1.65 the whole app shows only the lock screen: the free trial has ended, $25 per year", "free trial has ended" in home and "$25" in home and "Per year" in home and "One-time purchase" not in home, home[:300])
+        check("v1.67 Scott's design (11/18): 'Keep your family connected.' over the family photo, the family's real counts, $25 a year (v1.72), Keep Family Hub Together",
               "Keep your family connected." in home and A.js("(document.querySelector('.fh-lock .fh-lhero img') || {}).getAttribute('src') || ''").endswith("familyhub/art/lock_family.webp")
               and "Family moments" in home and "Important dates" in home and "Monthly" not in home and "Annual" not in home
               and A.js("[...document.querySelectorAll('.fh-lstats b')].map(b => b.textContent).join(',')") == f"{n0[1]},{n0[0]},{n0[4] + A.js('S.fh.todos.length')}"
-              and "ONE PRICE" in home and "no subscription" in home and "Shared calendar" in home, home[:500])
+              and "ONE PLAN" in home and "Yearly · cancel any time" in home and "no subscription" not in home and "Shared calendar" in home, home[:500])
         check("the lock has the Keep Family Hub link (Whop), Restore access, and Save a copy",
               A.js("(document.querySelector('.fh-lock a.hl-buy') || {}).href") == "https://whop.com/commander-marvel-por-picks/family-hub-a5"
               and "Keep Family Hub Together" in home and "Restore access" in home and "Save or export family information" in home)
@@ -190,6 +198,7 @@ def main():
         check("...and what's on Jen's phone stays there", J.js("S.fh.lists.find(l => l.icon === '🛒').items.some(i => i.text === 'Made while paused')"))
         box(O); unlock(O, GOOD); close_settings(O)
         check("the owner unlocks: the family is marked paid", FS.until(O, "FHS_FAM && FHS_FAM.paid === true") and fake2.docs[f"families/{fid}"]["paid"] is True, fake2.docs[f"families/{fid}"].get("paid"))
+        check("v1.72 an old one-time purchase (Whop 'completed') is paid for good: no year on the record", "paidTo" not in fake2.docs[f"families/{fid}"], fake2.docs[f"families/{fid}"])
         check("Jen's phone is covered, with no purchase of her own", FS.until(J, "fhsPaid() && !fhPaused()") and not J.js("fhBought()"))
         check("Jen's Settings: unlocked for the whole family", "Unlocked for your whole family" in box(J)); close_settings(J)
         check("Jen's More: Family Hub is yours", "Family Hub is yours" in J.js("fhMoreHtml()"))
@@ -221,6 +230,57 @@ def main():
         check("turning sharing on after buying marks the family paid", FS.until(B1, "FHS_FAM && FHS_FAM.paid === true") and fake3.docs[f"families/{fid3}"]["paid"] is True)
         B1.ctx.close()
 
+        print("\n[$25 a year (v1.72, Scott 11/19 \"$25 once per year\")]")
+        fake6 = FS.Fake(); doc6 = lambda: fake6.docs[f"families/{fid6}"]
+        Y = wire(FS.phone(b, base, fake6, "uidY")); Y.js(FS.SEED); back_days(Y, 10)
+        Y.js("showFh('share')"); Y.page.click('#fhSheet [data-fhson]'); FS.until(Y, "FHS && FHS_STATE === 'ok'"); fid6 = Y.js("FHS.fid")
+        Y.page.select_option('#fhSheet form[data-fhsinv] [name=m]', "jen"); Y.page.click('#fhSheet form[data-fhsinv] button'); FS.until(Y, "FHS_INV && FHS_INV.code.length === 10"); c6 = Y.js("FHS_INV.code")
+        K = wire(FS.phone(b, base, fake6, "uidK", setup=False)); K.page.fill('form[data-fhsjoin] [name=code]', c6); K.page.click('form[data-fhsjoin] button')
+        check("Jen joins", FS.until(K, "FHS && FHS_STATE === 'ok' && S.fh.members.length === 4"))
+        for x in (Y, K): x.page.clock.fast_forward(21 * 86400000)
+        check("the trial ends for both phones", FS.until(Y, "fhPaused()") and FS.until(K, "fhPaused()"))
+        YR["valid"] = True; YR["until"] = Y.js("Math.floor(Date.now() / 1000) + 365 * 86400")
+        box(Y); unlock(Y, YEAR); close_settings(Y)
+        check("buying the yearly plan puts the end of the year on the family's record (not paid for good)",
+              FS.until(Y, "FHS_FAM && FHS_FAM.paidTo > 0") and doc6().get("paidTo") == YR["until"] * 1000 and doc6()["paid"] is False, doc6())
+        check("the owner's phone is unlocked", Y.js("fhBought() && !fhPaused()") and "Family Hub is yours" in Y.js("fhMoreHtml()"))
+        check("Jen's phone is covered by the family's year, with no purchase of her own", FS.until(K, "fhsPaid() && !fhPaused()") and not K.js("fhBought()"))
+        check("Jen's phone can't stretch the year", "err" in fake6.op("uidK", "update", f"families/{fid6}", json.dumps({"paidTo": YR["until"] * 1000 + 86400000})))
+        check("...and the owner's phone can't shorten it", "err" in fake6.op("uidY", "update", f"families/{fid6}", json.dumps({"paidTo": YR["until"] * 1000 - 86400000})))
+        fake6.offline.add("uidK"); K.page.reload(); K.page.wait_for_function("typeof render === 'function' && typeof fhsJoin === 'function'")
+        check("Jen's phone opens offline and still knows the family's year", K.js("fhsPaid() && !fhPaused() && FHS.paidTo > 0"))
+        fake6.offline.discard("uidK"); FS.until(K, "FHS_STATE === 'ok'")
+
+        print("\n[...the year runs out with no renewal]")
+        YR["valid"] = False
+        ff(K, 366)
+        check("a day after the year ends Jen's phone is still covered (two weeks for a renewal to arrive)", K.js("fhsPaid() && !fhPaused()"))
+        K.page.clock.fast_forward(14 * 86400000)
+        check("two weeks after that Jen's phone pauses", K.js("fhPaused()"), K.js("JSON.stringify({ now: Date.now(), to: FHS && FHS.paidTo, tr: fhTrial(), bought: fhBought(), ps: proState(), sells: fhSells(), set: fhSet() })"))
+        tk = K.js("render(), document.getElementById('cards').innerText")
+        check("...and says Family Hub's year has ended and the owner can renew it - no price, no Buy link", "year has ended" in tk and "free trial" not in tk and "$25" not in tk and "Keep Family Hub" not in tk and "You don't need to buy anything" in tk, tk[:300])
+        ff(Y, 366); Y.js(f"verifyPro({json.dumps(YEAR)})"); Y.page.wait_for_timeout(200)
+        check("the owner's phone: one 'not found' right after the year ends doesn't lock it", Y.js("fhBought() && !fhPaused()"))
+        Y.page.clock.fast_forward(8 * 86400000); Y.js(f"verifyPro({json.dumps(YEAR)})"); Y.page.wait_for_timeout(200)
+        Y.page.clock.fast_forward(6 * 86400000)
+        check("'not found' again a week later, and the family's two weeks are up: the owner's phone locks", not Y.js("fhBought()") and Y.js("fhPaused()"), Y.js("JSON.stringify({ now: Date.now(), to: FHS && FHS.paidTo, tr: fhTrial(), bought: fhBought(), ps: proState(), sells: fhSells(), set: fhSet() })"))
+        home = Y.js("hideFh(), render(), document.getElementById('cards').innerText")
+        check("the lock page: 'Your Family Hub year has ended.' (not free trial), $25 per year, yearly - cancel any time, Keep Family Hub Together",
+              "Your Family Hub year has ended." in home and "free trial" not in home and "$25" in home and "Per year" in home and "Yearly · cancel any time" in home and "Keep Family Hub Together" in home, home[:400])
+        Y.js("document.getElementById('toast') && (document.getElementById('toast').textContent = '')"); Y.js("fhClick({ fhevnew: today() })")
+        check("tapping Add Event: 'year has ended ... Renew'", "year has ended" in toast_of(Y) and "Renew" in toast_of(Y), toast_of(Y))
+        check("the family's data is all still there", Y.js("S.fh.members.length") == 4 and K.js("S.fh.members.length") == 4)
+
+        print("\n[...renewed]")
+        YR["valid"] = True; YR["until"] = Y.js("Math.floor(Date.now() / 1000) + 365 * 86400")
+        fake6.ahead_ms = Y.js("Date.now()") - FS.now_ms()                # the fake server's clock follows the phones' year
+        Y.js("PRO_TRIED = 0; setProState({ ...proState(), checked: 0 }); recheckPro()")
+        check("the owner's phone checks again on its own, unlocks, and moves the family's year on",
+              FS.until(Y, "fhBought() && !fhPaused()") and FS.until(Y, f"FHS_FAM && FHS_FAM.paidTo === {YR['until'] * 1000}") and doc6()["paid"] is False, doc6().get("paidTo"))
+        check("...and Jen's phone is covered again", FS.until(K, "fhsPaid() && !fhPaused()"))
+        check("...with what she had before", K.js("S.fh.members.length") == 4)
+        Y.ctx.close(); K.ctx.close()
+
         print("\n[The server says no, for any reason]")
         class Refuse(FS.Fake):
             def op(self, uid, op, path, payload, batch_dels=()):
@@ -246,6 +306,7 @@ def main():
         t = box(P)
         check("the Play app's Settings: no price, no Whop link", "$25" not in t and "Whop" not in t and "Get Family Hub" not in t, t[:300])
         check("the 1.59.1 What's New line has no price or purchase words (it can show in a Play app)", P.js("(async () => { const j = await (await fetch('../dayhub/version.json?x=1', { cache: 'no-store' })).json(); return j.notes['1.59.1'].every(n => playOk(n) && !/purchase|buy|\\$/i.test(n)); })()"))
+        check("v1.72: no What's New line names a price or a plan (a price change is told on the page, not in the update note)", P.js("(async () => { const j = await (await fetch('../dayhub/version.json?x=1', { cache: 'no-store' })).json(); return (j.notes['1.72'] || []).every(n => playOk(n) && !/purchase|buy|year|price|\\$/i.test(n)); })()"))
         P.ctx.close()
 
         errs = [e for e in T.ERRORS[before:] if "the server responded" not in e]

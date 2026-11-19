@@ -2,7 +2,7 @@
 SAVE AS: test_family_v2.py   LOCATION: C:/MarvelApps/dayhub/tests/test_family_v2.py
 
 FAMILY HUB v2, PHASE A (Scott 11/07: his two boards, the build spec, then "these are CORE": messaging, photo sharing, important dates,
-the family tree, per-member sharing; tabs Today | Messages | Calendar | Family | More; price $25 once after a 30-day free trial).
+the family tree, per-member sharing; tabs Today | Messages | Calendar | Family | More; price $25 once after a 30-day free trial; $25 a year since v1.72).
 Drives the real Family Hub page (family.js + familymsg.js + familytree.js + familyphotos.js + familylife.js + family.css) with the main
 suite's helpers and a made-up family (no real people). Checks: the parts register; Today (greeting, faces, cards in order, quick
 actions, the bell); Messages (check-ins, threads, per-person new counts, the adults-only Parents talk, announcements only from adults,
@@ -81,7 +81,7 @@ def test_today(b, base):
     tap(a, '#fhNav [data-fhnav="more"]')
     check("More: the board's tools (Meals, School, Memories, Documents, Emergency, Trips, Pets, Goals ... Settings, Ask)",
           all(x in a.page.inner_text("#fhSheet") for x in ["Meals", "School", "Memories", "Documents", "Emergency", "Trips", "Pets", "Goals", "Settings", "Ask"]))
-    check("More shows the free trial: 30 days left, then $25 once for the whole family", "Free trial: 30 days left" in a.page.inner_text("#fhSheet") and "$25 once" in a.page.inner_text("#fhSheet"))
+    check("More shows the free trial: 30 days left, then $25 a year for the whole family (v1.72)", "Free trial: 30 days left" in a.page.inner_text("#fhSheet") and "$25 a year" in a.page.inner_text("#fhSheet"))
     a.js("S.fh.setup = addDays(today(), -20); save(); showFh('more')")
     check("...counting down from the day the family was made (20 days in = 10 left)", "10 days left" in a.page.inner_text("#fhSheet"))
     tap(a, '#fhSheet [data-fhgo="settings"]')

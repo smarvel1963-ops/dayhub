@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.71";
+const VERSION = "1.72";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -140,7 +140,7 @@ const tripPass = () => MODE === "trip" && switchOn("TRIP_PASS");
 const autoPass = () => MODE === "auto" && switchOn("AUTO_PASS");   // v1.38 Auto Hub Pro, $2.99/month
 const moneyPass = () => MODE === "money" && switchOn("MONEY_PASS");   // v1.42 Money Hub Pro, $2.99/month (OFF until the Whop product)
 const familyPass = () => MODE === "family" && switchOn("FAMILY_PASS");
-const cookingPass = () => MODE === "cooking" && switchOn("COOKING_PASS");   // v1.64 Cooking Hub, 2 weeks free then $2.99/month   // v1.59.1 Family Hub, $25 once for the whole family
+const cookingPass = () => MODE === "cooking" && switchOn("COOKING_PASS");   // v1.64 Cooking Hub, 2 weeks free then $2.99/month   // v1.59.1 Family Hub, $25 once for the whole family (v1.72: $25 a year)
 const jobPass = () => MODE === "job" && switchOn("JOB_PASS");   // v1.66.2 Job Hub, 30 days free then $4.99/month (Scott 11/18 "4.99 month")
 const hubPass = () => cruisePass() || tripPass() || autoPass() || moneyPass() || familyPass() || cookingPass() || jobPass();
 const proName = () => cruisePass() ? PLAN.CRUISE_NAME : tripPass() ? PLAN.TRIP_NAME : autoPass() ? PLAN.AUTO_NAME : moneyPass() ? PLAN.MONEY_NAME : familyPass() ? PLAN.FAMILY_NAME : cookingPass() ? PLAN.COOKING_NAME : jobPass() ? PLAN.JOB_NAME : PLAN.NAME;
@@ -155,7 +155,7 @@ async function verifyPro(buyer) {                   // throws when the check can
   // a hub on a Day Hub Pro unlock keeps "dayhub", so the paused line never names a plan they didn't buy.
   const src = prev.buyer === buyer ? prev : day.buyer === buyer ? day : {};
   // v1.59.1 Family Hub is paid once, so a passing "no" (this phone aged off the list, a code to confirm, Whop's search coming back empty) never takes
-  // it away: only "not found" twice, at least a week apart, does (a refund).
+  // it away: only "not found" twice, at least a week apart, does (a refund). v1.72: a yearly plan the same way - its year ending without a renewal.
   if (!j.valid && familyPass() && prev.ok && prev.buyer === buyer && prev.product === "familyhub") {
     const noAt = j.status === "not found" ? (prev.noAt || Date.now()) : (prev.noAt || 0);
     if (j.status !== "not found" || Date.now() - noAt < 7 * DAY_MS) { setProState({ ...prev, checked: Date.now(), noAt }); return true; }
@@ -177,7 +177,8 @@ function recheckPro() {
   const age = Date.now() - (p.checked || 0), end = proUntil(p);
   if (!(age >= PLAN.RECHECK_DAYS * DAY_MS || (lapse && ((p.ok && end && end < Date.now() && age >= DAY_MS / 2) || (syncPaused() && age >= DAY_MS))))) return;
   PRO_TRIED = Date.now();
-  verifyPro(p.buyer).then(() => { render(); proWelcomeBack(); }).catch(() => { /* offline: grace period covers it */ });
+  // v1.72 Family Hub is a year at a time: a renewal this check finds goes on to the family's record (and so every phone) right away
+  verifyPro(p.buyer).then(() => { if (familyPass() && typeof fhsPaidNow === "function") fhsPaidNow(); render(); proWelcomeBack(); }).catch(() => { /* offline: grace period covers it */ });
 }
 // Gmail waits on Google's verification (GMAIL switch). A phone that already
 // connected it keeps it - turning the switch off never breaks a working phone.

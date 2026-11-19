@@ -182,20 +182,36 @@ function fhsRoleWatch() {
 }
 // v1.59.1 THE PURCHASE: the family's record says whether it's paid, and only the owner's phone can mark it, once, after the relay confirmed the
 // buyer with Whop. Every phone keeps the answer, so one that opens offline still knows. A refused write (or no signal) just tries again later.
+// v1.72 (Scott 11/19 "$25 once per year"): Family Hub is now a year at a time. The record also keeps paidTo, the end of the owner's paid year
+// (from the purchase check); every phone in the family stays covered until then plus FH_GRACE_DAYS, so a renewal has two weeks to reach the
+// owner's phone (it re-checks half a day after the old year's end). paid: true still means paid for good: the old one-time plan, Scott's free
+// list, and his own phones. The owner's phone only ever moves paidTo later; nothing a phone writes can take a family's year away.
 let FHS_PAIDAT = 0, FHS_PAIDBAD = false;
-const fhsPaid = () => !!(FHS && FHS.paid);
+const FH_GRACE_DAYS = 14;
+const fhsPaid = () => !!(FHS && (FHS.paid || (FHS.paidTo > 0 && Date.now() < FHS.paidTo + FH_GRACE_DAYS * DAY_MS)));
 // The owner's phone, or "another phone or tablet for me" (it joins as an adult, but it's the same person).
 const fhsOwnersPhone = () => { const f = FHS_FAM, mem = f && f.members || {}, me = FHS && mem[FHS.uid], boss = f && mem[f.owner]; return !!(me && boss && me.m === boss.m); };
+// What this phone's purchase says to write: { paid: true } for good, { paidTo } for a year, or null (nothing new to say).
+function fhsPayWrite() {
+  const p = typeof proState === "function" ? proState() : {};
+  if (ownerPhone() || p.status === "friend" || p.status === "completed") return { paid: true };   // completed = the old $25 one-time plan
+  let end = typeof proUntil === "function" ? proUntil(p) : 0;
+  if (!end && p.ok) end = Date.now() + 30 * DAY_MS;               // a yearly plan with no end date in the answer: a month, pushed on at the next check
+  end = Math.round(end);
+  return end > Date.now() && end > (+(FHS_FAM && FHS_FAM.paidTo) || 0) ? { paidTo: end } : null;
+}
 async function fhsMarkPaid() {
-  if (!FHS || !fhsOwnersPhone() || FHS_FAM.paid === true || !fhBought() || Date.now() - FHS_PAIDAT < 6e5) return;
+  if (!FHS || !fhsOwnersPhone() || !fhBought() || Date.now() - FHS_PAIDAT < 6e5) return;
+  const w = FHS_FAM.paid === true ? null : fhsPayWrite();
+  if (!w) { FHS_PAIDBAD = false; return; }                       // the family's record already says all this phone knows
   FHS_PAIDAT = Date.now();
-  try { await fhsNet().update(`families/${FHS.fid}`, { paid: true }); FHS_PAIDBAD = false; }
+  try { await fhsNet().update(`families/${FHS.fid}`, w); FHS_PAIDBAD = false; }
   catch (e) { FHS_PAIDBAD = true; setTimeout(fhsMarkPaid, 6e5 + 1000); fhsPaintShare(); }   // offline, or the server said no: tried again, and the Share page says so
 }
 function fhsPaidNow() { FHS_PAIDAT = 0; fhsMarkPaid(); fhsSoon(50); }
 function fhsTakePaid(d) {
-  const p = d.paid === true;
-  if (p !== !!FHS.paid) { FHS.paid = p; fhsStore(); fhsSoon(50); fhsPaint(); }
+  const p = d.paid === true, to = +d.paidTo > 0 ? +d.paidTo : 0;
+  if (p !== !!FHS.paid || to !== (+FHS.paidTo || 0)) { FHS.paid = p; FHS.paidTo = to; fhsStore(); fhsSoon(50); fhsPaint(); }
   fhsMarkPaid();
 }
 async function fhsSync() {
@@ -439,7 +455,7 @@ function fhsShareHtml0() {
   const linked = new Set(phones.map(([, x]) => x && x.m)), canInv = fhMembers().filter(m => m.role !== "child")
     .sort((x, y) => ((me && x.id === me.id) - (me && y.id === me.id)) || (linked.has(x.id) - linked.has(y.id)));   // people without a phone yet first, "another phone for me" last
   const paused = fhPaused();
-  return `<div class="fhs-status${FHS_STATE === "ok" && !paused ? " ok" : ""}"><b>${paused ? "⏸ Sharing is paused - the free trial has ended" : esc(st)}</b><small>${phones.length} phone${phones.length === 1 ? "" : "s"} in the family${paused ? ". Nothing is lost: it all catches up once Family Hub is unlocked." : FHS_PAIDBAD && !(FHS_FAM && FHS_FAM.paid === true) ? ". ⚠️ Your purchase is saved, but the family's phones haven't heard yet. It keeps trying." : ""}</small></div>
+  return `<div class="fhs-status${FHS_STATE === "ok" && !paused ? " ok" : ""}"><b>${paused ? `⏸ Sharing is paused - ${fhYearOver() ? "Family Hub's year has ended" : "the free trial has ended"}` : esc(st)}</b><small>${phones.length} phone${phones.length === 1 ? "" : "s"} in the family${paused ? `. Nothing is lost: it all catches up once Family Hub is ${fhYearOver() ? "renewed" : "unlocked"}.` : FHS_PAIDBAD && !(FHS_FAM && FHS_FAM.paid === true) ? ". ⚠️ Your purchase is saved, but the family's phones haven't heard yet. It keeps trying." : ""}</small></div>
     ${owner && !paused ? `<div class="mv-sec"><h3>Invite someone</h3></div>
       ${inv ? `<div class="fhs-code"><small>Code for ${esc(inv.who)} · works once, for ${FHS_INVITE_DAYS} days</small><b>${esc(fhsPretty(inv.code))}</b>
         <div class="fh-btns"><button class="btn fh-go" data-fhsshare="1">📤 Send it</button><button class="btn sm ghost" data-fhscopy="1">Copy</button></div>
