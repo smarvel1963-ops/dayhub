@@ -1,6 +1,9 @@
 {
- "version": "1.70",
+ "version": "1.71",
  "notes": {
+  "1.71": [
+   "💰 Money Hub: on smaller phones the Quick log sits on two lines, so every box is wide enough to type in."
+  ],
   "1.70": [
    "✈️ Trip Hub: the Refunds owed boxes are wide enough to type in now, on any phone.",
    "🚢 Cruise Hub: the Refunds owed boxes are wide enough to type in now, on any phone."

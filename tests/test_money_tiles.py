@@ -256,12 +256,36 @@ def test_safety(b, base):
         a.ctx.close()
 
 
+def test_quick_small(b, base):
+    # Scott 11/19 ("Split into two lines"): under 380 px the Quick log's four boxes in one row were cut off ($ box 57 px at 320). Now two lines.
+    print("\n-- The Quick log on small phones: two lines under 380 px, one line from 380 up")
+    Q = """() => { const f = document.querySelector('.mt-quick'), r = s => f.querySelector(s).getBoundingClientRect();
+      const a = r('[name=amt]'), w = r('[name=what]'), c = r('select'), p = r('.mt-qbtn');
+      return { amt: a.width, what: w.width, cat: c.width, line1: Math.abs(a.top - w.top) < 2, line2: Math.abs(c.top - p.top) < 2, under: c.top > a.bottom,
+               right: Math.max(a.right, w.right, c.right, p.right), page: document.documentElement.scrollWidth }; }"""
+    for w in (320, 360, 375):
+        a = money(b, base, width=w, height=800)
+        a.page.locator(".mt-quick").scroll_into_view_if_needed(); a.page.wait_for_timeout(150)
+        q = a.page.evaluate(Q)
+        check(f"{w} px: $ spent + What for on line 1, the category + the gold + on line 2", q["line1"] and q["line2"] and q["under"], q)
+        check(f"{w} px: every box wide enough to type in ($ 80+, What for 150+, category 200+), nothing past the edge, no sideways",
+              q["amt"] >= 80 and q["what"] >= 150 and q["cat"] >= 200 and q["right"] <= w and q["page"] <= w, q)
+        a.page.fill(".mt-quick [name=amt]", "7.25"); a.page.fill(".mt-quick [name=what]", "Gas Stop"); a.page.click(".mt-quick .mt-qbtn"); a.page.wait_for_timeout(250)
+        check(f"{w} px: it still logs the spending", a.js("mh().tx.some(x => x.what === 'Gas Stop' && x.amt === -7.25)"))
+        a.ctx.close()
+    a = money(b, base, width=390, height=844)
+    a.page.locator(".mt-quick").scroll_into_view_if_needed(); a.page.wait_for_timeout(150)
+    q = a.page.evaluate(Q)
+    check("390 px: still one line, as he designed it", q["line1"] and not q["under"] and q["page"] <= 390, q)
+    a.ctx.close()
+
+
 def main():
     srv, base = T.serve()
     with sync_playwright() as p:
         b = p.chromium.launch()
         before = len(T.ERRORS)
-        for t in (test_switch, test_home, test_pages, test_tabs_and_back, test_safety):
+        for t in (test_switch, test_home, test_pages, test_tabs_and_back, test_safety, test_quick_small):
             t(b, base)
         errs = [e for e in T.ERRORS[before:] if "favicon" not in e and "Failed to fetch" not in e]
         check("no page errors anywhere", not errs, errs[:3])
