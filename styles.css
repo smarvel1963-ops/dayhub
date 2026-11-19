@@ -158,6 +158,14 @@ input[type=checkbox].tick:checked::after { transform: scale(1); }
 .tab small { opacity: .6; margin-left: 4px; }
 .inline-add { display: flex; gap: 8px; margin-top: 8px; }
 .inline-add input { flex: 1; min-width: 0; }
+/* 11/19: Trip + Cruise "Refunds owed" add form (classic look, Wallet). Five things in one row left What, $ and From about 26 px wide on every phone and pushed Add off a 320 px screen. Now: What on its own line, then $ + From, then Expected by + Add. */
+.refund-add { flex-wrap: wrap; align-items: flex-end; }
+.refund-add input[name=what] { flex: 1 1 100%; }
+.refund-add input[name=amt] { flex: 0 1 96px; }
+.refund-add input[name=from] { flex: 1 1 140px; }
+.refund-add label.field { flex: 1 1 150px; min-width: 0; }
+.refund-add label.field input { width: 100%; box-sizing: border-box; }
+.refund-add .btn { flex: 0 0 auto; }
 .foot-actions { display: flex; gap: 14px; }
 .total { display: flex; justify-content: space-between; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line);
   color: var(--dim); font-size: 14px; }

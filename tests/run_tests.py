@@ -3331,6 +3331,13 @@ def t_v115_cancel_refunds(b, base):
     a.js("hideSheet('fixSheet'); S.tripTab = 'money'; shellGo('wallet')")
     card = lambda: a.page.inner_text('[data-card="trips"]')
     check("Wallet → Money: Refunds owed — $90.00", "refunds owed — $90.00" in card().lower(), card()[-500:])
+    # 11/19: the add form was one row of five - What, $ and From ~26 px wide on every phone, Add past the edge at 320 px. Now it wraps.
+    for w in (390, 320):
+        a.page.set_viewport_size({"width": w, "height": 740}); a.page.wait_for_timeout(150)
+        bw = a.js("Object.fromEntries([...document.querySelectorAll('[data-refund] input')].map(i => [i.name, Math.round(i.getBoundingClientRect().width)]))")
+        check(f"Refunds owed form fits a {w} px phone; What, $ and From are wide enough to type in", a.js("document.documentElement.scrollWidth") <= w
+              and bw.get("what", 0) >= 200 and bw.get("amt", 0) >= 80 and bw.get("from", 0) >= 120, bw)
+    a.page.set_viewport_size({"width": 390, "height": 844}); a.page.wait_for_timeout(150)
     a.page.fill('[data-refund] [name=what]', "Airport shuttle"); a.page.fill('[data-refund] [name=amt]', "40")
     a.page.fill('[data-refund] [name=from]', "Mears"); a.page.fill('[data-refund] [name=expect]', "2026-10-05")
     a.page.click('[data-refund] button'); a.page.wait_for_timeout(120)

@@ -1,6 +1,10 @@
 {
- "version": "1.69",
+ "version": "1.70",
  "notes": {
+  "1.70": [
+   "✈️ Trip Hub: the Refunds owed boxes are wide enough to type in now, on any phone.",
+   "🚢 Cruise Hub: the Refunds owed boxes are wide enough to type in now, on any phone."
+  ],
   "1.69": [
    "🍳 Cooking Hub: the welcome screen fits the phone now - no more sliding sideways."
   ],
