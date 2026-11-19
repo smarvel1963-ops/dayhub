@@ -73,6 +73,13 @@ def forecast_fixture(q):
                       "sunset": [d + "T18:53" for d in days], "weather_code": [61, 63, 1, 0, 1, 2]}}
 
 
+# v1.68 HOW IT WORKS: a Hub's very first open on a phone shows a 4-card tour over everything. Every test phone here is brand-new, so it
+# starts with the tour already seen (only where nothing is set, so a test can still clear it). tests/test_tour.py tests the tour itself.
+HUB_IDS = ['dayhub', 'cruisehub', 'triphub', 'homehub', 'autohub', 'moneyhub', 'hubuniverse', 'healthhub', 'familyhub', 'pethub', 'cookinghub', 'jobhub']
+NO_TOUR = ("try { if (!sessionStorage.getItem('tour.test')) for (const h of " + json.dumps(HUB_IDS) + ") if (!localStorage.getItem(h + '.tour')) "
+           "localStorage.setItem(h + '.tour', 'test'); } catch (e) {}")
+
+
 def route(ctx):
     def handle(r):
         # Like the real services: every faked reply says any site may read it (CORS). Chrome's test mode let a reply
@@ -208,6 +215,7 @@ def route(ctx):
         return r.continue_()
     ctx.route("**/*", handle)
     ctx.add_init_script("window.__dhTest = true")   # v1.32: the fake Leaflet above can't match the real map code's integrity hash
+    ctx.add_init_script(NO_TOUR)                     # v1.68: these phones have "seen" the first-open tour; tests/test_tour.py opens it
 
 
 # ------------------------------------------------------------------ helpers

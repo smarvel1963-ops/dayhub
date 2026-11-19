@@ -643,6 +643,7 @@ def main():
         srv2, base2 = T.serve()
         ctx = b.new_context(); pg = ctx.new_page()
         ctx.add_init_script("try { localStorage.setItem('cruisehub.look', 'tiles'); } catch (e) {}")
+        ctx.add_init_script(T.NO_TOUR)   # v1.68: past the first-open tour (tests/test_tour.py tests it)
         pg.goto(base2 + T.CRUISE, wait_until="load"); pg.wait_for_function("typeof render === 'function'")
         pg.evaluate("navigator.serviceWorker.ready.then(() => new Promise(r => navigator.serviceWorker.controller ? r() : navigator.serviceWorker.addEventListener('controllerchange', r)))")
         if pg.evaluate("!!document.querySelector('form[data-setup]')"):

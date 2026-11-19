@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.67";
+const VERSION = "1.68";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -95,6 +95,22 @@ function openShareMagic() {
   const s = document.createElement("script"); s.src = new URL("share.js?v=" + VERSION, BASE_URL).href;
   s.onload = () => { if (typeof stmOpen === "function") stmOpen(); }; s.onerror = () => { s.remove(); toast("Couldn't open sharing - check your connection"); };
   document.head.appendChild(s);
+}
+// v1.68 HOW IT WORKS (Scott 11/18: "do we want tutorial in all apps" -> "Yes, build it"): a 4-card tour, each Hub its own (tour.js,
+// fetched only when it opens). On its own it opens ONCE, on a Hub's very first open on this phone; Settings -> How it works opens it any time.
+const TOUR_KEY = APP_ID + ".tour";
+let HUB_FIRST_OPEN = false;                                      // load() sets it: nothing of this Hub was saved on this phone
+function tourSeen() { try { return !!localStorage.getItem(TOUR_KEY); } catch (e) { return true; } }
+function openTour(auto) {
+  if (typeof tourOpen === "function") return tourOpen(auto);
+  const s = document.createElement("script"); s.src = new URL("tour.js?v=" + VERSION, BASE_URL).href;
+  s.onload = () => { if (typeof tourOpen === "function") tourOpen(auto); }; s.onerror = () => { s.remove(); if (!auto) toast("Couldn't open the tour - check your connection"); };
+  document.head.appendChild(s);
+}
+function tourMaybe() {
+  if (!HUB_FIRST_OPEN || tourSeen()) return;
+  if (location.hash.length > 1 || /[?&](join|review)/.test(location.search)) return;   // a family invite, a reviewer link or a sign-in coming back: that comes first
+  setTimeout(() => { if (!tourSeen()) openTour(true); }, 450);
 }
 const readPro = k => { try { return JSON.parse(localStorage.getItem(k) || "{}") || {}; } catch (e) { return {}; } };
 const proState = () => readPro(PRO_KEY);
@@ -284,6 +300,7 @@ let GTOKEN = null, GTOKEN_EXP = 0, gisLoading = null;
 function load() {
   let s, raw = null;
   try { raw = localStorage.getItem(STORE); } catch (e) { /* private mode */ }
+  HUB_FIRST_OPEN = raw === null;                                  // v1.68: nothing of this Hub on this phone yet = its first open (the tour)
   if (raw === null && MODE === "cruise") return normalize(adoptFromDayHub());
   try { s = JSON.parse(raw || "{}"); }
   catch (e) { s = {}; }

@@ -1474,6 +1474,7 @@ document.addEventListener("click", e => {
   if (t.id === "fab") { const T = qaTypes().map(x => x[0]); openQA(T.includes("event") ? "event" : T.find(k => k !== "dump") || "todo"); return; }
   if (ds.cloudask) { openSettings(); setTimeout(() => { const el = document.getElementById("syncBox"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); return; }   // the question, in view
   if (ds.stm) { openShareMagic(); return; }                                  // v1.67 Share the Magic (every Hub)
+  if (ds.tour) { openTour(); return; }                                       // v1.68 How it works (every Hub)
   if (t.id === "settingsBtn" || ds.open === "sheet") { openSettings(); return; }
   if (ds.close === "qa") { closeQA(); return; }
   if (ds.close === "sheet") { closeSettings(); return; }
@@ -1742,7 +1743,7 @@ document.addEventListener("change", e => {
 function openSettings() {
   drawSettings();
   { let j = document.getElementById("setJump");                             // v0.63 tile menu at the top of ⚙
-    if (!j) { j = document.createElement("div"); j.id = "setJump"; const head = document.querySelector("#sheet .sheet-head"); (document.getElementById("stmSetBtn") || head).after(j); }   // v1.67: under Share the Magic
+    if (!j) { j = document.createElement("div"); j.id = "setJump"; const head = document.querySelector("#sheet .sheet-head"); (document.getElementById("tourSetBtn") || document.getElementById("stmSetBtn") || head).after(j); }   // v1.67: under Share the Magic (v1.68: and How it works)
     drawSetJump(); }
   document.getElementById("sheet").classList.remove("hidden");
 }
@@ -1767,6 +1768,9 @@ function drawSettings() {
   let sm = document.getElementById("stmSetBtn");   // v1.67 Share the Magic, first thing in Settings in every Hub
   if (!sm) { sm = document.createElement("button"); sm.id = "stmSetBtn"; sm.className = "stm-setbtn"; sm.dataset.stm = "1"; const hd = document.querySelector("#sheet .sheet-head"); if (hd) hd.after(sm); }
   sm.innerHTML = `<span aria-hidden="true">✨</span><span><b>Share the Magic</b><small>Show friends what makes ${esc(APP_NAME)} special</small></span>`;
+  let tb = document.getElementById("tourSetBtn");   // v1.68 How it works: the tour, right under Share the Magic
+  if (!tb) { tb = document.createElement("button"); tb.id = "tourSetBtn"; tb.className = "tour-setbtn"; tb.dataset.tour = "1"; sm.after(tb); }
+  tb.innerHTML = `<span aria-hidden="true">👋</span><span><b>How it works</b><small>A quick tour of ${esc(APP_NAME)}</small></span><span class="chev" aria-hidden="true">›</span>`;
   let ib = document.getElementById("installBox");
   if (!ib) { ib = document.createElement("div"); ib.id = "installBox"; document.getElementById("cardList").before(ib); }
   drawInstallBox();
@@ -2109,6 +2113,6 @@ checkUpdate();
 setInterval(checkUpdate, 30 * 60000);
 setInterval(() => { if (S.mail.on && mReady()) scanMail(); }, 20 * 60000);
 checkReminders();
-if (!RENEWING) { syncOnOpen(true); maybeBrief(); hubPanOpen(); }     // v1.59.2 opens on the art, then glides to the useful part
+if (!RENEWING) { syncOnOpen(true); maybeBrief(); hubPanOpen(); tourMaybe(); }     // v1.59.2 opens on the art, then glides to the useful part; v1.68 a Hub's first open: the tour
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { if (autoRenew()) return; recheckPro(); VIEW = today(); render(); checkReminders(); syncOnOpen(); maybeBrief(); hcLoad(); mfLoad(); if (Date.now() - UPD_ASKED > 60000) checkUpdate(); } });   // v1.59.4 an app reopened from memory asks too (Scott 11/08: "dont see updates coming across all my apps")
 if ("serviceWorker" in navigator) navigator.serviceWorker.register(new URL("sw.js", HOME_URL)).catch(() => {});

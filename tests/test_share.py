@@ -185,7 +185,7 @@ def main():
         a.page.click("#hero .stm-hero"); a.page.wait_for_function("!!document.getElementById('stmSheet')"); wait_pic(a)
         check("no sideways scroll at 360 px", a.js("document.getElementById('stmSheet').scrollWidth <= innerWidth + 1"))
         notes = a.js("fetch('version.json').then(r => r.json())")
-        check("engine 1.67, and its note reaches every Hub (no Hub name in front)", a.js("VERSION") == "1.67" and notes["version"] == "1.67" and notes["notes"]["1.67"][0].startswith("✨ Share the Magic:") and a.js("noteForMe('" + notes["notes"]["1.67"][0].replace("'", "\\'") + "')"))
+        check("engine 1.67 or newer, and the 1.67 note reaches every Hub (no Hub name in front)", a.js("VERSION") == notes["version"] and a.js("VERSION.localeCompare('1.67', undefined, { numeric: true })") >= 0 and notes["notes"]["1.67"][0].startswith("✨ Share the Magic:") and a.js("noteForMe('" + notes["notes"]["1.67"][0].replace("'", "\\'") + "')"))
         a.close()
         b.close()
     srv.shutdown()

@@ -337,8 +337,8 @@ def main():
         a = T.App(b, base, look=None); T.setup(a)
         check("every Hub's family list has Job Hub", a.js("HUBS.some(h => h.id === 'jobhub' && /jobhub\\/$/.test(h.url))"))
         notes = a.js("fetch('version.json').then(r => r.json())")
-        check("engine 1.67 everywhere (app, offline worker, update notes)", a.js("VERSION") == "1.67" and notes["version"] == "1.67" and
-              'const CACHE = "dayhub-v1.67";' in open(os.path.join(T.ROOT, "sw.js"), encoding="utf-8").read())
+        check("one engine version everywhere (app, offline worker, update notes)", a.js("VERSION") == notes["version"] and
+              f'const CACHE = "dayhub-v{notes["version"]}";' in open(os.path.join(T.ROOT, "sw.js"), encoding="utf-8").read())
         check("1.66.3's note is Job Hub's, with no price words", notes["notes"]["1.66.3"][0].startswith("💼 Job Hub:") and "$" not in notes["notes"]["1.66.3"][0])
         check("1.66.1's note is Hub Universe's (Job Hub joins the planets)", notes["notes"]["1.66.1"][0].startswith("🪐 Hub Universe:") and "Job Hub" in notes["notes"]["1.66.1"][0])
         check("1.66.2's note is Job Hub's, with no price words (the same notes reach the Play apps' engine)", notes["notes"]["1.66.2"][0].startswith("💼 Job Hub:") and "$" not in notes["notes"]["1.66.2"][0])

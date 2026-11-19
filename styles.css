@@ -1555,3 +1555,9 @@ body.hub-locked #fab, body.hub-locked #tabbar, body.hub-locked #fhNav, body.hub-
 .uni-share { margin-left: auto; border: 1.5px solid #f2c14e; border-radius: 999px; padding: 6px 12px; background: linear-gradient(120deg, #4c2aa8, #241263); color: #ffe08a; font-weight: 800; cursor: pointer; }
 .ck-row.ck-stm { border: 1.5px solid #e2b65c; }
 .stm-hd { font-size: 20px; line-height: 1; filter: drop-shadow(0 0 4px rgba(242, 193, 78, .8)); }
+
+/* ---- v1.68 How it works: the tour's button in Settings, right under Share the Magic (every Hub; the tour's own look is in tour.js) */
+.tour-setbtn { display: flex; align-items: center; gap: 12px; width: 100%; margin: -4px 0 14px; padding: 10px 14px; border: 1.5px solid rgba(127, 127, 127, .35); border-radius: 18px; cursor: pointer; text-align: left;
+  background: rgba(127, 127, 127, .1); color: inherit; font: inherit; }
+.tour-setbtn > span:first-child { font-size: 24px; } .tour-setbtn > span:nth-child(2) { flex: 1; min-width: 0; }
+.tour-setbtn b { display: block; font-size: 16px; } .tour-setbtn small { display: block; font-size: 13px; opacity: .78; margin-top: 1px; } .tour-setbtn .chev { font-size: 22px; opacity: .6; }

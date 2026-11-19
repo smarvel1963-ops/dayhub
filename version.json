@@ -1,6 +1,9 @@
 {
- "version": "1.67",
+ "version": "1.68",
  "notes": {
+  "1.68": [
+   "👋 How it works: a quick tour of the app. Open it any time from Settings."
+  ],
   "1.67": [
    "✨ Share the Magic: share this app with friends - pick a picture, add a message and send it to Text, Facebook, Messenger, X, Telegram and more. Tap ✨ or open Settings."
   ],
