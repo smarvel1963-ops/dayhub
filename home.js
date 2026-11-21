@@ -161,7 +161,7 @@ function showSpace(id, tab) {
 }
 function spacePane(sp) {
   if (HOME_TAB === "items") return `${sp.items.length ? sp.items.map(it => `<div class="row"><span class="ci">📦</span><div class="grow"><b>${esc(it.name)}</b>
-      ${it.model || it.note ? `<span class="sub">${esc([it.model, it.note].filter(Boolean).join(" · "))}</span>` : ""}</div><button class="icon-btn" data-hdel="item:${it.id}" aria-label="Remove">✕</button></div>`).join("")
+      ${it.model || it.note ? `<span class="sub">${esc([it.model, it.note].filter(Boolean).join(" · "))}</span>` : ""}</div>${typeof bxShareBtn === "function" ? bxShareBtn(`hitem|${sp.id}|${it.id}`, it.name) : ""}<button class="icon-btn" data-hdel="item:${it.id}" aria-label="Remove">✕</button></div>`).join("")
       : `<p class="fine">Nothing listed yet. Add what's in this ${sp.area === "indoor" ? "room" : "space"} — appliances, fixtures, furniture, equipment.</p>`}
     <form class="qa-form" data-hitem="${sp.id}"><input name="name" placeholder="Item, e.g. Refrigerator" required>
       <input name="model" placeholder="Brand / model (optional)"><input name="note" placeholder="Note — size, color, where (optional)"><button class="btn sm">Add item</button></form>`;
@@ -169,7 +169,7 @@ function spacePane(sp) {
     const o = openTasks(sp).slice().sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999")), done = sp.tasks.filter(t => t.done).slice(-5).reverse();
     return `${o.length ? o.map(t => `<div class="row"><button class="check" data-hdone="${t.id}" aria-label="Done">○</button><div class="grow"><b>${esc(t.title)}</b>
         <span class="sub">${t.due ? `Due ${dueText(t.due)}` : "No date"}${t.every ? ` · every ${t.every === 1 ? "month" : `${esc(t.every)} months`}` : ""}</span></div>
-        <button class="icon-btn" data-hdel="task:${t.id}" aria-label="Remove">✕</button></div>`).join("")
+        ${typeof bxShareBtn === "function" ? bxShareBtn(`htask|${sp.id}|${t.id}`, t.title) : ""}<button class="icon-btn" data-hdel="task:${t.id}" aria-label="Remove">✕</button></div>`).join("")
       : `<p class="fine">No open tasks. Add maintenance, cleaning or a repair to remember.</p>`}
       <form class="qa-form" data-htask="${sp.id}"><input name="title" placeholder="Task, e.g. Clean dishwasher filter" required>
         <label class="field">Due <input type="date" name="due"></label>

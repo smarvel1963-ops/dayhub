@@ -524,7 +524,8 @@ const FH_MORE = [["tasks", "#22b04b", "Chores"], ["lists", "#ff9f43", "Shopping"
   ["money", "#10ac84", "Allowances"], ["tree", "#27ae60", "Family tree"], ["sharing", "#5f27cd", "Who sees what"], ["who", "#576574", "Who's using"], ["big", "#8e44ff", "Grandparent Mode"], ["share", "#0abde3", "Share"]];
 function fhMoreHtml() {
   const items = FH_MORE.filter(([k]) => fhTabInfo(k) && (k !== "card" || fhCan("seeCard"))).map(([k, c, l]) => ({ icon: fhTabInfo(k)[1], label: l, attrs: `data-fhtab="${k}"`, tone: c }))
-    .concat([{ icon: "⚙️", label: "Settings", attrs: 'data-fhgo="settings"', tone: "#576574" }, { icon: "💡", label: "Ask", attrs: 'data-fhask="1"', tone: "#f39c12" }]);
+    .concat([{ icon: "📝", label: "Notes", attrs: 'data-bx="notes"', tone: "#8e6e53" }, { icon: "🧮", label: "Calculator", attrs: 'data-bx="calc"', tone: "#34495e" },   // v1.73 basics.js
+      { icon: "⚙️", label: "Settings", attrs: 'data-fhgo="settings"', tone: "#576574" }, { icon: "💡", label: "Ask", attrs: 'data-fhask="1"', tone: "#f39c12" }]);
   items.unshift({ icon: "✨", label: "Share the Magic", attrs: 'data-stm="1"', tone: "#c48d22" });   // v1.67
   return fhTrialHtml() + fhTiles(items, "fh-moretiles") + `<p class="fine">Family Hub keeps your family on this phone. No ads. No location tracking. Kids are profiles a parent manages.</p>`;
 }

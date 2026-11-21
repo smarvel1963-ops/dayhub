@@ -134,7 +134,8 @@ function mvNavEnsure() {
 // ------------------------------------------------------------ MORE: every section as big tiles (Scott 10/5 tile nav)
 const MV_MORE_TILES = [["advisor", "🧭", "Advisor"], ["update", "🔄", "Data Update"], ["spend", "🧾", "Transactions"], ["connect", "🔗", "Connect"], ["flow", "🌊", "Cash Flow"], ["accounts", "🏦", "Accounts"], ["budget", "🎯", "Budget"], ["debt", "⛓️", "Debt"], ["subs", "📅", "Subscriptions"],
   ["payday", "💵", "Payday"], ["forecast", "📈", "Cash Forecast"], ["insights", "💡", "Insights"], ["vault", "🔐", "Vault"], ["reports", "📊", "Reports"], ["goals", "🏝️", "Goals"], ["bills", "💳", "Payments"]];
-const mvMoreHtml = () => tileNav(MV_MORE_TILES.map(([k, i, l]) => ({ icon: i, label: l, attrs: `data-mhtab="${k}"` })), 3, "mv-tiles") +
+const mvMoreHtml = () => tileNav(MV_MORE_TILES.map(([k, i, l]) => ({ icon: i, label: l, attrs: `data-mhtab="${k}"` }))
+    .concat([["cal", "🗓️", "Calendar"], ["notes", "📝", "Notes"], ["calc", "🧮", "Calculator"]].map(([k, i, l]) => ({ icon: i, label: l, attrs: `data-bx="${k}"` }))), 3, "mv-tiles") +   // v1.73 basics.js
   `<p class="fine">Connect pulls in your bank, cards, Cash App, Venmo and PayPal from their downloaded files - on this phone, never a password. Shared accounts (two people, one money picture) are on the way.</p>`;
 
 // ------------------------------------------------------------ ADD: by photo, by hand, by voice (the art's "Add by Photo")
@@ -513,7 +514,7 @@ function mvSubsHtml() {
       return `<article class="mv-sub ${s.off ? "off" : ""}" style="--tone:${tone}">${mvIc(esc(s.name.trim().charAt(0).toUpperCase() || "🔁"), tone, "mv-mono")}
         <div class="grow"><b>${esc(s.name)}</b><small>${usd(s.amt)} a ${esc(s.every || "month")}${s.off ? ` · cancelled ${mDate(s.off)}` : s.next ? ` · renews ${mDate(s.next)}` : ""}</small>
           ${s.off ? "" : `<i class="mv-subbar" style="width:${Math.round(subMonthly(s) / top * 100)}%"></i>`}
-          <div class="mv-ins-acts">${s.off ? "" : `<button data-mhsubren="${s.id}">Renewed</button><button data-mhsuboff="${s.id}">Cancelled</button>`}<button data-mhdel="sub:${s.id}" aria-label="Remove">✕</button></div></div>
+          <div class="mv-ins-acts">${s.off ? "" : `<button data-mhsubren="${s.id}">Renewed</button><button data-mhsuboff="${s.id}">Cancelled</button>`}${typeof bxShareBtn === "function" ? bxShareBtn(`msub|${s.id}`, s.name, " ", "📤 Share") : ""}<button data-mhdel="sub:${s.id}" aria-label="Remove">✕</button></div></div>
         ${!s.off && d != null ? `<em class="mv-when ${d <= 3 ? "soon" : ""}">${d < 0 ? "due" : d === 0 ? "today" : `${d}d`}</em>` : ""}</article>`; }).join("")}
     ${!L.length ? `<p class="hos-hint">Streaming, apps, memberships, the gym. See what they add up to, and what you save by cancelling.</p>` : ""}
     ${typeof mfSubsHtml === "function" ? mfSubsHtml(L) : ""}

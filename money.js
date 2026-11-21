@@ -319,7 +319,7 @@ function mhPane() {
     return `<div class="home-stats"><div class="home-stat"><b>${usd(mo)}</b><span>a month</span></div><div class="home-stat"><b>${usd(mo * 12)}</b><span>a year</span></div>
         <div class="home-stat"><b>${usd(saved)}</b><span>saved a year by cancelling</span></div></div>
       ${L.map(s => `<div class="row" style="${s.off ? "opacity:.55" : ""}"><span class="ci">🔁</span><div class="grow"><b>${esc(s.name)}</b><span class="sub">${usd(s.amt)} a ${esc(s.every || "month")}${s.off ? ` · cancelled ${mDate(s.off)}` : s.next ? ` · renews ${mDate(s.next)}` : ""}</span></div>
-          ${s.off ? "" : `<button class="btn sm ghost" data-mhsubren="${s.id}">Renewed</button><button class="btn sm ghost" data-mhsuboff="${s.id}">Cancelled</button>`}<button class="icon-btn" data-mhdel="sub:${s.id}" aria-label="Remove">✕</button></div>`).join("")}
+          ${s.off ? "" : `<button class="btn sm ghost" data-mhsubren="${s.id}">Renewed</button><button class="btn sm ghost" data-mhsuboff="${s.id}">Cancelled</button>`}${typeof bxShareBtn === "function" ? bxShareBtn(`msub|${s.id}`, s.name) : ""}<button class="icon-btn" data-mhdel="sub:${s.id}" aria-label="Remove">✕</button></div>`).join("")}
       ${!L.length ? `<p class="fine" style="margin-top:0">Streaming, apps, memberships, the gym. See what they add up to, and what you save by cancelling.</p>` : ""}
       ${typeof mfSubsHtml === "function" ? mfSubsHtml(L) : ""}
       <form class="qa-form" data-mhsub="1"><input name="name" placeholder="e.g. Netflix" required aria-label="Subscription">
@@ -428,7 +428,7 @@ function mhPayments() {
     return `<article class="mhp-bill ${r.paid ? "paid" : ""}"><div class="mhp-sym" aria-hidden="true"${tone ? ` style="background:linear-gradient(145deg, ${tone}, color-mix(in srgb, ${tone} 50%, #000))"` : ""}>${ic}</div>
       <div class="mhp-det"><strong>${esc(b.name)}</strong><small>${mDate(r.due)} · ${b.auto ? "Autopay expected" : "Manual payment"}</small>
         <div class="mhp-acts">${r.paid ? `<button data-mhunpaid="${b.id}" aria-label="Undo paid for ${esc(b.name)}">Undo paid</button>` : `<button data-mhpaid="${b.id}" aria-label="Mark ${esc(b.name)} paid">Mark paid</button>`}
-          <button data-mhbilledit="${b.id}" aria-label="Edit ${esc(b.name)}">✏️ Edit</button>${safeUrl(b.url) ? `<a href="${esc(safeUrl(b.url))}" target="_blank" rel="noopener noreferrer">Pay ↗</a>` : ""}</div></div>
+          <button data-mhbilledit="${b.id}" aria-label="Edit ${esc(b.name)}">✏️ Edit</button>${typeof bxShareBtn === "function" ? bxShareBtn(`mbill|${b.id}`, b.name, " ", "📤 Share") : ""}${safeUrl(b.url) ? `<a href="${esc(safeUrl(b.url))}" target="_blank" rel="noopener noreferrer">Pay ↗</a>` : ""}</div></div>
       <div class="mhp-amt"><b>${money(Number(b.amount) || 0)}</b><span class="mhp-st ${r.paid ? "paid" : r.late ? "late" : ""}">${r.paid ? "✓ Paid" : r.late ? "Late" : r.today ? "Due today" : "Scheduled"}</span></div></article>`; };
   return `<div class="mhp">
     <section class="mhp-hero"><div><div class="mhp-label">UPCOMING PAYMENTS</div><div class="mhp-big">${money(F.total)}</div>

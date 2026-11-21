@@ -331,7 +331,8 @@ function hhAddHtml() {
 function hhMoreHtml() {
   return tileNav([["appts", "🩺", "Appointments"], ["meds", "💊", "Medications"], ["vitals", "❤️", "Vitals"], ["move", "👟", "Move & gym"], ["sleep", "🌙", "Sleep"], ["water", "💧", "Water"],
     ["checkin", "😊", "Check-in"], ["vault", "🗂️", "Records vault"], ["card", "🆘", "Emergency card"], ["visit", "📋", "Visit summary"], ["challenge", "🏆", "Challenges"], ["score", "✨", "Health Score"],
-    ["goals", "🎯", "Daily goals"]].map(([k, i, l]) => ({ icon: i, label: l, attrs: `data-hhtab="${k}"` })).concat([{ icon: "💡", label: "Ask", attrs: 'data-hhask="1"' }]), 3, "hh-tiles")
+    ["goals", "🎯", "Daily goals"]].map(([k, i, l]) => ({ icon: i, label: l, attrs: `data-hhtab="${k}"` })).concat([{ icon: "💡", label: "Ask", attrs: 'data-hhask="1"' },
+      { icon: "📅", label: "Calendar", attrs: 'data-bx="cal"' }, { icon: "📝", label: "Notes", attrs: 'data-bx="notes"' }, { icon: "🧮", label: "Calculator", attrs: 'data-bx="calc"' }]), 3, "hh-tiles")   // v1.73 basics.js
     + `<p class="fine">${HH_ADV} Your records stay on this phone; photos in the Records vault are never in the backup.</p>`;
 }
 

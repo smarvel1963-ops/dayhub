@@ -4297,7 +4297,8 @@ def t_v145_money_control_room(b, base):
     check("add a paper, delete one", a.js("S.mh.vault.length") == 1)
     # More = every section as tiles
     a.page.click('#mhSheet [data-mhtab="more"]')
-    check("More: 16 big tiles (v1.48 + Advisor, Data Update)", a.js("document.querySelectorAll('#mhSheet .mv-tiles .tile').length") == 16)
+    check("More: 16 big tiles (v1.48 + Advisor, Data Update) + the 3 Tools (v1.73)", a.js("document.querySelectorAll('#mhSheet .mv-tiles .tile[data-mhtab]').length") == 16
+          and a.js("[...document.querySelectorAll('#mhSheet .mv-tiles .tile[data-bx]')].map(t => t.dataset.bx).join()") == "cal,notes,calc")
     mh_go(a, "accounts")
     check("Accounts: have vs owe bar, a card per account with its balance box", a.js("!!document.querySelector('#mhSheet .mv-split')") and a.js("document.querySelectorAll('#mhSheet .mv-acard form[data-mhbal]').length") == 2)
     a.js("S.mh.budgets = {groceries: 70}; save()"); mh_go(a, "budget")

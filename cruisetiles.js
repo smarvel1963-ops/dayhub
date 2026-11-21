@@ -240,6 +240,7 @@ function ctMoreHtml() {
       on && ["people", "Group Vote", wishes >= 2 ? `data-voteopen="${esc(tr.id)}"` : `data-ctgo="day:${esc(fun)}:free"`, wishes >= 2 ? "" : "add 2 ideas first"],
       tr && ["book", "Trip Diary", 'data-shellgo="plan" data-planview="diary"', ""], tr && ["pin", "Map", 'data-shellgo="plan" data-planview="map"', ""]]],
     ["Coming home", [cr && ["moon", "Final Night", 'data-gohome="open"', ""], cr && ["receipt", "Final Bill Check", 'data-billcheck="1"', ""], tr && ["camera", "After the Trip", cr ? 'data-shellgo="plan" data-planview="packing" data-triplistgo="after"' : 'data-shellgo="plan" data-planview="diary"', ""]]],
+    ["Tools", [["calendar", "Calendar", 'data-bx="cal"', "every date"], ["book", "Notes", 'data-bx="notes"', ""], ["calc", "Calculator", 'data-bx="calc"', ""]]],   // v1.73 basics.js
     ["This app", [["star", "Share the Magic", 'data-stm="1"', "show friends"], ["sparkle", "AI Helper", 'data-ask="open"', ""], ["bell", "Reminders", 'data-ctgo="reminders"', ""], ctPassOffered() && ["star", proName(), 'data-ctgo="pass"', hubProState().word], ["gear", "Settings", 'data-ctgo="settings"', ""],
       ["glasses", "Simple Mode", 'data-ctgo="settings"', "big buttons"], ["palette", "Classic Look", 'data-ctgo="classic"', "the old screen"]]]];
   return groups.map(([h, T]) => { const t = T.filter(Boolean);

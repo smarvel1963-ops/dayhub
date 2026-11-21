@@ -643,6 +643,9 @@ function ckMoreHtml() {
       <button class="ck-row" data-cktab="ribbon"><span class="ck-ic">🎀</span><span class="grow"><b>Blue Ribbon Recipes</b><small>Your top-rated</small></span><span class="chev">›</span></button>
       <button class="ck-row" data-cktab="groc"><span class="ck-ic">🧺</span><span class="grow"><b>Grocery List</b></span><span class="chev">›</span></button>
       <button class="ck-row" data-ckshare="book"><span class="ck-ic">↗</span><span class="grow"><b>Share my cookbook</b><small>Pass your family recipes down (private ones stay here)</small></span></button>
+      <button class="ck-row" data-bx="cal"><span class="ck-ic">📅</span><span class="grow"><b>Calendar</b><small>Planned dinners and use-by dates</small></span><span class="chev">›</span></button>
+      <button class="ck-row" data-bx="notes"><span class="ck-ic">📝</span><span class="grow"><b>Notes</b></span><span class="chev">›</span></button>
+      <button class="ck-row" data-bx="calc"><span class="ck-ic">🧮</span><span class="grow"><b>Calculator</b></span><span class="chev">›</span></button>
       <button class="ck-row" data-ckclose="1" data-ask="open"><span class="ck-ic">💬</span><span class="grow"><b>Ask Cooking Hub</b></span><span class="chev">›</span></button>
       <button class="ck-row" data-ckclose="1" data-open="sheet"><span class="ck-ic">⚙</span><span class="grow"><b>Settings & backup</b></span><span class="chev">›</span></button></div>
     <p class="fine">Built-in recipes: ${ckBook().filter(r => !r.src).length} classics written by Cooking Hub, and ${ckBook().filter(r => r.src).length} of our own versions of dishes from creators' videos - each links to the original video with credit. Safe cooking temperatures follow the USDA. Not nutrition or health advice.</p>`;

@@ -28,6 +28,8 @@ screen but could customize by profession"). Tracked on Marvel Desktop -> MOBILE 
 `features.js` (the SWITCHBOARD - launch switches, all OFF, see `docs/LAUNCH_SWITCHES.md`), then `app.js` (state + feature logic), then `scenes.js` (the faint scene behind the clock - every hub has one), then `cruise.js` (Cruise Hub pieces kept out of app.js for the 3,000-line rule), then `shell.js` (the 5-tab HOME / PLAN / EXPLORE / WALLET / AI shell + the big button), then `ships.js` (verified ship guides - Caribbean Princess first), then `ui.js` (cards, sheets, events, start) - two classic scripts, one shared
 scope, loaded in that order by `index.html` and Cruise Hub's `../cruisehub/index.html` (its own repo). Each stays under 3,000 lines. A new script
 file must also go in the `SHELL` list in `sw.js`.
+v1.73: `basics.js` (Calendar, Notes, Calculator, share-one-entry, each Hub's dates for Google Calendar) loads right before `ui.js` in
+EVERY Hub's `index.html` and sits in EVERY Hub's `sw.js` SHELL (dayhub's and each Hub repo's). Test: `python tests/test_basics.py`.
 
 ## Releasing an update (since v0.11)
 0. **Run the tests first:** `python tests/run_tests.py` - drives the real app in a headless browser (frozen clock,

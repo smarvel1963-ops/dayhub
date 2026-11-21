@@ -202,6 +202,7 @@ function ttMoreHtml() {
       tr && ["coins", "Split the Cost", `data-splitopen="${esc(tr.id)}"`, "who owes what"],
       tr && typeof exportMoney === "function" && ["clipboard", "Export the Money", `data-moneyexport="${esc(tr.id)}"`, "for a spreadsheet"]]],
     ["Coming home", [started && ["journal", "Trip Wrap-up", 'data-wrapopen="1"', "share or save it"]]],
+    ["Tools", [["calendar", "Calendar", 'data-bx="cal"', "every date"], ["journal", "Notes", 'data-bx="notes"', ""], ["tools", "Calculator", 'data-bx="calc"', ""]]],   // v1.73 basics.js
     ["This app", [["sparkle", "Ask Trip Hub", 'data-ask="open"', ""], ["bell", "Reminders", 'data-ttgo="reminders"', ""],
       ttPassOffered() && ["tag", proName(), 'data-ttgo="passsettings"', hubProState().word], ["gear", "Settings", 'data-ttgo="settings"', ""],
       ["glasses", "Simple Mode", 'data-ttgo="simple"', "big buttons"], ["palette", "Classic Look", 'data-ttgo="classic"', "the old screen"]]]];

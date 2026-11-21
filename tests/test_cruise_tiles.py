@@ -127,7 +127,7 @@ def main():
         a = cruise(b, base)
         a.js("shellGo('ai')"); a.page.wait_for_timeout(150)
         heads = a.js("[...document.querySelectorAll('.ct-more-h')].map(x => x.textContent)")
-        check("More is grouped by when you need it", heads == ["Before you go", "On board", "Coming home", "This app"], heads)
+        check("More is grouped by when you need it", heads == ["Before you go", "On board", "Coming home", "Tools", "This app"], heads)   # v1.73 + Tools (basics.js)
         more = a.js("[...document.querySelectorAll('.ct-more .ct-tile b')].map(x => x.textContent)")
         want = ["Packing", "Documents", "Bookings", "Road Trip", "Home Port", "My Day", "Ship Guide", "First 10 Minutes", "Free Time", "Activities & Fun", "Group Vote", "Trip Diary", "Map",
                 "Final Night", "Final Bill Check", "After the Trip", "AI Helper", "Reminders", "Cruise Hub Pass", "Settings", "Simple Mode", "Classic Look"]
@@ -346,7 +346,7 @@ def main():
         a.page.fill('form[data-setup] [name=name]', "Sam"); a.page.fill('form[data-setup] [name=city]', "83702")
         a.page.click('form[data-setup] button'); a.page.wait_for_function("WXDATA && WXDATA.here")
         a.js("shellGo('ai')")
-        m = a.page.inner_text(".ct-more")
+        m = " ".join(a.js("[...document.querySelectorAll('.ct-more')].map(x => x.innerText)"))   # v1.73: Tools sits before This app
         check("Play app: the More tile says Settings, no Pass wording", "Settings" in m and "Pass" not in m, m[:200])
         a.close()
 

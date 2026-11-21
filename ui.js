@@ -1022,7 +1022,8 @@ function dumpClassify(piece, now = new Date()) {
 const dumpParse = (text, now = new Date()) => dumpSplit(text).map(p => dumpClassify(p, now)).filter(x => x.title);
 // A Hub with no Notes or Future me card keeps those as to-dos, where they can be seen and ticked (Day Hub has them all). A reminder stays one: it rings and shows up top.
 const DUMP_CARD = { note: "notes", future: "future" };
-const dumpKindHere = k => QA_HUBS.includes(MODE) && DUMP_CARD[k] && !BASE.includes(DUMP_CARD[k]) ? "todo" : k;
+// v1.73 Health Hub + Hub Universe (basics.js bxDumpKind): reminders and notes only - their Calendar and Notes show them.
+const dumpKindHere = k => (typeof bxDumpKind === "function" && bxDumpKind(k)) || (QA_HUBS.includes(MODE) && DUMP_CARD[k] && !BASE.includes(DUMP_CARD[k]) ? "todo" : k);
 function drawDump() {
   const out = document.getElementById("dumpOut"); if (!out) return;
   if (!DUMP.length) { out.innerHTML = ""; return; }
@@ -1087,6 +1088,7 @@ function micToggle(btn) {
 }
 
 function qaTypes() {
+  { const bx = typeof bxQaTypes === "function" && bxQaTypes(); if (bx) return bx; }   // v1.73: Health Hub + Hub Universe get the brain dump only (basics.js)
   const t = [["dump", "🧠 Brain dump"], ["event", "📅 Event"], ["person", "🎂 Birthday / date"], ["upkeep", "🏠 Home / car"], ["routine", "🔁 Routine"], ["alarm", "⏰ Alarm"], ["return", "↩️ Return"], ["future", "🔮 Future me"], ["shift", "💼 Work shift"], ["todo", "✅ To-do"], ["spend", "💵 Spending"], ["item", "🛒 List item"], ["bill", "💳 Bill"], ["package", "📦 Package"], ["trip", MODE === "trip" ? "✈️ Trip" : "🚢 Trip"], ["countdown", "⏳ Countdown"], ["list", "📝 New list"]];
   if (S.pack === "trucker") t.splice(1, 0, ["loads", "🚚 Load"]);
   if (S.pack === "trades") t.splice(1, 0, ["jobs", "🔧 Job"]);
@@ -1293,7 +1295,7 @@ function submitQA(f) {
   if (ty === "dump") {
     if (!DUMP.length) { dumpSort(); return; }                   // first tap sorts; nothing added yet
     const dumpText = DUMP.map(x => x.title).join(" "); snap(); const said = dumpAdd(); const hit = futureCheck(dumpText);
-    save(); closeQA(); render(); buzz(); toast(`Added ${said} ✓${hit ? " — 🔮 see the note at the top" : ""}`, true); return;
+    save(); closeQA(); render(); buzz(); toast(`Added ${said} ✓${hit ? " — 🔮 see the note at the top" : ""}${typeof bxDumpWhere === "function" ? bxDumpWhere() : ""}`, true); return;
   }
   if (ty === "event") { S.events.push({ id: uid(), day: d.date, time: d.time, title: d.title.trim(), where: (d.where || "").trim(), rep: d.rep || "none" }); VIEW = d.date; }
   else if (ty === "shift") { S.work.shifts.push({ id: uid(), day: d.date, start: d.start, end: d.end, brk: Number(d.brk || 0) }); VIEW = d.date; }
@@ -1771,6 +1773,7 @@ function drawSettings() {
   let tb = document.getElementById("tourSetBtn");   // v1.68 How it works: the tour, right under Share the Magic
   if (!tb) { tb = document.createElement("button"); tb.id = "tourSetBtn"; tb.className = "tour-setbtn"; tb.dataset.tour = "1"; sm.after(tb); }
   tb.innerHTML = `<span aria-hidden="true">👋</span><span><b>How it works</b><small>A quick tour of ${esc(APP_NAME)}</small></span><span class="chev" aria-hidden="true">›</span>`;
+  if (typeof bxSetBox === "function") bxSetBox(tb);                        // v1.73 Tools: Calendar, Notes, Calculator (basics.js), every Hub
   let ib = document.getElementById("installBox");
   if (!ib) { ib = document.createElement("div"); ib.id = "installBox"; document.getElementById("cardList").before(ib); }
   drawInstallBox();

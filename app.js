@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.72";
+const VERSION = "1.73";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -95,7 +95,7 @@ function openShareMagic() {
   const s = document.createElement("script"); s.src = new URL("share.js?v=" + VERSION, BASE_URL).href;
   s.onload = () => { if (typeof stmOpen === "function") stmOpen(); }; s.onerror = () => { s.remove(); toast("Couldn't open sharing - check your connection"); };
   document.head.appendChild(s);
-}
+}   if (typeof window !== "undefined") window.addEventListener("popstate", e => { if (typeof bxPop === "function" && bxPop()) e.stopImmediatePropagation(); });   // v1.73 basics.js: the back button closes Tools first, and only Tools (this runs before every Hub's own back handler)
 // v1.68 HOW IT WORKS (Scott 11/18: "do we want tutorial in all apps" -> "Yes, build it"): a 4-card tour, each Hub its own (tour.js,
 // fetched only when it opens). On its own it opens ONCE, on a Hub's very first open on this phone; Settings -> How it works opens it any time.
 const TOUR_KEY = APP_ID + ".tour";
@@ -608,7 +608,7 @@ function gcalWanted() {
         p.md === "02-29" ? `FREQ=YEARLY;BYMONTH=2;${mdRule(29)}` : "FREQ=YEARLY", null, p.lead > 0 ? Math.min(p.lead, 28) * 1440 - 540 : 900); });
   S.bills.forEach(b => { const due = nextDue(b); if (!due) return;
     put(`bill:${b.id}`, `💳 ${b.name} due ${money(b.amount)}`, "", allDay(due), `FREQ=MONTHLY;${mdRule(b.day)}`, null, 900); });
-  if (typeof gcalTrips === "function" && switchOn("TRAVEL_CAL")) gcalTrips(put, allDay, old);   // trip.js: what the Cruise Hub and Trip Hub Passes promise
+  if (typeof gcalTrips === "function" && switchOn("TRAVEL_CAL")) gcalTrips(put, allDay, old); if (typeof bxGcal === "function") bxGcal(put, allDay, timed, old, lead);   // trip.js: what the Cruise Hub and Trip Hub Passes promise; basics.js (v1.73): each Hub's own dates
   return out;
 }
 // Is this Day Hub item still there at all? (Aged-out is not deleted.)
@@ -616,7 +616,7 @@ function gcalItemExists(key) {
   const [k, id] = key.split(":");
   return k === "ev" ? S.events.some(e => e.id === id) : k === "sh" ? S.work.shifts.some(x => x.id === id)
        : k === "bill" ? S.bills.some(b => b.id === id) : k === "pp" ? S.people.some(p => p.id === id)
-       : typeof gcalTripExists === "function" ? gcalTripExists(k, id) : false;
+       : (typeof gcalTripExists === "function" && gcalTripExists(k, id)) || (typeof bxGcalHas === "function" && bxGcalHas(k, id));   // v1.73 basics.js keys
 }
 // Every Hub writes to the same Google calendar, and each one used to delete whatever it didn't recognise - so connecting two Hubs had
 // them removing each other's events. Each event now carries the Hub that put it there. One from before that (no owner) is Day Hub's,

@@ -1,6 +1,24 @@
 {
- "version": "1.72",
+ "version": "1.73",
  "notes": {
+  "1.73": [
+   "📅 Calendar: a month view of this app's own dates - tap a day to see what's on it. Open it from Settings (Tools) or More.",
+   "📝 Notes: keep your own notes here - add, change, pin or delete them. Each Hub app keeps its own. Settings (Tools) or More.",
+   "🧮 Calculator: a plain calculator, a tap away in Settings (Tools) or More. This app's own calculators are still where they were.",
+   "🧠 Health Hub: Brain dump now saves into Health Hub - your notes go to Notes and your reminders show on the Calendar.",
+   "🧠 Hub Universe: Brain dump now saves into Hub Universe - your notes go to Notes and your reminders show on the Calendar.",
+   "📲 Health Hub: Google Calendar sync now sends your appointments and refill dates too.",
+   "📲 Pet Hub: Google Calendar sync now sends shots due, vet visits, birthdays and Gotcha Days.",
+   "📲 Job Hub: Google Calendar sync now sends your interviews and follow-ups.",
+   "📲 Auto Hub: Google Calendar sync now sends service due dates and papers to renew.",
+   "📲 Home Hub: Google Calendar sync now sends your room tasks and home upkeep.",
+   "📲 Money Hub: Google Calendar sync now sends your subscription renewals.",
+   "📲 Family Hub: Google Calendar sync now sends your family's events and chores.",
+   "📲 Day Hub: Google Calendar sync now sends your home and car upkeep too.",
+   "📤 Home Hub: share one task or one item - tap 📤 beside it.",
+   "📤 Money Hub: share one bill or one subscription - tap 📤 beside it.",
+   "📤 Pet Hub: share one shot, vet visit or medicine - tap 📤 beside it."
+  ],
   "1.72": [
    "👨‍👩‍👧 Family Hub: the Share page's \"haven't heard yet\" note now clears by itself once your family's phones have caught up."
   ],

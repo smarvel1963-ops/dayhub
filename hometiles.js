@@ -195,6 +195,7 @@ function htMoreHtml(cardHtml) {
       ["gear", "Systems", 'data-shellgo="rooms" data-htarea="systems"', ""], ["plus", "Add a Space", 'data-haddspace="indoor"', ""], ["cal", "Coming Up", 'data-htgo="coming"', ""], ["tools", "Upkeep", 'data-shellgo="upkeep"', ""]]],
     ["Money", [["bill", "Bills Due", 'data-htgo="bills"', ""], typeof hpvOn === "function" && hpvOn() && ["chart", "Home Value", 'data-htgo="value"', ""]]],
     ["Every day", [["check", "To-Do", 'data-htgo="todos"', ""], ["list", "Lists", 'data-htgo="lists"', ""], ["weather", "Weather", 'data-htgo="weather"', ""]]],
+    ["Tools", [["cal", "Calendar", 'data-bx="cal"', "every date"], ["note", "Notes", 'data-bx="notes"', ""], ["calc", "Calculator", 'data-bx="calc"', ""]]],   // v1.73 basics.js
     ["This app", [["ask", "Ask Home Hub", 'data-ask="open"', ""], ["bell", "Reminders", 'data-htgo="reminders"', ""],
       htPassOffered() && ["star", proName(), 'data-htgo="passsettings"', ""], ["gear", "Settings", 'data-htgo="settings"', ""], ["palette", "Classic Look", 'data-htgo="classic"', "the old screen"]]]];
   return groups.map(([h, T]) => { const t = T.filter(Boolean);

@@ -864,6 +864,9 @@ function jhMoreHtml() {
     ${row('data-stm="1"', "spark", "Share the Magic", "Show friends what makes Job Hub special.")}
     ${row('data-jhtab="prefs"', "filter", "Preferences", "Update your goals, location, pay, and importance rates.")}
     ${row('data-jhtab="paste"', "search", "Check a Job I Found", "Analyze any job posting for fit, pay, and key insights.")}
+    ${row('data-bx="cal"', "cal", "Calendar", "Your interviews and follow-ups by month.")}
+    ${row('data-bx="notes"', "note", "Notes", "Questions to ask, people you met, what they said.")}
+    ${row('data-bx="calc"', "calc", "Calculator", "A plain calculator.")}
     ${row('data-jhclose="1" data-ask="1"', "spark", "Ask AI", "Interview questions, follow-ups, resume wording, your saved jobs.")}
     ${row('data-jhclose="1" data-open="sheet"', "gear", "Settings", "Backup, reminders, notifications, your data and more.")}
     ${row('data-jhunhide="1"', "eyeoff", "Show Hidden Jobs", J.hide.length ? `${jhPl(J.hide.length, "job")} you hid - tap to show them again.` : "No hidden jobs right now.")}

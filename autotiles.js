@@ -562,6 +562,7 @@ function atMore(c) {
     ["Help", [go("chip", "AI Mechanic", atCarGo(c, "mech")), go("sparkle", "Ask Auto Hub", 'data-ask="open"'), go("triangle", "Roadside Help", 'data-atgo="roadside"')]],
     ["Records", [go("glove", "My Glovebox", 'data-atgo="glovebox"'), go("doc", "Records Package", 'data-atgo="records"'), go("upload", "Import & Export", 'data-atgo="impex"'), go("cloud", "Data & Backup", 'data-atgo="data"')]],
     ["My Day", [go("sun", "Morning Brief", 'data-brief="open"'), go("cloud", "Weather", 'data-atgo="card:weather"'), go("bill", "Bills", 'data-atgo="card:bills"'), go("check", "To-Do", 'data-atgo="card:todos"'), go("list", "Lists", 'data-atgo="card:lists"'), go("gauge", "Life Pulse", 'data-pulse="1"')]],
+    ["Tools", [go("cal", "Month Calendar", 'data-bx="cal"', "every date"), go("note", "Notes", 'data-bx="notes"'), go("calc", "Calculator", 'data-bx="calc"')]],   // v1.73 basics.js
     ["This App", [go("gear", "Settings", 'data-atgo="settings"'), go("people", "Other Hub Apps", 'data-atgo="card:family"'), typeof hcShow === "function" && go("send", "Hub Connections", 'data-hcopen="1"'), atProOffered() && go("crown", PLAN.AUTO_NAME, 'data-atgo="pro"'), go("palette", "Classic Look", 'data-atgo="classic"', "the old screen")].filter(Boolean)]];
   return `<h2 class="at-head root"><span class="at-headic">${AI.dots}</span><span class="grow">More</span></h2>${groups.map(([h, T]) => `<p class="at-seclabel">${esc(h)}</p><div class="at-tiles">${T.join("")}</div>`).join("")}`;
 }

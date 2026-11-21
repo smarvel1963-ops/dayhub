@@ -188,6 +188,7 @@ function uniHomeHtml() {
     <div class="mv-sec"><h3>Today across everything</h3></div>
     ${todayL.length ? `<div class="uni-list">${todayL.map(x => `<div class="uni-row" style="--tone:${x.tone}"><span class="uni-ic">${esc(x.icon)}</span><span class="grow"><b>${esc(x.text)}</b><small>${esc(UNI_HUBS.find(h => h[0] === x.hub)[2])}</small></span><em>${esc(x.sub)}</em></div>`).join("")}</div>`
       : `<p class="hos-hint">Nothing dated today in any hub.</p>`}
+    ${typeof bxUniTools === "function" ? bxUniTools() : ""}
     ${uniProHtml()}
     <p class="fine">Hub Universe reads your other Hub apps on this phone and never changes them. ${used ? "" : "Open any Hub app on this phone and it lights up here. "}On iPhone, open the hubs in Safari for Universe to see them.</p>
   </section>`;

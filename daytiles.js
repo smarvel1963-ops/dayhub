@@ -406,7 +406,7 @@ function dtBriefDress(el) {
 
 // MORE: the tools that are not a card, the look, every tool as a tile, then the cards that live here.
 function dtMoreHtml(cardHtml) {
-  const T = [["💡", "Ask AI", 'data-ask="open"', ""], ["🧠", "Brain Dump", 'data-dump="1"', ""], ["☀️", "Morning brief", 'data-brief="open"', ""],
+  const T = [["💡", "Ask AI", 'data-ask="open"', ""], ["🧠", "Brain Dump", 'data-dump="1"', ""], ["☀️", "Morning brief", 'data-brief="open"', ""], ["📅", "Calendar", 'data-bx="cal"', "month view"], ["🧮", "Calculator", 'data-bx="calc"', ""],   // v1.73 basics.js (Notes is a card below)
     dtProOffered() && ["⭐", PLAN.NAME, 'data-dtgo="pro"', dtProState().word],
     ["🔔", "Reminders", 'data-dtgo="reminders"', ""], ["⚙️", "Settings", 'data-dtgo="settings"', ""], ["↕", "Arrange", 'data-arrange="1"', "order + hide"], ["🎨", "Classic Look", 'data-dtgo="classic"', "the old screen"]].filter(Boolean);
   return `<nav class="dt-grid dt-more" aria-label="More">${T.map(t => dtTileHtml(...t)).join("")}</nav>`
