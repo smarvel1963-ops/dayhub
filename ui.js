@@ -2153,3 +2153,21 @@ checkReminders();
 if (!RENEWING) { syncOnOpen(true); maybeBrief(); hubPanOpen(); tourMaybe(); }     // v1.59.2 opens on the art, then glides to the useful part; v1.68 a Hub's first open: the tour
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { if (autoRenew()) return; recheckPro(); VIEW = today(); render(); checkReminders(); syncOnOpen(); maybeBrief(); hcLoad(); mfLoad(); if (Date.now() - UPD_ASKED > 60000) checkUpdate(); } });   // v1.59.4 an app reopened from memory asks too (Scott 11/08: "dont see updates coming across all my apps")
 if ("serviceWorker" in navigator) navigator.serviceWorker.register(new URL("sw.js", HOME_URL)).catch(() => {});
+
+// WEB VISIT COUNT (Scott 11/21: "like to know how popular all our stuff is"; switch WEB_VISIT_COUNT). A Hub WEBSITE open in a browser
+// adds one to UseMart's privacy-first visit counter (usemart.net/api/visit: no cookies, no IP kept, no account - only the site name,
+// the page path and where the visitor came from). NEVER inside an installed app: the Play apps say "MarvelHubApp" in their user agent,
+// and a Hub added to a home screen runs as "standalone" - both skip it, so the apps' "no analytics in the app" promise stays true.
+// Only on the real github.io site (never a local copy or test page). Fire and forget - a failure is silent and never in the way.
+(function webVisit() {
+  try {
+    if (typeof switchOn !== "function" || !switchOn("WEB_VISIT_COUNT")) return;
+    if (!/\.github\.io$/.test(location.hostname)) return;
+    if (/MarvelHubApp|; wv\)/.test(navigator.userAgent || "")) return;
+    if ((window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true) return;
+    const send = () => fetch("https://usemart.net/api/visit", { method: "POST", mode: "cors", credentials: "omit", keepalive: true,
+      headers: { "content-type": "text/plain" },
+      body: JSON.stringify({ site: location.pathname.split("/")[1] || "hubs", path: location.pathname, ref: document.referrer }) }).catch(() => {});
+    if (document.readyState === "complete") send(); else window.addEventListener("load", send, { once: true });
+  } catch (e) { /* never in the way */ }
+})();

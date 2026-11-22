@@ -36,6 +36,7 @@ const SWITCHES = Object.freeze({
   MONEY_PASS: true,   // ON 2026-10-18 (Scott "relay done"). Money Hub Pro $2.99/mo, 30-day trial, Whop prod_xg2i3uygnEw5s; relay v18 PASSES moneyhub; Day Hub Pro also unlocks it. Free = 3 accounts, no CSV / Reports.
   HOME_VALUE: true,   // ON 2026-10-14 (Scott: "get it done"). Home Hub "Hub Predicted Value" card (homevalue.js), Redfin ZIP data in hpv/.
   TINY_TIPSTER: true, // ON 2026-11-21 (Scott: "Yes, build it"; 11/05: what he asks for lands ON). v1.74 Tiny Tipster in every Hub (tipster.js): one tip or reminder a day on Home, on this phone only - no AI, no network. OFF = no character at all and no Settings row.
+  WEB_VISIT_COUNT: true, // ON 2026-11-21 (Scott: "like to know how popular all our stuff is"). The Hub WEBSITES in a browser add one to UseMart's anonymous visit count per page open (ui.js webVisit). NEVER inside an installed app (Play apps "MarvelHubApp", home-screen installs) - the apps' "no analytics in the app" promise stays true. OFF = nothing sent.
 });
 
 // Scott approved 10/3: $4.99/mo or $29.99/yr, contact smarvel1963@gmail.com.
