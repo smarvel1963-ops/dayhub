@@ -1,6 +1,9 @@
 {
- "version": "1.74",
+ "version": "1.75",
  "notes": {
+  "1.75": [
+   "🚗 Auto Hub: in the Google Play app, the Alerts page now says what's true - alerts ring even when the app is closed."
+  ],
   "1.74": [
    "💡 Tiny Tipster: a little helper on your Home screen. At most once a day he has one thing for you - what's new, a reminder from your own dates, or a tip about this app. Tap him to read it.",
    "🤫 Tiny Tipster: tap Hush to turn him off in this app, and ⚙ Settings → Tiny Tipster to turn him back on. He works on this phone only - nothing is sent anywhere."

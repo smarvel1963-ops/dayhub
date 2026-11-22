@@ -410,6 +410,9 @@ def test_alerts(b, base):
     a.js("(S.remind.fired[reminderList().map(x => x.key).find(k => k.startsWith('car:rec:'))] = Date.now(), 0)")
     check("a plain recall says so once", not any(x.startswith("car:rec:c1:24V123") for x in keys()))
     check("the screen says what the alerts can't do", "can't alert you while it's fully closed" in text(a))
+    a.js("ALARM.live = true; 0"); page(a, "reminders")   # 1.75: inside the Play app (native alarms) it says they ring when closed
+    check("1.75: in the Play app the screen says alerts ring when closed", "ring even when it's closed" in text(a) and "can't alert you" not in text(a))
+    a.js("ALARM.live = false; 0"); page(a, "reminders")
     with a.page.expect_download() as dl: a.page.click('[data-aticsall]')
     ics = open(dl.value.path(), encoding="utf-8", newline="").read()
     check("the calendar file is valid and all-day", ics.startswith("BEGIN:VCALENDAR") and "DTSTART;VALUE=DATE:" in ics and ics.rstrip().endswith("END:VCALENDAR") and "\r\n" in ics)
