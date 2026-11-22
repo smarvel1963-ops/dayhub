@@ -1,6 +1,10 @@
 {
- "version": "1.73",
+ "version": "1.74",
  "notes": {
+  "1.74": [
+   "💡 Tiny Tipster: a little helper on your Home screen. At most once a day he has one thing for you - what's new, a reminder from your own dates, or a tip about this app. Tap him to read it.",
+   "🤫 Tiny Tipster: tap Hush to turn him off in this app, and ⚙ Settings → Tiny Tipster to turn him back on. He works on this phone only - nothing is sent anywhere."
+  ],
   "1.73": [
    "📅 Calendar: a month view of this app's own dates - tap a day to see what's on it. Open it from Settings (Tools) or More.",
    "📝 Notes: keep your own notes here - add, change, pin or delete them. Each Hub app keeps its own. Settings (Tools) or More.",

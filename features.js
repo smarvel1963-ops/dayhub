@@ -35,6 +35,7 @@ const SWITCHES = Object.freeze({
   HUB_PAN: true,      // ON 2026-11-08 (Scott: "all our apps"). Every Hub opens on its art, then glides down to the part you use (shell.js). OFF = opens at the top and stays.
   MONEY_PASS: true,   // ON 2026-10-18 (Scott "relay done"). Money Hub Pro $2.99/mo, 30-day trial, Whop prod_xg2i3uygnEw5s; relay v18 PASSES moneyhub; Day Hub Pro also unlocks it. Free = 3 accounts, no CSV / Reports.
   HOME_VALUE: true,   // ON 2026-10-14 (Scott: "get it done"). Home Hub "Hub Predicted Value" card (homevalue.js), Redfin ZIP data in hpv/.
+  TINY_TIPSTER: true, // ON 2026-11-21 (Scott: "Yes, build it"; 11/05: what he asks for lands ON). v1.74 Tiny Tipster in every Hub (tipster.js): one tip or reminder a day on Home, on this phone only - no AI, no network. OFF = no character at all and no Settings row.
 });
 
 // Scott approved 10/3: $4.99/mo or $29.99/yr, contact smarvel1963@gmail.com.

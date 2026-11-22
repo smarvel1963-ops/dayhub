@@ -746,7 +746,7 @@ function render() {
   paintHero();
   const LOCK = hubLockHtml();                                                 // v1.65 the lock screen, and nothing else
   document.body.classList.toggle("hub-locked", !!LOCK);
-  if (LOCK) { document.getElementById("cards").innerHTML = LOCK; return; }
+  if (LOCK) { document.getElementById("cards").innerHTML = LOCK; tipMaybe(); return; }
   const hr = new Date().getHours();
   let order = cardOrder().filter(k => !S.hidden.includes(k) && !(k === "tomorrow" && hr < 15) && !(k === "reset" && hr < 18) && !(k === "errands" && !errandStops().length) && !(k === "inbox" && !S.mail.on && !S.mail.found.length));
   // Smart jumps only until the user arranges the screen (Scott 10/2: "order the
@@ -769,11 +769,11 @@ function render() {
   if (typeof paintTabs === "function") paintTabs();
   if (typeof shellOn === "function" && shellOn()) {                         // v0.58 the 5-tab shell (shell.js)
     document.getElementById("cards").innerHTML = (TAB === "home" ? futureBanner() + whatsNewHtml() : "") + shellHtml(cardHtml);
-    tick(); return;
+    tick(); tipMaybe(); return;                                             // v1.74 Tiny Tipster re-checks Home (tipster.js)
   }
   document.getElementById("cards").innerHTML = futureBanner() + whatsNewHtml() + (MODE === "home" ? (typeof homeSet === "function" && homeSet() ? homeDashHtml() : welcomeHtml()) : MODE === "auto" ? (typeof autoSet === "function" && autoSet() ? autoDashHtml() : welcomeHtml()) : MODE === "money" ? (typeof mhSet === "function" && mhSet() ? mhDashHtml() : welcomeHtml()) : MODE === "universe" ? (typeof uniHomeHtml === "function" ? uniHomeHtml() : "") : MODE === "health" ? (typeof hhSet === "function" && hhSet() ? hhDashHtml() : welcomeHtml()) : MODE === "family" ? (typeof fhSet === "function" && fhSet() ? fhDashHtml() : welcomeHtml()) : MODE === "pet" ? (typeof ptSet === "function" && ptSet() ? ptDashHtml() : welcomeHtml()) : MODE === "job" ? (typeof jhSet === "function" && jhSet() ? jhDashHtml() : welcomeHtml()) : MODE === "cooking" ? (typeof ckSet === "function" && ckSet() ? ckDashHtml() : welcomeHtml()) : !S.city && !S.name ? welcomeHtml() : dayHubHomeHtml(order)) + cards +
     (MODE === "universe" || MODE === "health" || MODE === "family" || MODE === "pet" || MODE === "cooking" || MODE === "job" ? "" : `<button class="add-link arrange-link" data-arrange="1">↕ Arrange my screen</button>`);
-  tick();
+  tick(); tipMaybe();                                                       // v1.74 Tiny Tipster re-checks Home (tipster.js)
 }
 
 function tick() {
@@ -1477,6 +1477,7 @@ document.addEventListener("click", e => {
   if (ds.cloudask) { openSettings(); setTimeout(() => { const el = document.getElementById("syncBox"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); return; }   // the question, in view
   if (ds.stm) { openShareMagic(); return; }                                  // v1.67 Share the Magic (every Hub)
   if (ds.tour) { openTour(); return; }                                       // v1.68 How it works (every Hub)
+  if (ds.tipset) { tipToggle(); return; }                                    // v1.74 Tiny Tipster on / off (Settings, every Hub)
   if (t.id === "settingsBtn" || ds.open === "sheet") { openSettings(); return; }
   if (ds.close === "qa") { closeQA(); return; }
   if (ds.close === "sheet") { closeSettings(); return; }
@@ -1758,6 +1759,38 @@ function drawSetJump() {
     .map(([id, ic, l]) => ({ icon: ic, label: l, attrs: `data-setjump="${id}"` }));
   g.innerHTML = tileNav(items, 3, "compact");
 }
+// v1.74 TINY TIPSTER (Scott 11/21: "what do you think about tiny tipsters to help with apps same way as usemart does" -> "Yes, build it"): a little
+// helper on Home with at most one tip or reminder a day (tipster.js, fetched only on a day he has something to say, like tour.js). His notebook on
+// this phone is APP_ID.tipster: off (Hush / Settings), born (a Hub's first day here belongs to the tour), day + done (one bubble a day), what he has said.
+// Plain functions only (no const / let here): render() can run before this line is reached.
+function tipRead() { try { const t = JSON.parse(localStorage.getItem(APP_ID + ".tipster") || "{}"); return t && typeof t === "object" && !Array.isArray(t) ? t : {}; } catch (e) { return {}; } }
+function tipWrite(t) { try { localStorage.setItem(APP_ID + ".tipster", JSON.stringify(t)); } catch (e) { /* private mode: he may just repeat himself */ } }
+function tipMaybe() {
+  if (typeof tipSync === "function") return tipSync();                     // he's here already: render, a tab or a new day re-checks him
+  if (tipMaybe.loading || !switchOn("TINY_TIPSTER") || (navigator.webdriver && !window.__TIP)) return;   // test phones: only tests/test_tipster.py calls him
+  const t = tipRead(), d = today();
+  if (HUB_FIRST_OPEN) { if (t.born !== d) { t.born = d; tipWrite(t); } return; }   // never on a Hub's first day on this phone: the tour has it
+  if (t.off || t.born === d || (t.day === d && t.done)) return;
+  tipMaybe.loading = true;
+  const s = document.createElement("script"); s.src = new URL("tipster.js?v=" + VERSION, BASE_URL).href;
+  s.onload = () => { if (typeof tipSync === "function") tipSync(); }; s.onerror = () => { s.remove(); tipMaybe.loading = false; };   // offline: he just skips today
+  document.head.appendChild(s);
+}
+function tipSetBox(after) {                                                 // drawSettings: Tiny Tipster on / off, right under Tools (every Hub)
+  let el = document.getElementById("tipSetBox");
+  if (!switchOn("TINY_TIPSTER")) { if (el) el.remove(); return; }
+  if (!el) { if (!after) return; el = document.createElement("button"); el.type = "button"; el.id = "tipSetBox"; el.className = "tour-setbtn tip-setbtn"; el.dataset.tipset = "1"; el.setAttribute("role", "switch"); after.after(el); }
+  const on = !tipRead().off;
+  el.setAttribute("aria-checked", String(on));
+  el.innerHTML = `<span aria-hidden="true">💡</span><span><b>Tiny Tipster</b><small>${on ? "A tip or a reminder on Home, at most once a day" : "Off. Turn on for a tip or a reminder on Home"}</small></span><span class="tip-sw${on ? " on" : ""}" aria-hidden="true">${on ? "On" : "Off"}</span>`;
+}
+function tipToggle() {
+  const t = tipRead(); t.off = !t.off;
+  const later = !t.off && t.day === today() && !!t.done;                   // back on, but he already had his bubble today: tomorrow (one a day)
+  tipWrite(t); tipSetBox(); if (typeof tipSync === "function") tipSync();
+  toast(t.off ? `Tiny Tipster is off in ${APP_NAME}` : `Tiny Tipster is back. He'll stop by on Home${later ? " tomorrow" : ""}.`);
+}
+
 function drawSettings() {
   document.getElementById("setName").value = S.name;
   document.getElementById("setCity").value = S.city;
@@ -1774,6 +1807,7 @@ function drawSettings() {
   if (!tb) { tb = document.createElement("button"); tb.id = "tourSetBtn"; tb.className = "tour-setbtn"; tb.dataset.tour = "1"; sm.after(tb); }
   tb.innerHTML = `<span aria-hidden="true">👋</span><span><b>How it works</b><small>A quick tour of ${esc(APP_NAME)}</small></span><span class="chev" aria-hidden="true">›</span>`;
   if (typeof bxSetBox === "function") bxSetBox(tb);                        // v1.73 Tools: Calendar, Notes, Calculator (basics.js), every Hub
+  tipSetBox(document.getElementById("bxSetBox") || tb);                    // v1.74 Tiny Tipster on / off, right under Tools
   let ib = document.getElementById("installBox");
   if (!ib) { ib = document.createElement("div"); ib.id = "installBox"; document.getElementById("cardList").before(ib); }
   drawInstallBox();

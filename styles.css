@@ -1569,3 +1569,8 @@ body.hub-locked #fab, body.hub-locked #tabbar, body.hub-locked #fhNav, body.hub-
   background: rgba(127, 127, 127, .1); color: inherit; font: inherit; }
 .tour-setbtn > span:first-child { font-size: 24px; } .tour-setbtn > span:nth-child(2) { flex: 1; min-width: 0; }
 .tour-setbtn b { display: block; font-size: 16px; } .tour-setbtn small { display: block; font-size: 13px; opacity: .78; margin-top: 1px; } .tour-setbtn .chev { font-size: 22px; opacity: .6; }
+
+/* ---- v1.74 Tiny Tipster: his On / Off row in Settings, right under Tools (every Hub; his own look is in tipster.js) */
+.tip-setbtn { margin-top: 0; }
+.tip-sw { flex: none; min-width: 44px; padding: 5px 10px; border-radius: 999px; text-align: center; font-size: 13px; font-weight: 800; background: rgba(127, 127, 127, .25); color: inherit; }
+.tip-sw.on { background: #16a34a; color: #fff; }

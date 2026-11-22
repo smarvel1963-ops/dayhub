@@ -404,11 +404,12 @@ def main():
 
         print("\n[11. the 1.73 notes: no price or plan words; the version is everywhere]")
         notes = json.load(open(os.path.join(T.ROOT, "version.json"), encoding="utf-8"))
-        check("version.json is 1.73 with notes", notes["version"] == "1.73" and len(notes["notes"]["1.73"]) >= 6)
+        vt = lambda v: tuple(int(x) for x in v.split("."))   # 1.74 (Tiny Tipster) moved the version on: 1.73 or newer, its notes kept
+        check("version.json is 1.73 or newer, with the 1.73 notes", vt(notes["version"]) >= (1, 73) and len(notes["notes"]["1.73"]) >= 6)
         bad = [n for n in notes["notes"]["1.73"] if PRICE.search(n)]
         check("no price or plan words in the 1.73 notes", not bad, bad)
-        check("app.js VERSION and sw.js CACHE say 1.73", 'const VERSION = "1.73"' in open(os.path.join(T.ROOT, "app.js"), encoding="utf-8").read()
-              and 'const CACHE = "dayhub-v1.73"' in open(os.path.join(T.ROOT, "sw.js"), encoding="utf-8").read())
+        check("app.js VERSION and sw.js CACHE say the same version as version.json", f'const VERSION = "{notes["version"]}"' in open(os.path.join(T.ROOT, "app.js"), encoding="utf-8").read()
+              and f'const CACHE = "dayhub-v{notes["version"]}"' in open(os.path.join(T.ROOT, "sw.js"), encoding="utf-8").read())
         miss = [h for _, _, h in HUBS if "basics.js" not in open(os.path.join(os.path.dirname(T.ROOT), h, "index.html"), encoding="utf-8").read()
                 or "basics.js" not in open(os.path.join(os.path.dirname(T.ROOT), h, "sw.js"), encoding="utf-8").read()]
         check("every Hub's page loads basics.js and its offline worker keeps it", not miss, miss)

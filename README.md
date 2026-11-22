@@ -30,6 +30,8 @@ scope, loaded in that order by `index.html` and Cruise Hub's `../cruisehub/index
 file must also go in the `SHELL` list in `sw.js`.
 v1.73: `basics.js` (Calendar, Notes, Calculator, share-one-entry, each Hub's dates for Google Calendar) loads right before `ui.js` in
 EVERY Hub's `index.html` and sits in EVERY Hub's `sw.js` SHELL (dayhub's and each Hub repo's). Test: `python tests/test_basics.py`.
+v1.74: `tipster.js` (Tiny Tipster: one tip or reminder a day on Home, switch `TINY_TIPSTER`) is fetched by `ui.js tipMaybe` only on a day he has
+something to say, like `tour.js` and `share.js` - so no Hub's `index.html` or `sw.js` needs it, and it stays out of every SHELL. Test: `python tests/test_tipster.py`.
 
 ## Releasing an update (since v0.11)
 0. **Run the tests first:** `python tests/run_tests.py` - drives the real app in a headless browser (frozen clock,

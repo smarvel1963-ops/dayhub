@@ -16,7 +16,7 @@
  * START. A new card's renderer goes in ui.js; its logic goes here.
  */
 "use strict";
-const VERSION = "1.73";
+const VERSION = "1.74";
 // CRUISE HUB (Scott 10/1: "we want a go to app for cruises ... and it works with
 // day hub as well"). The SAME code runs from its own address /cruisehub/ (its
 // own repo since v0.47; /dayhub/cruise/ forwards there) with
@@ -2330,7 +2330,8 @@ function eraseAll() {
   // NOT closeSettings(): that saves the still-open form, which would write the
   // old name / city straight back into the erased app (caught by the test suite).
   CLOUD_PENDING = null; S = blank(); saveLocal(); WXDATA = null; document.getElementById("sheet").classList.add("hidden");
-  forgetPhone(); eraseVault();
+  forgetPhone(); eraseVault(); try { localStorage.setItem(APP_ID + ".tipster", JSON.stringify({ born: today() })); } catch (e) { /* private mode */ }   // v1.74 Tiny Tipster's notebook is wiped too, and a fresh start gets a quiet day like a first open
+  if (typeof tipStop === "function") tipStop();
   render();
   toast(`Erased${keepName ? ", " + keepName : ""}`, true);
 }
