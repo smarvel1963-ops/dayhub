@@ -159,6 +159,15 @@ def main():
         check("only Claude writes the note", st == 403)
         st, _ = api("DELETE", f"/v1/projects/{pid}", "Bearer " + TOK)
         check("Scott can delete one", st == 200 and not any(y["id"] == pid for y in items()))
+        # 11/23: the first version lost a change when two came close together (KV reads can be a minute old)
+        ids = []
+        for i in range(10):
+            st, j = api("POST", "/v1/projects", "Key " + KEY, {"title": f"quick {i}"})
+            ids.append(j["item"]["id"])
+            api("PATCH", f"/v1/projects/{j['item']['id']}", "Key " + KEY, {"status": "done", "reply": f"done {i}"})
+        now = {y["id"]: y for y in items()}
+        check("ten quick add-then-done pairs back to back: every one sticks", all(i in now and now[i]["status"] == "done" and now[i]["reply"] for i in ids),
+              str([(i, now.get(i, {}).get("status")) for i in ids]))
         b.close()
     srv.shutdown()
 
