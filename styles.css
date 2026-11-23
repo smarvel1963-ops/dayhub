@@ -1574,3 +1574,22 @@ body.hub-locked #fab, body.hub-locked #tabbar, body.hub-locked #fhNav, body.hub-
 .tip-setbtn { margin-top: 0; }
 .tip-sw { flex: none; min-width: 44px; padding: 5px 10px; border-radius: 999px; text-align: center; font-size: 13px; font-weight: 800; background: rgba(127, 127, 127, .25); color: inherit; }
 .tip-sw.on { background: #16a34a; color: #fff; }
+
+/* 11/22 Day Hub AI Projects (aiprojects.js) - owner phone only */
+.aip-chk { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; font-size: 14px; line-height: 1.35; }
+.aip-chk input { width: 20px; height: 20px; margin-top: 1px; flex: none; }
+.aip .aip-sum { margin: 0 0 10px; }
+.aip .aip-new { display: grid; gap: 6px; margin: 0 0 12px; }
+.aip .aip-new textarea { resize: vertical; }
+.aip h4 { margin: 14px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; opacity: .75; }
+.aip-list { list-style: none; margin: 0; padding: 0; }
+.aip-row { display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; border-top: 1px solid rgba(127, 127, 127, .18); }
+.aip-row .grow { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.aip-row small { opacity: .7; }
+.aip-row.done b { text-decoration: line-through; opacity: .75; }
+.aip-mark { font-size: 18px; line-height: 1.2; }
+.aip-reply { display: block; margin-top: 4px; padding: 7px 10px; border-radius: 10px; background: rgba(91, 76, 240, .10); font-size: 14px; }
+.aip-notes { white-space: pre-wrap; }
+.aip-x { border: 0; background: none; font-size: 16px; opacity: .6; padding: 2px 6px; cursor: pointer; }
+.aip-send { margin: 0 0 8px; }
+.aip-send summary { cursor: pointer; font-weight: 600; padding: 4px 0; }

@@ -248,12 +248,18 @@ function dtListTiles(onSel) {
     ${dtTileHtml("＋", "New list", 'data-qa="list"', "", "add")}</nav>`;
 }
 function dtTasksHtml(cardHtml) {
-  const segs = [["todo", "To-Do"], dtShown("lists") && ["lists", "Lists"], dtShown("routines") && ["routines", "Routines"], dtShown("leave") && ["leave", "Don't Forget"]].filter(Boolean);
+  const ai = typeof aipHere === "function" && aipHere();   // 11/22 AI Projects - owner phone only (aiprojects.js)
+  const segs = [["todo", "To-Do"], dtShown("lists") && ["lists", "Lists"], dtShown("routines") && ["routines", "Routines"], dtShown("leave") && ["leave", "Don't Forget"], ai && ["ai", "🤖 AI"]].filter(Boolean);
   if (!segs.some(s => s[0] === DT_TASKS)) DT_TASKS = "todo";
   const v = DT_TASKS;
   if (v === "lists") { dtForceOpen("lists"); return dtSegHtml("tasks", segs, v) + dtListTiles(true) + cardHtml("lists"); }
   if (v === "routines") { dtForceOpen("routines"); return dtSegHtml("tasks", segs, v) + cardHtml("routines"); }
   if (v === "leave") { dtForceOpen("leave"); return dtSegHtml("tasks", segs, v) + cardHtml("leave"); }
+  if (v === "ai") {
+    if (typeof aipHtml === "function") return dtSegHtml("tasks", segs, v) + aipHtml();
+    aipLoad(() => { if (DT_TASKS === "ai") render(); });
+    return dtSegHtml("tasks", segs, v) + `<section class="card aip"><h3><span class="ci">🤖</span>AI Projects</h3><div class="body"><p class="hint">Opening your AI Projects…</p></div></section>`;
+  }
   const others = dtOrder().filter(k => dtTabFor(k) === "tasks" && !["top3", "todos", "lists", "routines", "leave"].includes(k)).map(cardHtml).join("");
   return dtSegHtml("tasks", segs, v) + (dtShown("top3") ? cardHtml("top3") : "") + (dtShown("todos") ? `<div class="dt-todos">${cardHtml("todos")}</div>` : "")
     + `<div class="dt-bigs"><button class="dt-big blue" data-qa="todo">＋ Add Task</button></div>` + others

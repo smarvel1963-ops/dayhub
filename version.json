@@ -1,6 +1,9 @@
 {
- "version": "1.75",
+ "version": "1.76",
  "notes": {
+  "1.76": [
+   "🤖 Owner tools: an AI Projects list on the app builder's own phone (Tasks → AI). Nothing changes for anyone else."
+  ],
   "1.75": [
    "🚗 Auto Hub: in the Google Play app, the Alerts page now says what's true - alerts ring even when the app is closed."
   ],
