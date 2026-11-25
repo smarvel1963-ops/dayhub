@@ -1,6 +1,9 @@
 {
- "version": "1.76",
+ "version": "1.77",
  "notes": {
+  "1.77": [
+   "🧹 Owner tools: the app builder's AI Projects list moved to his own private app. Nothing changes for anyone else."
+  ],
   "1.76": [
    "🤖 Owner tools: an AI Projects list on the app builder's own phone (Tasks → AI). Nothing changes for anyone else."
   ],

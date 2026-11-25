@@ -774,7 +774,6 @@ function render() {
   document.getElementById("cards").innerHTML = futureBanner() + whatsNewHtml() + (MODE === "home" ? (typeof homeSet === "function" && homeSet() ? homeDashHtml() : welcomeHtml()) : MODE === "auto" ? (typeof autoSet === "function" && autoSet() ? autoDashHtml() : welcomeHtml()) : MODE === "money" ? (typeof mhSet === "function" && mhSet() ? mhDashHtml() : welcomeHtml()) : MODE === "universe" ? (typeof uniHomeHtml === "function" ? uniHomeHtml() : "") : MODE === "health" ? (typeof hhSet === "function" && hhSet() ? hhDashHtml() : welcomeHtml()) : MODE === "family" ? (typeof fhSet === "function" && fhSet() ? fhDashHtml() : welcomeHtml()) : MODE === "pet" ? (typeof ptSet === "function" && ptSet() ? ptDashHtml() : welcomeHtml()) : MODE === "job" ? (typeof jhSet === "function" && jhSet() ? jhDashHtml() : welcomeHtml()) : MODE === "cooking" ? (typeof ckSet === "function" && ckSet() ? ckDashHtml() : welcomeHtml()) : !S.city && !S.name ? welcomeHtml() : dayHubHomeHtml(order)) + cards +
     (MODE === "universe" || MODE === "health" || MODE === "family" || MODE === "pet" || MODE === "cooking" || MODE === "job" ? "" : `<button class="add-link arrange-link" data-arrange="1">↕ Arrange my screen</button>`);
   tick(); tipMaybe();                                                       // v1.74 Tiny Tipster re-checks Home (tipster.js)
-  if (aipHere()) aipLoad();                                                 // 11/22 AI Projects: keeps Claude's ticks coming in
 }
 
 function tick() {
@@ -1115,8 +1114,7 @@ function qaFields(type) {
       <input name="where" placeholder="Where (optional)" autocomplete="off">${repSelect(true)}
       <div class="hint">No set time? Leave it empty - it's an all-day plan.</div>`,
     todo: `<input name="title" placeholder="What needs doing?" required autocomplete="off">${repSelect(false)}
-      <div class="hint">Repeating to-dos come back unchecked on their days — meds, trash night, workouts.</div>${aipHere() ? `
-      <label class="aip-chk"><input type="checkbox" name="forClaude" value="1"> 🤖 <span><b>For Claude</b> - put it on Claude's AI Projects list; it's ticked here when Claude finishes it</span></label>` : ""}`,
+      <div class="hint">Repeating to-dos come back unchecked on their days — meds, trash night, workouts.</div>`,
     loads: `<input name="title" placeholder="Pickup / delivery (e.g. PU Little Rock)" required autocomplete="off">
       <div class="two"><input name="date" type="date" value="${esc(d)}" required><input name="time" type="time" required></div>`,
     jobs: `<input name="title" placeholder="Job + address" required autocomplete="off">
@@ -1312,7 +1310,6 @@ function submitQA(f) {
   else if (ty === "todo") {
     const t = { id: uid(), title: d.title.trim(), done: false, rep: d.rep || "none", day: today() };
     S.todos.push(t);
-    if (d.forClaude && aipHere()) aipLoad(() => aipSendTodo(t));   // 11/22 AI Projects
   }
   else if (ty === "loads" || ty === "jobs") { S[ty].push({ id: uid(), day: d.date, time: d.time, title: d.title.trim(), done: false }); VIEW = d.date; }
   else if (ty === "bill") {
@@ -1771,20 +1768,8 @@ function drawSetJump() {
 // Plain functions only (no const / let here): render() can run before this line is reached.
 function tipRead() { try { const t = JSON.parse(localStorage.getItem(APP_ID + ".tipster") || "{}"); return t && typeof t === "object" && !Array.isArray(t) ? t : {}; } catch (e) { return {}; } }
 function tipWrite(t) { try { localStorage.setItem(APP_ID + ".tipster", JSON.stringify(t)); } catch (e) { /* private mode: he may just repeat himself */ } }
-// 11/22 AI PROJECTS (aiprojects.js, Scott: "todo day hub list from me filter to AI projects ... AI responds to app as daily projects and
-// tick list are completed"): Day Hub on an owner phone only. Fetched on first use like tipster.js - no Hub's index.html or sw.js lists it.
-const aipHere = () => APP_ID === "dayhub" && ownerPhone();
-function aipLoad(then) {
-  if (typeof aipHtml === "function") { if (then) then(); return; }
-  if (!aipHere()) return;
-  (aipLoad.q = aipLoad.q || []).push(then || (() => {}));
-  if (aipLoad.loading) return;
-  aipLoad.loading = true;
-  const s = document.createElement("script"); s.src = new URL("aiprojects.js?v=" + VERSION, BASE_URL).href;
-  s.onload = () => { const q = aipLoad.q; aipLoad.q = []; q.forEach(f => { try { f(); } catch (e) { /* one waiting step must not stop the rest */ } }); };
-  s.onerror = () => { s.remove(); aipLoad.loading = false; };   // offline: the next render tries again
-  document.head.appendChild(s);
-}
+// 1.77 (Scott 11/24: "move my list to scott hub"): Claude's build list moved to Scott Hub (scotthub/aiprojects.js). Day Hub is a
+// product customers get, so it carries no owner list any more.
 function tipMaybe() {
   if (typeof tipSync === "function") return tipSync();                     // he's here already: render, a tab or a new day re-checks him
   if (tipMaybe.loading || !switchOn("TINY_TIPSTER") || (navigator.webdriver && !window.__TIP)) return;   // test phones: only tests/test_tipster.py calls him
@@ -2173,6 +2158,17 @@ checkReminders();
 if (!RENEWING) { syncOnOpen(true); maybeBrief(); hubPanOpen(); tourMaybe(); }     // v1.59.2 opens on the art, then glides to the useful part; v1.68 a Hub's first open: the tour
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { if (autoRenew()) return; recheckPro(); VIEW = today(); render(); checkReminders(); syncOnOpen(); maybeBrief(); hcLoad(); mfLoad(); if (Date.now() - UPD_ASKED > 60000) checkUpdate(); } });   // v1.59.4 an app reopened from memory asks too (Scott 11/08: "dont see updates coming across all my apps")
 if ("serviceWorker" in navigator) navigator.serviceWorker.register(new URL("sw.js", HOME_URL)).catch(() => {});
+
+// VOICE FILL (Scott 11/24: "all aps must have microphone to right on any box for use to voice fill any input box all apps old and new";
+// switch VOICE_FILL): voicefill.js puts a mic at the right end of every typing box. Loaded here, so no Hub's index.html or sw.js needs it -
+// the offline worker keeps a copy after the first open with a connection, like tour.js. The same file serves the non-Hub apps.
+(function voiceFillLoad() {
+  try {
+    if (typeof switchOn !== "function" || !switchOn("VOICE_FILL") || window.__voiceFill) return;
+    const s = document.createElement("script"); s.src = new URL("voicefill.js?v=" + VERSION, BASE_URL).href; s.async = true;
+    document.head.appendChild(s);
+  } catch (e) { /* never in the way */ }
+})();
 
 // WEB VISIT COUNT (Scott 11/21: "like to know how popular all our stuff is"; switch WEB_VISIT_COUNT). A Hub WEBSITE open in a browser
 // adds one to UseMart's privacy-first visit counter (usemart.net/api/visit: no cookies, no IP kept, no account - only the site name,
