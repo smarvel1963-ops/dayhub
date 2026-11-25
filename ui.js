@@ -648,8 +648,12 @@ function hubRows() {
   const sd = sibData();
   return HUBS.filter(h => h.id !== APP_ID).map(h => `<div class="row"><span class="ci">${h.icon}</span><div class="grow"><b>${h.name}</b>${h.soon ? ` <span class="tag">COMING SOON</span>` : ""}
       ${h.id === SIB.id && sd && sd.src === "phone" ? ` <span class="tag">ON THIS PHONE ✓</span>` : ""}<span class="sub">${h.what}</span></div>
-      ${h.soon ? "" : `<a class="btn sm ghost" href="${esc(hubHref(h.url))}" data-famopen="1">Open</a>`}</div>`).join("");
+      ${h.soon ? "" : `<a class="btn sm ghost" href="${esc(hubHref(h.url))}" data-famopen="1">Open</a>`}</div>`).join("") + appSendSlot();
 }
+// v1.78 SEND AN APP (Scott 11/24: "all apps at bottom of app list need to be able to forward app install to anyone but sending them to app
+// on whop"; switch APP_SEND): the last row of the list. appsend.js (loaded at the end of ui.js) fills it: pick any Marvel Corp app, Send =
+// its Whop page (its own page when it has none). In the Google Play app (STORE_MODE) always the app's own page - no Whop link there.
+function appSendSlot() { return switchOn("APP_SEND") ? `<div data-appsend="${APP_ID}"${STORE_MODE ? ' data-store="1"' : ""}></div>` : ""; }
 CARDS.family = { icon: "🌐", title: "Hub family",
   body: () => hubRows() + `<p class="fine" style="margin-top:6px">Made by Marvel Corp. They work together${STORE_MODE ? "" : " — one Pro unlocks the family"}. No ads, ever.</p>` };   // v1.57 Play app: no Pro wording
 
@@ -2162,11 +2166,15 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register(new URL("sw.j
 // VOICE FILL (Scott 11/24: "all aps must have microphone to right on any box for use to voice fill any input box all apps old and new";
 // switch VOICE_FILL): voicefill.js puts a mic at the right end of every typing box. Loaded here, so no Hub's index.html or sw.js needs it -
 // the offline worker keeps a copy after the first open with a connection, like tour.js. The same file serves the non-Hub apps.
+// SEND AN APP (same night: "all apps at bottom of app list need to be able to forward app install to anyone but sending them to app on whop";
+// switch APP_SEND): appsend.js fills the last row of the Hub family list (appSendSlot in hubRows), shared with the other apps' lists too.
 (function voiceFillLoad() {
   try {
-    if (typeof switchOn !== "function" || !switchOn("VOICE_FILL") || window.__voiceFill) return;
-    const s = document.createElement("script"); s.src = new URL("voicefill.js?v=" + VERSION, BASE_URL).href; s.async = true;
-    document.head.appendChild(s);
+    for (const [sw, file, ready] of [["VOICE_FILL", "voicefill.js", "__voiceFill"], ["APP_SEND", "appsend.js", "appSend"]]) {
+      if (typeof switchOn !== "function" || !switchOn(sw) || window[ready]) continue;
+      const s = document.createElement("script"); s.src = new URL(file + "?v=" + VERSION, BASE_URL).href; s.async = true;
+      document.head.appendChild(s);
+    }
   } catch (e) { /* never in the way */ }
 })();
 

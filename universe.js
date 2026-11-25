@@ -183,6 +183,7 @@ function uniHomeHtml() {
     ${groups.map((g, i) => uniOrbitHtml(g, H.filter(h => h.group === g), i === 0)).join("")}
     <div class="uni-soon">${UNI_SOON.map(x => `<span>${esc(x)}</span>`).join("")}<em>more planets coming</em></div>
     <div class="uni-more"><em>Also from Marvel Corp:</em>${UNI_MORE.map(([ic, n, w, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener"><span aria-hidden="true">${ic}</span> <b>${esc(n)}</b> - ${esc(w)} ›</a>`).join("")}</div>
+    ${typeof appSendSlot === "function" ? appSendSlot() : ""}<!-- v1.78 the bottom of the app list: Send an app to someone (appsend.js, Whop links) -->
     <div class="mv-sec"><h3>Needs you</h3><small class="uni-sm">across every hub</small></div>
     ${uniNeedsHtml(N)}
     <div class="mv-sec"><h3>Today across everything</h3></div>

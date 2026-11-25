@@ -36,6 +36,8 @@ const SWITCHES = Object.freeze({
   MONEY_PASS: true,   // ON 2026-10-18 (Scott "relay done"). Money Hub Pro $2.99/mo, 30-day trial, Whop prod_xg2i3uygnEw5s; relay v18 PASSES moneyhub; Day Hub Pro also unlocks it. Free = 3 accounts, no CSV / Reports.
   HOME_VALUE: true,   // ON 2026-10-14 (Scott: "get it done"). Home Hub "Hub Predicted Value" card (homevalue.js), Redfin ZIP data in hpv/.
   TINY_TIPSTER: true, // ON 2026-11-21 (Scott: "Yes, build it"; 11/05: what he asks for lands ON). v1.74 Tiny Tipster in every Hub (tipster.js): one tip or reminder a day on Home, on this phone only - no AI, no network. OFF = no character at all and no Settings row.
+  APP_SEND: true,     // ON 2026-11-24 (Scott: "all apps at bottom of app list need to be able to forward app install to anyone but sending them to app on whop"). v1.78 appsend.js: "Send an app to someone" as the last row of the Hub family list - the app's Whop page (its own page without one, and always in the Play app). OFF = no row.
+  VOICE_FILL: true,   // ON 2026-11-24 (Scott: "all aps must have microphone to right on any box for use to voice fill any input box all apps old and new"). v1.78 voicefill.js: a mic at the right end of every typing box in every Hub (ui.js loads it). OFF = no mics.
   WEB_VISIT_COUNT: true, // ON 2026-11-21 (Scott: "like to know how popular all our stuff is"). The Hub WEBSITES in a browser add one to UseMart's anonymous visit count per page open (ui.js webVisit). NEVER inside an installed app (Play apps "MarvelHubApp", home-screen installs) - the apps' "no analytics in the app" promise stays true. OFF = nothing sent.
 });
 

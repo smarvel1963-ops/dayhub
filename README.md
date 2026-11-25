@@ -32,6 +32,12 @@ v1.73: `basics.js` (Calendar, Notes, Calculator, share-one-entry, each Hub's dat
 EVERY Hub's `index.html` and sits in EVERY Hub's `sw.js` SHELL (dayhub's and each Hub repo's). Test: `python tests/test_basics.py`.
 v1.74: `tipster.js` (Tiny Tipster: one tip or reminder a day on Home, switch `TINY_TIPSTER`) is fetched by `ui.js tipMaybe` only on a day he has
 something to say, like `tour.js` and `share.js` - so no Hub's `index.html` or `sw.js` needs it, and it stays out of every SHELL. Test: `python tests/test_tipster.py`.
+v1.78: `voicefill.js` (a mic at the right end of every typing box, switch `VOICE_FILL`) and `appsend.js` ("Send an app to someone" as the last row
+of the Hub family list, Whop links, switch `APP_SEND`) are loaded by `ui.js` on open - no Hub `index.html` / `sw.js` change. They are SHARED with
+the other apps: Scott Hub, Marvel Magic, the hubs site and Photo Hub's web copy load `/dayhub/voicefill.js` (and `/dayhub/appsend.js` under an
+app list, `<div data-appsend="<app id>">`). Photo Hub's phone build and UseMart keep a COPY (another address) - change the original here, then
+copy it there. A NEW APP gets both: the script tags above, or, on the Hub engine, nothing to do. Tests: `python tests/test_voicefill.py`,
+`python tests/test_appsend.py`.
 
 ## Releasing an update (since v0.11)
 0. **Run the tests first:** `python tests/run_tests.py` - drives the real app in a headless browser (frozen clock,

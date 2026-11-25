@@ -1,6 +1,11 @@
 {
- "version": "1.77",
+ "version": "1.78",
  "notes": {
+  "1.78": [
+   "\ud83c\udfa4 Talk instead of type: every box you type in now has a microphone at its right end. Tap it, say it, and the words go in the box (after anything already typed). Tap it again to stop.",
+   "\ud83c\udfa4 The first time, your phone asks to allow the microphone. If your browser can't listen, the mic opens your keyboard - use the keyboard's own mic.",
+   "\ud83d\udce4 Send an app to someone: at the bottom of the Hub family list (Settings and the Hub family card), pick any of our apps and tap Send - text, email or message them its link."
+  ],
   "1.77": [
    "🧹 Owner tools: the app builder's AI Projects list moved to his own private app. Nothing changes for anyone else."
   ],
