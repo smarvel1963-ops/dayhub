@@ -61,8 +61,10 @@
   function tag(el) {
     if (el.__vf || !eligible(el)) return;
     el.__vf = true;
-    if (ro) ro.observe(el); else size(el);
+    size(el);                                                          // now (a page that never fires ResizeObserver still gets its mics)
+    if (ro) ro.observe(el);                                            // and again whenever it changes size (a sheet opening)
   }
+  document.addEventListener("focusin", e => { const t = e.target; if (t && t.__vf) size(t); }, true);   // and when a box is used
   function scan(root) {
     if (!root || root.nodeType !== 1) return;
     if (root.matches("input,textarea,[contenteditable]")) tag(root);

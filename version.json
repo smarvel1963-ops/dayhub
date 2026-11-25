@@ -1,6 +1,9 @@
 {
- "version": "1.78",
+ "version": "1.78.1",
  "notes": {
+  "1.78.1": [
+   "\ud83c\udfa4 The microphone now shows in every box on every phone, including boxes in screens you open later."
+  ],
   "1.78": [
    "\ud83c\udfa4 Talk instead of type: every box you type in now has a microphone at its right end. Tap it, say it, and the words go in the box (after anything already typed). Tap it again to stop.",
    "\ud83c\udfa4 The first time, your phone asks to allow the microphone. If your browser can't listen, the mic opens your keyboard - use the keyboard's own mic.",

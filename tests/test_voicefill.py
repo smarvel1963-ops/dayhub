@@ -176,6 +176,22 @@ def main():
             ctx, pg = page(b, base, path)
             check(f"{path.strip('/.')}: voicefill.js loads", wait_vf(pg))
             ctx.close()
+        ctx, pg = page(b, base, "/../hubs/")
+        ok = wait_vf(pg)
+        check("hubs site: its email box shows the mic", ok and pg.evaluate("document.querySelector('input[type=email]').classList.contains('vf-mic')"))
+        ctx.close()
+
+        print("\n[6. a page that never fires ResizeObserver (seen 11/24 in a pane that draws no frames) still gets its mics]")
+        dead_ro = "window.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };"
+        ctx, pg = page(b, base, "/../hubs/", extra_init=dead_ro)
+        ok = wait_vf(pg)
+        check("no ResizeObserver callbacks: the visible box still has the mic", ok and pg.evaluate("document.querySelector('input[type=email]').classList.contains('vf-mic')"))
+        ctx.close()
+        ctx, pg = page(b, base, "/", extra_init=dead_ro); wait_vf(pg)
+        pg.evaluate("openSettings()"); pg.wait_for_timeout(400)
+        pg.evaluate("document.getElementById('setName').focus()"); pg.wait_for_timeout(100)
+        check("no ResizeObserver callbacks: a box in a sheet opened later gets the mic once it's used", pg.evaluate("document.getElementById('setName').classList.contains('vf-mic')"))
+        ctx.close()
 
         b.close()
     srv.shutdown()
